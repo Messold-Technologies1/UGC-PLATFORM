@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OrderRealtimeNotifier } from './order-realtime.notifier';
 import { PaymentsGateway } from './payments.gateway';
+import { PortfolioRealtimeNotifier } from './portfolio-realtime.notifier';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { PaymentsGateway } from './payments.gateway';
       inject: [ConfigService],
     }),
   ],
-  providers: [PaymentsGateway, OrderRealtimeNotifier],
-  exports: [OrderRealtimeNotifier],
+  providers: [PaymentsGateway, OrderRealtimeNotifier, PortfolioRealtimeNotifier],
+  exports: [OrderRealtimeNotifier, PortfolioRealtimeNotifier],
 })
 export class RealtimeModule {}

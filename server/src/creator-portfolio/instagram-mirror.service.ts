@@ -6,6 +6,7 @@ import { PortfolioVideoAssetState, PortfolioVideoSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { InstagramMediaService } from '../social-connections/instagram-media.service';
+import { PortfolioRealtimeNotifier } from '../realtime/portfolio-realtime.notifier';
 import { PORTFOLIO_VIDEO_MAX_BYTES } from './dto/multipart-portfolio-upload.dto';
 
 /**
@@ -66,6 +67,7 @@ export class InstagramMirrorService {
     private readonly config: ConfigService,
     private readonly storage: StorageService,
     private readonly media: InstagramMediaService,
+    private readonly realtime: PortfolioRealtimeNotifier,
   ) {}
 
   private timeoutMs(): number {
@@ -148,6 +150,14 @@ export class InstagramMirrorService {
       this.logger.log(
         `ig-mirror: mirrored ${videoId} — ${Math.round(bytes / 1024)}KB ${contentType} in ${Date.now() - startedAt}ms`,
       );
+
+      // Tell whoever is watching the grid that this tile can play now, rather
+      // than leaving them to poll for it.
+      await this.realtime.emitVideoAssetUpdated({
+        videoId,
+        creatorProfileId: video.creatorId,
+        assetState: 'READY',
+      });
     } catch (err) {
       const message = (err as Error)?.message ?? 'unknown error';
       // A rejected URL or content type will never succeed, so fail terminally
@@ -295,11 +305,20 @@ export class InstagramMirrorService {
   /** Park the row as FAILED so the UI can offer a retry. */
   private async fail(videoId: string, reason: string): Promise<void> {
     this.logger.warn(`ig-mirror: ${videoId} failed terminally — ${reason}`);
-    await this.prisma.creatorPortfolioVideo
+    const updated = await this.prisma.creatorPortfolioVideo
       .update({
         where: { id: videoId },
         data: { assetState: PortfolioVideoAssetState.FAILED },
+        select: { creatorId: true },
       })
-      .catch(() => undefined);
+      .catch(() => null);
+    if (!updated) return;
+    // A silent failure is worse than a loud one: without this the grid shows
+    // "Processing" forever, because nothing else is going to change the row.
+    await this.realtime.emitVideoAssetUpdated({
+      videoId,
+      creatorProfileId: updated.creatorId,
+      assetState: 'FAILED',
+    });
   }
 }

@@ -569,9 +569,7 @@ describe('CreatorPortfolioService video lifecycle', () => {
             data: expect.not.objectContaining({ igMediaId: null }),
           }),
         );
-        expect(
-          prismaMock.instagramMediaItem.updateMany,
-        ).not.toHaveBeenCalled();
+        expect(prismaMock.instagramMediaItem.updateMany).not.toHaveBeenCalled();
       });
     });
   });
@@ -973,5 +971,114 @@ describe('CreatorPortfolioService Instagram import', () => {
     })) as { mirrorVideoIds?: string[] };
 
     expect(result.mirrorVideoIds).toEqual(['video-1', 'video-2']);
+  });
+});
+
+describe('CreatorPortfolioService assertOwnedFailedImport', () => {
+  const adminUserId = 'admin-user';
+  const creatorUserId = 'creator-user';
+  const creatorProfileId = 'profile-1';
+  const videoId = 'video-1';
+
+  const prismaMock = {
+    user: { findUnique: jest.fn() },
+    creatorProfile: { findUnique: jest.fn() },
+    creatorPortfolioVideo: { findUnique: jest.fn() },
+  };
+
+  let service: CreatorPortfolioService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new CreatorPortfolioService(
+      prismaMock as never,
+      {} as never,
+      configMock as never,
+    );
+    prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+      creatorId: creatorProfileId,
+      source: 'INSTAGRAM',
+      assetState: 'FAILED',
+    });
+  });
+
+  function asOwnCreator() {
+    prismaMock.creatorProfile.findUnique.mockResolvedValue({
+      id: creatorProfileId,
+      userId: creatorUserId,
+    });
+  }
+
+  it('lets the owning creator retry their own failed import', async () => {
+    asOwnCreator();
+
+    await expect(
+      service.assertOwnedFailedImport(creatorUserId, videoId),
+    ).resolves.toBeUndefined();
+  });
+
+  it('lets an admin retry on a named creator behalf', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      primaryRole: { name: RoleName.ADMIN },
+      userRoles: [],
+    });
+    prismaMock.creatorProfile.findUnique.mockResolvedValue({
+      id: creatorProfileId,
+      userId: creatorUserId,
+    });
+
+    await expect(
+      service.assertOwnedFailedImport(adminUserId, videoId, creatorProfileId),
+    ).resolves.toBeUndefined();
+  });
+
+  it('refuses a non-admin naming another creator', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      primaryRole: { name: RoleName.CREATOR },
+      userRoles: [],
+    });
+
+    await expect(
+      service.assertOwnedFailedImport(creatorUserId, videoId, 'someone-else'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('refuses a video belonging to a different creator', async () => {
+    asOwnCreator();
+    prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+      creatorId: 'other-profile',
+      source: 'INSTAGRAM',
+      assetState: 'FAILED',
+    });
+
+    await expect(
+      service.assertOwnedFailedImport(creatorUserId, videoId),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('refuses a video that is not failed', async () => {
+    asOwnCreator();
+    prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+      creatorId: creatorProfileId,
+      source: 'INSTAGRAM',
+      assetState: 'READY',
+    });
+
+    await expect(
+      service.assertOwnedFailedImport(creatorUserId, videoId),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('refuses an uploaded video, which is never mirrored', async () => {
+    asOwnCreator();
+    prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+      creatorId: creatorProfileId,
+      source: 'UPLOAD',
+      assetState: 'FAILED',
+    });
+
+    await expect(
+      service.assertOwnedFailedImport(creatorUserId, videoId),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

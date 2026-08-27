@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   ChevronDown,
+  Film,
   Instagram,
   Youtube,
   MessageCircle,
@@ -589,43 +590,88 @@ function CreatorOwnSocialAccounts() {
   }
 
   return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            background: "linear-gradient(45deg,#f9ce34,#ee2a7b 45%,#6228d7)",
+            color: "#fff",
+            flexShrink: 0,
+          }}
+        >
+          <Instagram size={20} />
+        </span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <strong style={{ fontSize: 14 }}>Instagram</strong>
+          <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+            Connect a Professional (Business or Creator) account.
+          </div>
+        </div>
+        <Button
+          type="button"
+          onClick={() => connectInstagram.mutate()}
+          disabled={connecting}
+        >
+          {connecting ? <Spinner /> : <Instagram size={16} />}
+          Connect Instagram
+        </Button>
+      </div>
+
+      <InstagramPortfolioHook />
+    </div>
+  );
+}
+
+/**
+ * What connecting actually buys the creator, shown where they decide.
+ *
+ * Connecting is otherwise an abstract permissions ask this early in onboarding,
+ * and the payoff only becomes visible several steps later at the Portfolio step.
+ * Naming the concrete saving here — no downloading and re-uploading your own
+ * reels — is what makes it worth doing now.
+ */
+function InstagramPortfolioHook() {
+  return (
     <div
       style={{
         display: "flex",
-        alignItems: "center",
-        gap: 12,
-        flexWrap: "wrap",
+        alignItems: "flex-start",
+        gap: 10,
+        padding: "11px 13px",
+        borderRadius: 12,
+        border: "1px solid var(--p20)",
+        background: "var(--p05)",
       }}
     >
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          background: "linear-gradient(45deg,#f9ce34,#ee2a7b 45%,#6228d7)",
-          color: "#fff",
-          flexShrink: 0,
-        }}
-      >
-        <Instagram size={20} />
-      </span>
-      <div style={{ flex: 1, minWidth: 180 }}>
-        <strong style={{ fontSize: 14 }}>Instagram</strong>
-        <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-          Connect a Professional (Business or Creator) account.
+      <Film
+        size={15}
+        style={{ flexShrink: 0, marginTop: 2, color: "var(--primary)" }}
+        aria-hidden
+      />
+      <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+        <strong style={{ fontWeight: 600 }}>
+          Connect now and build your portfolio in a couple of taps
+        </strong>
+        <div style={{ color: "var(--muted-foreground)", marginTop: 2 }}>
+          Once Instagram is linked, the Portfolio step lets you pick reels
+          straight from your account — no downloading clips to your phone and
+          re-uploading them here. We also use your account to show brands your
+          real reach and audience.
         </div>
       </div>
-      <Button
-        type="button"
-        onClick={() => connectInstagram.mutate()}
-        disabled={connecting}
-      >
-        {connecting ? <Spinner /> : <Instagram size={16} />}
-        Connect Instagram
-      </Button>
     </div>
   );
 }

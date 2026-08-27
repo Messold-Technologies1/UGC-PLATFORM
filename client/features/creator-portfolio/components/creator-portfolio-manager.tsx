@@ -42,6 +42,8 @@ import { VideoSectionAssignmentModal } from "./video-section-assignment-modal";
 import type { PortfolioVideoApi } from "../api/types";
 import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
+import { useRetryPortfolioMirrorMutation } from "../hooks/use-retry-portfolio-mirror-mutation";
+import { PortfolioProcessingBanner } from "@/features/creators/components/creator-profile-update/portfolio-components";
 import { useMyPortfolioSectionsQuery } from "../hooks/use-portfolio-sections";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import { MIN_PORTFOLIO_VIDEOS } from "@/features/creators/lib/go-live-requirements";
@@ -132,6 +134,7 @@ export function CreatorPortfolioManager() {
   const profileQuery = useCreatorProfileMeQuery();
 
   const videos = useMemo(() => videosQuery.data ?? [], [videosQuery.data]);
+  const retryMirrorMutation = useRetryPortfolioMirrorMutation();
   const loading = videosQuery.isPending;
   const publicProfileDisplayUrl = profileQuery.data
     ? creatorPublicProfileDisplayUrlForProfile(profileQuery.data)
@@ -405,6 +408,12 @@ export function CreatorPortfolioManager() {
               </div>
             </div>
           )}
+
+          <PortfolioProcessingBanner
+            videos={videos}
+            onRetryFailed={(videoIds) => retryMirrorMutation.mutate(videoIds)}
+            retrying={retryMirrorMutation.isPending}
+          />
 
           {activeTab === "sections" ? (
             <CreatorPortfolioSectionsView />

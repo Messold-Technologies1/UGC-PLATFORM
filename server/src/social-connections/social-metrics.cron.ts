@@ -25,6 +25,7 @@ export class SocialMetricsCron {
   private readonly logger = new Logger(SocialMetricsCron.name);
   private syncRunning = false;
   private reelSyncRunning = false;
+  private reelReconcileRunning = false;
 
   constructor(
     private readonly config: ConfigService,
@@ -99,6 +100,34 @@ export class SocialMetricsCron {
       this.logger.error(`ig-media cron failed: ${(err as Error)?.message}`);
     } finally {
       this.reelSyncRunning = false;
+    }
+  }
+
+  /**
+   * DB-truth backstop for syncs that never finished.
+   *
+   * The queue's watchdog and BullMQ's stalled checker both live in Redis, so
+   * neither covers a process dying mid-walk or Redis losing the job. The
+   * database does: a state still SYNCING long after anything could plausibly be
+   * running means nothing is. Modelled on JobsService.processStuckWatermarks.
+   *
+   * Every 15 minutes rather than continuously — a spinner clearing up to 15 min
+   * late in a rare failure beats pinning the database awake with a poll.
+   */
+  @Cron('0 */15 * * * *')
+  async reconcileStuckReelSyncs(): Promise<void> {
+    if (!this.enabled()) return;
+    if (this.config.get<string>('IG_MEDIA_SYNC_ENABLED') === 'false') return;
+    if (this.reelReconcileRunning) return;
+    this.reelReconcileRunning = true;
+    try {
+      await this.media.resetStuckSyncs();
+    } catch (err) {
+      this.logger.error(
+        `ig-media reconcile failed: ${(err as Error)?.message}`,
+      );
+    } finally {
+      this.reelReconcileRunning = false;
     }
   }
 

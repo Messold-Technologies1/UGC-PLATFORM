@@ -77,6 +77,7 @@ describe('InstagramMediaService', () => {
       findUnique: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       findMany: jest.fn(),
     },
   };
@@ -377,6 +378,51 @@ describe('InstagramMediaService', () => {
         prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
       expect(failed.data.status).toBe(IgMediaSyncStatus.ERROR);
       expect(failed.data.lastError).toBe('Graph down');
+    });
+  });
+
+  describe('resetStuckSyncs', () => {
+    it('clears a sync left claiming to be in flight', async () => {
+      // Nothing else recovers these: status is only moved by the walk
+      // finishing or failing, so a process dying mid-walk leaves it SYNCING
+      // for good — and the picker waits on that state.
+      prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      await expect(service.resetStuckSyncs()).resolves.toBe(2);
+
+      const { where, data } =
+        prismaMock.instagramMediaSyncState.updateMany.mock.calls[0]![0];
+      expect(where.status).toEqual({ in: ['SYNCING', 'QUEUED'] });
+      expect(where.updatedAt.lte).toBeInstanceOf(Date);
+      expect(data.status).toBe('ERROR');
+      expect(data.lastError).toMatch(/Refresh/);
+    });
+
+    it('does nothing when no sync is stuck', async () => {
+      prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(service.resetStuckSyncs()).resolves.toBe(0);
+    });
+
+    it('refuses a stuck window shorter than a minute', async () => {
+      // Too short and it would abort a sync that is merely slow — the queue
+      // deliberately holds jobs for minutes under backpressure.
+      configValues.IG_MEDIA_STUCK_SYNC_MS = 1_000;
+      prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await service.resetStuckSyncs();
+
+      const { where } =
+        prismaMock.instagramMediaSyncState.updateMany.mock.calls[0]![0];
+      expect(
+        Date.now() - (where.updatedAt.lte as Date).getTime(),
+      ).toBeGreaterThanOrEqual(59_000);
     });
   });
 

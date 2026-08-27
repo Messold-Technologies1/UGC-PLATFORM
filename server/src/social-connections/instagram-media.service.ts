@@ -543,7 +543,8 @@ export class InstagramMediaService {
     const startedAt = Date.now();
     // A refresh always starts at the newest reel; an extend picks up where the
     // last one stopped (null on a first sync, which is the top anyway).
-    let cursor: string | null = mode === 'extend' ? state?.nextCursor ?? null : null;
+    let cursor: string | null =
+      mode === 'extend' ? (state?.nextCursor ?? null) : null;
 
     let pages = 0;
     let reels = 0;
@@ -685,6 +686,49 @@ export class InstagramMediaService {
     const token = await this.connections.getFreshAccessToken(connection);
     const page = await this.instagram.fetchMediaPage(token, null, PAGE_SIZE);
     await this.upsertReels(connectionId, page.items);
+  }
+
+  /**
+   * Syncs left claiming to be in flight.
+   *
+   * Nothing else recovers these. `status` is set to SYNCING before the walk and
+   * only moved by the walk finishing or failing, so a process that dies mid-walk
+   * — or a job Redis loses — leaves it SYNCING for good. Since the picker now
+   * waits on a socket event rather than polling, that is a spinner that never
+   * stops rather than a stale timestamp.
+   *
+   * Moves them to ERROR rather than re-enqueuing: the walk is resumable from its
+   * stored cursor, and a creator pressing Refresh is a better outcome than
+   * silently re-spending a Graph budget on a sync that already failed once for
+   * a reason we cannot see from here.
+   */
+  async resetStuckSyncs(): Promise<number> {
+    const staleBefore = new Date(Date.now() - this.stuckSyncMs());
+    const { count } = await this.prisma.instagramMediaSyncState.updateMany({
+      where: {
+        status: { in: [IgMediaSyncStatus.SYNCING, IgMediaSyncStatus.QUEUED] },
+        updatedAt: { lte: staleBefore },
+      },
+      data: {
+        status: IgMediaSyncStatus.ERROR,
+        lastError:
+          'The sync stopped without finishing. Press Refresh to try again.',
+      },
+    });
+    if (count === 0) return 0;
+
+    this.logger.warn(
+      `ig-media: reset ${count} stuck sync(s) that never finished`,
+    );
+    return count;
+  }
+
+  /** How long a SYNCING/QUEUED state must sit before it counts as abandoned. */
+  private stuckSyncMs(): number {
+    return Math.max(
+      60_000,
+      Number(this.config.get('IG_MEDIA_STUCK_SYNC_MS', 900_000)),
+    );
   }
 
   /** Connections whose cache is stale enough for the nightly refresh. */

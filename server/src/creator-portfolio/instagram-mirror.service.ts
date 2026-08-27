@@ -113,6 +113,18 @@ export class InstagramMirrorService {
       return;
     }
 
+    // The real lock. Whoever wins this UPDATE owns the mirror; everyone else
+    // steps away, including a caller on another replica whose in-memory
+    // `processing` set could never have known about this run.
+    const attempt = await this.claimForMirror(videoId);
+    if (attempt === null) {
+      this.logger.log(
+        `ig-mirror: ${videoId} already claimed elsewhere, or out of attempts — skipping`,
+      );
+      return;
+    }
+    const maxAttempts = this.maxMirrorAttempts();
+
     const item = await this.resolveFreshItem(video.creatorId, video.igMediaId);
     if (!item) {
       await this.fail(videoId, 'Reel is no longer in the Instagram cache');
@@ -148,7 +160,7 @@ export class InstagramMirrorService {
       });
 
       this.logger.log(
-        `ig-mirror: mirrored ${videoId} — ${Math.round(bytes / 1024)}KB ${contentType} in ${Date.now() - startedAt}ms`,
+        `ig-mirror: mirrored ${videoId} (attempt ${attempt}/${maxAttempts}) — ${Math.round(bytes / 1024)}KB ${contentType} in ${Date.now() - startedAt}ms`,
       );
 
       // Tell whoever is watching the grid that this tile can play now, rather
@@ -166,8 +178,20 @@ export class InstagramMirrorService {
         await this.fail(videoId, message);
         return;
       }
+      // Out of budget: park it here rather than leaving the row PROCESSING for
+      // the queue's failed handler to catch, which never fires on the inline
+      // path and cannot fire at all if the process is about to die.
+      if (attempt >= maxAttempts) {
+        await this.fail(videoId, `retries exhausted — ${message}`);
+        return;
+      }
+      // Release the lock but keep the spent attempt. Without this a BullMQ
+      // retry 20s later would find a claim it cannot take and no-op, so the
+      // retry budget would be silently unusable — the stale window would be the
+      // only way back in, minutes later.
+      await this.releaseClaim(videoId);
       this.logger.warn(
-        `ig-mirror: ${videoId} failed after ${Date.now() - startedAt}ms — ${message}`,
+        `ig-mirror: ${videoId} failed (attempt ${attempt}/${maxAttempts}) after ${Date.now() - startedAt}ms — ${message}`,
       );
       throw err;
     }
@@ -313,6 +337,103 @@ export class InstagramMirrorService {
    */
   async failAfterRetries(videoId: string, reason: string): Promise<void> {
     await this.fail(videoId, `retries exhausted — ${reason}`);
+  }
+
+  /** How many times a mirror is attempted before the row is parked as FAILED. */
+  maxMirrorAttempts(): number {
+    return Math.max(1, Number(this.config.get('IG_MIRROR_MAX_ATTEMPTS', 4)));
+  }
+
+  /** A claim older than this is treated as abandoned by a dead process. */
+  private staleClaimMs(): number {
+    return Math.max(
+      60_000,
+      Number(this.config.get('IG_MIRROR_STALE_CLAIM_MS', 900_000)),
+    );
+  }
+
+  /**
+   * Atomically claim a video for mirroring, following
+   * WatermarkQueueService.claimForProcessing.
+   *
+   * A single conditional UPDATE is the cross-instance lock: only the caller
+   * whose UPDATE flips the row wins, so the worker, the watchdog, the inline
+   * fallback and the reconcile scan cannot double-process even across replicas.
+   * The in-memory Set this replaces only ever guarded one process.
+   *
+   * Claims a row that is PROCESSING with no claim or a stale one. Returns the
+   * new attempt count, or null when someone else holds it, it is already READY,
+   * or the retry budget is spent.
+   */
+  async claimForMirror(videoId: string): Promise<number | null> {
+    const staleBefore = new Date(Date.now() - this.staleClaimMs());
+    const rows = await this.prisma.$queryRaw<Array<{ mirrorAttempts: number }>>`
+      UPDATE "CreatorPortfolioVideo"
+      SET "mirrorAttempts" = "mirrorAttempts" + 1,
+          "mirrorClaimedAt" = now()
+      WHERE "id" = ${videoId}::uuid
+        AND "assetState" = 'PROCESSING'::"PortfolioVideoAssetState"
+        AND "mirrorAttempts" < ${this.maxMirrorAttempts()}
+        AND ("mirrorClaimedAt" IS NULL OR "mirrorClaimedAt" < ${staleBefore})
+      RETURNING "mirrorAttempts"
+    `;
+    return rows.length > 0 ? rows[0]!.mirrorAttempts : null;
+  }
+
+  /**
+   * Hand the lock back after a failure that is going to be retried, keeping the
+   * incremented attempt count. The claim is a lock held for the duration of a
+   * run; only a process that died leaves one behind for the stale window.
+   */
+  private async releaseClaim(videoId: string): Promise<void> {
+    await this.prisma.creatorPortfolioVideo
+      .update({ where: { id: videoId }, data: { mirrorClaimedAt: null } })
+      .catch(() => undefined);
+  }
+
+  /**
+   * Videos whose mirror was claimed and never finished — a process that died
+   * mid-stream, or a job Redis lost. Nothing else recovers these: BullMQ's
+   * stalled checker only helps while the job still exists.
+   */
+  async listStuckMirrorIds(limit = 25): Promise<string[]> {
+    const staleBefore = new Date(Date.now() - this.staleClaimMs());
+    const rows = await this.prisma.creatorPortfolioVideo.findMany({
+      where: {
+        assetState: PortfolioVideoAssetState.PROCESSING,
+        source: PortfolioVideoSource.INSTAGRAM,
+        OR: [
+          { mirrorClaimedAt: null },
+          { mirrorClaimedAt: { lte: staleBefore } },
+        ],
+      },
+      select: { id: true, mirrorAttempts: true },
+      orderBy: { importedAt: 'asc' },
+      take: limit,
+    });
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Park a stuck row whose budget is spent. Separate from the scan so the cron
+   * can distinguish "re-drive this" from "give up on this".
+   */
+  async parkExhaustedMirrors(limit = 25): Promise<number> {
+    const rows = await this.prisma.creatorPortfolioVideo.findMany({
+      where: {
+        assetState: PortfolioVideoAssetState.PROCESSING,
+        source: PortfolioVideoSource.INSTAGRAM,
+        mirrorAttempts: { gte: this.maxMirrorAttempts() },
+      },
+      select: { id: true },
+      take: limit,
+    });
+    for (const row of rows) {
+      await this.failAfterRetries(row.id, 'no attempts left').catch(
+        () => undefined,
+      );
+    }
+    return rows.length;
   }
 
   /** Park the row as FAILED so the UI can offer a retry. */

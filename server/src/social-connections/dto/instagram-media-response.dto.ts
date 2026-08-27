@@ -56,6 +56,16 @@ export class InstagramMediaItemDto {
 
   @ApiPropertyOptional()
   portfolioVideoId!: string | null;
+
+  @ApiProperty({
+    description:
+      'False when Instagram returned no downloadable file for this reel, so it ' +
+      'cannot be imported. Meta omits `media_url` for media containing ' +
+      'copyrighted material (licensed audio on a reel being the usual cause) ' +
+      'while still returning a thumbnail. Clients should show these but refuse ' +
+      'to select them.',
+  })
+  importable!: boolean;
 }
 
 export class InstagramMediaPageDto {
@@ -100,6 +110,15 @@ export class InstagramMediaPageDto {
 
   @ApiProperty({ example: 47 })
   reelCount!: number;
+
+  @ApiPropertyOptional({
+    description:
+      'How many cached reels cannot be imported (see `importable`), across the ' +
+      'whole cache. Returned on the first page only; null when a cursor was ' +
+      'passed.',
+    example: 3,
+  })
+  unavailableCount!: number | null;
 
   @ApiPropertyOptional()
   error!: string | null;

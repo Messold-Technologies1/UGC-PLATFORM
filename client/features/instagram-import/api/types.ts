@@ -17,6 +17,13 @@ export type InstagramReelApi = {
   viewCount: number | null;
   alreadyImported: boolean;
   portfolioVideoId: string | null;
+  /**
+   * False when Instagram returned no downloadable file for this reel, so it can
+   * never be imported. Meta withholds `media_url` for media containing
+   * copyrighted material — licensed audio on a reel being the usual cause —
+   * while still returning the thumbnail, so these look normal until you try.
+   */
+  importable: boolean;
 };
 
 export type InstagramMediaPageApi = {
@@ -38,6 +45,11 @@ export type InstagramMediaPageApi = {
    */
   hasMoreOnInstagram: boolean;
   reelCount: number;
+  /**
+   * How many cached reels cannot be imported, across the whole cache. First page
+   * only; null on later pages.
+   */
+  unavailableCount: number | null;
   error: string | null;
 };
 

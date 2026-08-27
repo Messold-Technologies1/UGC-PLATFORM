@@ -59,6 +59,17 @@ export interface GalleryItem {
   viewCount: number | null;
   alreadyImported: boolean;
   portfolioVideoId: string | null;
+  /**
+   * False when Instagram gave us no downloadable file for this reel, so there is
+   * nothing to import. Meta omits `media_url` for media containing copyrighted
+   * material — licensed audio on a reel being the common case — while still
+   * returning `thumbnail_url`, which is why such a reel looks perfectly normal
+   * in the picker.
+   *
+   * A snapshot: a copyright flag can be applied or lifted later, so a Refresh
+   * can change this.
+   */
+  importable: boolean;
 }
 
 export interface SyncStatus {
@@ -94,6 +105,13 @@ export interface GalleryPage {
    */
   hasMoreOnInstagram: boolean;
   reelCount: number;
+  /**
+   * Cached reels Instagram will not let us download (see GalleryItem.importable),
+   * across the whole cache rather than just this page. Computed for the first
+   * page only — null afterwards — because it exists to size one banner, not to
+   * be recounted on every scroll.
+   */
+  unavailableCount: number | null;
   error: string | null;
 }
 
@@ -291,6 +309,19 @@ export class InstagramMediaService {
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
 
+    // Only on the first page: the banner needs one number, and recounting it
+    // for every scroll would be a query per page for a value that does not
+    // change as the reader moves down the list.
+    const unavailableCount = opts.cursor
+      ? null
+      : await this.prisma.instagramMediaItem.count({
+          where: {
+            connectionId: connection.id,
+            mediaProductType: REELS_PRODUCT_TYPE,
+            mediaUrl: null,
+          },
+        });
+
     const lastSyncedAt = state?.lastSyncedAt ?? null;
     const stale =
       !lastSyncedAt || Date.now() - lastSyncedAt.getTime() > this.cacheTtlMs();
@@ -309,6 +340,7 @@ export class InstagramMediaService {
       // default to true rather than claiming the account ends here.
       hasMoreOnInstagram: state?.hasMore ?? true,
       reelCount: state?.reelCount ?? page.length,
+      unavailableCount,
       error: state?.lastError ?? null,
     };
   }
@@ -363,6 +395,7 @@ export class InstagramMediaService {
       nextCursor: null,
       hasMoreOnInstagram: false,
       reelCount: 0,
+      unavailableCount: null,
       error: null,
     };
   }
@@ -379,6 +412,7 @@ export class InstagramMediaService {
       viewCount: row.viewCount,
       alreadyImported: row.importedVideoId != null,
       portfolioVideoId: row.importedVideoId,
+      importable: row.mediaUrl != null,
     };
   }
 
@@ -543,7 +577,8 @@ export class InstagramMediaService {
     const startedAt = Date.now();
     // A refresh always starts at the newest reel; an extend picks up where the
     // last one stopped (null on a first sync, which is the top anyway).
-    let cursor: string | null = mode === 'extend' ? state?.nextCursor ?? null : null;
+    let cursor: string | null =
+      mode === 'extend' ? (state?.nextCursor ?? null) : null;
 
     let pages = 0;
     let reels = 0;

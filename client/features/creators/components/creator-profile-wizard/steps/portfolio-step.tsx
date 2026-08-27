@@ -9,6 +9,7 @@ import {
   PortfolioProcessingBanner,
 } from "@/features/creators/components/creator-profile-update/portfolio-components";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { InstagramConnectPitch } from "@/features/instagram-import/components/instagram-connect-pitch";
 
 import { BIO_MIN_CHARS, BIO_MAX_CHARS } from "../wizard-config";
 
@@ -33,6 +34,13 @@ export type PortfolioStepProps = {
   /** Re-queue every Instagram copy that failed. */
   onRetryFailed?: (videoIds: string[]) => void;
   retryingFailed?: boolean;
+  /**
+   * Whether the creator has Instagram linked. Unlinked, this is the step where
+   * connecting pays off most visibly, so the pitch goes here too.
+   */
+  instagramConnected?: boolean;
+  onConnectInstagram?: () => void;
+  connectingInstagram?: boolean;
   disabled: boolean;
   bio: string;
   onBioChange: (value: string) => void;
@@ -56,6 +64,9 @@ export function PortfolioStep({
   onDelete,
   onRetryFailed,
   retryingFailed,
+  instagramConnected,
+  onConnectInstagram,
+  connectingInstagram,
   disabled,
   bio,
   onBioChange,
@@ -185,6 +196,15 @@ export function PortfolioStep({
           Upload at least 3 videos to go live. {videos.length} of 10 uploaded so
           far — creators with 10+ pieces get 3× more orders.
         </div>
+      ) : null}
+
+      {/* The one place where "connect Instagram" is not an abstract ask: they
+          are about to hunt for files they have already posted. */}
+      {instagramConnected === false && onConnectInstagram ? (
+        <InstagramConnectPitch
+          onConnect={onConnectInstagram}
+          connecting={connectingInstagram}
+        />
       ) : null}
 
       {loading ? (

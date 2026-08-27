@@ -1669,6 +1669,12 @@ export function CreatorProfileWizard({
                     retryMirrorMutation.mutate(videoIds)
                   }
                   retryingFailed={retryMirrorMutation.isPending}
+                  // Admins cannot connect for a creator, so no offer there.
+                  instagramConnected={adminMode ? true : instagramConnected}
+                  onConnectInstagram={
+                    adminMode ? undefined : () => void startInstagramConnect()
+                  }
+                  connectingInstagram={connectingInstagram}
                   disabled={pending}
                   bio={bio}
                   onBioChange={(v) => {

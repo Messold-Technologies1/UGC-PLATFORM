@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, type Job } from 'bullmq';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
+import { shouldRunInline } from '../jobs/bullmq-watchdog.util';
 import { withTimeout } from '../util/with-timeout';
 import {
   InstagramMediaService,
@@ -140,7 +141,12 @@ export class InstagramMediaQueueService
         concurrency,
         // The hard ceiling. Excess jobs queue rather than hitting Graph.
         limiter: { max: rateMax, duration: 1000 },
-        lockDuration: 120_000,
+        // Must outlast SYNC_TIMEOUT_MS, or a sync still legitimately running at
+        // 120s loses its lock, gets reclaimed as stalled, and a second worker
+        // walks the same account — the exact duplicate the limiter above exists
+        // to prevent. The mirror queue already sizes it this way (360s lock for
+        // a 300s timeout); this one did not.
+        lockDuration: SYNC_TIMEOUT_MS + 60_000,
         stalledInterval: 30_000,
         maxStalledCount: 3,
       },
@@ -197,7 +203,11 @@ export class InstagramMediaQueueService
             this.logger.warn(
               `ig-media: orphaned active job ${jobId} — syncing inline`,
             );
-            void this.runDirect(connectionId, 'orphan-active', opts.mode);
+            void this.runInlineGuarded(
+              connectionId,
+              'orphan-active',
+              opts.mode,
+            );
             return;
           } else {
             this.logger.log(
@@ -221,7 +231,7 @@ export class InstagramMediaQueueService
         );
       }
     }
-    void this.runDirect(connectionId, 'inline', opts.mode);
+    void this.runInlineGuarded(connectionId, 'inline', opts.mode);
   }
 
   private async runJob(job: Job<SyncJobData>): Promise<void> {
@@ -300,6 +310,7 @@ export class InstagramMediaQueueService
       return null;
     }
     this.processing.add(connectionId);
+    const startedAt = Date.now();
     try {
       const result = await withTimeout(
         this.media.syncConnectionMedia(connectionId, { mode }),
@@ -310,10 +321,30 @@ export class InstagramMediaQueueService
       return result.usage;
     } catch (err) {
       this.noteFailure(err);
+      // The sibling this queue was modelled on (SocialMetricsQueueService) logs
+      // here and this one did not, so a failure on any non-worker path — inline,
+      // watchdog, orphan-active — left no trace in the logs at all. The only
+      // record was `lastError` in Postgres.
+      this.logger.error(
+        `ig-media: ${source} sync failed for ${connectionId} after ${Date.now() - startedAt}ms: ${(err as Error)?.message}`,
+      );
       throw err;
     } finally {
       this.processing.delete(connectionId);
     }
+  }
+
+  /**
+   * `runDirect` for the fire-and-forget callers. Swallowing here is deliberate —
+   * the error is already logged and recorded on the sync state, and an unhandled
+   * rejection from a `void` call would otherwise reach the process handler.
+   */
+  private async runInlineGuarded(
+    connectionId: string,
+    source: string,
+    mode?: IgSyncMode,
+  ): Promise<void> {
+    await this.runDirect(connectionId, source, mode).catch(() => undefined);
   }
 
   /**
@@ -362,18 +393,28 @@ export class InstagramMediaQueueService
         ).catch(() => 'unknown')
       : 'missing';
 
-    if (state === 'completed') return;
-    if (state === 'active' && this.processing.has(connectionId)) return;
-    // A deliberate throttle is not a stuck job — leave it to the queue.
-    if (this.throttledUntil > Date.now()) return;
+    if (
+      !shouldRunInline({
+        state,
+        runningLocally: this.processing.has(connectionId),
+        hasLocalWorker: this.worker != null,
+        throttled: this.throttledUntil > Date.now(),
+      })
+    ) {
+      return;
+    }
 
     this.logger.warn(
       `ig-media: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — syncing directly`,
     );
     try {
       await this.runDirect(connectionId, 'watchdog', mode);
-    } catch {
-      // syncConnectionMedia records its own failure in the sync state.
+    } catch (err) {
+      // runDirect logs the cause; this says the rescue attempt failed too,
+      // which is the more urgent signal of the two.
+      this.logger.error(
+        `ig-media: watchdog sync also failed for ${connectionId}: ${(err as Error)?.message}`,
+      );
     }
   }
 }

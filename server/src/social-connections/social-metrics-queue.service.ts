@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
+import { shouldRunInline } from '../jobs/bullmq-watchdog.util';
 import { withTimeout } from '../util/with-timeout';
 import { SocialConnectionsService } from './social-connections.service';
 
@@ -112,7 +113,9 @@ export class SocialMetricsQueueService
         concurrency,
         // Keep locks short so a zombie claim is marked stalled and retried
         // instead of parking the job in `active` until a 2-minute lock expires.
-        lockDuration: 60_000,
+        // Must outlast SYNC_TIMEOUT_MS, or a sync still running at 60s loses
+        // its lock and is reclaimed as stalled while it is mid-flight.
+        lockDuration: SYNC_TIMEOUT_MS + 30_000,
         stalledInterval: 15_000,
         maxStalledCount: 3,
       },
@@ -185,7 +188,7 @@ export class SocialMetricsQueueService
             this.logger.warn(
               `social-metrics: orphaned active job ${jobId} — syncing inline`,
             );
-            void this.processConnectionDirect(connectionId, 'orphan-active');
+            void this.runInlineGuarded(connectionId, 'orphan-active');
             return;
           } else {
             this.logger.log(
@@ -223,7 +226,7 @@ export class SocialMetricsQueueService
         );
       }
     }
-    void this.processConnectionDirect(connectionId, 'inline');
+    void this.runInlineGuarded(connectionId, 'inline');
   }
 
   /** Run a sync outside the request path. De-duplicates concurrent runs. */
@@ -266,6 +269,20 @@ export class SocialMetricsQueueService
   }
 
   /**
+   * processConnectionDirect for the fire-and-forget callers. It rethrows so the
+   * worker can retry, but a `void` call has nowhere to put that — and Node
+   * treats an unhandled rejection as fatal. The failure is already logged.
+   */
+  private async runInlineGuarded(
+    connectionId: string,
+    source: string,
+  ): Promise<void> {
+    await this.processConnectionDirect(connectionId, source).catch(
+      () => undefined,
+    );
+  }
+
+  /**
    * If the enqueued job is still unconsumed (or claimed into `active` with no
    * live handler on this process) after WATCHDOG_MS, run the sync directly.
    *
@@ -294,9 +311,15 @@ export class SocialMetricsQueueService
           'watchdog getState',
         ).catch(() => 'unknown')
       : 'missing';
-    if (state === 'completed') return;
-    // Live handler on THIS process — leave it alone.
-    if (state === 'active' && this.processing.has(connectionId)) return;
+    if (
+      !shouldRunInline({
+        state,
+        runningLocally: this.processing.has(connectionId),
+        hasLocalWorker: this.worker != null,
+      })
+    ) {
+      return;
+    }
 
     this.logger.warn(
       `social-metrics: watchdog job ${jobId} still ${state} after ${WATCHDOG_MS}ms — syncing directly`,
@@ -306,8 +329,12 @@ export class SocialMetricsQueueService
     void this.logWorkerDiagnostics();
     try {
       await this.processConnectionDirect(connectionId, 'watchdog');
-    } catch {
-      // syncConnection records its own failures; nothing more to do here.
+    } catch (err) {
+      // processConnectionDirect logs the cause; this says the rescue attempt
+      // failed too, which is the more urgent of the two signals.
+      this.logger.error(
+        `social-metrics: watchdog sync also failed for ${connectionId}: ${(err as Error)?.message}`,
+      );
     } finally {
       // Clear a parked wait/delayed leftover under the fixed jobId. For an
       // orphaned `active` lock we can't remove until the lock expires — BullMQ's

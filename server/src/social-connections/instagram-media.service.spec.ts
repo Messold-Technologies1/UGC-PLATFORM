@@ -96,6 +96,7 @@ describe('InstagramMediaService', () => {
     getFreshAccessToken: jest.fn().mockResolvedValue('token'),
     markConnectionError: jest.fn(),
   };
+  const realtimeMock = { emitReelSyncUpdated: jest.fn() };
 
   let service: InstagramMediaService;
 
@@ -113,6 +114,7 @@ describe('InstagramMediaService', () => {
     prismaMock.creatorProfile.findUnique.mockResolvedValue({ id: 'profile-1' });
     prismaMock.socialConnection.findUnique.mockResolvedValue({
       id: connectionId,
+      creatorProfileId: 'profile-1',
       username: 'creator.handle',
       status: 'ACTIVE',
     });
@@ -122,6 +124,7 @@ describe('InstagramMediaService', () => {
       configMock as never,
       instagramMock as never,
       connectionsMock as never,
+      realtimeMock as never,
     );
   });
 
@@ -364,6 +367,76 @@ describe('InstagramMediaService', () => {
         'token',
         null,
         25,
+      );
+    });
+
+    it('announces a finished batch so the picker can stop waiting', async () => {
+      instagramMock.fetchMediaPage.mockResolvedValueOnce(
+        page([reel('1')], null),
+      );
+      prismaMock.instagramMediaItem.count.mockResolvedValue(1);
+
+      await service.syncConnectionMedia(connectionId);
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          creatorProfileId: 'profile-1',
+          status: 'ready',
+          reelCount: 1,
+          hasMore: false,
+        }),
+      );
+    });
+
+    it('announces a failed batch too, so the spinner does not hang', async () => {
+      instagramMock.fetchMediaPage.mockRejectedValue(new Error('Graph down'));
+
+      await expect(service.syncConnectionMedia(connectionId)).rejects.toThrow(
+        'Graph down',
+      );
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          creatorProfileId: 'profile-1',
+          status: 'error',
+          error: 'Graph down',
+        }),
+      );
+    });
+
+    it('announces a no-op extend, which spends no Graph call at all', async () => {
+      // Load more on a fully cached account: nothing to fetch, but the reader
+      // is already looking at a spinner.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: null,
+        hasMore: false,
+        lastSyncedAt: new Date(),
+      });
+
+      await service.syncConnectionMedia(connectionId, { mode: 'extend' });
+
+      expect(instagramMock.fetchMediaPage).not.toHaveBeenCalled();
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'ready', hasMore: false }),
+      );
+    });
+
+    it('reports the stored frontier after a refresh, not the batch view', async () => {
+      // A refresh walks the top and leaves the frontier alone, so it must not
+      // tell the client the account has been exhausted.
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        nextCursor: 'deep-frontier',
+        hasMore: true,
+        lastSyncedAt: new Date(),
+      });
+      instagramMock.fetchMediaPage.mockResolvedValueOnce(
+        page([reel('1')], null),
+      );
+
+      await service.syncConnectionMedia(connectionId, { mode: 'refresh' });
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'ready', hasMore: true }),
       );
     });
 

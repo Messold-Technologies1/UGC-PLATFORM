@@ -110,6 +110,23 @@ export interface PortfolioVideoAssetUpdatedEvent {
   assetState: "READY" | "FAILED";
 }
 
+/**
+ * A reel-cache sync batch settled — the first batch after connecting, a manual
+ * Refresh, or a "Load more" that paged deeper into the account.
+ *
+ * Emitted for failures and no-ops as well as successes, because the picker puts
+ * up a spinner the moment it asks and only an event takes it down.
+ */
+export interface InstagramReelSyncUpdatedEvent {
+  creatorProfileId: string;
+  status: "ready" | "error";
+  /** Total cached reels after the batch; null when the batch did not count. */
+  reelCount: number | null;
+  /** Whether Instagram still has reels past the cache; null when unreported. */
+  hasMore: boolean | null;
+  error: string | null;
+}
+
 export interface ClientToServerEvents {
   /** Admin joins an order's live chat room (dispute group chat). */
   "order-chat:subscribe": (payload: { orderId: string }) => void;
@@ -135,9 +152,8 @@ export interface ServerToClientEvents {
   "order.dispute_opened": (e: OrderDisputeOpenedEvent) => void;
   "order.dispute_resolved": (e: OrderDisputeResolvedEvent) => void;
   "delivery.watermark_ready": (e: DeliveryWatermarkReadyEvent) => void;
-  "portfolio.video_asset_updated": (
-    e: PortfolioVideoAssetUpdatedEvent,
-  ) => void;
+  "portfolio.video_asset_updated": (e: PortfolioVideoAssetUpdatedEvent) => void;
+  "instagram.reel_sync_updated": (e: InstagramReelSyncUpdatedEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
 }

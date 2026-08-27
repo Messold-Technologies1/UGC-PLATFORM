@@ -53,10 +53,14 @@ export class OrderRealtimeNotifier {
     const brandUserId = await this.resolveBrandUserId(order.brand.id);
     const creatorUserId = order.creator.userId;
 
-    this.gateway.server.to(`user:${brandUserId}`).emit('order.payment', payload);
+    this.gateway.server
+      .to(`user:${brandUserId}`)
+      .emit('order.payment', payload);
     if (params.audience === 'brand_and_creator') {
       if (creatorUserId !== brandUserId) {
-        this.gateway.server.to(`user:${creatorUserId}`).emit('order.payment', payload);
+        this.gateway.server
+          .to(`user:${creatorUserId}`)
+          .emit('order.payment', payload);
       }
     }
   }
@@ -77,16 +81,20 @@ export class OrderRealtimeNotifier {
       },
     });
     if (!order) {
-      this.logger.warn(`emitOrderBriefSubmitted: order not found ${params.orderId}`);
+      this.logger.warn(
+        `emitOrderBriefSubmitted: order not found ${params.orderId}`,
+      );
       return;
     }
     const creatorUserId = order.creator.userId;
-    this.gateway.server.to(`user:${creatorUserId}`).emit('order.brief_submitted', {
-      orderId: params.orderId,
-      briefSubmittedAt: params.briefSubmittedAt.toISOString(),
-      brandName: order.brand.brandName ?? null,
-      packageName: order.packageNameSnapshot,
-    });
+    this.gateway.server
+      .to(`user:${creatorUserId}`)
+      .emit('order.brief_submitted', {
+        orderId: params.orderId,
+        briefSubmittedAt: params.briefSubmittedAt.toISOString(),
+        brandName: order.brand.brandName ?? null,
+        packageName: order.packageNameSnapshot,
+      });
   }
 
   /** Notify the brand that the creator has accepted the brief. */
@@ -105,7 +113,9 @@ export class OrderRealtimeNotifier {
       },
     });
     if (!order) {
-      this.logger.warn(`emitOrderBriefAccepted: order not found ${params.orderId}`);
+      this.logger.warn(
+        `emitOrderBriefAccepted: order not found ${params.orderId}`,
+      );
       return;
     }
     const brandUserId = await this.resolveBrandUserId(order.brand.id);
@@ -131,16 +141,20 @@ export class OrderRealtimeNotifier {
       select: { creator: { select: { userId: true } } },
     });
     if (!order) {
-      this.logger.warn(`emitOrderProductShipped: order not found ${params.orderId}`);
+      this.logger.warn(
+        `emitOrderProductShipped: order not found ${params.orderId}`,
+      );
       return;
     }
     const creatorUserId = order.creator.userId;
-    this.gateway.server.to(`user:${creatorUserId}`).emit('order.product_shipped', {
-      orderId: params.orderId,
-      courierName: params.courierName,
-      trackingId: params.trackingId,
-      dispatchedAt: params.dispatchedAt.toISOString(),
-    });
+    this.gateway.server
+      .to(`user:${creatorUserId}`)
+      .emit('order.product_shipped', {
+        orderId: params.orderId,
+        courierName: params.courierName,
+        trackingId: params.trackingId,
+        dispatchedAt: params.dispatchedAt.toISOString(),
+      });
   }
 
   /** Brand requested revision; notify the creator with the revision number and optional note. */
@@ -155,16 +169,20 @@ export class OrderRealtimeNotifier {
       select: { creator: { select: { userId: true } } },
     });
     if (!order) {
-      this.logger.warn(`emitOrderRevisionRequested: order not found ${params.orderId}`);
+      this.logger.warn(
+        `emitOrderRevisionRequested: order not found ${params.orderId}`,
+      );
       return;
     }
     const creatorUserId = order.creator.userId;
-    this.gateway.server.to(`user:${creatorUserId}`).emit('order.revision_requested', {
-      orderId: params.orderId,
-      revisionNumber: params.revisionNumber,
-      note: params.note,
-      revisionsRemaining: params.revisionsRemaining,
-    });
+    this.gateway.server
+      .to(`user:${creatorUserId}`)
+      .emit('order.revision_requested', {
+        orderId: params.orderId,
+        revisionNumber: params.revisionNumber,
+        note: params.note,
+        revisionsRemaining: params.revisionsRemaining,
+      });
   }
 
   /**
@@ -251,16 +269,20 @@ export class OrderRealtimeNotifier {
       select: { brand: { select: { id: true } } },
     });
     if (!order) {
-      this.logger.warn(`emitOrderProductReceived: order not found ${params.orderId}`);
+      this.logger.warn(
+        `emitOrderProductReceived: order not found ${params.orderId}`,
+      );
       return;
     }
     const brandUserId = await this.resolveBrandUserId(order.brand.id);
-    this.gateway.server.to(`user:${brandUserId}`).emit('order.product_received', {
-      orderId: params.orderId,
-      productReceivedAt: params.productReceivedAt.toISOString(),
-      deliveryDueAt: params.deliveryDueAt.toISOString(),
-      deliveryGraceDeadlineAt: params.deliveryGraceDeadlineAt.toISOString(),
-    });
+    this.gateway.server
+      .to(`user:${brandUserId}`)
+      .emit('order.product_received', {
+        orderId: params.orderId,
+        productReceivedAt: params.productReceivedAt.toISOString(),
+        deliveryDueAt: params.deliveryDueAt.toISOString(),
+        deliveryGraceDeadlineAt: params.deliveryGraceDeadlineAt.toISOString(),
+      });
   }
 
   /**
@@ -293,7 +315,9 @@ export class OrderRealtimeNotifier {
       revisionNumber: params.revisionNumber,
       deliveredAt: params.deliveredAt.toISOString(),
     };
-    this.gateway.server.to(`user:${brandUserId}`).emit('order.content_delivered', payload);
+    this.gateway.server
+      .to(`user:${brandUserId}`)
+      .emit('order.content_delivered', payload);
     const creatorUserId = order.creator.userId;
     if (creatorUserId !== brandUserId) {
       this.gateway.server

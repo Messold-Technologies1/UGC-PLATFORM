@@ -15,6 +15,7 @@ import {
   type InstagramUsage,
 } from './instagram.client';
 import { SocialConnectionsService } from './social-connections.service';
+import { PortfolioRealtimeNotifier } from '../realtime/portfolio-realtime.notifier';
 
 /** Instagram's own label for a reel, as returned in `media_product_type`. */
 const REELS_PRODUCT_TYPE = 'REELS';
@@ -176,6 +177,7 @@ export class InstagramMediaService {
     private readonly config: ConfigService,
     private readonly instagram: InstagramClient,
     private readonly connections: SocialConnectionsService,
+    private readonly realtime: PortfolioRealtimeNotifier,
   ) {}
 
   cacheTtlMs(): number {
@@ -565,6 +567,13 @@ export class InstagramMediaService {
       this.logger.log(
         `ig-media: extend skipped for ${connectionId} — account fully cached`,
       );
+      // A no-op still has to be announced: the picker put up a spinner the
+      // moment the reader pressed Load more, and only an event takes it down.
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: connection.creatorProfileId,
+        status: 'ready',
+        hasMore: false,
+      });
       return { reels: 0, pages: 0, usage: null };
     }
 
@@ -654,6 +663,15 @@ export class InstagramMediaService {
       this.logger.log(
         `ig-media: ${mode} ${connectionId} — ${reels} reel(s) this batch, ${reelCount} cached, ${pages} page(s), more=${hasMore}, ${Date.now() - startedAt}ms`,
       );
+
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: connection.creatorProfileId,
+        status: 'ready',
+        reelCount,
+        // A refresh leaves the frontier alone, so report what the state still
+        // says rather than this batch's local view of it.
+        hasMore: mode === 'extend' ? hasMore : (state?.hasMore ?? true),
+      });
       return { reels, pages, usage };
     } catch (err) {
       const message = (err as Error)?.message ?? 'unknown error';
@@ -664,6 +682,13 @@ export class InstagramMediaService {
       if (err instanceof InstagramApiError && err.isAuthError) {
         await this.connections.markConnectionError(connectionId, message);
       }
+      // Failures matter more than successes here — without this the spinner
+      // stays up until the client's slow backstop notices.
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: connection.creatorProfileId,
+        status: 'error',
+        error: message,
+      });
       throw err;
     }
   }

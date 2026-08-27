@@ -22,6 +22,7 @@ import type {
   OrderChatMessageEvent,
   DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
+import { portfolioVideosBaseQueryKey } from "@/features/creator-portfolio/lib/asset-state";
 import {
   brandOrderDeliveriesQueryKey,
 } from "@/features/orders/api/get-brand-order-deliveries";
@@ -69,6 +70,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const onConnect = () => {
       refreshAttemptedRef.current = false;
+      // Socket.io does not replay events missed while disconnected, so a
+      // portfolio mirror that finished during a drop would leave the grid
+      // showing "Processing" forever. Reconciling once per (re)connect closes
+      // that window without going back to a timer. On the first connect this
+      // is a no-op against an empty cache.
+      void queryClient.invalidateQueries({
+        queryKey: portfolioVideosBaseQueryKey,
+      });
     };
 
     const onConnectError = async () => {
@@ -296,6 +305,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       refetchOrderViews(queryClient, e.orderId);
     };
 
+    // An imported reel finished copying into our storage (or failed to). Both
+    // portfolio video queries share this key prefix, so this refreshes whichever
+    // view is mounted — the creator's own grid or an admin's view of theirs.
+    const onPortfolioAsset = () => {
+      void queryClient.invalidateQueries({
+        queryKey: portfolioVideosBaseQueryKey,
+      });
+    };
+
+
     const onChatMessage = (e: OrderChatMessageEvent) => {
       queryClient.invalidateQueries({ queryKey: orderChatsBaseQueryKey });
       if (e.message.senderUserId === user.id) return;
@@ -324,6 +343,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.dispute_opened", onDisputeOpened);
     s.on("order.dispute_resolved", onDisputeResolved);
     s.on("delivery.watermark_ready", onWatermarkReady);
+    s.on("portfolio.video_asset_updated", onPortfolioAsset);
     s.on("chat.message", onChatMessage);
 
     s.connect();
@@ -341,6 +361,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.dispute_opened", onDisputeOpened);
       s.off("order.dispute_resolved", onDisputeResolved);
       s.off("delivery.watermark_ready", onWatermarkReady);
+      s.off("portfolio.video_asset_updated", onPortfolioAsset);
       s.off("chat.message", onChatMessage);
       disconnectSocket();
     };

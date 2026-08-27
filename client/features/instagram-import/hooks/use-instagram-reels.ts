@@ -181,10 +181,16 @@ export function useImportInstagramReels(options?: { adminCreatorId?: string }) {
     onSuccess: async (result) => {
       const n = result.imported.length;
       if (n > 0) {
+        // The rows are saved already; only the files are still copying. Say so,
+        // so nobody sits and waits on the picker before carrying on.
         toast.success(
           n === 1
-            ? "1 reel added — it will be ready in a moment"
-            : `${n} reels added — they will be ready in a moment`,
+            ? "1 reel added to the portfolio"
+            : `${n} reels added to the portfolio`,
+          {
+            description:
+              "Save your changes and carry on — the videos will start playing on their own once we finish copying them over.",
+          },
         );
       }
       // Say why anything was dropped rather than silently importing fewer.

@@ -4,7 +4,10 @@ import { useState } from "react";
 import { AlertTriangle, Check, Sparkles, Loader2, X } from "lucide-react";
 
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
-import { PortfolioGrid } from "@/features/creators/components/creator-profile-update/portfolio-components";
+import {
+  PortfolioGrid,
+  PortfolioProcessingBanner,
+} from "@/features/creators/components/creator-profile-update/portfolio-components";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 
 import { BIO_MIN_CHARS, BIO_MAX_CHARS } from "../wizard-config";
@@ -27,6 +30,9 @@ export type PortfolioStepProps = {
   onAdd: () => void;
   onReplace: (video: PortfolioVideoApi) => void;
   onDelete: (video: PortfolioVideoApi) => void;
+  /** Re-queue every Instagram copy that failed. */
+  onRetryFailed?: (videoIds: string[]) => void;
+  retryingFailed?: boolean;
   disabled: boolean;
   bio: string;
   onBioChange: (value: string) => void;
@@ -48,6 +54,8 @@ export function PortfolioStep({
   onAdd,
   onReplace,
   onDelete,
+  onRetryFailed,
+  retryingFailed,
   disabled,
   bio,
   onBioChange,
@@ -194,12 +202,19 @@ export function PortfolioStep({
           onRetry={onRetry}
         />
       ) : (
-        <PortfolioGrid
-          videos={videos}
-          onReplace={onReplace}
-          onDelete={onDelete}
-          onAdd={onAdd}
-        />
+        <>
+          <PortfolioProcessingBanner
+            videos={videos}
+            onRetryFailed={onRetryFailed}
+            retrying={retryingFailed}
+          />
+          <PortfolioGrid
+            videos={videos}
+            onReplace={onReplace}
+            onDelete={onDelete}
+            onAdd={onAdd}
+          />
+        </>
       )}
 
       <label

@@ -18,6 +18,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
+import { countByAssetState } from "@/features/creator-portfolio/lib/asset-state";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 
@@ -30,6 +31,97 @@ export type CreatorProfileUpdateFormProps = {
   onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
 };
+
+/**
+ * Status strip above the grid, while any Instagram import is still being copied
+ * into our storage or has failed to copy.
+ *
+ * The reels are already saved by the time this shows — only the video file is
+ * still in transit — so the message says so plainly. Without it the "Processing"
+ * tile badges look like something went wrong, or like the creator still has a
+ * step left to do before they can move on.
+ *
+ * Renders nothing when everything is ready, which is the normal case.
+ */
+export function PortfolioProcessingBanner({
+  videos,
+  onRetryFailed,
+  retrying,
+}: {
+  videos: PortfolioVideoApi[];
+  /** Re-queue every failed copy. Omit to show the failures without an action. */
+  onRetryFailed?: (videoIds: string[]) => void;
+  retrying?: boolean;
+}) {
+  const { processing, failed } = countByAssetState(videos);
+  if (processing === 0 && failed === 0) return null;
+
+  const failedIds = videos
+    .filter((video) => video.assetState === "FAILED")
+    .map((video) => video.id);
+
+  return (
+    <div className="flex flex-col gap-2">
+      {processing > 0 ? (
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-3">
+          <Loader2
+            size={15}
+            className="pe-pf-spin mt-px shrink-0 text-amber-600"
+            aria-hidden
+          />
+          <div className="min-w-0 text-[12.5px] leading-relaxed">
+            <strong className="font-semibold">
+              {processing === 1
+                ? "1 video is still being saved from Instagram"
+                : `${processing} videos are still being saved from Instagram`}
+            </strong>
+            <p className="text-muted-foreground">
+              They are already in your portfolio — we are just copying the files
+              across. Save your changes and carry on; they will start playing
+              here on their own, usually within a minute.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {failed > 0 ? (
+        <div className="flex flex-wrap items-start gap-2.5 rounded-xl border border-destructive/35 bg-destructive/5 px-3.5 py-3">
+          <AlertTriangle
+            size={15}
+            className="mt-px shrink-0 text-destructive"
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1 text-[12.5px] leading-relaxed">
+            <strong className="font-semibold text-destructive">
+              {failed === 1
+                ? "1 video could not be copied from Instagram"
+                : `${failed} videos could not be copied from Instagram`}
+            </strong>
+            <p className="text-muted-foreground">
+              This usually clears on a second attempt. If it keeps failing,
+              replace the video with a file from your device.
+            </p>
+          </div>
+          {onRetryFailed ? (
+            <button
+              type="button"
+              className="pe-pf-edit-btn shrink-0"
+              onClick={() => onRetryFailed(failedIds)}
+              disabled={retrying}
+            >
+              {retrying ? (
+                <Loader2 size={13} className="pe-pf-spin" aria-hidden />
+              ) : (
+                <RefreshCw size={13} aria-hidden />
+              )}
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function PortfolioGrid({
   videos,

@@ -43,6 +43,8 @@ import type { OtherNotices } from "./steps/identity-step";
 import type { CreatorFacetDimension } from "@/features/creators/api/get-creator-facet-options";
 import type { ResolveFacetOtherResponse } from "@/features/creators/api/resolve-facet-other";
 import { useMyPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-my-portfolio-videos-query";
+import { useRetryPortfolioMirrorMutation } from "@/features/creator-portfolio/hooks/use-retry-portfolio-mirror-mutation";
+import { useAdminPortfolioRealtime } from "@/features/creator-portfolio/hooks/use-admin-portfolio-realtime";
 import { useAdminPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-admin-portfolio-videos-query";
 import { useCreatePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-create-portfolio-video-flow-mutation";
 import { useReplacePortfolioVideoFlowMutation } from "@/features/creator-portfolio/hooks/use-replace-portfolio-video-flow-mutation";
@@ -197,6 +199,13 @@ export function CreatorProfileWizard({
   });
   const replacePortfolioMutation = useReplacePortfolioVideoFlowMutation();
   const deletePortfolioMutation = useDeletePortfolioVideoMutation();
+  const retryMirrorMutation = useRetryPortfolioMirrorMutation(
+    adminMode ? { adminCreatorId: profileId } : undefined,
+  );
+
+  // An admin watches a portfolio that is not their own, so they have to join
+  // that creator's room to receive its asset updates.
+  useAdminPortfolioRealtime(adminMode ? profileId : undefined);
 
   // An active Instagram connection is required to go live. The connections
   // endpoint returns the signed-in user's own accounts, so only gate on it for
@@ -1656,6 +1665,10 @@ export function CreatorProfileWizard({
                       ...(adminMode ? { adminCreatorId: profileId } : {}),
                     })
                   }
+                  onRetryFailed={(videoIds) =>
+                    retryMirrorMutation.mutate(videoIds)
+                  }
+                  retryingFailed={retryMirrorMutation.isPending}
                   disabled={pending}
                   bio={bio}
                   onBioChange={(v) => {

@@ -459,8 +459,12 @@ export class CreatorPortfolioService {
   async assertOwnedFailedImport(
     actingUserId: string,
     videoId: string,
+    targetCreatorProfileId?: string,
   ): Promise<void> {
-    const profile = await this.getCreatorProfileOrThrow(actingUserId);
+    const profile = await this.resolvePortfolioProfile(
+      actingUserId,
+      targetCreatorProfileId,
+    );
     const video = await this.prisma.creatorPortfolioVideo.findUnique({
       where: { id: videoId },
       select: { creatorId: true, source: true, assetState: true },

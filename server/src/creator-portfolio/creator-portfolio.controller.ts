@@ -49,6 +49,7 @@ import { ListAdminPortfolioVideosQueryDto } from './dto/list-admin-portfolio-vid
 import { UpdatePortfolioVideoDto } from './dto/update-portfolio-video.dto';
 import { CreatePortfolioSectionDto } from './dto/create-portfolio-section.dto';
 import { UpdatePortfolioSectionDto } from './dto/update-portfolio-section.dto';
+import { PortfolioActingCreatorDto } from './dto/portfolio-acting-creator.dto';
 import { PortfolioSectionResponseDto } from './dto/portfolio-section-response.dto';
 import { AddSectionVideosDto } from './dto/add-section-videos.dto';
 import { RemoveSectionVideoQueryDto } from './dto/remove-section-video.dto';
@@ -206,8 +207,13 @@ export class CreatorPortfolioController {
   async retryMirror(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
+    @Body() body: PortfolioActingCreatorDto,
   ): Promise<{ requeued: true }> {
-    await this.service.assertOwnedFailedImport(req.user.id, id);
+    await this.service.assertOwnedFailedImport(
+      req.user.id,
+      id,
+      body?.creatorId,
+    );
     void this.mirrorQueue.enqueue(id);
     return { requeued: true };
   }

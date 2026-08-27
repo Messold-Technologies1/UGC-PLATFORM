@@ -97,11 +97,31 @@ export interface OrderDisputeResolvedEvent {
   resolutionNotes?: string | null;
 }
 
+/**
+ * An imported reel's file finished copying into our storage (or failed to).
+ *
+ * The row itself was saved the moment the creator picked the reel; this is only
+ * about the video file catching up, which is why it carries an asset state
+ * rather than the video.
+ */
+export interface PortfolioVideoAssetUpdatedEvent {
+  videoId: string;
+  creatorProfileId: string;
+  assetState: "READY" | "FAILED";
+}
+
 export interface ClientToServerEvents {
   /** Admin joins an order's live chat room (dispute group chat). */
   "order-chat:subscribe": (payload: { orderId: string }) => void;
   /** Admin leaves an order's live chat room. */
   "order-chat:unsubscribe": (payload: { orderId: string }) => void;
+  /**
+   * Admin joins a creator's portfolio room, to watch reels they imported on
+   * that creator's behalf settle. Creators need no subscription — these events
+   * also go to their own user room.
+   */
+  "portfolio:subscribe": (payload: { creatorProfileId: string }) => void;
+  "portfolio:unsubscribe": (payload: { creatorProfileId: string }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -115,6 +135,9 @@ export interface ServerToClientEvents {
   "order.dispute_opened": (e: OrderDisputeOpenedEvent) => void;
   "order.dispute_resolved": (e: OrderDisputeResolvedEvent) => void;
   "delivery.watermark_ready": (e: DeliveryWatermarkReadyEvent) => void;
+  "portfolio.video_asset_updated": (
+    e: PortfolioVideoAssetUpdatedEvent,
+  ) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
 }

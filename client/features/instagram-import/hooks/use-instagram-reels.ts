@@ -157,6 +157,7 @@ export function useInstagramReels({
     username: first?.username ?? null,
     lastSyncedAt: first?.lastSyncedAt ?? null,
     reelCount: first?.reelCount ?? 0,
+    unavailableCount: first?.unavailableCount ?? 0,
     error: first?.error ?? null,
     isLoading: query.isLoading,
     isError: query.isError,
@@ -207,7 +208,24 @@ export function useImportInstagramReels(options?: { adminCreatorId?: string }) {
             : `${alreadyIn} reels were already in ${where}`,
         );
       }
-      const failed = result.skipped.length - alreadyIn;
+      // The picker refuses to select these, but the cache can go stale between
+      // load and submit — and an unexplained failure here is what sent us
+      // looking at the network tab in the first place.
+      const unavailable = result.skipped.filter(
+        (s) => s.reason === "no_media_url",
+      ).length;
+      if (unavailable > 0) {
+        toast.error(
+          unavailable === 1
+            ? "1 reel can't be downloaded from Instagram"
+            : `${unavailable} reels can't be downloaded from Instagram`,
+          {
+            description:
+              "Instagram blocks downloads for reels with licensed audio. Save them from Instagram and add them with Upload from your device.",
+          },
+        );
+      }
+      const failed = result.skipped.length - alreadyIn - unavailable;
       if (failed > 0) {
         toast.error(
           failed === 1

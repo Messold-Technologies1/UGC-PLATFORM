@@ -380,6 +380,85 @@ describe('InstagramMediaService', () => {
     });
   });
 
+  describe('gallery importability', () => {
+    const row = (over: Record<string, unknown> = {}) => ({
+      igMediaId: '1',
+      permalink: null,
+      thumbnailUrl: 'https://scontent.cdninstagram.com/1.jpg',
+      caption: null,
+      postedAt: new Date('2026-07-01T00:00:00Z'),
+      durationSeconds: null,
+      likeCount: null,
+      viewCount: null,
+      importedVideoId: null,
+      mediaUrl: 'https://scontent.cdninstagram.com/1.mp4',
+      ...over,
+    });
+
+    beforeEach(() => {
+      prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({
+        status: IgMediaSyncStatus.READY,
+        lastSyncedAt: new Date(),
+        hasMore: false,
+        reelCount: 2,
+        lastError: null,
+      });
+    });
+
+    it('marks a reel with a media url importable', async () => {
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([row()]);
+      prismaMock.instagramMediaItem.count.mockResolvedValue(0);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.items[0]!.importable).toBe(true);
+    });
+
+    it('marks a reel Instagram withheld the file for as not importable', async () => {
+      // The thumbnail still comes back, which is why these look normal in the
+      // picker and have to be flagged explicitly.
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([
+        row({ mediaUrl: null }),
+      ]);
+      prismaMock.instagramMediaItem.count.mockResolvedValue(1);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.items[0]!.importable).toBe(false);
+      expect(result.items[0]!.thumbnailUrl).not.toBeNull();
+    });
+
+    it('counts the unavailable reels across the whole cache on the first page', async () => {
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([row()]);
+      prismaMock.instagramMediaItem.count.mockResolvedValue(7);
+
+      const result = await service.getGalleryPage(userId);
+
+      expect(result.unavailableCount).toBe(7);
+      expect(prismaMock.instagramMediaItem.count).toHaveBeenCalledWith({
+        where: {
+          connectionId,
+          mediaProductType: 'REELS',
+          mediaUrl: null,
+        },
+      });
+    });
+
+    it('does not recount on a later page', async () => {
+      prismaMock.instagramMediaItem.findMany.mockResolvedValue([row()]);
+
+      const result = await service.getGalleryPage(userId, {
+        cursor: encodeGalleryCursor({
+          postedAt: new Date('2026-07-02T00:00:00Z'),
+          igMediaId: '9',
+        }),
+      });
+
+      expect(result.unavailableCount).toBeNull();
+      expect(prismaMock.instagramMediaItem.count).not.toHaveBeenCalled();
+    });
+  });
+
   describe('hasMoreToFetch', () => {
     it('is true while Instagram has reels past the cache', async () => {
       prismaMock.instagramMediaSyncState.findUnique.mockResolvedValue({

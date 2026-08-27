@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Instagram,
   Loader2,
+  Lock,
   RefreshCw,
 } from "lucide-react";
 import {
@@ -76,7 +77,7 @@ export function InstagramReelGallery({
   const atCap = selected.length >= MAX_SELECTION;
 
   const toggle = useCallback((reel: InstagramReelApi) => {
-    if (reel.alreadyImported) return;
+    if (reel.alreadyImported || !reel.importable) return;
     setSelected((prev) => {
       if (prev.includes(reel.igMediaId)) {
         return prev.filter((id) => id !== reel.igMediaId);
@@ -217,6 +218,8 @@ export function InstagramReelGallery({
                   Checking Instagram for new reels…
                 </p>
               ) : null}
+
+              <UnavailableReelsNotice count={reels.unavailableCount} />
               <VirtuosoGrid
                 style={{ height: "100%" }}
                 totalCount={reels.items.length}
@@ -236,6 +239,7 @@ export function InstagramReelGallery({
                       selectionOrder={order >= 0 ? order + 1 : null}
                       disabled={
                         reel.alreadyImported ||
+                        !reel.importable ||
                         (atCap && !selectedSet.has(reel.igMediaId))
                       }
                       onToggle={() => toggle(reel)}
@@ -275,6 +279,38 @@ export function InstagramReelGallery({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Explains the reels the picker will not let you select.
+ *
+ * Instagram withholds the video file for media containing copyrighted material
+ * — most often licensed audio on a reel — while still handing over the
+ * thumbnail. So these look completely normal here, and before this notice
+ * existed selecting them produced a bare "3 reels could not be added". The only
+ * way to get one into a portfolio is to save it from Instagram and upload it,
+ * which is what this says.
+ */
+function UnavailableReelsNotice({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+      <Lock className="mt-px size-3.5 shrink-0 text-amber-600" aria-hidden />
+      <p className="text-[11.5px] leading-relaxed">
+        <span className="font-semibold">
+          {count === 1
+            ? "1 reel can't be added from here"
+            : `${count} reels can't be added from here`}
+        </span>{" "}
+        <span className="text-muted-foreground">
+          Instagram doesn&apos;t let us download reels that use licensed audio,
+          so they&apos;re greyed out below. To use one, save it from Instagram
+          to your device and add it with{" "}
+          <span className="font-medium">Upload from your device</span>.
+        </span>
+      </p>
+    </div>
   );
 }
 
@@ -345,9 +381,16 @@ function ReelTile({
         aria-label={
           reel.alreadyImported
             ? "Already in your portfolio"
-            : selected
-              ? "Deselect this reel"
-              : "Select this reel"
+            : !reel.importable
+              ? "Instagram does not allow downloading this reel"
+              : selected
+                ? "Deselect this reel"
+                : "Select this reel"
+        }
+        title={
+          !reel.importable && !reel.alreadyImported
+            ? "Instagram won't let us download this reel — usually licensed audio. Save it from Instagram and upload it from your device."
+            : undefined
         }
         className="absolute inset-0 size-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-not-allowed"
       >
@@ -360,7 +403,9 @@ function ReelTile({
             alt=""
             loading="lazy"
             className={`size-full object-cover transition-opacity ${
-              reel.alreadyImported ? "opacity-40" : "group-hover:opacity-90"
+              reel.alreadyImported || !reel.importable
+                ? "opacity-40"
+                : "group-hover:opacity-90"
             }`}
           />
         ) : (
@@ -375,6 +420,11 @@ function ReelTile({
           {reel.alreadyImported ? (
             <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
               Added
+            </span>
+          ) : !reel.importable ? (
+            <span className="flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              <Lock className="size-2.5" aria-hidden />
+              Unavailable
             </span>
           ) : selected ? (
             <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">

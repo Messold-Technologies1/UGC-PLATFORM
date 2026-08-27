@@ -77,6 +77,7 @@ describe('InstagramMediaService', () => {
       findUnique: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       findMany: jest.fn(),
     },
   };
@@ -450,6 +451,84 @@ describe('InstagramMediaService', () => {
         prismaMock.instagramMediaSyncState.update.mock.calls.at(-1)![0];
       expect(failed.data.status).toBe(IgMediaSyncStatus.ERROR);
       expect(failed.data.lastError).toBe('Graph down');
+    });
+  });
+
+  describe('resetStuckSyncs', () => {
+    const stuckRow = (connectionId: string) => ({
+      connectionId,
+      connection: { creatorProfileId: `profile-for-${connectionId}` },
+    });
+
+    it('clears a sync left claiming to be in flight', async () => {
+      // Nothing else recovers these: status is only moved by the walk
+      // finishing or failing, so a process dying mid-walk leaves it SYNCING
+      // for good — and the picker waits on that state.
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([
+        stuckRow('conn-a'),
+        stuckRow('conn-b'),
+      ]);
+      prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      await expect(service.resetStuckSyncs()).resolves.toBe(2);
+
+      const read =
+        prismaMock.instagramMediaSyncState.findMany.mock.calls[0]![0];
+      expect(read.where.status).toEqual({ in: ['SYNCING', 'QUEUED'] });
+      expect(read.where.updatedAt.lte).toBeInstanceOf(Date);
+
+      const { where, data } =
+        prismaMock.instagramMediaSyncState.updateMany.mock.calls[0]![0];
+      expect(where).toEqual({ connectionId: { in: ['conn-a', 'conn-b'] } });
+      expect(data.status).toBe('ERROR');
+      expect(data.lastError).toMatch(/Refresh/);
+    });
+
+    it('tells each creator, so the picker stops waiting', async () => {
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([
+        stuckRow('conn-a'),
+        stuckRow('conn-b'),
+      ]);
+      prismaMock.instagramMediaSyncState.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      await service.resetStuckSyncs();
+
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledTimes(2);
+      expect(realtimeMock.emitReelSyncUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          creatorProfileId: 'profile-for-conn-a',
+          status: 'error',
+        }),
+      );
+    });
+
+    it('writes nothing when no sync is stuck', async () => {
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([]);
+
+      await expect(service.resetStuckSyncs()).resolves.toBe(0);
+      expect(
+        prismaMock.instagramMediaSyncState.updateMany,
+      ).not.toHaveBeenCalled();
+      expect(realtimeMock.emitReelSyncUpdated).not.toHaveBeenCalled();
+    });
+
+    it('refuses a stuck window shorter than a minute', async () => {
+      // Too short and it would abort a sync that is merely slow — the queue
+      // deliberately holds jobs for minutes under backpressure.
+      configValues.IG_MEDIA_STUCK_SYNC_MS = 1_000;
+      prismaMock.instagramMediaSyncState.findMany.mockResolvedValue([]);
+
+      await service.resetStuckSyncs();
+
+      const read =
+        prismaMock.instagramMediaSyncState.findMany.mock.calls[0]![0];
+      expect(
+        Date.now() - (read.where.updatedAt.lte as Date).getTime(),
+      ).toBeGreaterThanOrEqual(59_000);
     });
   });
 

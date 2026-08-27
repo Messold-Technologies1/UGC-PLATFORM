@@ -747,6 +747,71 @@ export class InstagramMediaService {
     await this.upsertReels(connectionId, page.items);
   }
 
+  /**
+   * Syncs left claiming to be in flight.
+   *
+   * Nothing else recovers these. `status` is set to SYNCING before the walk and
+   * only moved by the walk finishing or failing, so a process that dies mid-walk
+   * — or a job Redis loses — leaves it SYNCING for good. Since the picker now
+   * waits on a socket event rather than polling, that is a spinner that never
+   * stops rather than a stale timestamp.
+   *
+   * Moves them to ERROR rather than re-enqueuing: the walk is resumable from its
+   * stored cursor, and a creator pressing Refresh is a better outcome than
+   * silently re-spending a Graph budget on a sync that already failed once for
+   * a reason we cannot see from here.
+   */
+  async resetStuckSyncs(): Promise<number> {
+    const staleBefore = new Date(Date.now() - this.stuckSyncMs());
+    // Read first, so the creators can be told. updateMany reports a count and
+    // nothing else, and a state reset nobody hears about still leaves the
+    // picker waiting on an event that is never coming.
+    const stuck = await this.prisma.instagramMediaSyncState.findMany({
+      where: {
+        status: { in: [IgMediaSyncStatus.SYNCING, IgMediaSyncStatus.QUEUED] },
+        updatedAt: { lte: staleBefore },
+      },
+      select: {
+        connectionId: true,
+        connection: { select: { creatorProfileId: true } },
+      },
+      take: 50,
+    });
+    if (stuck.length === 0) return 0;
+
+    await this.prisma.instagramMediaSyncState.updateMany({
+      where: { connectionId: { in: stuck.map((row) => row.connectionId) } },
+      data: {
+        status: IgMediaSyncStatus.ERROR,
+        lastError:
+          'The sync stopped without finishing. Press Refresh to try again.',
+      },
+    });
+
+    for (const row of stuck) {
+      // Never throws — it logs and moves on, so one bad notification cannot
+      // stop the rest of the sweep.
+      await this.realtime.emitReelSyncUpdated({
+        creatorProfileId: row.connection.creatorProfileId,
+        status: 'error',
+        error: 'The sync stopped without finishing.',
+      });
+    }
+
+    this.logger.warn(
+      `ig-media: reset ${stuck.length} stuck sync(s) that never finished`,
+    );
+    return stuck.length;
+  }
+
+  /** How long a SYNCING/QUEUED state must sit before it counts as abandoned. */
+  private stuckSyncMs(): number {
+    return Math.max(
+      60_000,
+      Number(this.config.get('IG_MEDIA_STUCK_SYNC_MS', 900_000)),
+    );
+  }
+
   /** Connections whose cache is stale enough for the nightly refresh. */
   async listConnectionIdsWithStaleCache(
     olderThanDays: number,

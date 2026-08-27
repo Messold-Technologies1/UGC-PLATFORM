@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
+import { Cron } from '@nestjs/schedule';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
 import { shouldRunInline } from '../jobs/bullmq-watchdog.util';
 import { withTimeout } from '../util/with-timeout';
@@ -98,17 +99,10 @@ export class InstagramMirrorQueueService
       this.logger.error(
         `ig-mirror: job ${job?.id} failed (attempt ${job?.attemptsMade}): ${err?.message}`,
       );
-      // Out of attempts: close the loop, or the row stays PROCESSING for good.
-      const attempts = job?.opts?.attempts ?? 1;
-      if (job && (job.attemptsMade ?? 0) >= attempts) {
-        void this.mirror
-          .failAfterRetries(job.data.videoId, err?.message ?? 'unknown error')
-          .catch((e: unknown) =>
-            this.logger.error(
-              `ig-mirror: could not park ${job.data.videoId} as failed: ${(e as Error)?.message}`,
-            ),
-          );
-      }
+      // Deliberately does not park the row. `mirrorAttempts` on the row is the
+      // budget and mirrorVideo parks it when that runs out; BullMQ's own
+      // attempt count is a different, shorter budget, so acting on it here
+      // would abandon rows that still had tries left.
     });
     this.worker.on('error', (err) => {
       this.logger.error(`ig-mirror worker error: ${err?.message}`);
@@ -191,23 +185,65 @@ export class InstagramMirrorQueueService
   /**
    * runDirect for the fire-and-forget callers.
    *
-   * Two jobs: keep a `void` call from becoming a fatal unhandled rejection, and
-   * park the row as FAILED — there is no BullMQ retry budget on this path, so
-   * this failure is already terminal and PROCESSING would otherwise be
-   * permanent.
+   * Keeps a `void` call from becoming a fatal unhandled rejection. Swallowing is
+   * safe: runDirect logged the cause, the attempt is recorded on the row, and
+   * either mirrorVideo already parked it (budget spent) or the reconcile scan
+   * re-drives it.
    */
   private async runInlineGuarded(
     videoId: string,
     source: string,
   ): Promise<void> {
+    await this.runDirect(videoId, source).catch(() => undefined);
+  }
+
+  /**
+   * DB-truth backstop for mirrors that never finished.
+   *
+   * The watchdog and BullMQ's stalled checker both live in Redis, so neither
+   * covers a process dying mid-stream or Redis losing the job — and until now
+   * nothing did: the row sat in PROCESSING for good. The database knows: a
+   * claim older than the stale window means whoever took it is gone.
+   *
+   * Modelled on JobsService.processStuckWatermarks, including the sparse cadence
+   * — a mirror finishing up to 10 minutes late in a rare failure is fine, and it
+   * lets the database idle rather than being polled awake.
+   */
+  @Cron('0 */10 * * * *')
+  async reconcileStuckMirrors(): Promise<void> {
+    if (this.reconcileRunning) return;
+    this.reconcileRunning = true;
     try {
-      await this.runDirect(videoId, source);
+      // Give up on the ones past their budget first, so the re-drive below
+      // cannot pick them straight back up.
+      const parked = await this.mirror.parkExhaustedMirrors();
+      if (parked > 0) {
+        this.logger.warn(
+          `ig-mirror reconcile: parked ${parked} mirror(s) with no attempts left`,
+        );
+      }
+
+      const stuck = await this.mirror.listStuckMirrorIds();
+      if (stuck.length === 0) return;
+
+      this.logger.log(
+        `ig-mirror reconcile: re-driving ${stuck.length} abandoned mirror(s)`,
+      );
+      for (const videoId of stuck) {
+        // Back through enqueue, so it lands on the worker and its rate limits
+        // rather than all running inline on whichever replica holds the cron.
+        await this.enqueue(videoId).catch(() => undefined);
+      }
     } catch (err) {
-      await this.mirror
-        .failAfterRetries(videoId, (err as Error)?.message ?? 'unknown error')
-        .catch(() => undefined);
+      this.logger.error(
+        `ig-mirror reconcile failed: ${(err as Error)?.message}`,
+      );
+    } finally {
+      this.reconcileRunning = false;
     }
   }
+
+  private reconcileRunning = false;
 
   private async watchdog(videoId: string, jobId: string): Promise<void> {
     if (!this.queue) return;

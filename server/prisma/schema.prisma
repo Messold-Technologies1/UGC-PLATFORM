@@ -972,6 +972,15 @@ model CreatorPortfolioVideo {
   igPermalink String?
   igPostedAt  DateTime?
   importedAt  DateTime?
+
+  /// Mirror bookkeeping, following OrderDelivery.previewAttempts /
+  /// previewUpdatedAt. `mirrorClaimedAt` is what makes the claim a genuine
+  /// cross-instance lock: an in-memory Set only guards one process, so the
+  /// worker replica and an API replica's inline fallback could both stream the
+  /// same reel. A claim older than the stale window is treated as abandoned,
+  /// which is also the only way a process that died mid-mirror gets recovered.
+  mirrorAttempts  Int       @default(0)
+  mirrorClaimedAt DateTime?
   /// SHA-256 hex of the uploaded bytes, supplied by the client. Used only to
   /// stop the same file being added to one portfolio twice; null for rows
   /// created before the guard existed, or for files too large to hash in the
@@ -991,6 +1000,8 @@ model CreatorPortfolioVideo {
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
   @@index([assetState])
+  /// Drives the stuck-mirror reconcile scan.
+  @@index([assetState, mirrorClaimedAt])
 }
 
 model CreatorPortfolioSection {

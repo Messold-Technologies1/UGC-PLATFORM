@@ -236,6 +236,11 @@ export function AdminOrderChat({
       }
       participants={participants}
       readOnly={!canSend}
+      readOnlyMessage={
+        isDisputed
+          ? "You need an active admin session to reply here."
+          : "This chat opens for replies only while the order is disputed. Chat history is read-only."
+      }
       sendError={
         sendMutation.isError
           ? "Unable to send the message. Please try again."

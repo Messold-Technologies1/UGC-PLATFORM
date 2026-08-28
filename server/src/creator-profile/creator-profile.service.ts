@@ -1530,7 +1530,9 @@ export class CreatorProfileService {
           ? (profile.creatorApproval?.approvedAt ?? null)
           : null,
       approvedAt:
-        base.approvalStatus === ApprovalStatus.APPROVED
+        base.approvalStatus === ApprovalStatus.APPROVED ||
+        base.approvalStatus === ApprovalStatus.SHORTLISTED ||
+        base.approvalStatus === ApprovalStatus.SELF_COMPLETED
           ? (profile.creatorApproval?.approvedAt ?? null)
           : null,
       avgRating: profile.stats?.avgRating?.toString() ?? null,
@@ -1572,12 +1574,21 @@ export class CreatorProfileService {
     const where = buildAdminCreatorsListWhere(query.segment, query.search);
 
     const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
-      query.segment === AdminCreatorListSegment.PENDING ||
-      query.segment === AdminCreatorListSegment.SELF_COMPLETED
+      query.segment === AdminCreatorListSegment.PENDING
         ? [{ createdAt: 'asc' }]
         : query.segment === AdminCreatorListSegment.NON_APPROVED
           ? [{ creatorApproval: { approvedAt: 'desc' } }]
-          : [{ createdAt: 'desc' }];
+          : query.segment === AdminCreatorListSegment.SHORTLISTED ||
+              query.segment === AdminCreatorListSegment.SELF_COMPLETED
+            ? [
+                {
+                  creatorApproval: {
+                    approvedAt: { sort: 'desc', nulls: 'last' },
+                  },
+                },
+                { createdAt: 'desc' },
+              ]
+            : [{ createdAt: 'desc' }];
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),

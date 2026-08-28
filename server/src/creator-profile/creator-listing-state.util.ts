@@ -164,11 +164,15 @@ export async function recomputeCreatorListingState(
           : null;
 
     if (nextStatus) {
+      const now = new Date();
       await client.creatorApproval.update({
         where: { creatorId: creatorProfileId },
         data: {
           status: nextStatus,
           rejectionReason: null,
+          ...(nextStatus === ApprovalStatus.SELF_COMPLETED
+            ? { approvedAt: now }
+            : {}),
         },
       });
       profile.creatorApproval = { status: nextStatus };

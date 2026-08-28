@@ -70,6 +70,12 @@ function getRowDateColumn(creator: AdminCreatorListItemDto): {
       value: formatRowDate(creator.approvedAt),
     };
   }
+  if (creator.approvalStatus === "SELF_COMPLETED") {
+    return {
+      label: "Completed",
+      value: formatRowDate(creator.approvedAt ?? creator.submittedAt),
+    };
+  }
   return {
     label: "Submitted",
     value: formatRowDate(creator.submittedAt),

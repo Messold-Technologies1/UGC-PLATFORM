@@ -829,8 +829,8 @@ export default function ReviewDrawer({
                         ? "Sending..."
                         : "Send for Review"
                       : isApproving
-                        ? "Approving..."
-                        : "Approve Creator"}
+                        ? "Listing..."
+                        : "List creator"}
                   </span>
                 </button>
               </div>

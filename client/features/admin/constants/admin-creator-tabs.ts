@@ -91,7 +91,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "incomplete",
     label: "Building profile",
     description:
-      "Incomplete profiles still finishing go-live — excludes shortlisted and rejected.",
+      "After registration. Shortlist a creator to watch them, or wait until they finish on their own.",
     icon: ListTodo,
     countKey: "incomplete",
     badgeClassName: "bg-amber-100 text-amber-800",
@@ -100,7 +100,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "shortlisted",
     label: "Shortlisted",
     description:
-      "Incomplete profiles shortlisted by admin. They move straight to Awaiting review when complete.",
+      "Picked from Building profile. When they complete, they move to Awaiting review automatically.",
     icon: Bookmark,
     countKey: "shortlisted",
     badgeClassName: "bg-indigo-100 text-indigo-700",
@@ -109,7 +109,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "self_completed",
     label: "Self complete",
     description:
-      "Completed their profile without being shortlisted. Send for review to queue them for approval.",
+      "Finished without being shortlisted. Send the relevant ones to Awaiting review.",
     icon: SendHorizontal,
     countKey: "selfCompleted",
     badgeClassName: "bg-teal-100 text-teal-700",
@@ -118,7 +118,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "pending",
     label: "Awaiting review",
     description:
-      "Shortlisted completions and profiles you sent for review — ready for your approval.",
+      "Ready to list. Shortlisted completions and profiles sent from Self complete land here.",
     icon: Clock3,
     countKey: "pending",
     badgeClassName: "bg-sky-100 text-sky-700",
@@ -126,9 +126,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
   {
     value: "listed",
     label: "Listed",
-    description:
-      "Approved and complete — live on the marketplace for brands.",
-    icon: Globe,
+    description: "Listed after review — live on the marketplace for brands.",    icon: Globe,
     countKey: "listed",
     badgeClassName: "bg-violet-100 text-violet-700",
   },
@@ -185,13 +183,15 @@ export function getAdminCreatorEmptyMessage(
   const profileFirst = isProfileFirstOnboardingMode();
 
   switch (segment) {
+    case "self_completed":
+      return "No self complete profiles waiting to be sent to Awaiting review.";
     case "pending":
       return profileFirst
-        ? "No profiles awaiting review at the moment."
+        ? "No profiles in Awaiting review. List a creator from here after review."
         : "No pending applications at the moment.";
     case "listed":
       return profileFirst
-        ? "No listed creators yet. Approve a completed profile and it will appear here."
+        ? "No listed creators yet. List a profile from Awaiting review and it will appear here."
         : "No listed creators on the marketplace yet.";
     case "approved":
       return "No approved creators yet.";
@@ -205,8 +205,6 @@ export function getAdminCreatorEmptyMessage(
         : "No approved creators with incomplete profiles at the moment.";
     case "shortlisted":
       return "No shortlisted creators yet.";
-    case "self_completed":
-      return "No self completed profiles waiting to be sent for review.";
     case "featured":
       return "No featured creators yet. Feature a listed creator to pin them to the top of browse results.";
     default:

@@ -1052,6 +1052,9 @@ model CreatorApproval {
   approvedById    String?        @db.Uuid
   approvedAt      DateTime?
   rejectionReason String?
+  // True while Sakshi has this creator on the shortlist. Cleared on unshortlist
+  // so a later go-live lands in Self complete instead of skipping the queue.
+  wasShortlisted  Boolean        @default(false)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

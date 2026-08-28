@@ -11,6 +11,51 @@ import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode'
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 
 /**
+ * Where a creator lands when their profile is (or becomes) complete.
+ *
+ *   SHORTLISTED → PENDING (Awaiting review) — even if they already completed,
+ *     so a backfill that latched completeProfile cannot leave them shortlisted
+ *     or dump them into Self complete.
+ *   PENDING → SELF_COMPLETED on the first completion only, and only in
+ *     profile_first. Approval_first keeps a single PENDING review queue.
+ */
+export function nextApprovalStatusOnCompletion({
+  wasComplete,
+  completeProfile,
+  currentStatus,
+  wasShortlisted,
+  profileFirst,
+}: {
+  wasComplete: boolean;
+  completeProfile: boolean;
+  currentStatus: ApprovalStatus | undefined;
+  wasShortlisted: boolean;
+  profileFirst: boolean;
+}): ApprovalStatus | null {
+  if (!completeProfile) return null;
+  // Shortlisted (now or still flagged) skip Self complete and wait in
+  // Awaiting review. Unshortlist clears wasShortlisted so they can land in
+  // Self complete like anyone else from Building profile.
+  if (currentStatus === ApprovalStatus.SHORTLISTED) {
+    return ApprovalStatus.PENDING;
+  }
+  if (
+    wasShortlisted &&
+    currentStatus === ApprovalStatus.SELF_COMPLETED
+  ) {
+    return ApprovalStatus.PENDING;
+  }
+  if (
+    !wasComplete &&
+    currentStatus === ApprovalStatus.PENDING &&
+    profileFirst
+  ) {
+    return ApprovalStatus.SELF_COMPLETED;
+  }
+  return null;
+}
+
+/**
  * Single source of truth for the `completeProfile` latch and the derived
  * `isListed` discovery gate. Every write that can affect either flag
  * (profile edits, portfolio video creation, approval changes) calls this so the
@@ -57,7 +102,7 @@ export async function recomputeCreatorListingState(
       shippingAddress: true,
       completeProfile: true,
       isListed: true,
-      creatorApproval: { select: { status: true } },
+      creatorApproval: { select: { status: true, wasShortlisted: true } },
       facetSelections: {
         select: { rank: true, option: { select: { dimension: true } } },
       },
@@ -145,44 +190,24 @@ export async function recomputeCreatorListingState(
     completeProfile = complete;
   }
 
-  // On the false -> true completion transition the approval status may advance,
-  // and where it lands depends on whether an admin has already vetted them:
-  //
-  //   SHORTLISTED -> PENDING         (Awaiting review — admin already picked them)
-  //   PENDING     -> SELF_COMPLETED  (Self complete — needs "Send for review")
-  //
-  // Either way it is silent: no email is sent on these transitions.
-  if (!wasComplete && completeProfile) {
-    const nextStatus =
-      profile.creatorApproval?.status === ApprovalStatus.SHORTLISTED
-        ? ApprovalStatus.PENDING
-        : profile.creatorApproval?.status === ApprovalStatus.PENDING &&
-            isProfileFirstOnboardingMode(process.env.CREATOR_ONBOARDING_MODE)
-          ? // approval_first keeps PENDING as the single review queue, so the
-            // Self complete gate only exists in profile_first.
-            ApprovalStatus.SELF_COMPLETED
-          : null;
-
-    if (nextStatus) {
-      const now = new Date();
-      await client.creatorApproval.update({
-        where: { creatorId: creatorProfileId },
-        data: {
-          status: nextStatus,
-          rejectionReason: null,
-          ...(nextStatus === ApprovalStatus.SELF_COMPLETED
-            ? { approvedAt: now }
-            : {}),
-        },
-      });
-      profile.creatorApproval = { status: nextStatus };
-    }
-  }
+  const currentStatus = profile.creatorApproval?.status;
+  const nextStatus = nextApprovalStatusOnCompletion({
+    wasComplete,
+    completeProfile,
+    currentStatus,
+    wasShortlisted: profile.creatorApproval?.wasShortlisted === true,
+    profileFirst: isProfileFirstOnboardingMode(
+      process.env.CREATOR_ONBOARDING_MODE,
+    ),
+  });
 
   const isListed =
-    profile.creatorApproval?.status === ApprovalStatus.APPROVED &&
+    (nextStatus ?? currentStatus) === ApprovalStatus.APPROVED &&
     completeProfile;
 
+  // Latch completeProfile before flipping approval so a concurrent Go Live
+  // cannot read PENDING + still-incomplete and shove a shortlisted creator
+  // into Self complete.
   if (
     completeProfile !== profile.completeProfile ||
     isListed !== profile.isListed
@@ -191,6 +216,23 @@ export async function recomputeCreatorListingState(
       where: { id: creatorProfileId },
       data: { completeProfile, isListed },
     });
+  }
+
+  if (nextStatus && nextStatus !== currentStatus) {
+    await client.creatorApproval.updateMany({
+      where: {
+        creatorId: creatorProfileId,
+        ...(currentStatus ? { status: currentStatus } : {}),
+      },
+      data: {
+        status: nextStatus,
+        rejectionReason: null,
+        ...(nextStatus === ApprovalStatus.SELF_COMPLETED
+          ? { approvedAt: new Date() }
+          : {}),
+      },
+    });
+    profile.creatorApproval = { status: nextStatus };
   }
 
   const becameListed = !profile.isListed && isListed;

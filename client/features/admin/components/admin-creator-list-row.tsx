@@ -548,7 +548,13 @@ export function AdminCreatorListRow({
                     onClick={handleApprove}
                     disabled={isWorking}
                   >
-                    {isApproving ? "Approving…" : "Approve"}
+                    {isApproving
+                      ? profileFirst
+                        ? "Listing…"
+                        : "Approving…"
+                      : profileFirst
+                        ? "List"
+                        : "Approve"}
                   </Button>
                 </>
               ) : null}

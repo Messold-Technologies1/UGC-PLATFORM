@@ -68,7 +68,10 @@ import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
-import { getCreatorOnboardingMode } from '../config/creator-onboarding-mode';
+import {
+  getCreatorOnboardingMode,
+  isProfileFirstOnboardingMode,
+} from '../config/creator-onboarding-mode';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
@@ -1529,17 +1532,37 @@ export class CreatorProfileService {
         base.approvalStatus === ApprovalStatus.REJECTED
           ? (profile.creatorApproval?.approvedAt ?? null)
           : null,
-      approvedAt:
-        base.approvalStatus === ApprovalStatus.APPROVED ||
-        base.approvalStatus === ApprovalStatus.SHORTLISTED ||
-        base.approvalStatus === ApprovalStatus.SELF_COMPLETED
-          ? (profile.creatorApproval?.approvedAt ?? null)
-          : null,
+      approvedAt: this.mapAdminListApprovedAt(
+        base.approvalStatus,
+        profile.creatorApproval,
+      ),
       avgRating: profile.stats?.avgRating?.toString() ?? null,
       reviewCount: profile.stats?.reviewCount ?? 0,
       startingPrice: startingPkg?.priceAmount?.toString?.() ?? null,
       onLocationAvailable: !!profile.onLocationAvailable,
     };
+  }
+
+  /**
+   * Date shown in the admin list. Self-completed rows often have a null
+   * approvedAt (we only started stamping it on the completion flip later),
+   * so fall back to when the approval row last changed — that's when they
+   * actually landed in this segment.
+   */
+  private mapAdminListApprovedAt(
+    status: ApprovalStatus,
+    approval: { approvedAt?: Date | null; updatedAt?: Date | null } | null,
+  ): Date | null {
+    if (
+      status === ApprovalStatus.APPROVED ||
+      status === ApprovalStatus.SHORTLISTED
+    ) {
+      return approval?.approvedAt ?? null;
+    }
+    if (status === ApprovalStatus.SELF_COMPLETED) {
+      return approval?.approvedAt ?? approval?.updatedAt ?? null;
+    }
+    return null;
   }
 
   private async getAdminCreatorListItemById(
@@ -1578,8 +1601,7 @@ export class CreatorProfileService {
         ? [{ createdAt: 'asc' }]
         : query.segment === AdminCreatorListSegment.NON_APPROVED
           ? [{ creatorApproval: { approvedAt: 'desc' } }]
-          : query.segment === AdminCreatorListSegment.SHORTLISTED ||
-              query.segment === AdminCreatorListSegment.SELF_COMPLETED
+          : query.segment === AdminCreatorListSegment.SHORTLISTED
             ? [
                 {
                   creatorApproval: {
@@ -1588,7 +1610,16 @@ export class CreatorProfileService {
                 },
                 { createdAt: 'desc' },
               ]
-            : [{ createdAt: 'desc' }];
+            : query.segment === AdminCreatorListSegment.SELF_COMPLETED
+              ? // Sort by when they actually completed (approval row updates on
+                // the PENDING -> SELF_COMPLETED flip). approvedAt is often null
+                // for older self-completes, so using it left Aug signups under
+                // Jul rows that happened to have a leftover approvedAt.
+                [
+                  { creatorApproval: { updatedAt: 'desc' } },
+                  { createdAt: 'desc' },
+                ]
+              : [{ createdAt: 'desc' }];
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
@@ -2026,8 +2057,23 @@ export class CreatorProfileService {
 
     if (profile.creatorApproval?.status === ApprovalStatus.SELF_COMPLETED) {
       throw new BadRequestException(
-        'Self completed profiles must be sent for review before they can be approved',
+        'Self completed profiles must be sent for review before they can be listed',
       );
+    }
+
+    if (
+      isProfileFirstOnboardingMode(process.env.CREATOR_ONBOARDING_MODE)
+    ) {
+      const status = profile.creatorApproval?.status;
+      const canListFromReview =
+        status === ApprovalStatus.PENDING && profile.completeProfile;
+      const canListFromRejected =
+        status === ApprovalStatus.REJECTED && profile.completeProfile;
+      if (!canListFromReview && !canListFromRejected) {
+        throw new BadRequestException(
+          'Only profiles in Awaiting review can be listed',
+        );
+      }
     }
 
     await this.prisma.creatorApproval.upsert({
@@ -2117,12 +2163,14 @@ export class CreatorProfileService {
         status: ApprovalStatus.SHORTLISTED,
         approvedById: adminUserId,
         approvedAt: new Date(),
+        wasShortlisted: true,
       },
       update: {
         status: ApprovalStatus.SHORTLISTED,
         approvedById: adminUserId,
         approvedAt: new Date(),
         rejectionReason: null,
+        wasShortlisted: true,
       },
     });
 
@@ -2169,6 +2217,7 @@ export class CreatorProfileService {
         approvedById: adminUserId,
         approvedAt: new Date(),
         rejectionReason: null,
+        wasShortlisted: false,
       },
     });
 

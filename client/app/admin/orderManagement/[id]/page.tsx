@@ -463,6 +463,16 @@ export default function AdminOrderDetailsPage() {
                       <h4 className="truncate text-xl font-bold leading-tight">
                         {brand.brandName?.trim() || "Unnamed Brand"}
                       </h4>
+                      {brand.contactFullName?.trim() ? (
+                        <p className="mt-1 truncate text-sm text-muted-foreground">
+                          {brand.contactFullName.trim()}
+                        </p>
+                      ) : null}
+                      {brand.contactEmail?.trim() ? (
+                        <p className="truncate text-sm text-muted-foreground">
+                          {brand.contactEmail.trim()}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </CardContent>

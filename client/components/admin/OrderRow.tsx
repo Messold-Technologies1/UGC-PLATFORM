@@ -95,11 +95,25 @@ export default function OrderRow({
               </p>
             </div>
             <div className="w-px h-6 bg-border/20 self-center"></div>
-            <div>
-              <p className="font-bold text-muted-foreground text-xs leading-tight">
+            <div className="min-w-0">
+              <p className="font-bold text-muted-foreground text-xs leading-tight truncate">
                 {brandLabel}
               </p>
-              <p className="text-[10px] text-muted-foreground/60">Brand</p>
+              {brand.contactFullName?.trim() ? (
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {brand.contactFullName.trim()}
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground/60">Brand</p>
+              )}
+              {brand.contactEmail?.trim() ? (
+                <p
+                  className="text-[10px] text-muted-foreground/80 truncate"
+                  title={brand.contactEmail.trim()}
+                >
+                  {brand.contactEmail.trim()}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

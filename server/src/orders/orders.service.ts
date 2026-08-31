@@ -72,6 +72,15 @@ const orderBrandSnapshotSelect = {
   logoUrl: true,
 } as Prisma.BrandProfileSelect;
 
+const adminOrderBrandSnapshotSelect = {
+  id: true,
+  brandName: true,
+  logoUrl: true,
+  contactFullName: true,
+  contactEmail: true,
+  user: { select: { name: true, email: true } },
+} as Prisma.BrandProfileSelect;
+
 /**
  * The brand must not see the creator's real identity anywhere in the order
  * flow. Both brand-facing order snapshots (details + list) expose this generic
@@ -84,6 +93,8 @@ type OrderBrandSnapshotDto = {
   id: string;
   brandName: string | null;
   logoUrl: string | null;
+  contactFullName?: string | null;
+  contactEmail?: string | null;
 };
 
 function toOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
@@ -92,6 +103,23 @@ function toOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
     id: b.id,
     brandName: b.brandName ?? null,
     logoUrl: b.logoUrl ?? null,
+  };
+}
+
+function toAdminOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
+  const b = brand as OrderBrandSnapshotDto & {
+    user?: { name?: string | null; email?: string | null } | null;
+  };
+  const contactFullName =
+    b.contactFullName?.trim() || b.user?.name?.trim() || null;
+  const contactEmail =
+    b.contactEmail?.trim() || b.user?.email?.trim() || null;
+  return {
+    id: b.id,
+    brandName: b.brandName ?? null,
+    logoUrl: b.logoUrl ?? null,
+    contactFullName,
+    contactEmail,
   };
 }
 
@@ -2966,7 +2994,7 @@ export class OrdersService {
           },
         },
         brand: {
-          select: orderBrandSnapshotSelect,
+          select: adminOrderBrandSnapshotSelect,
         },
       },
     });
@@ -3046,7 +3074,7 @@ export class OrdersService {
         profileImageUrl: creator.profileImageUrl ?? null,
         city: creator.city ?? null,
       },
-      brand: toOrderBrandSnapshotDto(brand),
+      brand: toAdminOrderBrandSnapshotDto(brand),
     };
   }
 
@@ -3254,7 +3282,7 @@ export class OrdersService {
             },
           },
           brand: {
-            select: orderBrandSnapshotSelect,
+            select: adminOrderBrandSnapshotSelect,
           },
         },
       }),
@@ -3271,7 +3299,7 @@ export class OrdersService {
           profileImageUrl: creator.profileImageUrl ?? null,
           city: creator.city ?? null,
         },
-        brand: toOrderBrandSnapshotDto(brand),
+        brand: toAdminOrderBrandSnapshotDto(brand),
       };
     });
 

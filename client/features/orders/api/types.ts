@@ -16,6 +16,8 @@ export interface OrderBrandSnapshot {
   id: string;
   brandName: string | null;
   logoUrl?: string | null;
+  contactFullName?: string | null;
+  contactEmail?: string | null;
 }
 
 export interface OrderListSummary {

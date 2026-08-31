@@ -407,4 +407,21 @@ export class OrderRealtimeNotifier {
       resolutionNotes: params.resolutionNotes ?? null,
     });
   }
+
+  /**
+   * Order cancelled — either the creator rejected the submitted brief or the
+   * brand cancelled before acceptance. Both paths move the order to REJECTED,
+   * so both parties should leave the acceptance UI and see the cancelled stage.
+   */
+  async emitOrderCancelled(params: {
+    orderId: string;
+    cancelledBy: 'BRAND' | 'CREATOR';
+    reason?: string | null;
+  }): Promise<void> {
+    await this.emitToBrandAndCreator(params.orderId, 'order.cancelled', {
+      orderId: params.orderId,
+      cancelledBy: params.cancelledBy,
+      reason: params.reason ?? null,
+    });
+  }
 }

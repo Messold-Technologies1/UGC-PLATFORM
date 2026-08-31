@@ -98,6 +98,9 @@ export const ENDPOINTS = {
     SUBMIT_BRIEF: (id: string) => `/api/orders/${encodeURIComponent(id)}/brief`,
     ACCEPT_BRIEF: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/brief/accept`,
+    REJECT_BRIEF: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/brief/reject`,
+    CANCEL: (id: string) => `/api/orders/${encodeURIComponent(id)}/cancel`,
     PRODUCT_SHIPMENT: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/product-shipment`,
     PRODUCT_RECEIVED: (id: string) =>

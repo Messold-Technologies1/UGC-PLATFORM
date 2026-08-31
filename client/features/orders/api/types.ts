@@ -41,6 +41,15 @@ export interface OrderListSummary {
   updatedAt: string;
   expectedAmountPaise?: number;
   refundedAt?: string | null;
+  /**
+   * Reason captured when the creator rejected the brief or the brand cancelled
+   * the order before acceptance (both set status = REJECTED).
+   */
+  cancellationReason?: string | null;
+  /** When the order was rejected/cancelled. */
+  cancelledAt?: string | null;
+  /** Who ended the order early: "BRAND" (cancelled) or "CREATOR" (rejected). */
+  cancelledBy?: string | null;
   /** When the latest dispute was opened — use for "Disputed on". */
   disputeOpenedAt?: string | null;
   /** When the latest dispute was resolved — use for "Rejected on". */

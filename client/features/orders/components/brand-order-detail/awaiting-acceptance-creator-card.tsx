@@ -53,7 +53,7 @@ export function AwaitingAcceptanceCreatorCard({
   } else if (isAwaitingAcceptance) {
     infoMessage = `${firstName} will review your brief and accept or decline the project. If she accepts, you can proceed to the next steps.`;
   } else if (isPendingBrief) {
-    infoMessage = `Submit your brief to start the acceptance window. Once submitted, ${firstName} will have 48 hours to review and accept the project.`;
+    infoMessage = `Submit your brief so ${firstName} can review and accept the project.`;
   } else if (isAccepted) {
     infoMessage = `${firstName} has accepted your project. You can now chat and coordinate on deliverables.`;
   }

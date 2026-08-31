@@ -30,6 +30,8 @@ import { CreateBulkCheckoutDto } from './dto/create-bulk-checkout.dto';
 import { BulkCheckoutResponseDto } from './dto/bulk-checkout-response.dto';
 import { OrdersService } from './orders.service';
 import { SubmitBriefDto } from './dto/submit-brief.dto';
+import { RejectBriefDto } from './dto/reject-brief.dto';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { OpenDisputeDto } from './dto/open-dispute.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
@@ -285,6 +287,50 @@ export class OrdersController {
     return this.ordersService.acceptBrief({
       creatorUserId: req.user.id,
       orderId: id,
+    });
+  }
+
+  @Post(':id/brief/reject')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Creator rejects the brand-submitted brief with a required note (order moves to REJECTED; both parties are emailed the note)',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiNoContentResponse({ description: 'Brief rejected' })
+  async rejectBrief(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectBriefDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.rejectBrief({
+      creatorUserId: req.user.id,
+      orderId: id,
+      note: dto.note,
+    });
+  }
+
+  @Post(':id/cancel')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Brand cancels the order before the creator accepts (allowed while BRIEF_SUBMISSION_PENDING or BRIEF_SUBMITTED); requires a note; both parties are emailed',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiNoContentResponse({ description: 'Order cancelled' })
+  async cancelOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelOrderDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.cancelOrderByBrand({
+      ...brandActorParams(req),
+      orderId: id,
+      note: dto.note,
     });
   }
 

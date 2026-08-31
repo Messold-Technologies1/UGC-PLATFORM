@@ -303,6 +303,80 @@ export class OrderMailNotifier {
     });
   }
 
+  /**
+   * Creator rejected the submitted brief with a note. Mail BOTH parties so the
+   * brand learns the order was declined (and why) and the creator gets a record.
+   */
+  notifyBriefRejectedByCreator(orderId: string, note: string): void {
+    void this.run('brief_rejected_by_creator', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      const base: Record<string, string> = {
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        rejectionNote: note.trim(),
+      };
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_BRAND,
+        {
+          ...base,
+          creatorName: order.creator.displayName,
+          actionUrl: this.brandOrderUrl(order.id),
+        },
+      );
+
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_CREATOR,
+        {
+          ...base,
+          brandName: this.brandDisplayName(order.brand),
+          actionUrl: this.creatorOrderUrl(order.id),
+        },
+      );
+    });
+  }
+
+  /**
+   * Brand cancelled the order before the creator accepted, with a note. Mail
+   * BOTH parties so the creator knows the order was pulled (and why).
+   */
+  notifyOrderCancelledByBrand(orderId: string, note: string): void {
+    void this.run('order_cancelled_by_brand', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      const base: Record<string, string> = {
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        cancellationNote: note.trim(),
+      };
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_CANCELLED_FOR_BRAND,
+        {
+          ...base,
+          creatorName: order.creator.displayName,
+          actionUrl: this.brandOrderUrl(order.id),
+        },
+      );
+
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_CANCELLED_FOR_CREATOR,
+        {
+          ...base,
+          brandName: this.brandDisplayName(order.brand),
+          actionUrl: this.creatorOrderUrl(order.id),
+        },
+      );
+    });
+  }
+
   notifyOrderRefunded(orderId: string, refundedAt: Date): void {
     void this.run('order_refunded', async () => {
       const order = await this.loadOrder(orderId);

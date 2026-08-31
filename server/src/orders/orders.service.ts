@@ -1213,6 +1213,117 @@ export class OrdersService {
     };
   }
 
+  /**
+   * Creator rejects the brand-submitted brief. Only allowed while the order is
+   * awaiting acceptance (BRIEF_SUBMITTED). Moves the order to REJECTED (the
+   * existing refund path — an admin issues the Razorpay refund afterwards),
+   * records the reason, and emails both parties with the note.
+   */
+  async rejectBrief(params: {
+    creatorUserId: string;
+    orderId: string;
+    note: string;
+  }): Promise<void> {
+    const note = params.note?.trim();
+    if (!note) {
+      throw new BadRequestException('A rejection note is required');
+    }
+
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, creatorId: true, status: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
+    if (String(order.status) !== 'BRIEF_SUBMITTED') {
+      throw new BadRequestException('Order is not awaiting brief acceptance');
+    }
+
+    const now = new Date();
+    await this.updateOrder({
+      where: { id: order.id },
+      data: {
+        status: 'REJECTED',
+        cancellationReason: note,
+        cancelledAt: now,
+        cancelledBy: 'CREATOR',
+      },
+    });
+
+    await this.orderRealtime.emitOrderCancelled({
+      orderId: order.id,
+      cancelledBy: 'CREATOR',
+      reason: note,
+    });
+
+    this.orderMail.notifyBriefRejectedByCreator(order.id, note);
+  }
+
+  /**
+   * Brand cancels the order before the creator accepts — allowed while the
+   * brief has not been submitted yet (BRIEF_SUBMISSION_PENDING) or has been
+   * submitted but not yet accepted (BRIEF_SUBMITTED). Moves the order to
+   * REJECTED (refund handled by an admin afterwards), records the reason, and
+   * emails both parties with the note.
+   */
+  async cancelOrderByBrand(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    orderId: string;
+    note: string;
+  }): Promise<void> {
+    const note = params.note?.trim();
+    if (!note) {
+      throw new BadRequestException('A cancellation note is required');
+    }
+
+    const { brand } = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, brandId: true, status: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.brandId !== brand.id)
+      throw new ForbiddenException('Not your order');
+
+    const cancellableStatuses = ['BRIEF_SUBMISSION_PENDING', 'BRIEF_SUBMITTED'];
+    if (!cancellableStatuses.includes(String(order.status))) {
+      throw new BadRequestException(
+        'Order can only be cancelled before the creator accepts the brief',
+      );
+    }
+
+    const now = new Date();
+    await this.updateOrder({
+      where: { id: order.id },
+      data: {
+        status: 'REJECTED',
+        cancellationReason: note,
+        cancelledAt: now,
+        cancelledBy: 'BRAND',
+      },
+    });
+
+    await this.orderRealtime.emitOrderCancelled({
+      orderId: order.id,
+      cancelledBy: 'BRAND',
+      reason: note,
+    });
+
+    this.orderMail.notifyOrderCancelledByBrand(order.id, note);
+  }
+
   async markProductShipped(params: {
     actorUserId: string;
     brandProfileId?: string | null;
@@ -2225,6 +2336,9 @@ export class OrdersService {
     createdAt: Date;
     updatedAt: Date;
     refundedAt?: Date | null;
+    cancellationReason?: string | null;
+    cancelledAt?: Date | null;
+    cancelledBy?: string | null;
     disputes?: Array<{ openedAt: Date; resolvedAt: Date | null }>;
   }): OrderListSummaryDto {
     const hasBrief = order.briefSubmittedAt != null;
@@ -2248,6 +2362,9 @@ export class OrdersService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       refundedAt: order.refundedAt ?? null,
+      cancellationReason: order.cancellationReason ?? null,
+      cancelledAt: order.cancelledAt ?? null,
+      cancelledBy: order.cancelledBy ?? null,
       disputeOpenedAt: latestDispute?.openedAt ?? null,
       disputeResolvedAt: latestDispute?.resolvedAt ?? null,
     };
@@ -2282,6 +2399,9 @@ export class OrdersService {
     creatorPaidAt: Date | null;
     revisionCount: number;
     refundedAt: Date | null;
+    cancellationReason?: string | null;
+    cancelledAt?: Date | null;
+    cancelledBy?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): OrderDetailsPublicDto {
@@ -2336,6 +2456,9 @@ export class OrdersService {
       creatorPaidAt: order.creatorPaidAt,
       revisionCount: order.revisionCount,
       refundedAt: order.refundedAt,
+      cancellationReason: order.cancellationReason ?? null,
+      cancelledAt: order.cancelledAt ?? null,
+      cancelledBy: order.cancelledBy ?? null,
       // Extra-revisions purchase info. Unit price is resolved only on the brand
       // details path (below); other viewers keep the null default.
       revisionsPerPurchase: REVISIONS_PER_ADDON,
@@ -2441,6 +2564,9 @@ export class OrdersService {
         creatorPaidAt: true,
         revisionCount: true,
         refundedAt: true,
+        cancellationReason: true,
+        cancelledAt: true,
+        cancelledBy: true,
         createdAt: true,
         updatedAt: true,
         creator: {
@@ -2594,6 +2720,9 @@ export class OrdersService {
         creatorPaidAt: true,
         revisionCount: true,
         refundedAt: true,
+        cancellationReason: true,
+        cancelledAt: true,
+        cancelledBy: true,
         createdAt: true,
         updatedAt: true,
         brand: {
@@ -2802,6 +2931,9 @@ export class OrdersService {
         razorpayPaymentId: true,
         razorpayRefundId: true,
         refundedAt: true,
+        cancellationReason: true,
+        cancelledAt: true,
+        cancelledBy: true,
         createdAt: true,
         updatedAt: true,
         revisionPurchases: {
@@ -2963,6 +3095,9 @@ export class OrdersService {
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
+          cancellationReason: true,
+          cancelledAt: true,
+          cancelledBy: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
@@ -3043,6 +3178,9 @@ export class OrdersService {
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
+          cancellationReason: true,
+          cancelledAt: true,
+          cancelledBy: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
@@ -3098,6 +3236,9 @@ export class OrdersService {
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
+          cancellationReason: true,
+          cancelledAt: true,
+          cancelledBy: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,

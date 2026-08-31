@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Circle, Clock } from "lucide-react";
+import { Check, Circle, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OrderDetailsPublic } from "../../api/types";
 
@@ -14,7 +14,7 @@ interface TimelineEvent {
   description: string;
   date: string | null;
   status: "completed" | "active" | "pending";
-  color: "green" | "purple" | "orange" | "gray";
+  color: "green" | "purple" | "orange" | "gray" | "red";
 }
 
 function formatEventDate(value?: string | null) {
@@ -136,7 +136,6 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
     "REVISION_SUBMITTED",
     "ACCEPTED",
     "CREATOR_PAYMENT_DONE",
-    "REFUNDED",
   ].includes(effectiveStatus);
   events.push({
     key: "in_progress",
@@ -173,7 +172,40 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
     color: isCompleted ? "green" : "gray",
   });
 
-  return events;
+  const isCancelled =
+    order.status === "REJECTED" || order.status === "REFUNDED";
+  if (!isCancelled) return events;
+
+  const cancelledByCreator = order.cancelledBy === "CREATOR";
+  const cancelledEvent: TimelineEvent = {
+    key: "cancelled",
+    title: "Cancelled",
+    description: cancelledByCreator
+      ? "The creator rejected this order."
+      : order.cancelledBy === "BRAND"
+        ? "You cancelled this order."
+        : "This order was cancelled.",
+    date: formatEventDate(
+      order.cancelledAt ?? order.refundedAt ?? order.updatedAt,
+    ),
+    status: "active",
+    color: "red",
+  };
+
+  let lastCompleted = -1;
+  const normalized = events.map((event, index) => {
+    if (event.status === "completed") lastCompleted = index;
+    if (event.status === "active") {
+      return { ...event, status: "pending" as const, color: "gray" as const };
+    }
+    return event;
+  });
+
+  return [
+    ...normalized.slice(0, lastCompleted + 1),
+    cancelledEvent,
+    ...normalized.slice(lastCompleted + 1),
+  ];
 }
 
 const DOT_COLORS = {
@@ -181,6 +213,7 @@ const DOT_COLORS = {
   purple: "bg-primary border-primary/20",
   orange: "bg-amber-500 border-amber-200 dark:border-amber-500/30",
   gray: "bg-muted-foreground/30 border-border",
+  red: "bg-red-500 border-red-200 dark:border-red-500/30",
 };
 
 const LINE_COLORS = {
@@ -188,10 +221,12 @@ const LINE_COLORS = {
   purple: "bg-primary",
   orange: "bg-amber-500",
   gray: "bg-border",
+  red: "bg-red-500",
 };
 
 export function OrderActivityTimeline({ order }: OrderActivityTimelineProps) {
   const events = buildTimelineEvents(order);
+  const isTerminal = events.some((event) => event.key === "cancelled");
 
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm">
@@ -203,11 +238,13 @@ export function OrderActivityTimeline({ order }: OrderActivityTimelineProps) {
         {events.map((event, index) => {
           const isLast = index === events.length - 1;
           const Icon =
-            event.status === "completed"
-              ? Check
-              : event.status === "active"
-                ? Clock
-                : Circle;
+            event.key === "cancelled"
+              ? X
+              : event.status === "completed"
+                ? Check
+                : event.status === "active"
+                  ? Clock
+                  : Circle;
 
           return (
             <div key={event.key} className="flex gap-4 relative">
@@ -238,22 +275,31 @@ export function OrderActivityTimeline({ order }: OrderActivityTimelineProps) {
                   <p
                     className={cn(
                       "text-sm font-semibold",
-                      event.status === "pending"
-                        ? "text-muted-foreground"
-                        : "text-foreground",
+                      event.key === "cancelled"
+                        ? "text-red-600 dark:text-red-400"
+                        : event.status === "pending"
+                          ? "text-muted-foreground"
+                          : "text-foreground",
                     )}
                   >
                     {event.title}
                   </p>
                   {event.date ? (
-                    <span className="text-xs text-muted-foreground">
+                    <span
+                      className={cn(
+                        "text-xs",
+                        event.key === "cancelled"
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-muted-foreground",
+                      )}
+                    >
                       {event.date}
                     </span>
                   ) : event.status === "active" ? (
                     <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
                       Current step
                     </span>
-                  ) : event.status === "pending" ? (
+                  ) : event.status === "pending" && !isTerminal ? (
                     <span className="text-xs text-muted-foreground italic">
                       Up next
                     </span>

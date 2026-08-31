@@ -12,6 +12,7 @@ import {
   RotateCcw,
   FileVideo,
   AlertTriangle,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -31,6 +32,7 @@ interface StepDefinition {
   statusMatch: string[];
   revisionStep?: boolean;
   disputeStep?: boolean;
+  cancelledStep?: boolean;
   getHref?: (orderId: string) => string;
 }
 
@@ -41,6 +43,17 @@ const DISPUTE_STEP: StepDefinition = {
   getDate: (order) => order.dispute?.openedAt ?? null,
   statusMatch: ["DISPUTED"],
   disputeStep: true,
+  getHref: (orderId) => `/brand/orders/${orderId}`,
+};
+
+const CANCELLED_STEP: StepDefinition = {
+  label: "Cancelled",
+  icon: XCircle,
+  dateKey: null,
+  getDate: (order) =>
+    order.cancelledAt ?? order.refundedAt ?? order.updatedAt,
+  statusMatch: ["REJECTED", "REFUNDED"],
+  cancelledStep: true,
   getHref: (orderId) => `/brand/orders/${orderId}`,
 };
 
@@ -139,10 +152,52 @@ function getPreDisputeStatus(order: OrderDetailsPublic): string {
   return "BRIEF_SUBMITTED";
 }
 
+function getLastReachedStatus(order: OrderDetailsPublic): string {
+  if (order.deliveredAt) {
+    if (order.revisionCount > 0 && order.currentRevision) {
+      return "REVISION_SUBMITTED";
+    }
+    return "DELIVERED";
+  }
+  if (order.requiresPhysicalProductShipment) {
+    if (order.productReceivedAt) return "PRODUCT_RECEIVED";
+    if (order.dispatchedAt) return "PRODUCT_SHIPPED";
+    if (order.briefAcceptedAt) return "BRIEF_ACCEPTED";
+  } else if (order.briefAcceptedAt) {
+    return "BRIEF_ACCEPTED";
+  }
+  if (order.briefSubmittedAt) return "BRIEF_SUBMISSION_PENDING";
+  return "PENDING_PAYMENT";
+}
+
+function insertTerminalStep(
+  baseSteps: StepDefinition[],
+  order: OrderDetailsPublic,
+  terminalStep: StepDefinition,
+): StepDefinition[] {
+  const preStatus = getLastReachedStatus(order);
+  let insertAfter = baseSteps.findIndex((step) =>
+    step.statusMatch.includes(preStatus),
+  );
+  if (insertAfter < 0) {
+    const completedIdx = baseSteps.findIndex((step) => step.label === "Completed");
+    insertAfter = completedIdx > 0 ? completedIdx - 1 : Math.max(0, baseSteps.length - 1);
+  }
+  return [
+    ...baseSteps.slice(0, insertAfter + 1),
+    terminalStep,
+    ...baseSteps.slice(insertAfter + 1),
+  ];
+}
+
 function getActiveStepIndex(order: OrderDetailsPublic, steps: StepDefinition[]): number {
   if (order.status === "DISPUTED") {
     const disputeIndex = steps.findIndex((step) => step.disputeStep);
     if (disputeIndex >= 0) return disputeIndex;
+  }
+  if (order.status === "REJECTED" || order.status === "REFUNDED") {
+    const cancelledIndex = steps.findIndex((step) => step.cancelledStep);
+    if (cancelledIndex >= 0) return cancelledIndex;
   }
 
   const effectiveStatus = order.status;
@@ -152,7 +207,7 @@ function getActiveStepIndex(order: OrderDetailsPublic, steps: StepDefinition[]):
       return i;
     }
   }
-  if (["ACCEPTED", "CREATOR_PAYMENT_DONE", "REFUNDED"].includes(effectiveStatus))
+  if (["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(effectiveStatus))
     return steps.length;
   return 0;
 }
@@ -217,7 +272,7 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
       return step;
     });
 
-  // Insert "Disputed" right after the stage the order was in when it opened,
+  // Insert "Disputed" or "Cancelled" right after the last reached stage,
   // so earlier stages stay completed and later ones stay pending.
   let steps = baseSteps;
   if (order.status === "DISPUTED") {
@@ -231,10 +286,14 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
       DISPUTE_STEP,
       ...baseSteps.slice(insertAfter + 1),
     ];
+  } else if (order.status === "REJECTED" || order.status === "REFUNDED") {
+    steps = insertTerminalStep(baseSteps, order, CANCELLED_STEP);
   }
   
   const activeIndex = getActiveStepIndex(order, steps);
   const isDisputed = order.status === "DISPUTED";
+  const isCancelled =
+    order.status === "REJECTED" || order.status === "REFUNDED";
 
   return (
     <div className="rounded-lg  bg-card p-6 md:p-8 overflow-x-auto">
@@ -247,6 +306,8 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
           const isAwaitingPayment =
             order.status === "PENDING_PAYMENT" && index === 0;
           const isDisputeActive = isDisputed && isActive && Boolean(step.disputeStep);
+          const isCancelledActive =
+            isCancelled && isActive && Boolean(step.cancelledStep);
           const displayLabel = getStepDisplayLabel(step, order, index);
           const Icon = step.icon;
 
@@ -264,7 +325,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   isCompleted
                     ? "border-primary bg-primary text-primary-foreground"
                     : isActive
-                      ? isAwaitingPayment || isDisputeActive
+                      ? isCancelledActive
+                        ? "border-red-500 bg-red-500 text-white ring-4 ring-red-500/20"
+                        : isAwaitingPayment || isDisputeActive
                         ? "border-amber-500 bg-amber-50 text-amber-600 ring-4 ring-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
                         : "border-primary bg-primary/10 text-primary ring-4 ring-primary/20"
                       : "border-border bg-muted text-muted-foreground",
@@ -285,7 +348,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   isCompleted
                     ? "text-foreground"
                     : isActive
-                      ? "text-foreground font-semibold"
+                      ? isCancelledActive
+                        ? "text-red-600 font-semibold"
+                        : "text-foreground font-semibold"
                       : "text-muted-foreground",
                 )}
               >
@@ -296,11 +361,17 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                 <p className="mt-1 text-[10px] text-muted-foreground text-center">
                   {formatStepDate(dateValue)}
                 </p>
+              ) : isCancelledActive && dateValue ? (
+                <p className="mt-1 text-[10px] text-red-600/80 text-center">
+                  {formatStepDate(dateValue)}
+                </p>
               ) : isActive ? (
                 <span
                   className={cn(
                     "mt-1.5 text-[10px] font-semibold",
-                    isAwaitingPayment || isDisputeActive
+                    isCancelledActive
+                      ? "text-red-600"
+                      : isAwaitingPayment || isDisputeActive
                       ? "text-amber-600 dark:text-amber-400"
                       : "text-primary",
                   )}
@@ -309,7 +380,9 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                     ? "Payment pending"
                     : isDisputeActive
                       ? "Under review"
-                      : "Current step"}
+                      : isCancelledActive
+                        ? "Cancelled"
+                        : "Current step"}
                 </span>
               ) : isPending ? (
                 <span className="mt-1 h-3" />
@@ -330,13 +403,13 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                   <div
                     className={cn(
                       "h-full w-full",
-                      isPassed
-                        ? isDisputeActive || (isDisputed && index <= activeIndex)
-                          ? index === activeIndex
+                      !isPassed
+                        ? "bg-border"
+                        : isCancelled && index === activeIndex
+                          ? "bg-red-500"
+                          : isDisputed && index === activeIndex
                             ? "bg-amber-500"
-                            : "bg-primary"
-                          : "bg-primary"
-                        : "bg-border",
+                            : "bg-primary",
                     )}
                   />
                 </div>
@@ -360,7 +433,11 @@ export function OrderProgressStepper({ order, onStepClick, previewState }: Order
                       : "",
                   )}
                   onClick={() => {
-                    if (onStepClick && (isActive || isCompleted)) {
+                    if (
+                      onStepClick &&
+                      (isActive || isCompleted) &&
+                      !step.cancelledStep
+                    ) {
                       onStepClick(step.label);
                     }
                   }}

@@ -106,6 +106,8 @@ export function getDeliveryDeadlineCardMeta(
     acceptedAt?: string | null;
     updatedAt?: string | null;
     refundedAt?: string | null;
+    cancelledAt?: string | null;
+    cancelledBy?: string | null;
     disputeOpenedAt?: string | null;
     disputeResolvedAt?: string | null;
     dispute?: { openedAt?: string | null; resolvedAt?: string | null } | null;
@@ -140,10 +142,12 @@ export function getDeliveryDeadlineCardMeta(
   if (order.status === "REJECTED") {
     return {
       value:
+        formatDate(order.cancelledAt) ??
         formatDate(order.dispute?.resolvedAt) ??
         formatDate(order.disputeResolvedAt) ??
+        formatDate(order.updatedAt) ??
         "—",
-      label: "Rejected on",
+      label: order.cancelledBy === "BRAND" ? "Cancelled on" : "Rejected on",
       showBadge: false,
     };
   }

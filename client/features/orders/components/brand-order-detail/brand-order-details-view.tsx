@@ -365,7 +365,11 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
 
   return (
     <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
-      <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
+      <OrderPageHeader
+        orderId={orderId}
+        paidAt={order.paidAt}
+        status={order.status}
+      />
 
       <OrderProgressStepper
         order={order}

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Hourglass, Send } from "lucide-react";
+import { CheckCircle2, Hourglass, Send, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { OrderCreatorSnapshot, OrderDetailsPublic } from "../../api/types";
@@ -27,11 +27,36 @@ export function CreatorAcceptanceCard({
 }: CreatorAcceptanceCardProps) {
   const creatorName = creator?.displayName ?? "Creator";
 
+  const isCancelled =
+    order.status === "REJECTED" || order.status === "REFUNDED";
   const isAwaitingPayment = order.status === "PENDING_PAYMENT";
   const isAccepted = ACCEPTED_STATUSES.includes(order.status) || !!order.briefAcceptedAt;
   const isAwaitingAcceptance = order.status === "BRIEF_SUBMITTED" || (!!order.briefSubmittedAt && !order.briefAcceptedAt);
   const isPendingBrief =
-    !isAwaitingPayment && !isAwaitingAcceptance && !isAccepted;
+    !isCancelled && !isAwaitingPayment && !isAwaitingAcceptance && !isAccepted;
+
+  if (isCancelled) {
+    const rejectedByCreator = order.cancelledBy === "CREATOR";
+    return (
+      <div className="rounded-lg border border-red-200 dark:border-red-500/20 bg-red-50/50 dark:bg-red-500/5 p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400">
+            <XCircle className="size-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-foreground">
+              {rejectedByCreator ? "Order rejected" : "Order cancelled"}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {rejectedByCreator
+                ? `${creatorName} declined this order. Any amount paid will be refunded.`
+                : "This order has been cancelled. Any amount paid will be refunded."}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isAccepted) {
     return (

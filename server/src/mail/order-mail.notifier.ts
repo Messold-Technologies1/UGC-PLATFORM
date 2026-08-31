@@ -323,7 +323,6 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_BRAND,
         {
           ...base,
-          creatorName: order.creator.displayName,
           actionUrl: this.brandOrderUrl(order.id),
         },
       );

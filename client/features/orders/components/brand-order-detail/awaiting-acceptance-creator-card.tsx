@@ -40,14 +40,21 @@ export function AwaitingAcceptanceCreatorCard({
     "ACCEPTED",
     "CREATOR_PAYMENT_DONE",
   ];
+  const isCancelled =
+    order.status === "REJECTED" || order.status === "REFUNDED";
   const isAwaitingPayment = order.status === "PENDING_PAYMENT";
   const isAwaitingAcceptance = order.status === "BRIEF_SUBMITTED";
   const isAccepted = ACCEPTED_STATUSES.includes(order.status);
   const isPendingBrief =
-    !isAwaitingPayment && !isAwaitingAcceptance && !isAccepted;
+    !isCancelled && !isAwaitingPayment && !isAwaitingAcceptance && !isAccepted;
 
   let infoMessage = "";
-  if (isAwaitingPayment) {
+  if (isCancelled) {
+    infoMessage =
+      order.cancelledBy === "CREATOR"
+        ? `${firstName} declined this project. This order is closed and any amount paid will be refunded.`
+        : "This order has been cancelled. Any amount paid will be refunded.";
+  } else if (isAwaitingPayment) {
     infoMessage =
       "Complete payment to confirm this order. Brief submission and creator coordination unlock after payment.";
   } else if (isAwaitingAcceptance) {
@@ -116,7 +123,7 @@ export function AwaitingAcceptanceCreatorCard({
         </div>
         <div className="space-y-1">
           <h5 className="text-sm font-semibold text-[#6E42FF]">
-            What happens next?
+            {isCancelled ? "Order closed" : "What happens next?"}
           </h5>
           <p className="text-sm text-muted-foreground leading-relaxed">
             {infoMessage}

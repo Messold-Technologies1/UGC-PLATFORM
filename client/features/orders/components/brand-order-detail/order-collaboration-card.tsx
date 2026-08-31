@@ -13,6 +13,7 @@ import {
   getStatusGroup,
 } from "../../constants";
 import { BuyUsageRightsModal } from "./order-completed/buy-usage-rights-modal";
+import { getDeliveryDeadlineCardMeta } from "../delivery-deadline-display";
 
 function getInitials(name: string): string {
   return name
@@ -62,6 +63,17 @@ export function OrderCollaborationCard({
   const statusLabel =
     STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] ?? order.status;
   const canBuyUsageRights = COMPLETED_BUY_USAGE_STATUSES.has(order.status);
+  const deadlineMeta = getDeliveryDeadlineCardMeta(order);
+  const timelineLabel =
+    order.status === "REJECTED" ||
+    order.status === "REFUNDED" ||
+    order.status === "DISPUTED" ||
+    order.status === "ACCEPTED" ||
+    order.status === "CREATOR_PAYMENT_DONE"
+      ? deadlineMeta.value !== "—"
+        ? `${deadlineMeta.label} ${deadlineMeta.value}`
+        : deadlineMeta.label
+      : getDaysLabel(order.deliveryDaysSnapshot);
 
   return (
     <>
@@ -114,7 +126,7 @@ export function OrderCollaborationCard({
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Clock className="size-[15px] shrink-0 opacity-85" />
-            {getDaysLabel(order.deliveryDaysSnapshot)}
+            {timelineLabel}
           </span>
         </div>
 

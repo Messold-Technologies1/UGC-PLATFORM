@@ -44,7 +44,8 @@ export const STATUS_TAB_GROUPS: Record<string, string[]> = {
   ],
   review: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
   dispute: ["DISPUTED"],
-  completed: ["ACCEPTED", "CREATOR_PAYMENT_DONE", "REJECTED", "REFUNDED"],
+  completed: ["ACCEPTED", "CREATOR_PAYMENT_DONE"],
+  cancelled: ["REJECTED", "REFUNDED"],
 };
 
 export const STATUS_TABS = [
@@ -55,6 +56,7 @@ export const STATUS_TABS = [
   { key: "review", label: "In Review" },
   { key: "dispute", label: "Dispute" },
   { key: "completed", label: "Completed" },
+  { key: "cancelled", label: "Cancelled" },
 ] as const;
 
 export const STATUS_PILL_STYLE: Record<
@@ -140,6 +142,7 @@ export const SPINE_COLOR: Record<string, string> = {
   review: "#8b5cf6",
   dispute: "#ef3e51",
   completed: "#1a9a5b",
+  cancelled: "#ef3e51",
 };
 
 export function getStatusGroup(status: string): string {

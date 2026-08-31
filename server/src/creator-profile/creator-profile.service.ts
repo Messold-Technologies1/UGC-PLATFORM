@@ -83,14 +83,29 @@ import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-option
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
 import { recomputeCreatorListingState } from './creator-listing-state.util';
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
+import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger.util';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
 } from './dto/suggested-creators-response.dto';
 
-/** Orders counted as successfully completed for creator stats. */
-const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [OrderStatus.ACCEPTED];
+/**
+ * Orders counted as successfully completed for creator stats. Paid Out
+ * (`CREATOR_PAYMENT_DONE`) is the post-payout successor of `ACCEPTED`, so both
+ * must count — otherwise a paid-out order looks like it was never completed.
+ */
+const CREATOR_COMPLETED_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.ACCEPTED,
+  OrderStatus.CREATOR_PAYMENT_DONE,
+];
+
+type CreatorOrderCounts = {
+  totalOrders: number;
+  completedOrders: number;
+  /** Sum of creator payouts (paise) on CREATOR_PAYMENT_DONE orders. */
+  totalEarningsPaise: number;
+};
 
 /**
  * Scalar CreatorProfile columns actually read by mapCreatorPublicListItemDto.
@@ -410,7 +425,7 @@ export class CreatorProfileService {
 
   private mapCreatorProfileResponseDto(
     profile: CreatorProfileWithRelations,
-    orderCounts?: { totalOrders: number; completedOrders: number },
+    orderCounts?: CreatorOrderCounts,
     topReviews: CreatorTopReviewDto[] = [],
   ): CreatorProfileResponseDto {
     const mapped = this.mapCreatorProfile(profile);
@@ -499,39 +514,63 @@ export class CreatorProfileService {
       reviewCount: mapped.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,
       completedOrders: orderCounts?.completedOrders ?? 0,
+      totalEarningsPaise: orderCounts?.totalEarningsPaise ?? 0,
       topReviews,
     };
   }
 
-  private async countCreatorOrders(creatorProfileId: string): Promise<{
-    totalOrders: number;
-    completedOrders: number;
-  }> {
+  private async countCreatorOrders(
+    creatorProfileId: string,
+  ): Promise<CreatorOrderCounts> {
     const counts = await this.countCreatorOrdersBatch([creatorProfileId]);
-    return (
-      counts.get(creatorProfileId) ?? { totalOrders: 0, completedOrders: 0 }
+    const existing = counts.get(creatorProfileId) ?? {
+      totalOrders: 0,
+      completedOrders: 0,
+      totalEarningsPaise: 0,
+    };
+
+    const paidOutRows = await this.prisma.order.findMany({
+      where: {
+        creatorId: creatorProfileId,
+        status: OrderStatus.CREATOR_PAYMENT_DONE,
+      },
+      select: { expectedAmountPaise: true },
+    });
+    existing.totalEarningsPaise = paidOutRows.reduce(
+      (sum, row) =>
+        sum + creatorPayoutPaiseFromOrderTotal(row.expectedAmountPaise),
+      0,
     );
+    return existing;
   }
 
   private async countCreatorOrdersBatch(
     creatorProfileIds: string[],
-  ): Promise<Map<string, { totalOrders: number; completedOrders: number }>> {
+  ): Promise<Map<string, CreatorOrderCounts>> {
     const uniqueIds = [...new Set(creatorProfileIds.filter(Boolean))];
-    const counts = new Map<
-      string,
-      { totalOrders: number; completedOrders: number }
-    >();
+    const counts = new Map<string, CreatorOrderCounts>();
     for (const id of uniqueIds) {
-      counts.set(id, { totalOrders: 0, completedOrders: 0 });
+      counts.set(id, {
+        totalOrders: 0,
+        completedOrders: 0,
+        totalEarningsPaise: 0,
+      });
     }
     if (uniqueIds.length === 0) {
       return counts;
     }
 
+    // Match the creator orders inbox: unpaid checkout drafts are hidden from
+    // the creator, so they must not inflate Total Orders either.
+    const visibleOrderWhere = {
+      creatorId: { in: uniqueIds },
+      status: { not: OrderStatus.PENDING_PAYMENT },
+    } as const;
+
     const [totalRows, completedRows] = await this.prisma.$transaction([
       this.prisma.order.groupBy({
         by: ['creatorId'],
-        where: { creatorId: { in: uniqueIds } },
+        where: visibleOrderWhere,
         _count: { _all: true },
         orderBy: { creatorId: 'asc' },
       }),
@@ -582,6 +621,7 @@ export class CreatorProfileService {
       instagramUrl: _instagramUrl,
       youtubeUrl: _youtubeUrl,
       snapchatUrl: _snapchatUrl,
+      totalEarningsPaise: _totalEarningsPaise,
       ...rest
     } = dto;
     // Brands/public never see the creator's real name — expose the opaque
@@ -1291,7 +1331,7 @@ export class CreatorProfileService {
 
   private mapCreatorPublicListItemDto(
     profile: any,
-    orderCounts?: { totalOrders: number; completedOrders: number },
+    orderCounts?: CreatorOrderCounts,
   ): CreatorPublicListItemDto {
     const portfolioVideos: CreatorPublicListPortfolioVideoDto[] = Array.isArray(
       profile.portfolioVideos,

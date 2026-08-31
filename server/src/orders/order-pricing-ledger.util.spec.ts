@@ -1,5 +1,6 @@
 import {
   computeOrderPricingLedger,
+  creatorPayoutPaiseFromOrderTotal,
   PLATFORM_FEE_RATE,
 } from './order-pricing-ledger.util';
 
@@ -111,5 +112,11 @@ describe('computeOrderPricingLedger', () => {
 
   it('PLATFORM_FEE_RATE is 20%', () => {
     expect(PLATFORM_FEE_RATE).toBe(0.2);
+  });
+});
+
+describe('creatorPayoutPaiseFromOrderTotal', () => {
+  it('matches the 20% fee on a ₹2,500 order (₹2,000 to creator)', () => {
+    expect(creatorPayoutPaiseFromOrderTotal(250000)).toBe(200000);
   });
 });

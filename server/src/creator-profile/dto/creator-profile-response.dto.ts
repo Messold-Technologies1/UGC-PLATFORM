@@ -243,16 +243,23 @@ export class CreatorProfileResponseDto {
   @ApiProperty({
     example: 24,
     description:
-      'All orders assigned to this creator (any status, including unpaid checkout).',
+      'Paid orders assigned to this creator (excludes unpaid checkout drafts).',
   })
   totalOrders!: number;
 
   @ApiProperty({
     example: 18,
     description:
-      'Orders successfully completed (ACCEPTED or CREATOR_PAYMENT_DONE).',
+      'Orders successfully completed (ACCEPTED or CREATOR_PAYMENT_DONE / paid out).',
   })
   completedOrders!: number;
+
+  @ApiPropertyOptional({
+    example: 200000,
+    description:
+      'Sum of creator payouts (paise, after platform fee) across CREATOR_PAYMENT_DONE orders. Omitted for non-owner viewers.',
+  })
+  totalEarningsPaise?: number;
 
   @ApiPropertyOptional({ example: 15 })
   travelRadius?: number | null;

@@ -142,6 +142,8 @@ export type CreatorProfileItemApi = {
   highlights?: string[];
   createdAt?: string;
   completedOrders?: number;
+  /** Creator payout total in paise across paid-out orders (owner/admin only). */
+  totalEarningsPaise?: number;
   totalEarnings?: number;
   responseRate?: number;
   topReviews?: CreatorRatingReviewApi[];

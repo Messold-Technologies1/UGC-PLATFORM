@@ -119,13 +119,15 @@ export class CreatorPublicListItemDto {
 
   @ApiProperty({
     example: 24,
-    description: 'Total orders assigned to this creator',
+    description:
+      'Paid orders assigned to this creator (excludes unpaid checkout drafts)',
   })
   totalOrders!: number;
 
   @ApiProperty({
     example: 18,
-    description: 'Orders in a successfully completed status',
+    description:
+      'Orders successfully completed (ACCEPTED or CREATOR_PAYMENT_DONE)',
   })
   completedOrders!: number;
 

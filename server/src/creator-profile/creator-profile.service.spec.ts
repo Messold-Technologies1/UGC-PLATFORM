@@ -127,6 +127,7 @@ describe('CreatorProfileService', () => {
     ),
     order: {
       groupBy: jest.fn().mockResolvedValue([]),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     creatorProfile: {
       findUnique: txMock.creatorProfile.findUnique,
@@ -233,6 +234,7 @@ describe('CreatorProfileService', () => {
       },
     );
     prismaMock.order.groupBy.mockResolvedValue([]);
+    prismaMock.order.findMany.mockResolvedValue([]);
 
     const creatorReviewsMock = {
       listTopForCreator: jest.fn().mockResolvedValue([]),

@@ -118,3 +118,14 @@ export function computeOrderPricingLedger(input: {
     payToCreatorPaise,
   };
 }
+
+/**
+ * What the creator receives from a paid order's checkout total (package +
+ * add-ons), after the 20% platform fee. Same math as the creator payout card.
+ */
+export function creatorPayoutPaiseFromOrderTotal(
+  expectedAmountPaise: number,
+): number {
+  const total = Math.max(0, Math.round(expectedAmountPaise));
+  return total - Math.round(total * PLATFORM_FEE_RATE);
+}

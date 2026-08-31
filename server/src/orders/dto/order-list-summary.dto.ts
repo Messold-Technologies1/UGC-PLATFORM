@@ -74,6 +74,23 @@ export class OrderListSummaryDto {
   refundedAt?: Date | null;
 
   @ApiPropertyOptional({
+    description:
+      'Reason the creator rejected the brief or the brand cancelled the order (REJECTED status)',
+  })
+  cancellationReason?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'When the order was rejected/cancelled before acceptance',
+  })
+  cancelledAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description:
+      "Who ended the order early: 'BRAND' (cancelled) or 'CREATOR' (rejected)",
+  })
+  cancelledBy?: string | null;
+
+  @ApiPropertyOptional({
     description: 'When the latest dispute was opened (for Disputed on)',
   })
   disputeOpenedAt?: Date | null;

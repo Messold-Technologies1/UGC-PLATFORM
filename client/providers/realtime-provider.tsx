@@ -25,6 +25,7 @@ import type {
   OrderContentDeliveredEvent,
   OrderDisputeOpenedEvent,
   OrderDisputeResolvedEvent,
+  OrderCancelledEvent,
   OrderChatMessageEvent,
   DeliveryWatermarkReadyEvent,
 } from "@/lib/realtime-events";
@@ -309,6 +310,30 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    const onOrderCancelled = (e: OrderCancelledEvent) => {
+      refetchOrderViews(queryClient, e.orderId);
+
+      // Skip the notification for the party who initiated the cancellation.
+      const initiatedByUs =
+        (e.cancelledBy === "BRAND" && user.primaryRole === "BRAND") ||
+        (e.cancelledBy === "CREATOR" && user.primaryRole === "CREATOR");
+      if (initiatedByUs) return;
+
+      const title =
+        e.cancelledBy === "CREATOR" ? "Order rejected" : "Order cancelled";
+      const description =
+        e.cancelledBy === "CREATOR"
+          ? "The creator rejected this order."
+          : "The brand cancelled this order.";
+      toast.info(title, { description });
+      addNotification({
+        type: "info",
+        title,
+        description,
+        link: orderNotificationLink(e.orderId, "REJECTED"),
+      });
+    };
+
     const onWatermarkReady = (e: DeliveryWatermarkReadyEvent) => {
       refetchOrderViews(queryClient, e.orderId);
     };
@@ -359,6 +384,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("order.content_delivered", onContentDelivered);
     s.on("order.dispute_opened", onDisputeOpened);
     s.on("order.dispute_resolved", onDisputeResolved);
+    s.on("order.cancelled", onOrderCancelled);
     s.on("delivery.watermark_ready", onWatermarkReady);
     s.on("portfolio.video_asset_updated", onPortfolioAsset);
     s.on("instagram.reel_sync_updated", onReelSync);
@@ -378,6 +404,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("order.content_delivered", onContentDelivered);
       s.off("order.dispute_opened", onDisputeOpened);
       s.off("order.dispute_resolved", onDisputeResolved);
+      s.off("order.cancelled", onOrderCancelled);
       s.off("delivery.watermark_ready", onWatermarkReady);
       s.off("portfolio.video_asset_updated", onPortfolioAsset);
       s.off("instagram.reel_sync_updated", onReelSync);

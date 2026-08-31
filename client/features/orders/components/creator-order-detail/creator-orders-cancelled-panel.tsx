@@ -112,22 +112,32 @@ function buildCancelledSteps(order: any): StepDef[] {
 
 
 function CancellationReasonCard({ order }: { order: any }) {
-  const cancelDate = fmtDateTime(order?.refundedAt ?? order?.updatedAt);
+  const cancelDate = fmtDateTime(
+    order?.cancelledAt ?? order?.refundedAt ?? order?.updatedAt,
+  );
 
   const reason =
     order?.cancellationReason ??
     order?.disputeReason ??
     "No specific reason was provided for this cancellation.";
 
-  const cancelledBy = order?.status === "REJECTED" ? "Brand" : "Admin";
+  // A creator-rejected order is attributed to the creator; a brand-cancelled one
+  // to the brand; anything else (admin refund path) falls back to "admin".
+  const cancelledByCreator = order?.cancelledBy === "CREATOR";
+  const cancelledBy = cancelledByCreator
+    ? "You"
+    : order?.cancelledBy === "BRAND"
+      ? "Brand"
+      : "Admin";
+  const sentence = cancelledByCreator
+    ? "You rejected this order."
+    : `The ${cancelledBy.toLowerCase()} cancelled this order.`;
 
   return (
     <div className="bg-background rounded-lg border border-border/40 p-5 shadow-sm h-full flex flex-col">
       <h3 className="font-bold text-sm mb-3">Cancellation Reason</h3>
 
-      <p className="text-sm text-muted-foreground mb-4">
-        The {cancelledBy.toLowerCase()} cancelled this order.
-      </p>
+      <p className="text-sm text-muted-foreground mb-4">{sentence}</p>
 
       <div className="bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20 rounded-lg p-4">
         <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-1.5 uppercase tracking-wider">

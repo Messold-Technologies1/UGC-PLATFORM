@@ -607,6 +607,15 @@ model Order {
   /// to exactly the state it was in before the dispute.
   preDisputeStatus OrderStatus?
 
+  /// Reason captured when a creator rejects the submitted brief or a brand
+  /// cancels the order before the creator accepts. Both paths set status =
+  /// REJECTED; the note is shown to both parties and included in their emails.
+  cancellationReason String?
+  cancelledAt        DateTime?
+  /// Who ended the order early: 'BRAND' (brand cancelled) or 'CREATOR' (creator
+  /// rejected the brief). Null for admin-driven REJECTED (refund path).
+  cancelledBy        String?
+
   // Razorpay Payments
   razorpayOrderId   String?   @unique
   razorpayPaymentId String?

@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Info, Hourglass } from "lucide-react";
+import { AlertCircle, Info, Hourglass, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useResumeOrderCheckout } from "@/features/payments/hooks/use-resume-order-checkout";
 import { useWithdrawBrandDisputeMutation } from "../../hooks/use-withdraw-brand-dispute-mutation";
+import { useCancelOrderMutation } from "../../hooks/use-cancel-order-mutation";
+import { ReasonPromptDialog } from "../reason-prompt-dialog";
 import type { OrderDetailsPublic } from "../../api/types";
 import type { OrderCreatorSnapshot } from "../../api/types";
 
@@ -42,8 +45,8 @@ function getStatusConfig(
       return {
         icon: Hourglass,
         title: "Awaiting creator acceptance",
-        description: `${creatorName} has 48 hours to accept your project. You'll be notified once she accepts.`,
-        showTimer: true,
+        description: `${creatorName} is reviewing your project. You'll be notified once they accept.`,
+        showTimer: false,
         variant: "info",
       };
     case "BRIEF_ACCEPTED":
@@ -115,6 +118,15 @@ function getStatusConfig(
         showTimer: false,
         variant: "warning",
       };
+    case "REJECTED":
+      return {
+        icon: AlertCircle,
+        title: "Order cancelled",
+        description:
+          "This order has been cancelled. Any amount paid will be refunded to your original payment method.",
+        showTimer: false,
+        variant: "warning",
+      };
     case "REFUNDED":
       return {
         icon: Info,
@@ -160,7 +172,9 @@ const ICON_STYLES = {
   neutral: "bg-background/80 text-muted-foreground",
 };
 
-import { useAcceptanceCountdown } from "../../hooks/use-acceptance-countdown";
+// The brand may cancel the order until the creator accepts the brief — i.e.
+// while the brief is still pending submission or awaiting acceptance.
+const CANCELLABLE_STATUSES = ["BRIEF_SUBMISSION_PENDING", "BRIEF_SUBMITTED"];
 
 export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: OrderStatusBannerProps) {
   const creatorName = creator?.displayName ?? "Creator";
@@ -172,25 +186,22 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
         order.requiresPhysicalProductShipment,
       );
   const Icon = config.icon;
-  const { hours, minutes, seconds, isExpired } = useAcceptanceCountdown(
-    order.briefSubmittedAt,
-    order.status,
-  );
 
   let displayTitle = config.title;
   let displayDescription = config.description;
-  let displayVariant = config.variant;
-
-  if (!isOrderCompleted && config.showTimer && isExpired) {
-    displayTitle = "Creator acceptance time expired";
-    displayDescription = `${creatorName} did not accept your project in time. The order will be cancelled.`;
-    displayVariant = "warning";
-  }
+  const displayVariant = config.variant;
 
   const { isGatewayReady, isProcessing, resumePayment } = useResumeOrderCheckout(
     order.id,
     order.packageNameSnapshot,
   );
+
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const cancelOrderMutation = useCancelOrderMutation({
+    onSuccess: () => setIsCancelOpen(false),
+  });
+  const canCancelOrder =
+    !isOrderCompleted && CANCELLABLE_STATUSES.includes(order.status);
 
   const withdrawDisputeMutation = useWithdrawBrandDisputeMutation();
   const canWithdrawDispute =
@@ -203,6 +214,18 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
       order.dispute.openedBy === "BRAND"
         ? `You raised this dispute: “${order.dispute.reason}”. Our team is reviewing the case.`
         : `${creatorName} raised this dispute: “${order.dispute.reason}”. Our team is reviewing the case.`;
+  }
+
+  if (!isOrderCompleted && order.status === "REJECTED" && order.cancellationReason) {
+    const lead =
+      order.cancelledBy === "CREATOR"
+        ? `${creatorName} rejected this order`
+        : order.cancelledBy === "BRAND"
+          ? "You cancelled this order"
+          : "This order was cancelled";
+    displayTitle =
+      order.cancelledBy === "CREATOR" ? "Order rejected" : "Order cancelled";
+    displayDescription = `${lead}. Reason: “${order.cancellationReason}”. Any amount paid will be refunded.`;
   }
 
   return (
@@ -231,26 +254,6 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
         </div>
       </div>
 
-      {!isOrderCompleted && config.showTimer && (
-        <div className={cn(
-          "flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shrink-0 sm:self-center",
-          isExpired ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" : "bg-primary/5 dark:bg-primary/10 text-foreground"
-        )}>
-          {isExpired ? (
-            <span className="font-bold">Time Expired</span>
-          ) : (
-            <>
-              <span className="text-muted-foreground text-[13px]">
-                Auto-cancel in
-              </span>
-              <span className="font-bold text-primary tracking-wide tabular-nums">
-                {hours}h : {minutes}m : {seconds}s
-              </span>
-            </>
-          )}
-        </div>
-      )}
-
       {!isOrderCompleted && order.status === "BRIEF_ACCEPTED" &&
         order.requiresPhysicalProductShipment && (
           <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
@@ -260,12 +263,25 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
           </Button>
         )}
 
-      {!isOrderCompleted && order.status === "BRIEF_SUBMISSION_PENDING" && (
-        <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0 bg-[#6E42FF] hover:bg-[#5b33d6] text-white">
-          <Link href={`/brand/briefs/create?orderId=${order.id}`}>
-            Submit Brief
-          </Link>
-        </Button>
+      {canCancelOrder && (
+        <div className="flex items-center gap-2 shrink-0 sm:self-center mt-2 sm:mt-0">
+          {order.status === "BRIEF_SUBMISSION_PENDING" && (
+            <Button asChild className="bg-[#6E42FF] hover:bg-[#5b33d6] text-white">
+              <Link href={`/brand/briefs/create?orderId=${order.id}`}>
+                Submit Brief
+              </Link>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+            disabled={cancelOrderMutation.isPending}
+            onClick={() => setIsCancelOpen(true)}
+          >
+            <XCircle className="size-4 mr-1.5" />
+            Cancel Order
+          </Button>
+        </div>
       )}
 
       {!isOrderCompleted && order.status === "PENDING_PAYMENT" && (
@@ -304,6 +320,21 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
           )}
         </Button>
       )}
+
+      <ReasonPromptDialog
+        open={isCancelOpen}
+        onOpenChange={setIsCancelOpen}
+        title="Cancel this order?"
+        description={`${creatorName} will be notified that you've cancelled this order, along with your reason. Any amount paid will be refunded. This can't be undone.`}
+        label="Reason for cancelling"
+        placeholder="Let the creator know why you're cancelling…"
+        confirmLabel="Cancel Order"
+        pendingLabel="Cancelling..."
+        isPending={cancelOrderMutation.isPending}
+        onConfirm={(note) =>
+          cancelOrderMutation.mutate({ orderId: order.id, note })
+        }
+      />
     </div>
   );
 }

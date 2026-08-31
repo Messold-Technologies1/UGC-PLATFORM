@@ -98,6 +98,16 @@ export interface OrderDisputeResolvedEvent {
 }
 
 /**
+ * The order was ended before the creator accepted — either the creator
+ * rejected the brief or the brand cancelled. Both move the order to REJECTED.
+ */
+export interface OrderCancelledEvent {
+  orderId: string;
+  cancelledBy: "BRAND" | "CREATOR";
+  reason?: string | null;
+}
+
+/**
  * An imported reel's file finished copying into our storage (or failed to).
  *
  * The row itself was saved the moment the creator picked the reel; this is only
@@ -151,6 +161,7 @@ export interface ServerToClientEvents {
   "order.content_delivered": (e: OrderContentDeliveredEvent) => void;
   "order.dispute_opened": (e: OrderDisputeOpenedEvent) => void;
   "order.dispute_resolved": (e: OrderDisputeResolvedEvent) => void;
+  "order.cancelled": (e: OrderCancelledEvent) => void;
   "delivery.watermark_ready": (e: DeliveryWatermarkReadyEvent) => void;
   "portfolio.video_asset_updated": (e: PortfolioVideoAssetUpdatedEvent) => void;
   "instagram.reel_sync_updated": (e: InstagramReelSyncUpdatedEvent) => void;

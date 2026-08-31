@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   CheckCircle2,
   X,
@@ -15,7 +15,6 @@ import {
   FileVideo,
   Wallet,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +23,8 @@ import { Spinner } from "@/components/ui/spinner";
 // import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useAcceptBriefMutation } from "../../hooks/use-accept-brief-mutation";
+import { useRejectBriefMutation } from "../../hooks/use-reject-brief-mutation";
+import { ReasonPromptDialog } from "../reason-prompt-dialog";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 import {
   formatCreatorPayoutInr,
@@ -77,41 +78,17 @@ export function CreatorOrderNewRequestPanel({
     },
   });
 
-  const [timeLeft, setTimeLeft] = useState<{
-    hours: number;
-    minutes: number;
-    seconds: number;
-  } | null>(null);
-
-  useEffect(() => {
-    // The 48h acceptance window runs from when the brief was submitted to the
-    // creator, not from when the order row was created. Without a submission
-    // time there is no acceptance clock, so leave the countdown unset.
-    const briefSubmittedAt = selectedItem?.order?.briefSubmittedAt;
-    if (!briefSubmittedAt) return;
-
-    const calculateTimeLeft = () => {
-      const submittedAt = new Date(briefSubmittedAt).getTime();
-      const expiresAt = submittedAt + 48 * 60 * 60 * 1000;
-      const now = Date.now();
-      const diff = expiresAt - now;
-
-      if (diff <= 0) {
-        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+  const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const rejectBriefMutation = useRejectBriefMutation({
+    onSuccess: () => {
+      setIsRejectOpen(false);
+      if (onAccepted) {
+        onAccepted();
       } else {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft({ hours, minutes, seconds });
+        onClose();
       }
-    };
-
-    calculateTimeLeft();
-    const interval = setInterval(calculateTimeLeft, 1000);
-    return () => clearInterval(interval);
-  }, [selectedItem?.order?.briefSubmittedAt]);
-
-  const hasTimeExceeded = timeLeft !== null && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0;
+    },
+  });
 
   if (!selectedItem) return null;
 
@@ -177,18 +154,29 @@ export function CreatorOrderNewRequestPanel({
 
           <div className="flex items-center gap-2 sm:gap-3">
             {hasBrief && (
-              <Button 
-                onClick={() => acceptBriefMutation.mutate({ orderId: selectedOrderId })}
-                disabled={acceptBriefMutation.isPending || hasTimeExceeded}
-                className="bg-[#4318FF] hover:bg-[#4318FF]/90 text-white font-bold h-9 px-4 sm:h-10 sm:px-5 rounded-lg shadow-sm whitespace-nowrap text-xs sm:text-sm"
-              >
-                {acceptBriefMutation.isPending ? (
-                  <Spinner className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-                ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-                )}
-                {acceptBriefMutation.isPending ? "Accepting..." : "Accept Order"}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsRejectOpen(true)}
+                  disabled={acceptBriefMutation.isPending || rejectBriefMutation.isPending}
+                  className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold h-9 px-4 sm:h-10 sm:px-5 rounded-lg whitespace-nowrap text-xs sm:text-sm"
+                >
+                  <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                  Reject
+                </Button>
+                <Button
+                  onClick={() => acceptBriefMutation.mutate({ orderId: selectedOrderId })}
+                  disabled={acceptBriefMutation.isPending || rejectBriefMutation.isPending}
+                  className="bg-[#4318FF] hover:bg-[#4318FF]/90 text-white font-bold h-9 px-4 sm:h-10 sm:px-5 rounded-lg shadow-sm whitespace-nowrap text-xs sm:text-sm"
+                >
+                  {acceptBriefMutation.isPending ? (
+                    <Spinner className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                  )}
+                  {acceptBriefMutation.isPending ? "Accepting..." : "Accept Order"}
+                </Button>
+              </>
             )}
 
             <button
@@ -203,32 +191,12 @@ export function CreatorOrderNewRequestPanel({
       </div>
 
       <div className="p-6 bg-slate-50/50 space-y-6">
-        <div className={cn(
-          "border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4",
-          hasTimeExceeded 
-            ? "bg-red-50 border-red-200"
-            : "bg-[#fff9e6] border-[#ffe58f]"
-        )}>
-          <div className={cn(
-            "flex items-center gap-2.5 sm:gap-3 font-medium text-xs sm:text-sm",
-            hasTimeExceeded ? "text-red-700" : "text-amber-700"
-          )}>
-            <Clock className={cn(
-              "w-4 h-4 sm:w-5 sm:h-5 shrink-0",
-              hasTimeExceeded ? "text-red-500" : "text-amber-500"
-            )} />
-            <span>
-              {hasTimeExceeded 
-                ? "This order request has expired because it was not accepted in time." 
-                : `You have ${timeLeft?.hours ?? 48} hrs left to accept this order.`}
-            </span>
-          </div>
-          {timeLeft && !hasTimeExceeded && (
-            <div className="flex items-center gap-2 text-amber-700 font-bold text-xs sm:text-sm bg-white/60 px-3 py-1.5 sm:py-1 rounded-md border border-amber-200/60 shrink-0">
-              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
-              <span>{String(timeLeft.hours ?? 0).padStart(2, '0')}h : {String(timeLeft.minutes ?? 0).padStart(2, '0')}m : {String(timeLeft.seconds ?? 0).padStart(2, '0')}s left</span>
-            </div>
-          )}
+        <div className="border rounded-lg p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 bg-[#FAF9FF] border-[#4318FF]/15">
+          <ClipboardCheck className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-[#4318FF]" />
+          <span className="font-medium text-xs sm:text-sm text-foreground/80">
+            Review the brief below, then accept it if it&apos;s a good fit — or
+            reject it with a reason for the brand.
+          </span>
         </div>
 
         {isLoading ? (
@@ -388,6 +356,21 @@ export function CreatorOrderNewRequestPanel({
           </>
         )}
       </div>
+
+      <ReasonPromptDialog
+        open={isRejectOpen}
+        onOpenChange={setIsRejectOpen}
+        title="Reject this order?"
+        description="The brand will be notified that you've declined this order, along with your reason. This can't be undone."
+        label="Reason for rejecting"
+        placeholder="Let the brand know why you're rejecting this order…"
+        confirmLabel="Reject Order"
+        pendingLabel="Rejecting..."
+        isPending={rejectBriefMutation.isPending}
+        onConfirm={(note) =>
+          rejectBriefMutation.mutate({ orderId: selectedOrderId, note })
+        }
+      />
     </div>
   );
 }

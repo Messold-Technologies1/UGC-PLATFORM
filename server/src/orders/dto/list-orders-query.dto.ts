@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export class ListOrdersQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
@@ -26,4 +26,12 @@ export class ListOrdersQueryDto {
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
+
+  @ApiPropertyOptional({
+    description: "Filter orders by brand (BrandProfile id)",
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  brandId?: string;
 }

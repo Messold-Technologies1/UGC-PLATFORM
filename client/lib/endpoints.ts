@@ -238,6 +238,10 @@ export const ENDPOINTS = {
     },
     BRANDS: {
       LIST: "/api/admin/brands",
+      DETAIL: (brandProfileId: string) =>
+        `/api/admin/brands/${encodeURIComponent(brandProfileId)}`,
+      WISHLISTS: (brandProfileId: string) =>
+        `/api/admin/brands/${encodeURIComponent(brandProfileId)}/wishlists`,
       REMOVE: (userId: string) =>
         `/api/admin/brands/user/${encodeURIComponent(userId)}/role`,
     },

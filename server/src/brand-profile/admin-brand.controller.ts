@@ -24,6 +24,8 @@ import { BrandProfileService } from './brand-profile.service';
 import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 import { BrandsListResponseDto } from './dto/brands-list-response.dto';
 import { RemoveBrandRoleDto } from './dto/remove-brand-role.dto';
+import { AdminBrandDetailDto } from './dto/admin-brand-detail.dto';
+import { AdminBrandWishlistsResponseDto } from './dto/admin-brand-wishlists.dto';
 
 @ApiTags('Admin - Brands')
 @ApiBearerAuth()
@@ -39,6 +41,26 @@ export class AdminBrandController {
     @Query() query: ListBrandsQueryDto,
   ): Promise<BrandsListResponseDto> {
     return this.brandProfileService.listBrands(query);
+  }
+
+  @Get(':brandProfileId')
+  @ApiOperation({ summary: 'Get a single brand (header) by BrandProfile id' })
+  @ApiOkResponse({ type: AdminBrandDetailDto })
+  async getBrand(
+    @Param('brandProfileId', ParseUUIDPipe) brandProfileId: string,
+  ): Promise<AdminBrandDetailDto> {
+    return this.brandProfileService.getBrandForAdmin(brandProfileId);
+  }
+
+  @Get(':brandProfileId/wishlists')
+  @ApiOperation({
+    summary: "List a brand's wishlists (with their creators)",
+  })
+  @ApiOkResponse({ type: AdminBrandWishlistsResponseDto })
+  async getBrandWishlists(
+    @Param('brandProfileId', ParseUUIDPipe) brandProfileId: string,
+  ): Promise<AdminBrandWishlistsResponseDto> {
+    return this.brandProfileService.listBrandWishlistsForAdmin(brandProfileId);
   }
 
   @Delete('user/:userId/role')

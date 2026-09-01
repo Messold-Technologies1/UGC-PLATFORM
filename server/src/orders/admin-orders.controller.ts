@@ -57,6 +57,7 @@ export class AdminOrdersController {
     return this.orders.listOrdersForAdmin({
       page: query.page,
       limit: query.limit,
+      brandId: query.brandId,
     });
   }
 

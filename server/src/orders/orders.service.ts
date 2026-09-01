@@ -169,33 +169,38 @@ function razorpayRefundErrorMessage(err: unknown): string {
 }
 
 /**
+ * Serialize the COMPLETE Razorpay error payload for diagnostic logging.
+ *
  * Razorpay API errors carry a structured `error` object
  * ({ code, description, source, step, reason, field, metadata }) that pinpoints
  * *why* a request was rejected far better than the human `description` alone
- * (e.g. a generic "invalid request sent" whose `field`/`reason` name the real
- * cause). Serialize whatever is present for diagnostic logging.
+ * (e.g. a generic "invalid request sent" whose `field`/`reason`/`step` name the
+ * real cause). We dump the whole thing (plus the HTTP `statusCode` when the SDK
+ * attaches one) so nothing is lost. Serialization is best-effort and never
+ * throws — logging a bad refund must not itself crash the request.
  */
 function razorpayErrorDetail(err: unknown): string {
-  if (
-    err &&
-    typeof err === 'object' &&
-    'error' in err &&
-    (err as { error?: unknown }).error &&
-    typeof (err as { error?: unknown }).error === 'object'
-  ) {
-    const e = (err as { error: Record<string, unknown> }).error;
-    const picked: Record<string, unknown> = {};
-    for (const key of ['code', 'reason', 'field', 'step', 'source']) {
-      if (e[key] !== undefined && e[key] !== null) picked[key] = e[key];
+  try {
+    if (
+      err &&
+      typeof err === 'object' &&
+      'error' in err &&
+      (err as { error?: unknown }).error
+    ) {
+      const out: Record<string, unknown> = {
+        error: (err as { error: unknown }).error,
+      };
+      const statusCode = (err as { statusCode?: unknown }).statusCode;
+      if (statusCode !== undefined) out.statusCode = statusCode;
+      return JSON.stringify(out);
     }
-    try {
-      return JSON.stringify(picked);
-    } catch {
-      return '{}';
+    if (err instanceof Error) {
+      return JSON.stringify({ name: err.name, message: err.message });
     }
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
   }
-  const statusCode = (err as { statusCode?: unknown })?.statusCode;
-  return statusCode !== undefined ? `{"statusCode":${String(statusCode)}}` : '{}';
 }
 
 function mapDeliverablesSnapshot(value: Prisma.JsonValue): string[] {
@@ -3862,7 +3867,7 @@ export class OrdersService {
       }
       const message = razorpayRefundErrorMessage(err);
       this.logger.warn(
-        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}): ${message} | detail=${razorpayErrorDetail(err)}`,
+        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}): ${message} | razorpayError=${razorpayErrorDetail(err)}`,
       );
       throw new BadRequestException(message);
     }

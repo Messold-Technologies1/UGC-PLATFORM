@@ -16,6 +16,11 @@ import api from "@/lib/api";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ENDPOINTS } from "@/lib/endpoints";
 import { disconnectSocket } from "@/lib/socket";
+import { getPostLogoutLoginHref } from "@/features/auth/lib/login-redirect";
+import {
+  parseLoginRole,
+  setRememberedRole,
+} from "@/features/auth/lib/login-role-config";
 import {
   authMeQueryKey,
   type AuthUser,
@@ -57,16 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         timeout: 12_000,
       });
     } catch {
-      
+      // Session is still cleared locally so the user can sign in again.
     } finally {
-      let redirectPath = "/login";
-      if (user?.primaryRole) {
-        if (user.primaryRole === "ADMIN") {
-          redirectPath = "/admin/login";
-        } else {
-          redirectPath = `/login?role=${user.primaryRole.toLowerCase()}`;
-        }
-      }
+      const redirectPath = getPostLogoutLoginHref({
+        primaryRole: user?.primaryRole,
+      });
+      const roleFromHref = new URLSearchParams(
+        redirectPath.split("?")[1] ?? "",
+      ).get("role");
+      const remembered = parseLoginRole(roleFromHref);
+      if (remembered) setRememberedRole(remembered);
 
       disconnectSocket();
       queryClient.setQueryData(authMeQueryKey, null);
@@ -76,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logoutStartedRef.current = false;
       setIsLoggingOut(false);
     }
-  }, [queryClient, router]);
+  }, [queryClient, router, user?.primaryRole]);
 
   const value = useMemo(
     () => ({

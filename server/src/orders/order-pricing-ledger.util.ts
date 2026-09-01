@@ -58,6 +58,8 @@ export function computeOrderPricingLedger(input: {
   revisionCount: number;
   /** PAID extra-revision purchases. */
   paidPurchases: PaidRevisionPurchase[];
+  /** Rejected/refunded orders: brand gets everything back; creator/platform get 0. */
+  fullRefundToBrand?: boolean;
 }): OrderPricingLedger {
   const basePlusAddOnsPaise = Math.max(0, Math.round(input.expectedAmountPaise));
 
@@ -100,10 +102,26 @@ export function computeOrderPricingLedger(input: {
       : 0;
 
   const usedExtrasPaise = extraPaidPaise - refundToBrandPaise;
+  const brandPaidPaise = basePlusAddOnsPaise + extraPaidPaise;
+
+  if (input.fullRefundToBrand) {
+    return {
+      brandPaidPaise,
+      basePlusAddOnsPaise,
+      extraPaidPaise,
+      extraRevisionsPurchased,
+      extraRevisionsUsed,
+      extraRevisionsUnused,
+      refundToBrandPaise: brandPaidPaise,
+      earnedPaise: 0,
+      platformFeePaise: 0,
+      payToCreatorPaise: 0,
+    };
+  }
+
   const earnedPaise = basePlusAddOnsPaise + usedExtrasPaise;
   const platformFeePaise = Math.round(earnedPaise * PLATFORM_FEE_RATE);
   const payToCreatorPaise = earnedPaise - platformFeePaise;
-  const brandPaidPaise = basePlusAddOnsPaise + extraPaidPaise;
 
   return {
     brandPaidPaise,

@@ -3021,6 +3021,8 @@ export class OrdersService {
         expectedAmountPaise: p.expectedAmountPaise,
         paidAt: p.paidAt,
       })),
+      fullRefundToBrand:
+        order.status === 'REJECTED' || order.status === 'REFUNDED',
     });
     mappedOrder.revisionPurchases = paidPurchases.map((p) => ({
       revisionsAdded: p.revisionsAdded,

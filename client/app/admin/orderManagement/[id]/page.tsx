@@ -63,6 +63,12 @@ function initials(value?: string | null) {
     .toUpperCase();
 }
 
+function cancelledByHeadline(cancelledBy?: string | null) {
+  if (cancelledBy === "BRAND") return "Cancelled by brand";
+  if (cancelledBy === "CREATOR") return "Rejected by creator";
+  return "Order rejected";
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "-";
 
@@ -236,6 +242,12 @@ export default function AdminOrderDetailsPage() {
     order.status === "ACCEPTED" && !order.creatorPaidAt;
   const canRejectOrder = order.status === "DISPUTED";
   const canRefundOrder = order.status === "REJECTED" && !order.refundedAt;
+  const refundComplete =
+    order.status === "REFUNDED" ||
+    Boolean(order.refundedAt) ||
+    Boolean(order.razorpayRefundId);
+  const isRejectedOrRefunded =
+    order.status === "REJECTED" || order.status === "REFUNDED";
   const canResolveDispute = order.status === "DISPUTED";
   const isActionPending =
     markCreatorPaidMutation.isPending ||
@@ -301,10 +313,10 @@ export default function AdminOrderDetailsPage() {
           icon: BadgeDollarSign,
         }
       : {
-          title: "Trigger Razorpay Refund",
+          title: "Refund to brand",
           description:
-            "This calls Razorpay immediately. The order must already be rejected, and a successful refund will mark it refunded.",
-          action: "Trigger Refund",
+            "This refunds the full amount paid to the brand via Razorpay. Use this after the order has been rejected.",
+          action: "Refund to brand",
           icon: RotateCcw,
         };
   const ConfirmIcon = confirmActionCopy.icon;
@@ -328,6 +340,16 @@ export default function AdminOrderDetailsPage() {
       active: Boolean(order.briefSubmittedAt),
       icon: FileText,
     },
+    ...(isRejectedOrRefunded || order.cancelledAt
+      ? [
+          {
+            label: cancelledByHeadline(order.cancelledBy),
+            date: order.cancelledAt ?? order.updatedAt,
+            active: true,
+            icon: Ban,
+          },
+        ]
+      : []),
     {
       label: "Promised Due Date",
       date: order.deliveryDueAt,
@@ -596,8 +618,9 @@ export default function AdminOrderDetailsPage() {
                             </span>
                           </div>
                           <p className="pt-1 text-xs text-muted-foreground">
-                            Refund = unused extra revisions (at full price).
-                            Amounts are provisional until the order closes.
+                            {isRejectedOrRefunded
+                              ? "Rejected order — the full amount paid is refunded to the brand. Creator payout is ₹0."
+                              : "Refund = unused extra revisions (at full price). Amounts are provisional until the order closes."}
                           </p>
                         </div>
                       </div>
@@ -735,6 +758,34 @@ export default function AdminOrderDetailsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="relative space-y-3 p-6">
+                {isRejectedOrRefunded ? (
+                  <div className="mb-1 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 dark:bg-rose-500/5">
+                    <div className="flex items-center gap-2">
+                      <Ban className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                      <p className="text-sm font-bold text-rose-800 dark:text-rose-300">
+                        {cancelledByHeadline(order.cancelledBy)}
+                      </p>
+                    </div>
+                    {order.cancellationReason ||
+                    order.dispute?.resolutionNotes ? (
+                      <p className="mt-2 text-sm italic leading-relaxed text-foreground/80">
+                        &ldquo;
+                        {order.cancellationReason ??
+                          order.dispute?.resolutionNotes}
+                        &rdquo;
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No reason note was provided.
+                      </p>
+                    )}
+                    {order.cancelledAt ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {formatDate(order.cancelledAt)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {order.dispute && order.status === "DISPUTED" ? (
                   <div className="mb-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 dark:bg-amber-500/5">
                     <div className="flex items-center gap-2">
@@ -816,20 +867,32 @@ export default function AdminOrderDetailsPage() {
                   )}
                   Close dispute (no refund)
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 w-full justify-start rounded-xl border-amber-500/20 bg-amber-500/10 text-amber-700 shadow-none hover:bg-amber-500/20 hover:text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:hover:text-amber-300"
-                  disabled={!canRefundOrder || isActionPending}
-                  onClick={() => setConfirmAction("refund")}
-                >
-                  {refundOrderMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="h-4 w-4" />
-                  )}
-                  Trigger Razorpay refund
-                </Button>
+                {refundComplete ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 w-full justify-start rounded-xl border-emerald-500/20 bg-emerald-500/10 text-emerald-700 shadow-none dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400"
+                    disabled
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Refund done to the brand
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 w-full justify-start rounded-xl border-amber-500/20 bg-amber-500/10 text-amber-700 shadow-none hover:bg-amber-500/20 hover:text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:hover:text-amber-300"
+                    disabled={!canRefundOrder || isActionPending}
+                    onClick={() => setConfirmAction("refund")}
+                  >
+                    {refundOrderMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RotateCcw className="h-4 w-4" />
+                    )}
+                    Refund to brand
+                  </Button>
+                )}
                 {/* <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
                   Available actions are based on the current order status. Paid
                   creator requires Accepted, reject requires Disputed, and

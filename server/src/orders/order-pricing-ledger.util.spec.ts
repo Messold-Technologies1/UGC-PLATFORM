@@ -113,6 +113,23 @@ describe('computeOrderPricingLedger', () => {
   it('PLATFORM_FEE_RATE is 20%', () => {
     expect(PLATFORM_FEE_RATE).toBe(0.2);
   });
+
+  it('rejected/refunded order refunds the full brand payment', () => {
+    const l = computeOrderPricingLedger({
+      expectedAmountPaise: 610000,
+      maxRevisionsSnapshot: 2,
+      revisionCount: 0,
+      paidPurchases: [],
+      fullRefundToBrand: true,
+    });
+    expect(l.brandPaidPaise).toBe(610000);
+    expect(l.refundToBrandPaise).toBe(610000);
+    expect(l.platformFeePaise).toBe(0);
+    expect(l.payToCreatorPaise).toBe(0);
+    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
+      l.brandPaidPaise,
+    );
+  });
 });
 
 describe('creatorPayoutPaiseFromOrderTotal', () => {

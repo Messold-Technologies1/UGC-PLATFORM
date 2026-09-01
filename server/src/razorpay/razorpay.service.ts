@@ -28,6 +28,18 @@ export class RazorpayService {
     return this.keyId;
   }
 
+  /**
+   * Which Razorpay environment the configured API keys belong to, derived from
+   * the key id prefix (`rzp_test_` / `rzp_live_`). Handy for diagnosing
+   * cross-mode failures — e.g. refunding a TEST-mode payment with LIVE keys,
+   * which Razorpay rejects with a generic "invalid request sent".
+   */
+  getKeyMode(): 'test' | 'live' | 'unknown' {
+    if (this.keyId.startsWith('rzp_test')) return 'test';
+    if (this.keyId.startsWith('rzp_live')) return 'live';
+    return 'unknown';
+  }
+
   async createOrder(params: {
     amountPaise: number;
     currency: string;

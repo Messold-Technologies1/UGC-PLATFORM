@@ -3839,6 +3839,7 @@ export class OrdersService {
         status: true,
         razorpayPaymentId: true,
         razorpayRefundId: true,
+        expectedAmountPaise: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -3852,10 +3853,19 @@ export class OrdersService {
       throw new ConflictException('Refund already recorded for this order');
     }
 
+    // Refund the exact captured amount (in paise). We send it explicitly rather
+    // than relying on an implicit full refund. Only send it when it is a valid
+    // positive amount — a 0 would itself be rejected by Razorpay; in that case
+    // fall back to an amount-less full refund.
+    const refundAmountPaise =
+      order.expectedAmountPaise > 0 ? order.expectedAmountPaise : undefined;
+    const keyMode = this.razorpay.getKeyMode();
+
     let refund: { id: string; status: string };
     try {
       refund = await this.razorpay.refundPayment({
         paymentId: order.razorpayPaymentId,
+        amountPaise: refundAmountPaise,
         notes: { orderId: order.id },
       });
     } catch (err: unknown) {
@@ -3867,7 +3877,7 @@ export class OrdersService {
       }
       const message = razorpayRefundErrorMessage(err);
       this.logger.warn(
-        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}): ${message} | razorpayError=${razorpayErrorDetail(err)}`,
+        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}, amountPaise=${refundAmountPaise ?? 'full'}, keyMode=${keyMode}): ${message} | razorpayError=${razorpayErrorDetail(err)}`,
       );
       throw new BadRequestException(message);
     }

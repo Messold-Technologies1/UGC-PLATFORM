@@ -151,7 +151,7 @@ export class AdminOrdersController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary:
-      'Trigger Razorpay refund (order must be REJECTED); sets REFUNDED on success',
+      'Trigger Razorpay refund (order must be REJECTED). Marks REFUNDED and emails the brand only when Razorpay reports the refund as processed (instant refunds); otherwise the refund.processed webhook finalizes it.',
   })
   @ApiCreatedResponse({
     schema: {

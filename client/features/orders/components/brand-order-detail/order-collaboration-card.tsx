@@ -61,7 +61,11 @@ export function OrderCollaborationCard({
   const pill = STATUS_PILL_STYLE[order.status];
   const gradient = AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length];
   const statusLabel =
-    STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] ?? order.status;
+    // Creator payout status is internal — the brand just sees the order as
+    // Completed, same as before payout goes out.
+    order.status === "CREATOR_PAYMENT_DONE"
+      ? STATUS_LABELS.ACCEPTED
+      : STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] ?? order.status;
   const canBuyUsageRights = COMPLETED_BUY_USAGE_STATUSES.has(order.status);
   const deadlineMeta = getDeliveryDeadlineCardMeta(order);
   const timelineLabel =

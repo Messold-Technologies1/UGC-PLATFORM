@@ -237,6 +237,9 @@ function CreatorOrdersListInner() {
                   }).format(new Date(dateString));
                 };
 
+                const isCancelled =
+                  order.status === "REJECTED" || order.status === "REFUNDED";
+
                 let badgeLabel = STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] || order.status;
                 let badgeColor = STATUS_COLORS[order.status as string] || "bg-muted text-muted-foreground";
 
@@ -246,7 +249,20 @@ function CreatorOrdersListInner() {
                 ) {
                   badgeLabel = "Awaiting Shipment";
                   badgeColor = "bg-amber-500/10 text-amber-600 border-amber-500/20";
+                } else if (isCancelled) {
+                  // Refund status is a brand/payment-side concept — to the
+                  // creator this is just a cancelled order with no payout.
+                  badgeLabel = "Cancelled";
+                  badgeColor = STATUS_COLORS.REJECTED;
                 }
+
+                const payoutAmountText = isCancelled
+                  ? "₹0"
+                  : formatCreatorPayoutInr(
+                      getCreatorPayoutFromOrderTotal(resolveOrderTotalInr(order))
+                        .creatorEarnings,
+                    );
+                const payoutLabelText = isCancelled ? "No Payout" : "Payout";
 
                 let deliveryText = "ETA: To Be Determined";
                 if (
@@ -336,14 +352,10 @@ function CreatorOrdersListInner() {
                         <div className="flex items-center justify-between gap-4 border-t border-border/40 pt-2.5">
                           <div className="flex flex-col min-w-0">
                             <span className="font-bold text-sm text-[#22c55e] leading-snug">
-                              {formatCreatorPayoutInr(
-                                getCreatorPayoutFromOrderTotal(
-                                  resolveOrderTotalInr(order),
-                                ).creatorEarnings,
-                              )}
+                              {payoutAmountText}
                             </span>
                             <span className="text-[11px] text-muted-foreground font-medium">
-                              Payout
+                              {payoutLabelText}
                             </span>
                           </div>
                           <div className="flex flex-col items-end text-right min-w-0">
@@ -406,14 +418,10 @@ function CreatorOrdersListInner() {
 
                           <div className="flex flex-col gap-1.5 min-w-[100px] items-start">
                             <span className="font-bold text-sm text-[#22c55e] leading-none">
-                              {formatCreatorPayoutInr(
-                                getCreatorPayoutFromOrderTotal(
-                                  resolveOrderTotalInr(order),
-                                ).creatorEarnings,
-                              )}
+                              {payoutAmountText}
                             </span>
                             <span className="text-[12px] text-muted-foreground font-medium">
-                              Payout
+                              {payoutLabelText}
                             </span>
                           </div>
 

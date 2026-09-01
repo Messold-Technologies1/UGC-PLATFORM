@@ -3666,31 +3666,65 @@ export class OrdersService {
       throw new BadRequestException(message);
     }
 
-    const refundedAt = new Date();
+    // Razorpay refunds are asynchronous. `payments.refund` normally returns
+    // status `pending` — the refund has been *accepted*, but the money has not
+    // moved yet — and Razorpay later fires the `refund.processed` webhook once
+    // it actually completes. That webhook (markRefundCompletedFromWebhook) is
+    // the single source of truth that flips the order to REFUNDED and emails
+    // the brand. So here we finalize synchronously ONLY when Razorpay already
+    // reports the refund as `processed` (instant refunds); otherwise we just
+    // record the refund id, leave the order REJECTED, and let the webhook
+    // finish the job.
+    if (refund.status === 'failed') {
+      this.logger.warn(
+        `Razorpay refund ${refund.id} failed immediately for order ${order.id} (payment ${order.razorpayPaymentId})`,
+      );
+      throw new BadRequestException('Razorpay could not process the refund');
+    }
 
+    if (refund.status === 'processed') {
+      const refundedAt = new Date();
+
+      await this.updateOrder({
+        where: { id: order.id },
+        data: {
+          status: 'REFUNDED' as any,
+          razorpayRefundId: refund.id,
+          refundedAt,
+        },
+      });
+
+      await this.orderRealtime.emitOrderPayment({
+        orderId: order.id,
+        kind: 'refund_processed',
+        audience: 'brand_and_creator',
+        meta: { razorpayRefundId: refund.id, refundStatus: refund.status },
+      });
+
+      // Instant refund is already complete — notify the brand now. If the
+      // refund.processed webhook also arrives it is a no-op, because the order
+      // is already REFUNDED (markRefundCompletedFromWebhook returns early).
+      this.orderMail.notifyOrderRefunded(order.id, refundedAt);
+
+      this.logger.log(
+        `Razorpay refund ${refund.id} processed instantly for order ${order.id}`,
+      );
+
+      return { refundId: refund.id, refundStatus: refund.status };
+    }
+
+    // Pending (or any other non-terminal status): record the refund id so a
+    // re-trigger is blocked by the ConflictException guard above, but keep the
+    // order REJECTED. The refund.processed webhook flips it to REFUNDED and
+    // emails the brand once the refund truly completes — no premature "refund
+    // processed" email is sent here.
     await this.updateOrder({
       where: { id: order.id },
-      data: {
-        status: 'REFUNDED' as any,
-        razorpayRefundId: refund.id,
-        refundedAt,
-      },
+      data: { razorpayRefundId: refund.id },
     });
-
-    await this.orderRealtime.emitOrderPayment({
-      orderId: order.id,
-      kind: 'refund_processed',
-      audience: 'brand_and_creator',
-      meta: { razorpayRefundId: refund.id, refundStatus: refund.status },
-    });
-
-    // Notify the brand that the refund has been processed from our end.
-    // (The webhook reconciliation path also calls this; whichever completes
-    // first flips the order to REFUNDED, so only one refund email is sent.)
-    this.orderMail.notifyOrderRefunded(order.id, refundedAt);
 
     this.logger.log(
-      `Razorpay refund ${refund.id} (${refund.status}) processed for order ${order.id}`,
+      `Razorpay refund ${refund.id} initiated (status=${refund.status}) for order ${order.id}; awaiting refund.processed webhook`,
     );
 
     return { refundId: refund.id, refundStatus: refund.status };

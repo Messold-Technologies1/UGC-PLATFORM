@@ -50,7 +50,6 @@ export type IdentityStepProps = {
     creatorType?: string;
     occupation?: string;
     appearance?: string;
-    restrictions?: string;
     blankOther?: string;
   };
 };
@@ -254,7 +253,6 @@ export function IdentityStep({
     if (errors.creatorType) return "creator-type";
     if (errors.occupation) return "occupation";
     if (errors.appearance) return "appearance";
-    if (errors.restrictions) return "comfortable";
     return null;
   })();
 
@@ -508,12 +506,9 @@ export function IdentityStep({
             ) : null}
           </div>
           <span className="cw-facet-help">
-            Pick the categories you&apos;re open to creating for so brands can
-            match you to the right briefs. Optional — skip if none apply.
+            Optional — skip if none apply. Pick the categories you&apos;re open
+            to creating for so brands can match you to the right briefs.
           </span>
-          {errors.restrictions ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.restrictions}</p>
-          ) : null}
           <div className="pe-chips">
             {OPEN_TO_OPTIONS.map((name) => {
               const isOn = selectedRestrictions.includes(name);

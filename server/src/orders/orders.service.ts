@@ -168,6 +168,36 @@ function razorpayRefundErrorMessage(err: unknown): string {
   return 'Razorpay refund failed';
 }
 
+/**
+ * Razorpay API errors carry a structured `error` object
+ * ({ code, description, source, step, reason, field, metadata }) that pinpoints
+ * *why* a request was rejected far better than the human `description` alone
+ * (e.g. a generic "invalid request sent" whose `field`/`reason` name the real
+ * cause). Serialize whatever is present for diagnostic logging.
+ */
+function razorpayErrorDetail(err: unknown): string {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'error' in err &&
+    (err as { error?: unknown }).error &&
+    typeof (err as { error?: unknown }).error === 'object'
+  ) {
+    const e = (err as { error: Record<string, unknown> }).error;
+    const picked: Record<string, unknown> = {};
+    for (const key of ['code', 'reason', 'field', 'step', 'source']) {
+      if (e[key] !== undefined && e[key] !== null) picked[key] = e[key];
+    }
+    try {
+      return JSON.stringify(picked);
+    } catch {
+      return '{}';
+    }
+  }
+  const statusCode = (err as { statusCode?: unknown })?.statusCode;
+  return statusCode !== undefined ? `{"statusCode":${String(statusCode)}}` : '{}';
+}
+
 function mapDeliverablesSnapshot(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string');
@@ -3832,7 +3862,7 @@ export class OrdersService {
       }
       const message = razorpayRefundErrorMessage(err);
       this.logger.warn(
-        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}): ${message}`,
+        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}): ${message} | detail=${razorpayErrorDetail(err)}`,
       );
       throw new BadRequestException(message);
     }

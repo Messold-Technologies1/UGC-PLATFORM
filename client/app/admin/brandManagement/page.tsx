@@ -111,17 +111,6 @@ function BrandManagementLoadingShell({ limit }: { limit: number }) {
       </section> */}
 
       <section className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
-          <div>
-            <h2 className="text-xl font-headline font-semibold">
-              Active Brands
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Only brands with an active profile are listed here.
-            </p>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 gap-4">
           {Array.from({ length: limit }).map((_, index) => (
             <div
@@ -212,17 +201,6 @@ function BrandManagementContent({
       </section> */}
 
       <section className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-2">
-          <div>
-            <h2 className="text-xl font-headline font-semibold">
-              Active Brands
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Only brands with an active profile are listed here.
-            </p>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 gap-4">
           {items.length === 0 ? (
             <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
@@ -519,14 +497,6 @@ export default function BrandManagementPage() {
   return (
     <>
       <div className="p-8 space-y-8">
-        <section className="space-y-4">
-          <h1 className="text-4xl font-headline font-bold">Brand Management</h1>
-          <p className="max-w-3xl text-muted-foreground font-body">
-            Review brands that currently have an active profile and remove brand
-            access.
-          </p>
-        </section>
-
         {isError && !isLoading ? (
           <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
             We could not load the brand list right now. Try again shortly.

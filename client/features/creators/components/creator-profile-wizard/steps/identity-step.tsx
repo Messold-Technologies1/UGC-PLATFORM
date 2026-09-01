@@ -246,7 +246,6 @@ export function IdentityStep({
     if (!(selectedFacets.CREATOR_TYPE ?? [])[0]) return "creator-type";
     if (!(selectedFacets.OCCUPATION ?? [])[0]) return "occupation";
     if (!(selectedFacets.APPEARANCE ?? [])[0]) return "appearance";
-    if (selectedRestrictions.length === 0) return "comfortable";
     return "primary";
   })();
   const firstError = ((): IdentitySectionId | null => {

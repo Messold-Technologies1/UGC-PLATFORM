@@ -978,10 +978,6 @@ export function CreatorProfileWizard({
               facetCount("APPEARANCE") === 0
                 ? "Select your appearance."
                 : undefined,
-            restrictions:
-              selectedRestrictions.length === 0
-                ? "Choose at least one category you're comfortable with."
-                : undefined,
             blankOther: identityHasBlankOther
               ? 'Fill in your "Other" selection.'
               : undefined,
@@ -1046,7 +1042,6 @@ export function CreatorProfileWizard({
     facets.primaryNiche,
     facets.secondaryNiches,
     facetCount,
-    selectedRestrictions,
     identityHasBlankOther,
     bio,
     portfolioConfirmed,

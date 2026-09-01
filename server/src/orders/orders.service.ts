@@ -3278,14 +3278,22 @@ export class OrdersService {
   async listOrdersForAdmin(params: {
     page?: number;
     limit?: number;
+    brandId?: string;
   }): Promise<AdminOrdersListResponseDto> {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
 
+    // Optional filter used by the admin brand-detail page to list a single
+    // brand's orders. brandId is BrandProfile.id (== Order.brandId).
+    const where: Prisma.OrderWhereInput | undefined = params.brandId
+      ? { brandId: params.brandId }
+      : undefined;
+
     const [total, rows] = await this.prisma.$transaction([
-      this.prisma.order.count(),
+      this.prisma.order.count({ where }),
       this.prisma.order.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },

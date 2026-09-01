@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Skeleton as BoneyardSkeleton } from "boneyard-js/react";
 import { Building2, Mail, Store, Trash2, UserRound } from "lucide-react";
 import {
@@ -176,8 +177,15 @@ function BrandManagementContent({
   onPageChange,
   onLimitChange,
 }: BrandManagementContentProps) {
+  const router = useRouter();
   const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
+
+  const openBrand = (brand: AdminBrandListItemDto) => {
+    if (brand.brandProfileId) {
+      router.push(`/admin/brandManagement/${brand.brandProfileId}`);
+    }
+  };
 
   // const withLogo = items.filter((item) => Boolean(item.logoUrl)).length;
   // const distinctContactNames = new Set(
@@ -228,7 +236,21 @@ function BrandManagementContent({
               return (
                 <div
                   key={brand.userId}
-                  className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full transition-all duration-300 hover:bg-accent/60 border-l-4 border-l-transparent hover:border-l-primary hover:shadow-lg hover:shadow-primary/5"
+                  role={brand.brandProfileId ? "button" : undefined}
+                  tabIndex={brand.brandProfileId ? 0 : undefined}
+                  onClick={() => openBrand(brand)}
+                  onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+                    if (
+                      brand.brandProfileId &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      openBrand(brand);
+                    }
+                  }}
+                  className={`group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full transition-all duration-300 hover:bg-accent/60 border-l-4 border-l-transparent hover:border-l-primary hover:shadow-lg hover:shadow-primary/5${
+                    brand.brandProfileId ? " cursor-pointer" : ""
+                  }`}
                 >
                   <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
                     <div className="flex items-center gap-6 min-w-[280px]">
@@ -307,7 +329,10 @@ function BrandManagementContent({
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => onSelectBrand(brand)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectBrand(brand);
+                        }}
                         disabled={removePending}
                         className="opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-opacity"
                       >

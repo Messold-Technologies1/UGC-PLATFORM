@@ -19,6 +19,8 @@ import {
   PresignBrandPronunciationUploadDto,
 } from './dto/presign-brand-pronunciation-upload.dto';
 import { BrandsListResponseDto } from './dto/brands-list-response.dto';
+import { AdminBrandDetailDto } from './dto/admin-brand-detail.dto';
+import { AdminBrandWishlistsResponseDto } from './dto/admin-brand-wishlists.dto';
 import { BrandProfileResponseDto } from './dto/brand-profile-response.dto';
 import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 import { RemoveBrandRoleDto } from './dto/remove-brand-role.dto';
@@ -524,6 +526,87 @@ export class BrandProfileService {
       total,
       page,
       limit,
+    };
+  }
+
+  /**
+   * Admin brand-detail header, keyed on BrandProfile.id (the id carried on each
+   * admin brand-list row as `brandProfileId`, and used by Order.brandId and
+   * BrandWishlist.brandId).
+   */
+  async getBrandForAdmin(brandProfileId: string): Promise<AdminBrandDetailDto> {
+    const brand = await this.prisma.brandProfile.findUnique({
+      where: { id: brandProfileId },
+      include: {
+        user: { select: { id: true, email: true, name: true, status: true } },
+        brandCategories: { select: { category: true } },
+      },
+    });
+    if (!brand) throw new NotFoundException('Brand not found');
+
+    return {
+      brandProfileId: brand.id,
+      userId: brand.userId ?? brand.user?.id ?? null,
+      email: brand.user?.email ?? brand.contactEmail ?? null,
+      name: brand.user?.name ?? null,
+      brandName: brand.brandName ?? null,
+      contactFullName: brand.contactFullName ?? null,
+      contactEmail: brand.contactEmail ?? null,
+      contactPhone: brand.contactPhone ?? null,
+      website: brand.website ?? null,
+      instagramUrl: brand.instagramUrl ?? null,
+      logoUrl: brand.logoUrl ?? null,
+      categories: brand.brandCategories.map((bc) => bc.category),
+      status: brand.user?.status ?? null,
+      createdAt: brand.createdAt,
+      updatedAt: brand.updatedAt,
+    };
+  }
+
+  /**
+   * Admin: list a brand's wishlists (named creator shortlists) with the
+   * creators in each, for the admin brand-detail page. Keyed on
+   * BrandProfile.id (== BrandWishlist.brandId).
+   */
+  async listBrandWishlistsForAdmin(
+    brandProfileId: string,
+  ): Promise<AdminBrandWishlistsResponseDto> {
+    const rows = await this.prisma.brandWishlist.findMany({
+      where: { brandId: brandProfileId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { creators: true } },
+        creators: {
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          include: {
+            creator: {
+              select: {
+                id: true,
+                displayName: true,
+                profileImageUrl: true,
+                city: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      items: rows.map((w) => ({
+        id: w.id,
+        name: w.name,
+        creatorCount: w._count.creators,
+        shareEnabled: w.shareEnabled,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
+        creators: w.creators.map((wc) => ({
+          id: wc.creator.id,
+          displayName: wc.creator.displayName ?? null,
+          profileImageUrl: wc.creator.profileImageUrl ?? null,
+          city: wc.creator.city ?? null,
+        })),
+      })),
     };
   }
 

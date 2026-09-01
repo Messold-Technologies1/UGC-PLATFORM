@@ -286,6 +286,47 @@ export interface AdminBrandsListResponseDto {
 export interface AdminOrdersQueryDto {
   page?: number;
   limit?: number;
+  /** Filter to a single brand's orders (BrandProfile id). */
+  brandId?: string;
+}
+
+export interface AdminBrandDetailDto {
+  brandProfileId: string;
+  userId: string | null;
+  email: string | null;
+  name: string | null;
+  brandName: string | null;
+  contactFullName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  website: string | null;
+  instagramUrl: string | null;
+  logoUrl: string | null;
+  categories: BrandCategoryApi[];
+  status: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminBrandWishlistCreatorDto {
+  id: string;
+  displayName: string | null;
+  profileImageUrl: string | null;
+  city: string | null;
+}
+
+export interface AdminBrandWishlistDto {
+  id: string;
+  name: string;
+  creatorCount: number;
+  shareEnabled: boolean;
+  creators: AdminBrandWishlistCreatorDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminBrandWishlistsResponseDto {
+  items: AdminBrandWishlistDto[];
 }
 
 export interface AdminOrderListItemDto {

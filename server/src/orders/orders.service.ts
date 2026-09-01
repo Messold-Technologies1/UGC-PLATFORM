@@ -3653,8 +3653,17 @@ export class OrdersService {
         notes: { orderId: order.id },
       });
     } catch (err: unknown) {
-      if (err instanceof ServiceUnavailableException) throw err;
-      throw new BadRequestException(razorpayRefundErrorMessage(err));
+      if (err instanceof ServiceUnavailableException) {
+        this.logger.error(
+          `Razorpay refund unavailable for order ${order.id} (payment ${order.razorpayPaymentId}): ${err.message}`,
+        );
+        throw err;
+      }
+      const message = razorpayRefundErrorMessage(err);
+      this.logger.warn(
+        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}): ${message}`,
+      );
+      throw new BadRequestException(message);
     }
 
     const refundedAt = new Date();
@@ -3674,6 +3683,15 @@ export class OrdersService {
       audience: 'brand_and_creator',
       meta: { razorpayRefundId: refund.id, refundStatus: refund.status },
     });
+
+    // Notify the brand that the refund has been processed from our end.
+    // (The webhook reconciliation path also calls this; whichever completes
+    // first flips the order to REFUNDED, so only one refund email is sent.)
+    this.orderMail.notifyOrderRefunded(order.id, refundedAt);
+
+    this.logger.log(
+      `Razorpay refund ${refund.id} (${refund.status}) processed for order ${order.id}`,
+    );
 
     return { refundId: refund.id, refundStatus: refund.status };
   }

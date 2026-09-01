@@ -3,8 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
+import { useState, type ReactNode } from "react";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Globe,
   Heart,
   Instagram,
@@ -15,6 +19,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import OrderRow from "@/components/admin/OrderRow";
 import {
@@ -23,6 +28,8 @@ import {
 } from "@/features/admin/hooks/use-admin-brand-detail-query";
 import { useAdminOrdersQuery } from "@/features/admin/hooks/use-admin-orders-query";
 import type { AdminBrandWishlistCreatorDto } from "@/features/admin/types";
+
+const ORDERS_PAGE_SIZE = 10;
 
 function humanizeCategory(value: string): string {
   return value
@@ -42,6 +49,45 @@ function initials(value?: string | null): string {
     .map((p) => p[0])
     .join("")
     .toUpperCase();
+}
+
+function CollapsibleSection({
+  icon,
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="glass-panel overflow-hidden rounded-2xl">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-6 py-4 text-left transition-colors hover:bg-accent/40"
+      >
+        <span className="text-primary">{icon}</span>
+        <h2 className="font-headline text-xl font-bold">{title}</h2>
+        {typeof count === "number" ? (
+          <span className="text-sm text-muted-foreground">({count})</span>
+        ) : null}
+        <ChevronDown
+          className={`ml-auto size-5 text-muted-foreground transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      {open ? <div className="border-t border-border/10">{children}</div> : null}
+    </section>
+  );
 }
 
 function WishlistCreatorChip({
@@ -76,9 +122,19 @@ function WishlistCreatorChip({
 export default function AdminBrandDetailPage() {
   const { id } = useParams() as { id: string };
 
+  const [ordersPage, setOrdersPage] = useState(1);
+  // null = follow the data-driven default (open when non-empty); once the admin
+  // clicks a section header we respect their explicit choice.
+  const [wishlistOpen, setWishlistOpen] = useState<boolean | null>(null);
+  const [ordersOpen, setOrdersOpen] = useState<boolean | null>(null);
+
   const brandQuery = useAdminBrandDetailQuery(id);
   const wishlistsQuery = useAdminBrandWishlistsQuery(id);
-  const ordersQuery = useAdminOrdersQuery({ brandId: id, limit: 50 });
+  const ordersQuery = useAdminOrdersQuery({
+    brandId: id,
+    page: ordersPage,
+    limit: ORDERS_PAGE_SIZE,
+  });
 
   if (brandQuery.isLoading) {
     return (
@@ -90,7 +146,7 @@ export default function AdminBrandDetailPage() {
 
   if (brandQuery.isError || !brandQuery.data) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-16">
+      <div className="w-full px-4 py-16 md:px-8">
         <Link
           href="/admin/brandManagement"
           className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -108,10 +164,17 @@ export default function AdminBrandDetailPage() {
   const brand = brandQuery.data;
   const displayName = brand.brandName ?? brand.name ?? "Unnamed Brand";
   const wishlists = wishlistsQuery.data?.items ?? [];
+  const ordersTotal = ordersQuery.data?.total ?? 0;
   const orders = ordersQuery.data?.items ?? [];
+  const ordersTotalPages = Math.max(1, Math.ceil(ordersTotal / ORDERS_PAGE_SIZE));
+
+  const wishlistExpanded =
+    wishlistOpen ?? (wishlistsQuery.isLoading || wishlists.length > 0);
+  const ordersExpanded =
+    ordersOpen ?? (ordersQuery.isLoading || ordersTotal > 0);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="w-full px-4 py-8 md:px-8">
       <Link
         href="/admin/brandManagement"
         className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -208,79 +271,75 @@ export default function AdminBrandDetailPage() {
         </div>
       </div>
 
-      {/* Wishlists */}
-      <section className="mb-10">
-        <div className="mb-4 flex items-center gap-2">
-          <Heart className="size-5 text-primary" />
-          <h2 className="font-headline text-xl font-bold">Wishlists</h2>
-          <span className="text-sm text-muted-foreground">
-            ({wishlists.length})
-          </span>
-        </div>
-
-        {wishlistsQuery.isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner className="size-6 text-muted-foreground" />
-          </div>
-        ) : wishlistsQuery.isError ? (
-          <div className="glass-panel rounded-2xl border border-border/10 bg-card/10 py-12 text-center text-sm text-muted-foreground">
-            Could not load this brand&apos;s wishlists.
-          </div>
-        ) : wishlists.length === 0 ? (
-          <div className="glass-panel rounded-2xl border border-border/10 bg-card/10 py-12 text-center text-sm text-muted-foreground">
-            This brand has no wishlists yet.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {wishlists.map((w) => (
-              <div
-                key={w.id}
-                className="glass-panel rounded-2xl p-5"
-              >
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="truncate font-bold">{w.name}</h3>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {w.shareEnabled ? (
-                      <Badge variant="outline" className="text-[10px]">
-                        Shared
-                      </Badge>
-                    ) : null}
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {w.creatorCount}{" "}
-                      {w.creatorCount === 1 ? "creator" : "creators"}
-                    </span>
-                  </div>
-                </div>
-                {w.creators.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No creators in this wishlist.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {w.creators.map((c) => (
-                      <WishlistCreatorChip key={c.id} creator={c} />
-                    ))}
-                  </div>
-                )}
+      <div className="space-y-6">
+        {/* Wishlists */}
+        <CollapsibleSection
+          icon={<Heart className="size-5" />}
+          title="Wishlists"
+          count={wishlists.length}
+          open={wishlistExpanded}
+          onToggle={() => setWishlistOpen(!wishlistExpanded)}
+        >
+          <div className="p-5">
+            {wishlistsQuery.isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Spinner className="size-6 text-muted-foreground" />
               </div>
-            ))}
+            ) : wishlistsQuery.isError ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Could not load this brand&apos;s wishlists.
+              </p>
+            ) : wishlists.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                This brand has no wishlists yet.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {wishlists.map((w) => (
+                  <div
+                    key={w.id}
+                    className="rounded-2xl border border-border/20 bg-card/30 p-5"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="truncate font-bold">{w.name}</h3>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {w.shareEnabled ? (
+                          <Badge variant="outline" className="text-[10px]">
+                            Shared
+                          </Badge>
+                        ) : null}
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {w.creatorCount}{" "}
+                          {w.creatorCount === 1 ? "creator" : "creators"}
+                        </span>
+                      </div>
+                    </div>
+                    {w.creators.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No creators in this wishlist.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {w.creators.map((c) => (
+                          <WishlistCreatorChip key={c.id} creator={c} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </section>
+        </CollapsibleSection>
 
-      {/* Orders */}
-      <section>
-        <div className="mb-4 flex items-center gap-2">
-          <Store className="size-5 text-primary" />
-          <h2 className="font-headline text-xl font-bold">Orders</h2>
-          {ordersQuery.data ? (
-            <span className="text-sm text-muted-foreground">
-              ({ordersQuery.data.total})
-            </span>
-          ) : null}
-        </div>
-
-        <div className="glass-panel overflow-hidden rounded-2xl">
+        {/* Orders */}
+        <CollapsibleSection
+          icon={<Store className="size-5" />}
+          title="Orders"
+          count={ordersTotal}
+          open={ordersExpanded}
+          onToggle={() => setOrdersOpen(!ordersExpanded)}
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-muted/50 text-[11px] font-black uppercase tracking-[0.15em] text-muted-foreground dark:bg-card/30">
@@ -331,8 +390,40 @@ export default function AdminBrandDetailPage() {
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+
+          {ordersTotal > 0 ? (
+            <div className="flex items-center justify-between gap-4 border-t border-border/10 px-6 py-4">
+              <p className="text-xs text-muted-foreground">
+                Page {ordersPage} of {ordersTotalPages} · {ordersTotal} total
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={ordersPage <= 1 || ordersQuery.isFetching}
+                  onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="mr-1 size-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    ordersPage >= ordersTotalPages || ordersQuery.isFetching
+                  }
+                  onClick={() =>
+                    setOrdersPage((p) => Math.min(ordersTotalPages, p + 1))
+                  }
+                >
+                  Next
+                  <ChevronRight className="ml-1 size-4" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </CollapsibleSection>
+      </div>
     </div>
   );
 }

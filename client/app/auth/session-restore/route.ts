@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveLandingWorkspacePath } from "@/features/auth/lib/post-auth-destination";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
@@ -34,6 +35,36 @@ function getSetCookieHeaders(headers: Headers): string[] {
   return rawHeader ? splitSetCookieHeader(rawHeader) : [];
 }
 
+function overlayCookieHeader(
+  existing: { name: string; value: string }[],
+  setCookieHeaders: string[],
+): string {
+  const map = new Map(existing.map((cookie) => [cookie.name, cookie.value]));
+  for (const header of setCookieHeaders) {
+    const pair = header.split(";")[0]?.trim();
+    if (!pair) continue;
+    const eq = pair.indexOf("=");
+    if (eq <= 0) continue;
+    const name = pair.slice(0, eq).trim();
+    const value = pair.slice(eq + 1).trim();
+    if (!name) continue;
+    if (!value) {
+      map.delete(name);
+      continue;
+    }
+    map.set(name, value);
+  }
+  return [...map.entries()]
+    .map(([name, value]) => `${name}=${value}`)
+    .join("; ");
+}
+
+function applySetCookies(response: NextResponse, setCookieHeaders: string[]) {
+  for (const setCookieHeader of setCookieHeaders) {
+    response.headers.append("set-cookie", setCookieHeader);
+  }
+}
+
 function clearAuthCookies(response: NextResponse) {
   const sameSite = process.env.NODE_ENV === "production" ? "none" : "lax";
   const baseOptions = {
@@ -49,14 +80,39 @@ function clearAuthCookies(response: NextResponse) {
   response.cookies.set(env.refreshCookieName, "", baseOptions);
 }
 
+async function resolveHomeWorkspacePath(cookieHeader: string): Promise<string | null> {
+  try {
+    const meResponse = await fetch(`${env.apiUrl}${ENDPOINTS.AUTH.ME}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+      cache: "no-store",
+    });
+    if (!meResponse.ok) return null;
+    const data = (await meResponse.json()) as {
+      user?: {
+        primaryRole?: string | null;
+        roles?: string[] | null;
+        brandAccessRevoked?: boolean;
+      } | null;
+    };
+    return resolveLandingWorkspacePath(data.user ?? null);
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
+  const resumeHome = request.nextUrl.searchParams.get("resumeHome") === "1";
   const callbackUrl = normalizeInternalPath(
     request.nextUrl.searchParams.get("callbackUrl"),
     "/",
   );
   const fallbackUrl = normalizeInternalPath(
     request.nextUrl.searchParams.get("fallbackUrl"),
-    callbackUrl,
+    resumeHome ? "/?noRestore=1" : callbackUrl,
   );
 
   const cookieStore = await cookies();
@@ -88,10 +144,20 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    const response = NextResponse.redirect(new URL(callbackUrl, request.url));
-    for (const setCookieHeader of getSetCookieHeaders(refreshResponse.headers)) {
-      response.headers.append("set-cookie", setCookieHeader);
+    const setCookieHeaders = getSetCookieHeaders(refreshResponse.headers);
+
+    let destination = callbackUrl;
+    if (resumeHome) {
+      const meCookieHeader = overlayCookieHeader(
+        cookieStore.getAll(),
+        setCookieHeaders,
+      );
+      destination =
+        (await resolveHomeWorkspacePath(meCookieHeader)) ?? "/";
     }
+
+    const response = NextResponse.redirect(new URL(destination, request.url));
+    applySetCookies(response, setCookieHeaders);
     return response;
   } catch {
     return NextResponse.redirect(new URL(fallbackUrl, request.url));

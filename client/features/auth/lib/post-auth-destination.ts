@@ -8,6 +8,44 @@ const CREATOR_FALLBACK = "/creator/account";
 const BRAND_FALLBACK = "/brand/creators";
 const ADMIN_FALLBACK = "/admin";
 
+/** Minimal identity used to pick a workspace home after login / session restore. */
+export type LandingWorkspaceUser = {
+  primaryRole?: string | null;
+  roles?: readonly string[] | null;
+  brandAccessRevoked?: boolean;
+};
+
+function canUseLandingRole(
+  user: LandingWorkspaceUser,
+  role: string | null | undefined,
+): boolean {
+  if (!role) return false;
+  if (role === "AGENCY") return true;
+  if (role === "BRAND") return !user.brandAccessRevoked;
+  return role === "CREATOR" || role === "ADMIN";
+}
+
+function landingPathForRole(role: string | null | undefined): string | null {
+  if (role === "ADMIN") return ADMIN_FALLBACK;
+  if (role === "BRAND" || role === "AGENCY") return BRAND_FALLBACK;
+  if (role === "CREATOR") return CREATOR_FALLBACK;
+  return null;
+}
+
+/** Brand → creator browse, creator → profile, admin → admin home. */
+export function resolveLandingWorkspacePath(
+  user: LandingWorkspaceUser | null | undefined,
+): string | null {
+  if (!user) return null;
+  if (canUseLandingRole(user, user.primaryRole)) {
+    return landingPathForRole(user.primaryRole);
+  }
+  const fallbackRole = (user.roles ?? []).find((role) =>
+    canUseLandingRole(user, role),
+  );
+  return fallbackRole ? landingPathForRole(fallbackRole) : null;
+}
+
 /** Paths where post-login should return the user (public browsing, not workspace). */
 export function isPublicPostAuthContinuePath(path: string): boolean {
   return path.startsWith("/wishlists/share/");

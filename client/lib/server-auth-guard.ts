@@ -69,6 +69,23 @@ export async function redirectToSessionRestoreIfPossible(
 }
 
 /**
+ * Cold visit to `/` with an expired access cookie but a live refresh cookie.
+ * Restore once, then send the user straight to their workspace (not back to `/`).
+ * Failed restore lands on `/?noRestore=1` so we cannot loop.
+ */
+export async function redirectToHomeSessionRestoreIfPossible() {
+  const cookieStore = await cookies();
+  const hasRefreshToken = !!cookieStore.get(env.refreshCookieName)?.value;
+  if (!hasRefreshToken) return;
+
+  const params = new URLSearchParams({
+    resumeHome: "1",
+    fallbackUrl: "/?noRestore=1",
+  });
+  redirect(`/auth/session-restore?${params.toString()}`);
+}
+
+/**
  * Memoized for the lifetime of a single server request (React `cache`). A page
  * render commonly hits a guard in the segment template AND an auth-aware loader;
  * without this they would each fire a separate `/auth/me` round-trip. The memo

@@ -78,11 +78,20 @@ export class RazorpayService {
     amountPaise?: number;
     notes?: Record<string, string>;
   }): Promise<{ id: string; status: string }> {
+    // Only send fields that are actually set. Passing `amount: undefined`
+    // (full refund) or an empty `notes` can be serialized into an invalid
+    // request body, which Razorpay rejects as a generic BAD_REQUEST_ERROR
+    // ("invalid request sent"). Omitting the amount performs a full refund.
+    const options: { amount?: number; notes?: Record<string, string> } = {};
+    if (typeof params.amountPaise === 'number') {
+      options.amount = params.amountPaise;
+    }
+    if (params.notes && Object.keys(params.notes).length > 0) {
+      options.notes = params.notes;
+    }
+
     const refund = await this.callApi('refund payment', () =>
-      this.razorpay.payments.refund(params.paymentId, {
-        amount: params.amountPaise,
-        notes: params.notes,
-      }),
+      this.razorpay.payments.refund(params.paymentId, options),
     );
     return { id: refund.id, status: refund.status };
   }

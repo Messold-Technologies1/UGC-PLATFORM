@@ -315,7 +315,7 @@ export default function AdminOrderDetailsPage() {
       : {
           title: "Refund to brand",
           description:
-            "This refunds the full amount paid to the brand via Razorpay. Use this after the order has been rejected.",
+            "Marks the order REFUNDED and emails the brand. Issue the actual refund to the brand manually (Razorpay dashboard / bank transfer) — this does not call Razorpay. Use this after the order has been rejected.",
           action: "Refund to brand",
           icon: RotateCcw,
         };

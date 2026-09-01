@@ -73,10 +73,8 @@ export function useRefundAdminOrderMutation() {
   return useMutation({
     mutationKey: ["admin", "orders", "refund"],
     mutationFn: refundAdminOrder,
-    onSuccess: async (data) => {
-      toast.success("Razorpay refund triggered.", {
-        description: `${data.refundId} (${data.refundStatus})`,
-      });
+    onSuccess: async () => {
+      toast.success("Order marked as refunded and the brand has been notified.");
       await queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
     },
     onError: (error) => {

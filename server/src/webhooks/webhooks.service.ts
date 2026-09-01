@@ -33,6 +33,8 @@ type RazorpayWebhookBody = {
         error_step?: string;
       };
     };
+    // Kept for the commented-out refund.processed/refund.failed handling
+    // below — see handleRazorpayWebhook.
     refund?: {
       entity?: {
         id: string;
@@ -347,58 +349,65 @@ export class WebhooksService {
           });
         }
       }
-    } else if (body.event === 'refund.processed') {
-      const entity = body.payload?.refund?.entity;
-      if (!entity?.id || !entity.payment_id) {
-        throw new BadRequestException('Missing refund entity');
-      }
-      const orderId = await this.orders.markRefundCompletedFromWebhook({
-        razorpayRefundId: entity.id,
-        razorpayPaymentId: entity.payment_id,
-      });
-      if (orderId) {
-        await this.orderRealtime.emitOrderPayment({
-          orderId,
-          kind: 'refund_processed',
-          audience: 'brand_and_creator',
-          meta: {
-            razorpayRefundId: entity.id,
-            razorpayPaymentId: entity.payment_id,
-          },
-        });
-      }
-    } else if (body.event === 'refund.failed') {
-      const entity = body.payload?.refund?.entity;
-      this.logger.warn(
-        `refund.failed payment_id=${entity?.payment_id ?? '?'} refund_id=${entity?.id ?? '?'}`,
-      );
-      if (entity?.payment_id) {
-        // Clear the recorded refund id (if it matches) so the order becomes
-        // retryable — the admin-triggered refund records the id while the
-        // order stays REJECTED awaiting completion.
-        if (entity.id) {
-          await this.orders.markRefundFailedFromWebhook({
-            razorpayPaymentId: entity.payment_id,
-            razorpayRefundId: entity.id,
-          });
-        }
-        const orderId = await this.orders.findOrderIdByRazorpayPaymentId(
-          entity.payment_id,
-        );
-        if (orderId) {
-          await this.orderRealtime.emitOrderPayment({
-            orderId,
-            kind: 'refund_failed',
-            audience: 'brand_only',
-            meta: {
-              razorpayRefundId: entity.id,
-              razorpayPaymentId: entity.payment_id,
-              refundStatus: entity.status,
-            },
-          });
-        }
-      }
     }
-    // else: ignore unhandled events (signature already verified)
+    // Refunds are no longer processed through Razorpay/webhooks — an admin
+    // marks the order REFUNDED directly (see OrdersService.adminTriggerRefund).
+    // `refund.processed`/`refund.failed` events, and any other unhandled
+    // event, are ignored here (signature already verified).
+    //
+    // Kept for reference in case we bring back Razorpay-driven refunds:
+    //
+    // else if (body.event === 'refund.processed') {
+    //   const entity = body.payload?.refund?.entity;
+    //   if (!entity?.id || !entity.payment_id) {
+    //     throw new BadRequestException('Missing refund entity');
+    //   }
+    //   const orderId = await this.orders.markRefundCompletedFromWebhook({
+    //     razorpayRefundId: entity.id,
+    //     razorpayPaymentId: entity.payment_id,
+    //   });
+    //   if (orderId) {
+    //     await this.orderRealtime.emitOrderPayment({
+    //       orderId,
+    //       kind: 'refund_processed',
+    //       audience: 'brand_and_creator',
+    //       meta: {
+    //         razorpayRefundId: entity.id,
+    //         razorpayPaymentId: entity.payment_id,
+    //       },
+    //     });
+    //   }
+    // } else if (body.event === 'refund.failed') {
+    //   const entity = body.payload?.refund?.entity;
+    //   this.logger.warn(
+    //     `refund.failed payment_id=${entity?.payment_id ?? '?'} refund_id=${entity?.id ?? '?'}`,
+    //   );
+    //   if (entity?.payment_id) {
+    //     // Clear the recorded refund id (if it matches) so the order becomes
+    //     // retryable — the admin-triggered refund records the id while the
+    //     // order stays REJECTED awaiting completion.
+    //     if (entity.id) {
+    //       await this.orders.markRefundFailedFromWebhook({
+    //         razorpayPaymentId: entity.payment_id,
+    //         razorpayRefundId: entity.id,
+    //       });
+    //     }
+    //     const orderId = await this.orders.findOrderIdByRazorpayPaymentId(
+    //       entity.payment_id,
+    //     );
+    //     if (orderId) {
+    //       await this.orderRealtime.emitOrderPayment({
+    //         orderId,
+    //         kind: 'refund_failed',
+    //         audience: 'brand_only',
+    //         meta: {
+    //           razorpayRefundId: entity.id,
+    //           razorpayPaymentId: entity.payment_id,
+    //           refundStatus: entity.status,
+    //         },
+    //       });
+    //     }
+    //   }
+    // }
   }
 }

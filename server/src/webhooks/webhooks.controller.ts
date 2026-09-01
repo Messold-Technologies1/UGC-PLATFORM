@@ -19,7 +19,7 @@ export class WebhooksController {
 
   @Post('razorpay')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Razorpay webhook receiver (payments/refunds)' })
+  @ApiOperation({ summary: 'Razorpay webhook receiver (payments only — refunds are handled manually by admins)' })
   async razorpay(
     @Req() req: Request & { rawBody?: Buffer },
     @Body() body: unknown,

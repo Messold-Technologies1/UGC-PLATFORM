@@ -1,11 +1,9 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   Prisma,
@@ -152,56 +150,64 @@ export const BASE_USAGE_RIGHTS_DAYS = 30;
  */
 const EXTRA_USAGE_RIGHTS_OPTION_SLUG = 'paid_ads_usage_30_days';
 
-function razorpayRefundErrorMessage(err: unknown): string {
-  if (
-    err &&
-    typeof err === 'object' &&
-    'error' in err &&
-    err.error &&
-    typeof err.error === 'object' &&
-    'description' in err.error &&
-    typeof (err.error as { description: unknown }).description === 'string'
-  ) {
-    return (err.error as { description: string }).description;
-  }
-  if (err instanceof Error) return err.message;
-  return 'Razorpay refund failed';
-}
-
-/**
- * Serialize the COMPLETE Razorpay error payload for diagnostic logging.
- *
- * Razorpay API errors carry a structured `error` object
- * ({ code, description, source, step, reason, field, metadata }) that pinpoints
- * *why* a request was rejected far better than the human `description` alone
- * (e.g. a generic "invalid request sent" whose `field`/`reason`/`step` name the
- * real cause). We dump the whole thing (plus the HTTP `statusCode` when the SDK
- * attaches one) so nothing is lost. Serialization is best-effort and never
- * throws — logging a bad refund must not itself crash the request.
- */
-function razorpayErrorDetail(err: unknown): string {
-  try {
-    if (
-      err &&
-      typeof err === 'object' &&
-      'error' in err &&
-      (err as { error?: unknown }).error
-    ) {
-      const out: Record<string, unknown> = {
-        error: (err as { error: unknown }).error,
-      };
-      const statusCode = (err as { statusCode?: unknown }).statusCode;
-      if (statusCode !== undefined) out.statusCode = statusCode;
-      return JSON.stringify(out);
-    }
-    if (err instanceof Error) {
-      return JSON.stringify({ name: err.name, message: err.message });
-    }
-    return JSON.stringify(err);
-  } catch {
-    return String(err);
-  }
-}
+// ─── Razorpay-driven refund flow (disabled — kept for reference) ──────────
+// Refunds are now issued manually by an admin (see adminTriggerRefund
+// below); the old Razorpay refund-API + webhook flow is preserved here,
+// commented out, in case we bring it back. If reinstating, also restore
+// `ConflictException`/`ServiceUnavailableException` to the import at the top
+// of this file, `refundPayment`/`getKeyMode` on RazorpayService, and the
+// `refund.processed`/`refund.failed` branches in WebhooksService.
+//
+// function razorpayRefundErrorMessage(err: unknown): string {
+//   if (
+//     err &&
+//     typeof err === 'object' &&
+//     'error' in err &&
+//     err.error &&
+//     typeof err.error === 'object' &&
+//     'description' in err.error &&
+//     typeof (err.error as { description: unknown }).description === 'string'
+//   ) {
+//     return (err.error as { description: string }).description;
+//   }
+//   if (err instanceof Error) return err.message;
+//   return 'Razorpay refund failed';
+// }
+//
+// /**
+//  * Serialize the COMPLETE Razorpay error payload for diagnostic logging.
+//  *
+//  * Razorpay API errors carry a structured `error` object
+//  * ({ code, description, source, step, reason, field, metadata }) that pinpoints
+//  * *why* a request was rejected far better than the human `description` alone
+//  * (e.g. a generic "invalid request sent" whose `field`/`reason`/`step` name the
+//  * real cause). We dump the whole thing (plus the HTTP `statusCode` when the SDK
+//  * attaches one) so nothing is lost. Serialization is best-effort and never
+//  * throws — logging a bad refund must not itself crash the request.
+//  */
+// function razorpayErrorDetail(err: unknown): string {
+//   try {
+//     if (
+//       err &&
+//       typeof err === 'object' &&
+//       'error' in err &&
+//       (err as { error?: unknown }).error
+//     ) {
+//       const out: Record<string, unknown> = {
+//         error: (err as { error: unknown }).error,
+//       };
+//       const statusCode = (err as { statusCode?: unknown }).statusCode;
+//       if (statusCode !== undefined) out.statusCode = statusCode;
+//       return JSON.stringify(out);
+//     }
+//     if (err instanceof Error) {
+//       return JSON.stringify({ name: err.name, message: err.message });
+//     }
+//     return JSON.stringify(err);
+//   } catch {
+//     return String(err);
+//   }
+// }
 
 function mapDeliverablesSnapshot(value: Prisma.JsonValue): string[] {
   if (!Array.isArray(value)) return [];
@@ -3825,22 +3831,20 @@ export class OrdersService {
   }
 
   /**
-   * Admin: call Razorpay refund API. On success, order becomes REFUNDED.
-   * On Razorpay/API failure, the order stays REJECTED and nothing is persisted.
+   * Admin: mark a REJECTED order REFUNDED and email the brand.
+   *
+   * This no longer calls the Razorpay refund API or waits on a
+   * `refund.processed`/`refund.failed` webhook — refunds are issued manually
+   * outside the platform (Razorpay dashboard, bank transfer, etc.) and this
+   * just records that it happened and notifies the brand immediately.
    */
   async adminTriggerRefund(params: { orderId: string }): Promise<{
-    refundId: string;
-    refundStatus: string;
+    orderId: string;
+    refundedAt: Date;
   }> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: {
-        id: true,
-        status: true,
-        razorpayPaymentId: true,
-        razorpayRefundId: true,
-        expectedAmountPaise: true,
-      },
+      select: { id: true, status: true, razorpayPaymentId: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (String(order.status) !== 'REJECTED') {
@@ -3849,177 +3853,230 @@ export class OrdersService {
     if (!order.razorpayPaymentId) {
       throw new BadRequestException('No Razorpay payment id on order');
     }
-    if (order.razorpayRefundId) {
-      throw new ConflictException('Refund already recorded for this order');
-    }
-
-    // Refund the exact captured amount (in paise). We send it explicitly rather
-    // than relying on an implicit full refund. Only send it when it is a valid
-    // positive amount — a 0 would itself be rejected by Razorpay; in that case
-    // fall back to an amount-less full refund.
-    const refundAmountPaise =
-      order.expectedAmountPaise > 0 ? order.expectedAmountPaise : undefined;
-    const keyMode = this.razorpay.getKeyMode();
-
-    let refund: { id: string; status: string };
-    try {
-      refund = await this.razorpay.refundPayment({
-        paymentId: order.razorpayPaymentId,
-        amountPaise: refundAmountPaise,
-        notes: { orderId: order.id },
-      });
-    } catch (err: unknown) {
-      if (err instanceof ServiceUnavailableException) {
-        this.logger.error(
-          `Razorpay refund unavailable for order ${order.id} (payment ${order.razorpayPaymentId}): ${err.message}`,
-        );
-        throw err;
-      }
-      const message = razorpayRefundErrorMessage(err);
-      this.logger.warn(
-        `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}, amountPaise=${refundAmountPaise ?? 'full'}, keyMode=${keyMode}): ${message} | razorpayError=${razorpayErrorDetail(err)}`,
-      );
-      throw new BadRequestException(message);
-    }
-
-    // Razorpay refunds are asynchronous. `payments.refund` normally returns
-    // status `pending` — the refund has been *accepted*, but the money has not
-    // moved yet — and Razorpay later fires the `refund.processed` webhook once
-    // it actually completes. That webhook (markRefundCompletedFromWebhook) is
-    // the single source of truth that flips the order to REFUNDED and emails
-    // the brand. So here we finalize synchronously ONLY when Razorpay already
-    // reports the refund as `processed` (instant refunds); otherwise we just
-    // record the refund id, leave the order REJECTED, and let the webhook
-    // finish the job.
-    if (refund.status === 'failed') {
-      this.logger.warn(
-        `Razorpay refund ${refund.id} failed immediately for order ${order.id} (payment ${order.razorpayPaymentId})`,
-      );
-      throw new BadRequestException('Razorpay could not process the refund');
-    }
-
-    if (refund.status === 'processed') {
-      const refundedAt = new Date();
-
-      await this.updateOrder({
-        where: { id: order.id },
-        data: {
-          status: 'REFUNDED' as any,
-          razorpayRefundId: refund.id,
-          refundedAt,
-        },
-      });
-
-      await this.orderRealtime.emitOrderPayment({
-        orderId: order.id,
-        kind: 'refund_processed',
-        audience: 'brand_and_creator',
-        meta: { razorpayRefundId: refund.id, refundStatus: refund.status },
-      });
-
-      // Instant refund is already complete — notify the brand now. If the
-      // refund.processed webhook also arrives it is a no-op, because the order
-      // is already REFUNDED (markRefundCompletedFromWebhook returns early).
-      this.orderMail.notifyOrderRefunded(order.id, refundedAt);
-
-      this.logger.log(
-        `Razorpay refund ${refund.id} processed instantly for order ${order.id}`,
-      );
-
-      return { refundId: refund.id, refundStatus: refund.status };
-    }
-
-    // Pending (or any other non-terminal status): record the refund id so a
-    // re-trigger is blocked by the ConflictException guard above, but keep the
-    // order REJECTED. The refund.processed webhook flips it to REFUNDED and
-    // emails the brand once the refund truly completes — no premature "refund
-    // processed" email is sent here.
-    await this.updateOrder({
-      where: { id: order.id },
-      data: { razorpayRefundId: refund.id },
-    });
-
-    this.logger.log(
-      `Razorpay refund ${refund.id} initiated (status=${refund.status}) for order ${order.id}; awaiting refund.processed webhook`,
-    );
-
-    return { refundId: refund.id, refundStatus: refund.status };
-  }
-
-  async findOrderIdByRazorpayPaymentId(
-    razorpayPaymentId: string,
-  ): Promise<string | null> {
-    const row = await this.prisma.order.findFirst({
-      where: { razorpayPaymentId },
-      select: { id: true },
-    });
-    return row?.id ?? null;
-  }
-
-  /**
-   * Webhook: refund.processed — reconcile if admin/dashboard initiated refund elsewhere.
-   */
-  async markRefundCompletedFromWebhook(params: {
-    razorpayPaymentId: string;
-    razorpayRefundId: string;
-  }): Promise<string | null> {
-    const order = await this.prisma.order.findFirst({
-      where: { razorpayPaymentId: params.razorpayPaymentId },
-      select: { id: true, status: true, razorpayRefundId: true },
-    });
-    if (!order) return null;
-
-    // Some TS servers can lag behind prisma client generation; compare via string
-    // to avoid enum type narrowing issues in editor diagnostics.
-    if (String(order.status) === 'REFUNDED') return null;
-    if (String(order.status) !== 'REJECTED') return null;
 
     const refundedAt = new Date();
 
     await this.updateOrder({
       where: { id: order.id },
-      data: {
-        status: 'REFUNDED' as any,
-        razorpayRefundId: params.razorpayRefundId,
-        refundedAt,
-      },
+      data: { status: 'REFUNDED' as any, refundedAt },
+    });
+
+    await this.orderRealtime.emitOrderPayment({
+      orderId: order.id,
+      kind: 'refund_processed',
+      audience: 'brand_and_creator',
     });
 
     this.orderMail.notifyOrderRefunded(order.id, refundedAt);
 
-    return order.id;
-  }
-
-  /**
-   * Webhook: refund.failed — a refund we initiated (recorded on the order but
-   * left in REJECTED state, awaiting completion) did not go through. Clear the
-   * recorded refund id so an admin can re-trigger the refund; the order stays
-   * REJECTED. No-op if the order was already refunded, or the failed refund id
-   * does not match the one we recorded (a different/later refund must win).
-   */
-  async markRefundFailedFromWebhook(params: {
-    razorpayPaymentId: string;
-    razorpayRefundId: string;
-  }): Promise<string | null> {
-    const order = await this.prisma.order.findFirst({
-      where: { razorpayPaymentId: params.razorpayPaymentId },
-      select: { id: true, status: true, razorpayRefundId: true },
-    });
-    if (!order) return null;
-    if (String(order.status) === 'REFUNDED') return null;
-    if (order.razorpayRefundId !== params.razorpayRefundId) return null;
-
-    await this.updateOrder({
-      where: { id: order.id },
-      data: { razorpayRefundId: null },
-    });
-
-    this.logger.warn(
-      `Razorpay refund ${params.razorpayRefundId} failed for order ${order.id}; cleared recorded refund id so it can be retried`,
+    this.logger.log(
+      `Order ${order.id} marked REFUNDED by admin (manual refund, no Razorpay call)`,
     );
 
-    return order.id;
+    return { orderId: order.id, refundedAt };
   }
+
+  // ─── Old Razorpay-driven refund flow (disabled — kept for reference) ────
+  // The previous adminTriggerRefund called the Razorpay refund API directly
+  // and, for non-instant refunds, left the order REJECTED until the
+  // `refund.processed` webhook (markRefundCompletedFromWebhook) finalized it
+  // — with `refund.failed` (markRefundFailedFromWebhook) clearing the
+  // recorded refund id so an admin could retry. See the note above
+  // razorpayRefundErrorMessage for what else needs restoring if this comes
+  // back.
+  //
+  // async adminTriggerRefund(params: { orderId: string }): Promise<{
+  //   refundId: string;
+  //   refundStatus: string;
+  // }> {
+  //   const order = await this.prisma.order.findUnique({
+  //     where: { id: params.orderId },
+  //     select: {
+  //       id: true,
+  //       status: true,
+  //       razorpayPaymentId: true,
+  //       razorpayRefundId: true,
+  //       expectedAmountPaise: true,
+  //     },
+  //   });
+  //   if (!order) throw new NotFoundException('Order not found');
+  //   if (String(order.status) !== 'REJECTED') {
+  //     throw new BadRequestException('Order must be REJECTED before refund');
+  //   }
+  //   if (!order.razorpayPaymentId) {
+  //     throw new BadRequestException('No Razorpay payment id on order');
+  //   }
+  //   if (order.razorpayRefundId) {
+  //     throw new ConflictException('Refund already recorded for this order');
+  //   }
+  //
+  //   // Refund the exact captured amount (in paise). We send it explicitly rather
+  //   // than relying on an implicit full refund. Only send it when it is a valid
+  //   // positive amount — a 0 would itself be rejected by Razorpay; in that case
+  //   // fall back to an amount-less full refund.
+  //   const refundAmountPaise =
+  //     order.expectedAmountPaise > 0 ? order.expectedAmountPaise : undefined;
+  //   const keyMode = this.razorpay.getKeyMode();
+  //
+  //   let refund: { id: string; status: string };
+  //   try {
+  //     refund = await this.razorpay.refundPayment({
+  //       paymentId: order.razorpayPaymentId,
+  //       amountPaise: refundAmountPaise,
+  //       notes: { orderId: order.id },
+  //     });
+  //   } catch (err: unknown) {
+  //     if (err instanceof ServiceUnavailableException) {
+  //       this.logger.error(
+  //         `Razorpay refund unavailable for order ${order.id} (payment ${order.razorpayPaymentId}): ${err.message}`,
+  //       );
+  //       throw err;
+  //     }
+  //     const message = razorpayRefundErrorMessage(err);
+  //     this.logger.warn(
+  //       `Razorpay refund rejected for order ${order.id} (payment ${order.razorpayPaymentId}, amountPaise=${refundAmountPaise ?? 'full'}, keyMode=${keyMode}): ${message} | razorpayError=${razorpayErrorDetail(err)}`,
+  //     );
+  //     throw new BadRequestException(message);
+  //   }
+  //
+  //   // Razorpay refunds are asynchronous. `payments.refund` normally returns
+  //   // status `pending` — the refund has been *accepted*, but the money has not
+  //   // moved yet — and Razorpay later fires the `refund.processed` webhook once
+  //   // it actually completes. That webhook (markRefundCompletedFromWebhook) is
+  //   // the single source of truth that flips the order to REFUNDED and emails
+  //   // the brand. So here we finalize synchronously ONLY when Razorpay already
+  //   // reports the refund as `processed` (instant refunds); otherwise we just
+  //   // record the refund id, leave the order REJECTED, and let the webhook
+  //   // finish the job.
+  //   if (refund.status === 'failed') {
+  //     this.logger.warn(
+  //       `Razorpay refund ${refund.id} failed immediately for order ${order.id} (payment ${order.razorpayPaymentId})`,
+  //     );
+  //     throw new BadRequestException('Razorpay could not process the refund');
+  //   }
+  //
+  //   if (refund.status === 'processed') {
+  //     const refundedAt = new Date();
+  //
+  //     await this.updateOrder({
+  //       where: { id: order.id },
+  //       data: {
+  //         status: 'REFUNDED' as any,
+  //         razorpayRefundId: refund.id,
+  //         refundedAt,
+  //       },
+  //     });
+  //
+  //     await this.orderRealtime.emitOrderPayment({
+  //       orderId: order.id,
+  //       kind: 'refund_processed',
+  //       audience: 'brand_and_creator',
+  //       meta: { razorpayRefundId: refund.id, refundStatus: refund.status },
+  //     });
+  //
+  //     // Instant refund is already complete — notify the brand now. If the
+  //     // refund.processed webhook also arrives it is a no-op, because the order
+  //     // is already REFUNDED (markRefundCompletedFromWebhook returns early).
+  //     this.orderMail.notifyOrderRefunded(order.id, refundedAt);
+  //
+  //     this.logger.log(
+  //       `Razorpay refund ${refund.id} processed instantly for order ${order.id}`,
+  //     );
+  //
+  //     return { refundId: refund.id, refundStatus: refund.status };
+  //   }
+  //
+  //   // Pending (or any other non-terminal status): record the refund id so a
+  //   // re-trigger is blocked by the ConflictException guard above, but keep the
+  //   // order REJECTED. The refund.processed webhook flips it to REFUNDED and
+  //   // emails the brand once the refund truly completes — no premature "refund
+  //   // processed" email is sent here.
+  //   await this.updateOrder({
+  //     where: { id: order.id },
+  //     data: { razorpayRefundId: refund.id },
+  //   });
+  //
+  //   this.logger.log(
+  //     `Razorpay refund ${refund.id} initiated (status=${refund.status}) for order ${order.id}; awaiting refund.processed webhook`,
+  //   );
+  //
+  //   return { refundId: refund.id, refundStatus: refund.status };
+  // }
+  //
+  // async findOrderIdByRazorpayPaymentId(
+  //   razorpayPaymentId: string,
+  // ): Promise<string | null> {
+  //   const row = await this.prisma.order.findFirst({
+  //     where: { razorpayPaymentId },
+  //     select: { id: true },
+  //   });
+  //   return row?.id ?? null;
+  // }
+  //
+  // /**
+  //  * Webhook: refund.processed — reconcile if admin/dashboard initiated refund elsewhere.
+  //  */
+  // async markRefundCompletedFromWebhook(params: {
+  //   razorpayPaymentId: string;
+  //   razorpayRefundId: string;
+  // }): Promise<string | null> {
+  //   const order = await this.prisma.order.findFirst({
+  //     where: { razorpayPaymentId: params.razorpayPaymentId },
+  //     select: { id: true, status: true, razorpayRefundId: true },
+  //   });
+  //   if (!order) return null;
+  //
+  //   // Some TS servers can lag behind prisma client generation; compare via string
+  //   // to avoid enum type narrowing issues in editor diagnostics.
+  //   if (String(order.status) === 'REFUNDED') return null;
+  //   if (String(order.status) !== 'REJECTED') return null;
+  //
+  //   const refundedAt = new Date();
+  //
+  //   await this.updateOrder({
+  //     where: { id: order.id },
+  //     data: {
+  //       status: 'REFUNDED' as any,
+  //       razorpayRefundId: params.razorpayRefundId,
+  //       refundedAt,
+  //     },
+  //   });
+  //
+  //   this.orderMail.notifyOrderRefunded(order.id, refundedAt);
+  //
+  //   return order.id;
+  // }
+  //
+  // /**
+  //  * Webhook: refund.failed — a refund we initiated (recorded on the order but
+  //  * left in REJECTED state, awaiting completion) did not go through. Clear the
+  //  * recorded refund id so an admin can re-trigger the refund; the order stays
+  //  * REJECTED. No-op if the order was already refunded, or the failed refund id
+  //  * does not match the one we recorded (a different/later refund must win).
+  //  */
+  // async markRefundFailedFromWebhook(params: {
+  //   razorpayPaymentId: string;
+  //   razorpayRefundId: string;
+  // }): Promise<string | null> {
+  //   const order = await this.prisma.order.findFirst({
+  //     where: { razorpayPaymentId: params.razorpayPaymentId },
+  //     select: { id: true, status: true, razorpayRefundId: true },
+  //   });
+  //   if (!order) return null;
+  //   if (String(order.status) === 'REFUNDED') return null;
+  //   if (order.razorpayRefundId !== params.razorpayRefundId) return null;
+  //
+  //   await this.updateOrder({
+  //     where: { id: order.id },
+  //     data: { razorpayRefundId: null },
+  //   });
+  //
+  //   this.logger.warn(
+  //     `Razorpay refund ${params.razorpayRefundId} failed for order ${order.id}; cleared recorded refund id so it can be retried`,
+  //   );
+  //
+  //   return order.id;
+  // }
 
   private async updateOrder<A extends Prisma.OrderUpdateArgs>(
     args: A,

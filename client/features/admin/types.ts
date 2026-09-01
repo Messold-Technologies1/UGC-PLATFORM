@@ -412,8 +412,8 @@ export interface SendAdminOrderChatMessagePayload {
 }
 
 export interface AdminOrderRefundResponseDto {
-  refundId: string;
-  refundStatus: string;
+  orderId: string;
+  refundedAt: string;
 }
 
 // ─── Legal Pages ─────────────────────────────────────────────────

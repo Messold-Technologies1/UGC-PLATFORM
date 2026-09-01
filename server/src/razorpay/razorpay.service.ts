@@ -28,17 +28,20 @@ export class RazorpayService {
     return this.keyId;
   }
 
-  /**
-   * Which Razorpay environment the configured API keys belong to, derived from
-   * the key id prefix (`rzp_test_` / `rzp_live_`). Handy for diagnosing
-   * cross-mode failures — e.g. refunding a TEST-mode payment with LIVE keys,
-   * which Razorpay rejects with a generic "invalid request sent".
-   */
-  getKeyMode(): 'test' | 'live' | 'unknown' {
-    if (this.keyId.startsWith('rzp_test')) return 'test';
-    if (this.keyId.startsWith('rzp_live')) return 'live';
-    return 'unknown';
-  }
+  // Disabled — kept for reference (see OrdersService's commented-out
+  // adminTriggerRefund for how this was used).
+  //
+  // /**
+  //  * Which Razorpay environment the configured API keys belong to, derived from
+  //  * the key id prefix (`rzp_test_` / `rzp_live_`). Handy for diagnosing
+  //  * cross-mode failures — e.g. refunding a TEST-mode payment with LIVE keys,
+  //  * which Razorpay rejects with a generic "invalid request sent".
+  //  */
+  // getKeyMode(): 'test' | 'live' | 'unknown' {
+  //   if (this.keyId.startsWith('rzp_test')) return 'test';
+  //   if (this.keyId.startsWith('rzp_live')) return 'live';
+  //   return 'unknown';
+  // }
 
   async createOrder(params: {
     amountPaise: number;
@@ -85,28 +88,32 @@ export class RazorpayService {
     return crypto.timingSafeEqual(a, b);
   }
 
-  async refundPayment(params: {
-    paymentId: string;
-    amountPaise?: number;
-    notes?: Record<string, string>;
-  }): Promise<{ id: string; status: string }> {
-    // Only send fields that are actually set. Passing `amount: undefined`
-    // (full refund) or an empty `notes` can be serialized into an invalid
-    // request body, which Razorpay rejects as a generic BAD_REQUEST_ERROR
-    // ("invalid request sent"). Omitting the amount performs a full refund.
-    const options: { amount?: number; notes?: Record<string, string> } = {};
-    if (typeof params.amountPaise === 'number') {
-      options.amount = params.amountPaise;
-    }
-    if (params.notes && Object.keys(params.notes).length > 0) {
-      options.notes = params.notes;
-    }
-
-    const refund = await this.callApi('refund payment', () =>
-      this.razorpay.payments.refund(params.paymentId, options),
-    );
-    return { id: refund.id, status: refund.status };
-  }
+  // Disabled — kept for reference. Restore alongside getKeyMode above and
+  // the commented-out adminTriggerRefund in OrdersService if reinstating
+  // Razorpay-driven refunds.
+  //
+  // async refundPayment(params: {
+  //   paymentId: string;
+  //   amountPaise?: number;
+  //   notes?: Record<string, string>;
+  // }): Promise<{ id: string; status: string }> {
+  //   // Only send fields that are actually set. Passing `amount: undefined`
+  //   // (full refund) or an empty `notes` can be serialized into an invalid
+  //   // request body, which Razorpay rejects as a generic BAD_REQUEST_ERROR
+  //   // ("invalid request sent"). Omitting the amount performs a full refund.
+  //   const options: { amount?: number; notes?: Record<string, string> } = {};
+  //   if (typeof params.amountPaise === 'number') {
+  //     options.amount = params.amountPaise;
+  //   }
+  //   if (params.notes && Object.keys(params.notes).length > 0) {
+  //     options.notes = params.notes;
+  //   }
+  //
+  //   const refund = await this.callApi('refund payment', () =>
+  //     this.razorpay.payments.refund(params.paymentId, options),
+  //   );
+  //   return { id: refund.id, status: refund.status };
+  // }
 
   private async callApi<T>(label: string, fn: () => Promise<T>): Promise<T> {
     try {

@@ -151,20 +151,20 @@ export class AdminOrdersController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary:
-      'Trigger Razorpay refund (order must be REJECTED). Marks REFUNDED and emails the brand only when Razorpay reports the refund as processed (instant refunds); otherwise the refund.processed webhook finalizes it.',
+      'Mark a REJECTED order REFUNDED (the refund itself is issued manually outside the platform) and email the brand.',
   })
   @ApiCreatedResponse({
     schema: {
       type: 'object',
       properties: {
-        refundId: { type: 'string' },
-        refundStatus: { type: 'string' },
+        orderId: { type: 'string' },
+        refundedAt: { type: 'string', format: 'date-time' },
       },
     },
   })
   async refund(@Param('id', ParseUUIDPipe) id: string): Promise<{
-    refundId: string;
-    refundStatus: string;
+    orderId: string;
+    refundedAt: Date;
   }> {
     return this.orders.adminTriggerRefund({ orderId: id });
   }

@@ -3774,6 +3774,37 @@ export class OrdersService {
     return order.id;
   }
 
+  /**
+   * Webhook: refund.failed — a refund we initiated (recorded on the order but
+   * left in REJECTED state, awaiting completion) did not go through. Clear the
+   * recorded refund id so an admin can re-trigger the refund; the order stays
+   * REJECTED. No-op if the order was already refunded, or the failed refund id
+   * does not match the one we recorded (a different/later refund must win).
+   */
+  async markRefundFailedFromWebhook(params: {
+    razorpayPaymentId: string;
+    razorpayRefundId: string;
+  }): Promise<string | null> {
+    const order = await this.prisma.order.findFirst({
+      where: { razorpayPaymentId: params.razorpayPaymentId },
+      select: { id: true, status: true, razorpayRefundId: true },
+    });
+    if (!order) return null;
+    if (String(order.status) === 'REFUNDED') return null;
+    if (order.razorpayRefundId !== params.razorpayRefundId) return null;
+
+    await this.updateOrder({
+      where: { id: order.id },
+      data: { razorpayRefundId: null },
+    });
+
+    this.logger.warn(
+      `Razorpay refund ${params.razorpayRefundId} failed for order ${order.id}; cleared recorded refund id so it can be retried`,
+    );
+
+    return order.id;
+  }
+
   private async updateOrder<A extends Prisma.OrderUpdateArgs>(
     args: A,
     tx?: Prisma.TransactionClient,

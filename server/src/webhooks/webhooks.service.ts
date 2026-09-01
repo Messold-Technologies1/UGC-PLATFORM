@@ -373,6 +373,15 @@ export class WebhooksService {
         `refund.failed payment_id=${entity?.payment_id ?? '?'} refund_id=${entity?.id ?? '?'}`,
       );
       if (entity?.payment_id) {
+        // Clear the recorded refund id (if it matches) so the order becomes
+        // retryable — the admin-triggered refund records the id while the
+        // order stays REJECTED awaiting completion.
+        if (entity.id) {
+          await this.orders.markRefundFailedFromWebhook({
+            razorpayPaymentId: entity.payment_id,
+            razorpayRefundId: entity.id,
+          });
+        }
         const orderId = await this.orders.findOrderIdByRazorpayPaymentId(
           entity.payment_id,
         );

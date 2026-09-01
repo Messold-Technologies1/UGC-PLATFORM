@@ -589,7 +589,6 @@ export function CreatorProfileWizard({
     facetCount("CREATOR_TYPE") > 0 &&
     facetCount("OCCUPATION") > 0 &&
     facetCount("APPEARANCE") > 0 &&
-    selectedRestrictions.length > 0 &&
     !identityHasBlankOther;
 
   const strength = useMemo(() => {
@@ -861,8 +860,6 @@ export function CreatorProfileWizard({
         if (facetCount("CREATOR_TYPE") === 0) missing.push("your creator type");
         if (facetCount("OCCUPATION") === 0) missing.push("your occupation");
         if (facetCount("APPEARANCE") === 0) missing.push("your appearance");
-        if (selectedRestrictions.length === 0)
-          missing.push('at least one "Comfortable with" option');
         if (identityHasBlankOther)
           missing.push('a value for your "Other" selection');
       } else if (id === "portfolio") {
@@ -898,7 +895,6 @@ export function CreatorProfileWizard({
       facetCount,
       facets.primaryNiche,
       facets.secondaryNiches,
-      selectedRestrictions,
       identityHasBlankOther,
       bio,
       portfolioConfirmed,

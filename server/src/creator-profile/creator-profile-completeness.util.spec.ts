@@ -86,13 +86,13 @@ describe('evaluateProfileCompleteness', () => {
     ]);
   });
 
-  it('requires at least one "Open to" opt-in', () => {
+  it('does not require an "Open to" opt-in', () => {
     const result = evaluateProfileCompleteness({
       ...completeInput(),
       restrictionCount: 0,
     });
-    expect(result.complete).toBe(false);
-    expect(result.missing).toContain('At least one "Open to" option');
+    expect(result.complete).toBe(true);
+    expect(result.missing).not.toContain('At least one "Open to" option');
   });
 
   it('requires at least three portfolio videos', () => {

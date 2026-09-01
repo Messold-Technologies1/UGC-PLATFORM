@@ -12,8 +12,8 @@ export const REQUIRED_SECONDARY_NICHES = 2;
 
 /**
  * Single-select identity facets that must have a selection. The niche
- * (CONTENT_CATEGORY) is checked separately (primary + secondary counts), and so
- * are languages and "Open to". Keep in sync with the server
+ * (CONTENT_CATEGORY) is checked separately (primary + secondary counts), and
+ * so are languages. "Open to" is optional. Keep in sync with the server
  * (`creator-profile-completeness.util.ts`).
  */
 export const REQUIRED_FACET_DIMENSIONS = [
@@ -47,7 +47,7 @@ export interface GoLiveSnapshot {
   nichePrimaryCount: number;
   /** CONTENT_CATEGORY selections with rank > 0 (secondary niches). */
   nicheSecondaryCount: number;
-  /** Number of "Open to" (restriction) opt-ins. */
+  /** Number of "Open to" (restriction) opt-ins. Optional — not required to go live. */
   restrictionCount: number;
   languageCount: number;
   hasPackage: boolean;
@@ -96,10 +96,6 @@ export function computeGoLiveMissing(snapshot: GoLiveSnapshot): string[] {
   const selected = new Set(snapshot.selectedFacetDimensions);
   for (const dimension of REQUIRED_FACET_DIMENSIONS) {
     if (!selected.has(dimension)) missing.push(FACET_LABELS[dimension]);
-  }
-
-  if (snapshot.restrictionCount < 1) {
-    missing.push('At least one "Open to" option');
   }
 
   if (snapshot.languageCount < 1) missing.push("At least one language");

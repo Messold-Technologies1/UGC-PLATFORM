@@ -9,8 +9,8 @@ export const REQUIRED_SECONDARY_NICHES = 2;
 /**
  * Single-select facet dimensions a creator must have a selection in before
  * going live. The niche (CONTENT_CATEGORY) is checked separately because it
- * requires a primary + a fixed number of secondary picks; languages and
- * "Open to" are checked separately too.
+ * requires a primary + a fixed number of secondary picks; languages are
+ * checked separately too. "Open to" is optional.
  */
 export const REQUIRED_FACET_DIMENSIONS: CreatorFacetDimension[] = [
   CreatorFacetDimension.CREATOR_TYPE,
@@ -44,7 +44,7 @@ export interface ProfileCompletenessInput {
   nichePrimaryCount: number;
   /** CONTENT_CATEGORY selections with rank > 0 (secondary niches). */
   nicheSecondaryCount: number;
-  /** Number of "Open to" (restriction) opt-ins the creator has selected. */
+  /** Number of "Open to" (restriction) opt-ins. Optional — not required to go live. */
   restrictionCount: number;
   languageCount: number;
   packageCount: number;
@@ -99,7 +99,6 @@ export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   { key: 'creatorType', label: FACET_LABELS[CreatorFacetDimension.CREATOR_TYPE] },
   { key: 'occupation', label: FACET_LABELS[CreatorFacetDimension.OCCUPATION] },
   { key: 'appearance', label: FACET_LABELS[CreatorFacetDimension.APPEARANCE] },
-  { key: 'openTo', label: 'At least one "Open to" option' },
   { key: 'language', label: 'At least one language' },
   { key: 'package', label: 'At least one package' },
   { key: 'mandatoryAddOns', label: 'Priced mandatory add-ons' },
@@ -152,10 +151,7 @@ export function evaluateProfileCompleteness(
     if (!selected.has(dimension)) missing.push(FACET_LABELS[dimension]);
   }
 
-  // "Open to" — at least one opt-in.
-  if (input.restrictionCount < 1) {
-    missing.push('At least one "Open to" option');
-  }
+  // "Open to" is optional — creators can go live with zero restriction opt-ins.
 
   if (input.languageCount < 1) missing.push('At least one language');
 

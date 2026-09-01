@@ -468,7 +468,6 @@ export function IdentityStep({
         <WizardAccordionSection
           id="comfortable"
           title="Comfortable with"
-          required
           complete={selectedRestrictions.length > 0}
           summary={
             selectedRestrictions.length > 0
@@ -493,7 +492,6 @@ export function IdentityStep({
           <div className="cw-facet-label">
             <span>
               Comfortable with
-              <span className="cw-req"> *</span>
             </span>
             <label className="cw-facet-select-all">
               <span>Select all</span>
@@ -512,7 +510,7 @@ export function IdentityStep({
           </div>
           <span className="cw-facet-help">
             Pick the categories you&apos;re open to creating for so brands can
-            match you to the right briefs. Select at least one.
+            match you to the right briefs. Optional — skip if none apply.
           </span>
           {errors.restrictions ? (
             <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.restrictions}</p>

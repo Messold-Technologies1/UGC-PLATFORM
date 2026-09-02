@@ -192,9 +192,15 @@ describe('creator-list-filters.util', () => {
       expect(buildAdminCreatorApprovalSearchWhere('   ')).toBeUndefined();
     });
 
-    it('matches display name only', () => {
+    it('matches name, email, slug, and account email/phone', () => {
       expect(buildAdminCreatorApprovalSearchWhere('jane')).toEqual({
-        displayName: { contains: 'jane', mode: 'insensitive' },
+        OR: [
+          { displayName: { contains: 'jane', mode: 'insensitive' } },
+          { contactEmail: { contains: 'jane', mode: 'insensitive' } },
+          { publicSlug: { contains: 'jane', mode: 'insensitive' } },
+          { user: { email: { contains: 'jane', mode: 'insensitive' } } },
+          { user: { phone: { contains: 'jane' } } },
+        ],
       });
     });
   });
@@ -367,7 +373,15 @@ describe('creator-list-filters.util', () => {
       ).toEqual({
         AND: [
           { isListed: true },
-          { displayName: { contains: 'jane', mode: 'insensitive' } },
+          {
+            OR: [
+              { displayName: { contains: 'jane', mode: 'insensitive' } },
+              { contactEmail: { contains: 'jane', mode: 'insensitive' } },
+              { publicSlug: { contains: 'jane', mode: 'insensitive' } },
+              { user: { email: { contains: 'jane', mode: 'insensitive' } } },
+              { user: { phone: { contains: 'jane' } } },
+            ],
+          },
         ],
       });
     });

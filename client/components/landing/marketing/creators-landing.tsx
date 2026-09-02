@@ -4,6 +4,12 @@ import { useState } from "react";
 import Image from "next/image";
 import { ChevronDown, X } from "lucide-react";
 import { PillButton } from "@/components/landing/marketing/pill-button";
+import {
+  MARKETING_CREATORS as C,
+  MARKETING_CREATOR_LIST,
+  creatorMeta,
+  creatorRole,
+} from "@/components/landing/marketing/marketing-creators";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -131,45 +137,33 @@ const BRAND_NAMES = [
   "SUGAR",
 ];
 
-const ASPIRATION_CARDS = [
-  { img: "/creators/female-1.png", name: "Aditi Rathore", meta: "Beauty · Delhi" },
-  { img: "/creators/female-2.png", name: "Sana Verma", meta: "Skincare · Noida" },
-  { img: "/creators/male-2.jpg", name: "Nikhil Menon", meta: "Tech · Bengaluru" },
-  { img: "/creators/female-5.png", name: "Riya Sharma", meta: "Food · Mumbai" },
-];
+const ASPIRATION_CARDS = [C.anju, C.sana, C.suresh, C.aashi];
 
 const CREATOR_TYPES = [
   {
     title: "UGC Creators",
     desc: "Brands need your content, not necessarily your audience.",
-    img: "/creators/female-1.png",
+    creator: C.anju,
   },
   {
     title: "Nano Creators",
     desc: "Smaller audience. Strong community.",
-    img: "/creators/female-4.jpg",
+    creator: C.ananya,
   },
   {
     title: "Micro Creators",
     desc: "Niche audience and engaged followers.",
-    img: "/creators/male-1.jpg",
+    creator: C.kabir,
   },
   {
     title: "Influencers",
     desc: "Collaborate using your content and audience.",
-    img: "/creators/female-7.jpg",
+    creator: C.sakshi,
   },
 ];
 
 const CATEGORIES = [
-  "Beauty",
-  "Fashion",
-  "Lifestyle",
-  "Food",
-  "Fitness",
-  "Parenting",
-  "Travel",
-  "Technology",
+  ...new Set(MARKETING_CREATOR_LIST.map((c) => c.category)),
 ];
 
 const STEPS = [
@@ -182,35 +176,29 @@ const STEPS = [
   "Complete & earn",
 ];
 
-const AVATARS = [
-  "/creators/female-1.png",
-  "/creators/male-1.jpg",
-  "/creators/female-2.png",
-  "/creators/male-3.png",
-  "/creators/female-3.png",
-];
+const AVATARS = [C.anju, C.kabir, C.sana, C.yash, C.punya].map((c) => c.img);
 
 const TESTIMONIALS = [
   {
     quote:
       "Earlier I was sending my portfolio separately to every brand. Now everything they need to know is on my profile.",
-    name: "Meher Kaur",
-    role: "Fashion creator, Delhi",
-    img: "/creators/female-3.png",
+    name: C.punya.name,
+    role: creatorRole(C.punya),
+    img: C.punya.img,
   },
   {
     quote:
       "Brands can understand my services and pricing before approaching me.",
-    name: "Sana Verma",
-    role: "Skincare creator, Noida",
-    img: "/creators/female-2.png",
+    name: C.sana.name,
+    role: creatorRole(C.sana),
+    img: C.sana.img,
   },
   {
     quote:
       "I can focus more on creating instead of constantly searching for collaborations.",
-    name: "Riya Sharma",
-    role: "Food creator, Mumbai",
-    img: "/creators/female-5.png",
+    name: C.aashi.name,
+    role: creatorRole(C.aashi),
+    img: C.aashi.img,
   },
 ];
 
@@ -307,7 +295,7 @@ export function CreatorsLanding() {
           <div className="relative">
             <div className="shadow-hard overflow-hidden rounded-[28px]">
               <Image
-                src="/creators/female-6.jpg"
+                src={C.disha.img}
                 alt="Creator filming content"
                 width={720}
                 height={540}
@@ -486,7 +474,7 @@ export function CreatorsLanding() {
               )}
             >
               <Image
-                src="/creators/female-3.png"
+                src={C.punya.img}
                 alt=""
                 width={560}
                 height={420}
@@ -495,17 +483,17 @@ export function CreatorsLanding() {
               <div className="px-6 pt-[22px] pb-[26px]">
                 <div className="mb-1 flex items-center justify-between gap-3">
                   <div className="font-heading text-[19px] font-bold">
-                    Meher Kaur
+                    {C.punya.name}
                   </div>
                   <span className="font-heading text-muted-foreground text-[11px] font-bold">
                     ● Profile live
                   </span>
                 </div>
                 <div className="text-muted-foreground mb-5 text-[13px]">
-                  Fashion &amp; Beauty · Delhi · 76k followers
+                  {creatorMeta(C.punya)}
                 </div>
                 <div className="mb-5 grid grid-cols-3 gap-2">
-                  {["/creators/female-5.png", "/creators/female-6.jpg", "/creators/female-7.jpg"].map((src) => (
+                  {[C.aashi.img, C.disha.img, C.sakshi.img].map((src) => (
                     <Image
                       key={src}
                       src={src}
@@ -518,8 +506,8 @@ export function CreatorsLanding() {
                 </div>
                 <div className="flex flex-col gap-2.5 text-[13px]">
                   {[
-                    { k: "1 reel + 2 stories", v: "₹3,200" },
-                    { k: "Delivery", v: "4 days" },
+                    { k: "1 reel + 2 stories", v: C.punya.price },
+                    { k: "Delivery", v: C.punya.delivery },
                     { k: "Add-ons", v: "Faster delivery, extra revision" },
                   ].map((row) => (
                     <div key={row.k} className="flex justify-between gap-3">
@@ -624,7 +612,7 @@ export function CreatorsLanding() {
                   <div className="font-heading text-[13.5px] font-bold">
                     {c.name}
                   </div>
-                  <div className="text-[11.5px] opacity-70">{c.meta}</div>
+                  <div className="text-[11.5px] opacity-70">{creatorMeta(c)}</div>
                 </div>
               </div>
             ))}
@@ -653,13 +641,21 @@ export function CreatorsLanding() {
           >
             {CREATOR_TYPES.map((t) => (
               <div key={t.title} className={carouselItem}>
-                <Image
-                  src={t.img}
-                  alt=""
-                  width={420}
-                  height={525}
-                  className="mb-[18px] aspect-[4/5] w-full rounded object-cover"
-                />
+                <div className="relative mb-[18px]">
+                  <Image
+                    src={t.creator.img}
+                    alt=""
+                    width={420}
+                    height={525}
+                    className="aspect-[4/5] w-full rounded object-cover"
+                  />
+                  <span className="font-heading text-background absolute top-[11px] left-[11px] rounded-full bg-[rgba(24,19,19,0.72)] px-[11px] py-[5px] text-[10.5px] font-bold backdrop-blur-[6px]">
+                    {t.creator.category}
+                  </span>
+                  <span className="font-heading text-background absolute right-[11px] bottom-[11px] rounded-full bg-[rgba(24,19,19,0.72)] px-[11px] py-[5px] text-[10.5px] font-bold backdrop-blur-[6px]">
+                    {t.creator.price}
+                  </span>
+                </div>
                 <div className="font-heading mb-2 text-[clamp(17px,1.9vw,21px)] font-bold tracking-[-0.02em]">
                   {t.title}
                 </div>
@@ -858,7 +854,7 @@ export function CreatorsLanding() {
           </div>
           <div className="relative aspect-[4/3] lg:aspect-auto lg:min-h-[280px]">
             <Image
-              src="/creators/female-3.png"
+              src={C.punya.img}
               alt=""
               fill
               sizes="(max-width: 1024px) 100vw, 45vw"

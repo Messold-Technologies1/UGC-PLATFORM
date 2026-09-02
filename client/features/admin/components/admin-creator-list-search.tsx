@@ -16,7 +16,7 @@ interface AdminCreatorListSearchProps {
 export function AdminCreatorListSearch({
   value = "",
   onChange,
-  placeholder = "Search by name…",
+  placeholder = "Search by name, email, or phone…",
   className,
   isLoading = false,
 }: AdminCreatorListSearchProps) {

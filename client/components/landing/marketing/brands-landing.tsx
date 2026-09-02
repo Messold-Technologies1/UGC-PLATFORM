@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { PillButton } from "@/components/landing/marketing/pill-button";
+import {
+  MARKETING_CREATORS as C,
+  creatorMeta,
+} from "@/components/landing/marketing/marketing-creators";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +45,7 @@ const HERO_SEARCH = [
   { label: "Delivery Time", value: "≤5 Days" },
 ];
 
-const HERO_MATCHES = [
-  { img: "/creators/female-3.png", name: "Aditi R.", city: "Delhi", price: "₹2,400" },
-  { img: "/creators/female-7.jpg", name: "Sana V.", city: "Noida", price: "₹1,900" },
-  { img: "/creators/female-1.png", name: "Meher K.", city: "Delhi", price: "₹3,200" },
-];
+const HERO_MATCHES = [C.punya, C.sakshi, C.anju];
 
 const CHAOS = [
   "Instagram",
@@ -68,34 +68,29 @@ const STATUS_STYLE: Record<string, string> = {
 
 const DASHBOARD = [
   {
-    name: "Riya Sharma",
-    brief: "1 UGC video · Skincare launch",
+    creator: C.anju,
+    brief: `1 UGC video · ${C.anju.category}`,
     status: "In Progress",
-    img: "/creators/female-1.png",
   },
   {
-    name: "Arjun Verma",
-    brief: "2 reels · Fitness range",
+    creator: C.kabir,
+    brief: `2 reels · ${C.kabir.category}`,
     status: "Awaiting Shipment",
-    img: "/creators/male-1.jpg",
   },
   {
-    name: "Mehak Walia",
-    brief: "1 reel + 3 stories · Haircare",
+    creator: C.punya,
+    brief: `1 reel + 3 stories · ${C.punya.category}`,
     status: "Delivered",
-    img: "/creators/female-3.png",
   },
   {
-    name: "Ananya Singh",
-    brief: "3 product videos · Baby care",
+    creator: C.ananya,
+    brief: `3 product videos · ${C.ananya.category}`,
     status: "Revision",
-    img: "/creators/female-4.jpg",
   },
   {
-    name: "Rahul Nair",
-    brief: "1 UGC ad · Audio launch",
+    creator: C.suresh,
+    brief: `1 UGC ad · ${C.suresh.category}`,
     status: "Completed",
-    img: "/creators/male-2.jpg",
   },
 ];
 
@@ -108,15 +103,7 @@ const ANSWERED = [
   "What’s included?",
 ];
 
-type SearchMatch = {
-  img: string;
-  name: string;
-  category: string;
-  city: string;
-  followers: string;
-  price: string;
-  delivery: string;
-};
+type SearchMatch = (typeof C)[keyof typeof C];
 
 /** The conversational search line — static words plus typed field values. */
 const SEARCH_EXAMPLES: {
@@ -127,127 +114,25 @@ const SEARCH_EXAMPLES: {
   matches: SearchMatch[];
 }[] = [
   {
-    who: "Female Beauty Creators",
+    who: "Female Beauty & Skincare Creators",
     where: "Delhi NCR",
     budget: "₹3,000–₹7,500",
     when: "5 Days",
-    matches: [
-      {
-        img: "/creators/female-1.png",
-        name: "Aditi Rathore",
-        category: "Beauty",
-        city: "Delhi",
-        followers: "42k",
-        price: "₹2,400",
-        delivery: "3 days",
-      },
-      {
-        img: "/creators/female-2.png",
-        name: "Sana Verma",
-        category: "Skincare",
-        city: "Noida",
-        followers: "9.4k",
-        price: "₹1,900",
-        delivery: "2 days",
-      },
-      {
-        img: "/creators/female-3.png",
-        name: "Meher Kaur",
-        category: "Beauty",
-        city: "Delhi",
-        followers: "76k",
-        price: "₹3,200",
-        delivery: "4 days",
-      },
-      {
-        img: "/creators/female-4.jpg",
-        name: "Riya Sharma",
-        category: "Makeup",
-        city: "Gurugram",
-        followers: "31k",
-        price: "₹2,100",
-        delivery: "3 days",
-      },
-    ],
+    matches: [C.anju, C.punya, C.sana, C.disha],
   },
   {
     who: "Male Fitness Creators",
     where: "Mumbai",
     budget: "₹5,000–₹12,000",
     when: "7 Days",
-    matches: [
-      {
-        img: "/creators/male-3.png",
-        name: "Arjun Mehta",
-        category: "Fitness",
-        city: "Mumbai",
-        followers: "38k",
-        price: "₹6,500",
-        delivery: "5 days",
-      },
-      {
-        img: "/creators/male-1.jpg",
-        name: "Kabir Shah",
-        category: "Fitness",
-        city: "Navi Mumbai",
-        followers: "21k",
-        price: "₹5,200",
-        delivery: "4 days",
-      },
-      {
-        img: "/creators/male-2.jpg",
-        name: "Rohan Iyer",
-        category: "Wellness",
-        city: "Mumbai",
-        followers: "54k",
-        price: "₹8,400",
-        delivery: "6 days",
-      },
-    ],
+    matches: [C.yash, C.kabir],
   },
   {
-    who: "Food & Beverage Creators",
-    where: "Bangalore",
-    budget: "₹2,500–₹8,000",
-    when: "3 Days",
-    matches: [
-      {
-        img: "/creators/female-5.png",
-        name: "Ananya Joshi",
-        category: "Food",
-        city: "Bangalore",
-        followers: "29k",
-        price: "₹3,600",
-        delivery: "2 days",
-      },
-      {
-        img: "/creators/female-6.jpg",
-        name: "Ishita Kapoor",
-        category: "F&B",
-        city: "Bangalore",
-        followers: "18k",
-        price: "₹2,850",
-        delivery: "3 days",
-      },
-      {
-        img: "/creators/female-7.jpg",
-        name: "Tanvi Iyer",
-        category: "Food",
-        city: "Whitefield",
-        followers: "13k",
-        price: "₹2,400",
-        delivery: "2 days",
-      },
-      {
-        img: "/creators/couple.png",
-        name: "Aarav & Mira",
-        category: "Lifestyle",
-        city: "Bangalore",
-        followers: "22k",
-        price: "₹4,800",
-        delivery: "3 days",
-      },
-    ],
+    who: "Female Skincare Creators",
+    where: "North India",
+    budget: "₹2,000–₹8,000",
+    when: "5 Days",
+    matches: [C.sana, C.disha],
   },
 ];
 
@@ -306,14 +191,14 @@ const ORDER_FLOW = [
 ];
 
 const HIRE_FOR = [
-  { title: "UGC Ads", img: "/creators/female-3.png" },
-  { title: "Product Videos", img: "/creators/female-6.jpg" },
-  { title: "Instagram Reels", img: "/creators/female-1.png" },
-  { title: "Influencer Collaborations", img: "/creators/male-1.jpg" },
-  { title: "Product Photography", img: "/creators/male-3.png" },
-  { title: "Website Content", img: "/creators/female-2.png" },
-  { title: "Campaign Content", img: "/creators/female-7.jpg" },
-  { title: "Product Launches", img: "/creators/male-2.jpg" },
+  { title: "UGC Ads", creator: C.punya },
+  { title: "Product Videos", creator: C.disha },
+  { title: "Instagram Reels", creator: C.anju },
+  { title: "Influencer Collaborations", creator: C.kabir },
+  { title: "Product Photography", creator: C.yash },
+  { title: "Website Content", creator: C.sana },
+  { title: "Campaign Content", creator: C.sakshi },
+  { title: "Product Launches", creator: C.suresh },
 ];
 
 const WHY = [
@@ -332,7 +217,7 @@ const WHY = [
   },
 ];
 
-const AVATARS = ["/creators/female-1.png", "/creators/female-2.png", "/creators/female-3.png", "/creators/female-4.jpg", "/creators/female-5.png"];
+const AVATARS = [C.anju, C.sana, C.punya, C.ananya, C.aashi].map((c) => c.img);
 
 const BRAND_FAQS = [
   {
@@ -603,7 +488,7 @@ export function BrandsLanding() {
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                 {HERO_MATCHES.map((m, i) => (
                   <div
-                    key={m.name}
+                    key={m.id}
                     className={cn(
                       "border-foreground overflow-hidden rounded-[14px] border-2",
                       i === 2 && "hidden sm:block",
@@ -619,7 +504,7 @@ export function BrandsLanding() {
                     />
                     <div className="px-2.5 pt-[9px] pb-[11px]">
                       <div className="font-heading text-[11.5px] font-bold">
-                        {m.name}
+                        {m.shortName}
                       </div>
                       <div className="text-muted-foreground mb-[5px] text-[10px]">
                         {m.city}
@@ -670,18 +555,18 @@ export function BrandsLanding() {
             </div>
             {DASHBOARD.map((d) => (
               <div
-                key={d.name}
+                key={d.creator.id}
                 className="border-foreground/5 flex items-center gap-4 border-b px-6 py-[15px]"
               >
                 <Image
-                  src={d.img}
+                  src={d.creator.img}
                   alt=""
                   width={36}
                   height={36}
                   className="h-9 w-9 shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="font-heading text-sm font-bold">{d.name}</div>
+                  <div className="font-heading text-sm font-bold">{d.creator.name}</div>
                   <div className="text-muted-foreground text-[11.5px]">
                     {d.brief}
                   </div>
@@ -705,7 +590,7 @@ export function BrandsLanding() {
         <div className="mx-auto grid max-w-[1240px] items-end gap-x-[clamp(40px,6vw,88px)] gap-y-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
           <div className="border-foreground shadow-hard bg-card mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border-2 lg:mx-0 lg:max-w-none">
             <Image
-              src="/creators/female-6.jpg"
+              src={C.punya.img}
               alt=""
               width={560}
               height={420}
@@ -713,15 +598,15 @@ export function BrandsLanding() {
             />
             <div className="px-6 pt-[22px] pb-[26px]">
               <div className="font-heading text-[19px] font-bold">
-                Meher Kumar
+                {C.punya.name}
               </div>
               <div className="text-muted-foreground mb-5 text-[13px]">
-                Fashion · Delhi · 9.4k followers
+                {creatorMeta(C.punya)}
               </div>
               <div className="flex flex-col gap-[11px] text-[13px]">
                 {[
-                  { k: "1 UGC video", v: "₹3,200" },
-                  { k: "Delivery", v: "2 days" },
+                  { k: "1 UGC video", v: C.punya.price },
+                  { k: "Delivery", v: C.punya.delivery },
                   { k: "Included", v: "1 revision, raw files" },
                   { k: "Add-ons", v: "Faster delivery" },
                 ].map((row) => (
@@ -811,7 +696,7 @@ export function BrandsLanding() {
                     {c.name}
                   </div>
                   <div className="text-background/50 mb-3 text-xs">
-                    {c.city} · {c.followers}
+                    {c.city}
                   </div>
                   <div className="border-background/10 flex items-center justify-between border-t pt-3">
                     <span className="font-heading text-[14.5px] font-bold">
@@ -961,11 +846,11 @@ export function BrandsLanding() {
           <div className="border-foreground shadow-hard bg-card mb-[clamp(32px,4vw,44px)] overflow-hidden rounded-[26px] border-2">
             {DASHBOARD.map((d) => (
               <div
-                key={d.name}
+                key={d.creator.id}
                 className="border-foreground/5 flex items-center gap-4 border-b px-[26px] py-[18px]"
               >
                 <Image
-                  src={d.img}
+                  src={d.creator.img}
                   alt=""
                   width={40}
                   height={40}
@@ -973,7 +858,7 @@ export function BrandsLanding() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="font-heading text-[15px] font-bold">
-                    {d.name}
+                    {d.creator.name}
                   </div>
                   <div className="text-muted-foreground text-xs">{d.brief}</div>
                 </div>
@@ -1007,15 +892,23 @@ export function BrandsLanding() {
                 className={cn(carouselItem, lift, "relative overflow-hidden rounded")}
               >
                 <Image
-                  src={h.img}
+                  src={h.creator.img}
                   alt=""
                   width={400}
                   height={500}
                   className="aspect-[4/5] w-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[rgba(24,19,19,0.85)] from-0% to-[rgba(24,19,19,0.1)] to-[58%]" />
-                <div className="font-heading absolute inset-x-0 bottom-0 px-[18px] pt-[18px] pb-5 text-base leading-[1.22] font-bold text-white">
-                  {h.title}
+                <span className="font-heading text-background absolute top-[11px] left-[11px] rounded-full bg-[rgba(24,19,19,0.72)] px-[11px] py-[5px] text-[10.5px] font-bold backdrop-blur-[6px]">
+                  {h.creator.category}
+                </span>
+                <div className="absolute inset-x-0 bottom-0 px-[18px] pt-[18px] pb-5">
+                  <div className="font-heading text-base leading-[1.22] font-bold text-white">
+                    {h.title}
+                  </div>
+                  <div className="mt-1 text-[12px] text-white/70">
+                    {h.creator.price} · {h.creator.delivery}
+                  </div>
                 </div>
               </div>
             ))}

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { ApprovalStatus, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -19,7 +19,9 @@ async function main(): Promise<void> {
   // Don't rely on relation-null filters (can be finicky across Prisma versions).
   // Instead: compute the diff between CreatorProfile ids and CreatorApproval.creatorId.
   const [profiles, approvals] = await Promise.all([
-    prisma.creatorProfile.findMany({ select: { id: true } }),
+    prisma.creatorProfile.findMany({
+      select: { id: true, isListed: true, completeProfile: true },
+    }),
     prisma.creatorApproval.findMany({ select: { creatorId: true } }),
   ]);
   const approvedSet = new Set(approvals.map((a) => a.creatorId));
@@ -32,14 +34,32 @@ async function main(): Promise<void> {
     return;
   }
 
-  const creatorIds = missing.map((r) => r.id);
-  const result = await prisma.creatorApproval.createMany({
-    data: creatorIds.map((creatorId) => ({ creatorId })),
-    skipDuplicates: true,
-  });
+  const listed = missing.filter((p) => p.isListed);
+  const unlisted = missing.filter((p) => !p.isListed);
+
+  // Listed profiles must be APPROVED — that is the listing gate. Inserting
+  // PENDING here would hide them from Awaiting review (they're already live)
+  // and leave List with nothing to update.
+  if (listed.length > 0) {
+    await prisma.creatorApproval.createMany({
+      data: listed.map((row) => ({
+        creatorId: row.id,
+        status: ApprovalStatus.APPROVED,
+        approvedAt: new Date(),
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  if (unlisted.length > 0) {
+    await prisma.creatorApproval.createMany({
+      data: unlisted.map((row) => ({ creatorId: row.id })),
+      skipDuplicates: true,
+    });
+  }
 
   console.log(
-    `[backfill] Ensured CreatorApproval for ${creatorIds.length} creator(s). Inserted=${result.count}. profiles=${profiles.length} approvalsBefore=${approvals.length} (${dbFingerprint()})`,
+    `[backfill] Ensured CreatorApproval for ${missing.length} creator(s). listedApproved=${listed.length} unlistedPending=${unlisted.length}. profiles=${profiles.length} approvalsBefore=${approvals.length} (${dbFingerprint()})`,
   );
 }
 
@@ -53,4 +73,3 @@ async function main(): Promise<void> {
     await prisma.$disconnect();
   }
 })();
-

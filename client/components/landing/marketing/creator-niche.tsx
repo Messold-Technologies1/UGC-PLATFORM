@@ -8,19 +8,18 @@ import {
   Sparkles,
   Shirt,
   Smartphone,
-  UtensilsCrossed,
   PawPrint,
   Baby,
-  Cpu,
   Home,
   Play,
   Pause,
-  Star,
-  MapPin,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { MARKETING_CREATOR_IMAGES as img } from "@/components/landing/marketing/marketing-creator-images";
+import {
+  MARKETING_CREATOR_BY_NICHE as cat,
+  type MarketingCreator,
+} from "@/components/landing/marketing/marketing-creators";
 import {
   marketingShell,
   marketingSectionPadY,
@@ -39,6 +38,28 @@ type Creator = {
   video?: string;
 };
 
+function shot(
+  niche: keyof typeof cat,
+  extra: {
+    name: string;
+    rating: number;
+    types: string;
+    video?: string;
+  },
+): Creator {
+  const c: MarketingCreator = cat[niche];
+  return {
+    name: extra.name,
+    rating: extra.rating,
+    location: c.city,
+    price: c.price,
+    types: extra.types,
+    badge: c.category,
+    image: c.img,
+    video: extra.video,
+  };
+}
+
 const NICHES: {
   id: string;
   label: string;
@@ -50,56 +71,36 @@ const NICHES: {
     label: "Health & Wellness",
     icon: Leaf,
     creators: [
-      {
+      shot("fitness", {
         name: "Rosh",
         rating: 5.0,
-        location: "Canada",
-        price: "₹7,000",
         types: "UGC Ads | Product Demo",
-        badge: "Health & Wellness",
-        image: img.fitness,
         video: "/1.mp4",
-      },
-      {
+      }),
+      shot("skincare", {
         name: "Anaya",
         rating: 4.9,
-        location: "India",
-        price: "₹5,000",
         types: "Wellness Reel | Supplement Review",
-        badge: "Health & Wellness",
-        image: img.skincare,
         video: "/2.mp4",
-      },
-      {
+      }),
+      shot("fitness", {
         name: "Kabir",
         rating: 4.8,
-        location: "India",
-        price: "₹6,500",
         types: "Fitness UGC | Product Demo",
-        badge: "Health & Wellness",
-        image: img.fitness,
         video: "/3.mp4",
-      },
-      {
+      }),
+      shot("beauty", {
         name: "Mira",
         rating: 4.7,
-        location: "India",
-        price: "₹5,500",
         types: "Yoga Reel | Self-Care",
-        badge: "Health & Wellness",
-        image: img.beauty,
         video: "/4.mp4",
-      },
-      {
+      }),
+      shot("lifestyle", {
         name: "Tanya",
         rating: 4.9,
-        location: "UAE",
-        price: "₹6,800",
         types: "Nutrition Demo",
-        badge: "Health & Wellness",
-        image: img.food,
         video: "/5.mp4",
-      },
+      }),
     ],
   },
   {
@@ -107,51 +108,31 @@ const NICHES: {
     label: "Cosmetics & Beauty",
     icon: Sparkles,
     creators: [
-      {
+      shot("beauty", {
         name: "Meera",
         rating: 5.0,
-        location: "India",
-        price: "₹6,000",
         types: "Skincare Demo | GRWM",
-        badge: "Beauty Creator",
-        image: img.beauty,
-      },
-      {
+      }),
+      shot("skincare", {
         name: "Zara",
         rating: 4.9,
-        location: "UAE",
-        price: "₹8,000",
         types: "Makeup Reel | Review",
-        badge: "Beauty Creator",
-        image: img.skincare,
-      },
-      {
+      }),
+      shot("beauty", {
         name: "Riya",
         rating: 4.8,
-        location: "India",
-        price: "₹5,500",
         types: "Haircare UGC | Demo",
-        badge: "Beauty Creator",
-        image: img.beauty,
-      },
-      {
+      }),
+      shot("skincare", {
         name: "Ishika",
         rating: 4.7,
-        location: "India",
-        price: "₹5,000",
         types: "Lipstick Try-On",
-        badge: "Beauty Creator",
-        image: img.skincare,
-      },
-      {
+      }),
+      shot("beauty", {
         name: "Naina",
         rating: 4.9,
-        location: "India",
-        price: "₹7,500",
         types: "GRWM | Review",
-        badge: "Beauty Creator",
-        image: img.beauty,
-      },
+      }),
     ],
   },
   {
@@ -159,51 +140,31 @@ const NICHES: {
     label: "Apparel & Fashion",
     icon: Shirt,
     creators: [
-      {
+      shot("fashion", {
         name: "Kartik",
         rating: 4.9,
-        location: "India",
-        price: "₹7,000",
         types: "Styling Reel | Try-On",
-        badge: "Fashion UGC",
-        image: img.fashion,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Juhi",
         rating: 5.0,
-        location: "India",
-        price: "₹10,000",
         types: "Outfit Reel | UGC",
-        badge: "Fashion UGC",
-        image: img.fashion,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Bhavya",
         rating: 4.8,
-        location: "India",
-        price: "₹9,000",
         types: "Product Styling | UGC Ad",
-        badge: "Fashion UGC",
-        image: img.fashion,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Aarav",
         rating: 4.7,
-        location: "India",
-        price: "₹6,500",
         types: "Streetwear Reel",
-        badge: "Fashion UGC",
-        image: img.fashion,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Nira",
         rating: 4.9,
-        location: "India",
-        price: "₹8,500",
         types: "Ethnicwear Try-On",
-        badge: "Fashion UGC",
-        image: img.fashion,
-      },
+      }),
     ],
   },
   {
@@ -211,103 +172,31 @@ const NICHES: {
     label: "Apps & Digital Services",
     icon: Smartphone,
     creators: [
-      {
+      shot("lifestyle", {
         name: "Veer",
         rating: 4.8,
-        location: "India",
-        price: "₹6,000",
         types: "App Demo | Walkthrough",
-        badge: "Apps & Digital",
-        image: img.tech,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Sneha",
         rating: 4.9,
-        location: "India",
-        price: "₹7,000",
         types: "SaaS UGC | Tutorial",
-        badge: "Apps & Digital",
-        image: img.tech,
-      },
-      {
+      }),
+      shot("fitness", {
         name: "Rahul",
         rating: 4.7,
-        location: "India",
-        price: "₹5,500",
         types: "App Review",
-        badge: "Apps & Digital",
-        image: img.tech,
-      },
-      {
+      }),
+      shot("beauty", {
         name: "Pia",
         rating: 4.8,
-        location: "India",
-        price: "₹6,500",
         types: "Digital Service Demo",
-        badge: "Apps & Digital",
-        image: img.tech,
-      },
-      {
+      }),
+      shot("couple", {
         name: "Om",
         rating: 4.9,
-        location: "India",
-        price: "₹7,200",
         types: "Onboarding UGC",
-        badge: "Apps & Digital",
-        image: img.tech,
-      },
-    ],
-  },
-  {
-    id: "food",
-    label: "Food & Beverage",
-    icon: UtensilsCrossed,
-    creators: [
-      {
-        name: "Arjun",
-        rating: 4.9,
-        location: "India",
-        price: "₹5,000",
-        types: "Taste Test | Review",
-        badge: "Food & Beverage",
-        image: img.food,
-      },
-      {
-        name: "Sana",
-        rating: 4.8,
-        location: "India",
-        price: "₹6,000",
-        types: "Recipe Reel | Demo",
-        badge: "Food & Beverage",
-        image: img.food,
-      },
-      {
-        name: "Dev",
-        rating: 4.7,
-        location: "India",
-        price: "₹4,500",
-        types: "Snack Review | UGC Ad",
-        badge: "Food & Beverage",
-        image: img.food,
-      },
-      {
-        name: "Kiara",
-        rating: 4.9,
-        location: "India",
-        price: "₹6,500",
-        types: "Cafe Review",
-        badge: "Food & Beverage",
-        image: img.food,
-      },
-      {
-        name: "Yug",
-        rating: 4.8,
-        location: "India",
-        price: "₹5,800",
-        types: "Beverage Demo",
-        badge: "Food & Beverage",
-        image: img.food,
-      },
+      }),
     ],
   },
   {
@@ -315,51 +204,31 @@ const NICHES: {
     label: "Pets",
     icon: PawPrint,
     creators: [
-      {
+      shot("beauty", {
         name: "Tia",
         rating: 4.9,
-        location: "India",
-        price: "₹5,500",
         types: "Pet Product Demo",
-        badge: "Pets",
-        image: img.beauty,
-      },
-      {
+      }),
+      shot("couple", {
         name: "Rehan",
         rating: 4.8,
-        location: "India",
-        price: "₹6,000",
         types: "Pet Food Review",
-        badge: "Pets",
-        image: img.food,
-      },
-      {
+      }),
+      shot("skincare", {
         name: "Maya",
         rating: 4.7,
-        location: "India",
-        price: "₹5,000",
         types: "Pet Care UGC",
-        badge: "Pets",
-        image: img.skincare,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Veda",
         rating: 4.9,
-        location: "India",
-        price: "₹6,500",
         types: "Pet Toy Reel",
-        badge: "Pets",
-        image: img.fashion,
-      },
-      {
+      }),
+      shot("fitness", {
         name: "Sam",
         rating: 4.8,
-        location: "India",
-        price: "₹5,800",
         types: "Pet Lifestyle",
-        badge: "Pets",
-        image: img.fitness,
-      },
+      }),
     ],
   },
   {
@@ -367,103 +236,31 @@ const NICHES: {
     label: "Children & Family",
     icon: Baby,
     creators: [
-      {
+      shot("parenting", {
         name: "Pooja",
         rating: 4.9,
-        location: "India",
-        price: "₹6,500",
         types: "Parenting UGC | Review",
-        badge: "Children & Family",
-        image: img.skincare,
-      },
-      {
+      }),
+      shot("couple", {
         name: "Anand",
         rating: 4.8,
-        location: "India",
-        price: "₹6,000",
         types: "Family Reel | Demo",
-        badge: "Children & Family",
-        image: img.food,
-      },
-      {
+      }),
+      shot("parenting", {
         name: "Rhea",
         rating: 4.9,
-        location: "India",
-        price: "₹7,000",
         types: "Mom Creator | UGC",
-        badge: "Children & Family",
-        image: img.beauty,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Kabir",
         rating: 4.7,
-        location: "India",
-        price: "₹5,500",
         types: "Kid Product Demo",
-        badge: "Children & Family",
-        image: img.fashion,
-      },
-      {
+      }),
+      shot("lifestyle", {
         name: "Simi",
         rating: 4.8,
-        location: "India",
-        price: "₹6,200",
         types: "Family Lifestyle",
-        badge: "Children & Family",
-        image: img.fitness,
-      },
-    ],
-  },
-  {
-    id: "tech",
-    label: "Technology & Gadgets",
-    icon: Cpu,
-    creators: [
-      {
-        name: "Neil",
-        rating: 4.9,
-        location: "India",
-        price: "₹8,000",
-        types: "Gadget Review | Unboxing",
-        badge: "Tech Creator",
-        image: img.tech,
-      },
-      {
-        name: "Ishan",
-        rating: 4.8,
-        location: "India",
-        price: "₹7,500",
-        types: "App Demo | Tech Explainer",
-        badge: "Tech Creator",
-        image: img.tech,
-      },
-      {
-        name: "Tara",
-        rating: 4.8,
-        location: "India",
-        price: "₹7,000",
-        types: "Product Demo | Comparison",
-        badge: "Tech Creator",
-        image: img.tech,
-      },
-      {
-        name: "Dhruv",
-        rating: 4.7,
-        location: "India",
-        price: "₹6,500",
-        types: "Gadget Unboxing",
-        badge: "Tech Creator",
-        image: img.tech,
-      },
-      {
-        name: "Aria",
-        rating: 4.9,
-        location: "India",
-        price: "₹8,500",
-        types: "Tech Lifestyle",
-        badge: "Tech Creator",
-        image: img.tech,
-      },
+      }),
     ],
   },
   {
@@ -471,51 +268,31 @@ const NICHES: {
     label: "Home & Lifestyle",
     icon: Home,
     creators: [
-      {
+      shot("beauty", {
         name: "Nisha",
         rating: 4.9,
-        location: "India",
-        price: "₹6,500",
         types: "Home Decor Reel",
-        badge: "Home & Lifestyle",
-        image: img.beauty,
-      },
-      {
+      }),
+      shot("fashion", {
         name: "Vir",
         rating: 4.8,
-        location: "India",
-        price: "₹6,000",
         types: "Lifestyle UGC",
-        badge: "Home & Lifestyle",
-        image: img.fashion,
-      },
-      {
+      }),
+      shot("skincare", {
         name: "Aanya",
         rating: 4.9,
-        location: "India",
-        price: "₹7,000",
         types: "Home Product Demo",
-        badge: "Home & Lifestyle",
-        image: img.skincare,
-      },
-      {
+      }),
+      shot("lifestyle", {
         name: "Reet",
         rating: 4.7,
-        location: "India",
-        price: "₹5,500",
         types: "Cleaning Reel",
-        badge: "Home & Lifestyle",
-        image: img.food,
-      },
-      {
+      }),
+      shot("fitness", {
         name: "Kiaan",
         rating: 4.8,
-        location: "India",
-        price: "₹6,800",
         types: "Home Tour",
-        badge: "Home & Lifestyle",
-        image: img.fitness,
-      },
+      }),
     ],
   },
 ];

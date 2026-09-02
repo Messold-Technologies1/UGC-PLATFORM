@@ -309,14 +309,21 @@ export function buildCreatorListSearchWhere(
   // Note: the creator's real name is intentionally never matched (privacy).
 }
 
-/** Admin pending/rejected queues: search by creator display name only. */
+/** Admin queues: search by name, email, phone, or public slug. */
 export function buildAdminCreatorApprovalSearchWhere(
   search?: string,
 ): Prisma.CreatorProfileWhereInput | undefined {
   const q = search?.trim();
   if (!q) return undefined;
+  const like = { contains: q, mode: 'insensitive' as const };
   return {
-    displayName: { contains: q, mode: 'insensitive' },
+    OR: [
+      { displayName: like },
+      { contactEmail: like },
+      { publicSlug: like },
+      { user: { email: like } },
+      { user: { phone: { contains: q } } },
+    ],
   };
 }
 

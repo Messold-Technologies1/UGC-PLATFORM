@@ -1659,7 +1659,18 @@ export class CreatorProfileService {
                   { creatorApproval: { updatedAt: 'desc' } },
                   { createdAt: 'desc' },
                 ]
-              : [{ createdAt: 'desc' }];
+              : query.segment === AdminCreatorListSegment.LISTED
+                ? // Newly listed creators must surface first. Sorting by
+                  // profile createdAt buried older signups after List.
+                  [
+                    {
+                      creatorApproval: {
+                        approvedAt: { sort: 'desc', nulls: 'last' },
+                      },
+                    },
+                    { updatedAt: 'desc' },
+                  ]
+                : [{ createdAt: 'desc' }];
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
@@ -2101,12 +2112,18 @@ export class CreatorProfileService {
       );
     }
 
+    const alreadyApproved =
+      profile.creatorApproval?.status === ApprovalStatus.APPROVED &&
+      profile.completeProfile;
+
     if (
+      !alreadyApproved &&
       isProfileFirstOnboardingMode(process.env.CREATOR_ONBOARDING_MODE)
     ) {
       const status = profile.creatorApproval?.status;
       const canListFromReview =
-        status === ApprovalStatus.PENDING && profile.completeProfile;
+        (status === ApprovalStatus.PENDING || status == null) &&
+        profile.completeProfile;
       const canListFromRejected =
         status === ApprovalStatus.REJECTED && profile.completeProfile;
       if (!canListFromReview && !canListFromRejected) {
@@ -2116,27 +2133,26 @@ export class CreatorProfileService {
       }
     }
 
-    await this.prisma.creatorApproval.upsert({
-      where: { creatorId: creatorProfileId },
-      create: {
-        creatorId: creatorProfileId,
-        status: ApprovalStatus.APPROVED,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-      },
-      update: {
-        status: ApprovalStatus.APPROVED,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-        rejectionReason: null,
-      },
-    });
+    const listingState = await this.prisma.$transaction(async (tx) => {
+      await tx.creatorApproval.upsert({
+        where: { creatorId: creatorProfileId },
+        create: {
+          creatorId: creatorProfileId,
+          status: ApprovalStatus.APPROVED,
+          approvedById: adminUserId,
+          approvedAt: new Date(),
+        },
+        update: {
+          status: ApprovalStatus.APPROVED,
+          approvedById: adminUserId,
+          approvedAt: new Date(),
+          rejectionReason: null,
+        },
+      });
 
-    // Approval can flip isListed true (if the profile is already complete).
-    const listingState = await recomputeCreatorListingState(
-      this.prisma,
-      creatorProfileId,
-    );
+      // Approval can flip isListed true (if the profile is already complete).
+      return recomputeCreatorListingState(tx, creatorProfileId);
+    });
 
     // Fire the Meta "listed" conversion only on the isListed false -> true
     // transition, so re-approving an already-listed creator doesn't re-count.

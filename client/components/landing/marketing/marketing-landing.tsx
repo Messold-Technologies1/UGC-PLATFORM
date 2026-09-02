@@ -4,6 +4,10 @@ import { useState } from "react";
 import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { PillButton } from "@/components/landing/marketing/pill-button";
+import {
+  MARKETING_CREATORS as C,
+  creatorMeta,
+} from "@/components/landing/marketing/marketing-creators";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -36,29 +40,7 @@ const lift =
 
 const HERO_FILTERS = ["Beauty", "Delhi", "₹3K–₹10K", "≤5 Days"];
 
-const HERO_CARDS = [
-  {
-    img: "/creators/female-3.png",
-    name: "Aditi R.",
-    meta: "Beauty · Delhi",
-    price: "₹2,400",
-    rating: "4.9",
-  },
-  {
-    img: "/creators/male-2.jpg",
-    name: "Arjun V.",
-    meta: "Fitness · Pune",
-    price: "₹4,500",
-    rating: "4.7",
-  },
-  {
-    img: "/creators/female-6.jpg",
-    name: "Mehak & Arjun",
-    meta: "Couple · Delhi",
-    price: "₹3,400",
-    rating: "4.9",
-  },  
-];
+const HERO_CARDS = [C.punya, C.suresh, C.disha];
 
 const BRAND_NAMES = [
   "Mamaearth",
@@ -85,11 +67,7 @@ const CREATOR_BENEFITS = [
   "Get discovered by brands",
 ];
 
-const MINI_BRAND_CARDS = [
-  { img: "/creators/female-4.jpg", price: "₹1,599" },
-  { img: "/creators/female-5.png", price: "₹2,750" },
-  { img: "/creators/male-1.jpg", price: "₹3,400" },
-];
+const MINI_BRAND_CARDS = [C.ananya, C.aashi, C.kabir];
 
 const OLD_WAY = [
   "Search Instagram",
@@ -138,78 +116,14 @@ const MP_FILTERS = [
 ];
 
 const MARKETPLACE = [
-  {
-    img: "/creators/female-1.png",
-    name: "Aditi Rathore",
-    category: "Beauty",
-    city: "Delhi",
-    followers: "42k",
-    price: "₹2,400",
-    delivery: "3 days",
-  },
-  {
-    img: "/creators/male-2.jpg",
-    name: "Nikhil Menon",
-    category: "Tech",
-    city: "Bengaluru",
-    followers: "18k",
-    price: "₹3,800",
-    delivery: "5 days",
-  },
-  {
-    img: "/creators/female-3.png",
-    name: "Meher Kaur",
-    category: "Fashion",
-    city: "Delhi",
-    followers: "76k",
-    price: "₹3,200",
-    delivery: "4 days",
-  },
-  {
-    img: "/creators/female-5.png",
-    name: "Riya Sharma",
-    category: "Food",
-    city: "Mumbai",
-    followers: "31k",
-    price: "₹2,100",
-    delivery: "3 days",
-  },
-  {
-    img: "/creators/female-2.png",
-    name: "Sana Verma",
-    category: "Skincare",
-    city: "Noida",
-    followers: "9.4k",
-    price: "₹1,900",
-    delivery: "2 days",
-  },
-  {
-    img: "/creators/male-3.png",
-    name: "Arjun Verma",
-    category: "Fitness",
-    city: "Pune",
-    followers: "54k",
-    price: "₹4,500",
-    delivery: "6 days",
-  },
-  {
-    img: "/creators/female-4.jpg",
-    name: "Ananya Singh",
-    category: "Parenting",
-    city: "Jaipur",
-    followers: "22k",
-    price: "₹2,650",
-    delivery: "4 days",
-  },
-  {
-    img: "/creators/female-7.jpg",
-    name: "Tanvi Iyer",
-    category: "Lifestyle",
-    city: "Chennai",
-    followers: "13k",
-    price: "₹1,750",
-    delivery: "3 days",
-  },
+  C.anju,
+  C.suresh,
+  C.couple,
+  C.aashi,
+  C.punya,
+  C.yash,
+  C.disha,
+  C.sakshi,
 ];
 
 const REMOVES = [
@@ -256,9 +170,9 @@ const TESTIMONIALS = [
     tag: "CREATOR",
     quote:
       "I don’t have to explain my pricing and services to every brand separately anymore.",
-    name: "Meher Kaur",
-    role: "Fashion creator, Delhi",
-    img: "/creators/female-3.png",
+    name: C.punya.name,
+    role: `${C.punya.category} creator, ${C.punya.city}`,
+    img: C.punya.img,
   },
   {
     tag: "BRAND",
@@ -266,7 +180,7 @@ const TESTIMONIALS = [
       "Instead of asking ten creators the same questions, I can compare everything before I decide.",
     name: "Priya Nambiar",
     role: "Marketing lead, D2C skincare",
-    img: "/creators/female-6.jpg",
+    img: C.disha.img,
   },
 ];
 
@@ -390,13 +304,10 @@ export function MarketingLanding() {
                         {c.name}
                       </div>
                       <div className="text-muted-foreground mb-2 text-[11px]">
-                        {c.meta}
+                        {creatorMeta(c)}
                       </div>
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="font-heading font-bold">{c.price}</span>
-                        <span className="text-muted-foreground">
-                          ★ {c.rating}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -411,7 +322,7 @@ export function MarketingLanding() {
             </div>
             <div className="border-foreground bg-foreground text-background animate-float-delayed absolute bottom-11 -left-[26px] rounded-full border-2 px-4 py-2.5 shadow-sticker">
               <span className="font-heading text-[12.5px] font-bold">
-                ₹4,500 / Video
+                {C.suresh.price} / Video
               </span>
             </div>
           </div>
@@ -542,7 +453,7 @@ export function MarketingLanding() {
               </div>
               <div className="bg-background/5 mb-7 flex items-center gap-3.5 rounded-2xl p-4">
                 <Image
-                  src="/creators/female-3.png"
+                  src={C.punya.img}
                   alt=""
                   width={56}
                   height={56}
@@ -553,14 +464,14 @@ export function MarketingLanding() {
                     Your creator profile
                   </div>
                   <div className="text-background/55 mb-[7px] text-[11.5px]">
-                    Beauty &amp; Skincare · Delhi
+                    {C.punya.category} · {C.punya.city}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="font-heading text-blush-400 rounded-full bg-[rgba(255,158,197,0.16)] px-[9px] py-1 text-[10.5px] font-semibold">
-                      From ₹1,599
+                      From {C.punya.price}
                     </span>
                     <span className="font-heading bg-background/10 rounded-full px-[9px] py-1 text-[10.5px] font-semibold">
-                      3-day delivery
+                      {C.punya.delivery}
                     </span>
                   </div>
                 </div>
@@ -729,7 +640,7 @@ export function MarketingLanding() {
                     {c.name}
                   </div>
                   <div className="text-background/50 mb-3 text-xs">
-                    {c.city} · {c.followers}
+                    {c.city}
                   </div>
                   <div className="border-background/10 flex items-center justify-between border-t pt-3">
                     <span className="font-heading text-[14.5px] font-bold">

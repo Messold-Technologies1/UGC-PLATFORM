@@ -2168,6 +2168,12 @@ export class CreatorProfileService {
       throw new Error('Creator profile load failed');
     }
 
+    this.logger.log(
+      `[admin-action] APPROVE creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${profile.creatorApproval?.status ?? 'none'} to=${ApprovalStatus.APPROVED} ` +
+        `isListed=${listingState?.isListed ?? false} becameListed=${listingState?.becameListed ?? false}`,
+    );
+
     this.creatorProfileMail.notifyApproved(creatorProfileId);
 
     return this.mapCreatorProfileResponseDto(updated);
@@ -2239,6 +2245,11 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.logger.log(
+      `[admin-action] SHORTLIST creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${status} to=${ApprovalStatus.SHORTLISTED}`,
+    );
 
     return this.mapCreatorProfileResponseDto(updated);
   }
@@ -2339,6 +2350,11 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.logger.log(
+      `[admin-action] SEND_FOR_REVIEW creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${ApprovalStatus.SELF_COMPLETED} to=${ApprovalStatus.PENDING} (moved into Awaiting review)`,
+    );
 
     return this.mapCreatorProfileResponseDto(updated);
   }

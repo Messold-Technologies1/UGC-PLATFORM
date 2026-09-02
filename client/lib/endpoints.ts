@@ -248,6 +248,8 @@ export const ENDPOINTS = {
     ORDERS: {
       LIST: "/api/admin/orders",
       DETAIL: (id: string) => `/api/admin/orders/${encodeURIComponent(id)}`,
+      DELIVERIES: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/deliveries`,
       CHAT_MESSAGES: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/chat/messages`,
       CHAT_STATE: (id: string) =>

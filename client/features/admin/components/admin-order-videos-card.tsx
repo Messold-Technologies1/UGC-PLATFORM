@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import { CheckCircle2, Film } from "lucide-react";
+import { useMemo, useRef } from "react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Film } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   ThumbnailsCarousel,
@@ -36,10 +37,9 @@ function formatDate(value: string): string {
 }
 
 /**
- * Admin-only card showing every delivery (initial + revisions) for an order as
- * carousels, with an "Approved" badge on the accepted delivery. Acceptance is
- * order-level, so the latest delivery is the approved one once `acceptedAt` is
- * set.
+ * Admin-only card showing every delivery (initial + revisions) for an order in
+ * a horizontal carousel — swipe/scroll between deliveries. The accepted
+ * delivery (the latest one, once `acceptedAt` is set) gets an "Approved" badge.
  */
 export function AdminOrderVideosCard({
   orderId,
@@ -49,11 +49,20 @@ export function AdminOrderVideosCard({
   acceptedAt?: string | null;
 }) {
   const { data, isLoading, isError } = useAdminOrderDeliveriesQuery(orderId);
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   // Backend returns oldest→newest; show newest first.
   const items = useMemo(() => [...(data?.items ?? [])].reverse(), [data]);
   const latestId = items[0]?.id;
   const isApproved = Boolean(acceptedAt);
+
+  const scrollByOne = (direction: 1 | -1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const firstSlide = el.firstElementChild as HTMLElement | null;
+    const amount = firstSlide ? firstSlide.offsetWidth + 16 : el.clientWidth * 0.9;
+    el.scrollBy({ left: direction * amount, behavior: "smooth" });
+  };
 
   return (
     <div className="glass-panel rounded-2xl p-6">
@@ -64,6 +73,30 @@ export function AdminOrderVideosCard({
           <span className="text-sm text-muted-foreground">
             ({items.length})
           </span>
+        ) : null}
+        {items.length > 1 ? (
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8"
+              aria-label="Previous video"
+              onClick={() => scrollByOne(-1)}
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8"
+              aria-label="Next video"
+              onClick={() => scrollByOne(1)}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -80,13 +113,19 @@ export function AdminOrderVideosCard({
           No videos have been delivered for this order yet.
         </p>
       ) : (
-        <div className="space-y-8">
+        <div
+          ref={scrollerRef}
+          className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:thin]"
+        >
           {items.map((item) => {
             const carouselAssets = toCarouselAssets(item.assets);
             const isLatest = item.id === latestId;
             const showApproved = isLatest && isApproved;
             return (
-              <div key={item.id}>
+              <div
+                key={item.id}
+                className="w-[88%] shrink-0 snap-start sm:w-[440px] lg:w-[520px]"
+              >
                 <div className="mb-3 flex flex-wrap items-center gap-3">
                   <h3 className="font-bold">{deliveryLabel(item, isLatest)}</h3>
                   {showApproved ? (

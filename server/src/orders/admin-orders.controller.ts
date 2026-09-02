@@ -28,6 +28,7 @@ import { OrdersService } from './orders.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
 import { AdminOrderDetailsResponseDto } from './dto/admin-order-details-response.dto';
+import { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import { OrderChatService } from '../order-chat/order-chat.service';
 import { ListOrderChatMessagesQueryDto } from '../order-chat/dto/list-order-chat-messages-query.dto';
 import { OrderChatMessagesResponseDto } from '../order-chat/dto/order-chat-messages-response.dto';
@@ -70,6 +71,17 @@ export class AdminOrdersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<AdminOrderDetailsResponseDto> {
     return this.orders.getOrderDetailsForAdmin({ orderId: id });
+  }
+
+  @Get(':id/deliveries')
+  @ApiOperation({
+    summary: "List an order's submitted deliveries (admin; original files)",
+  })
+  @ApiOkResponse({ type: OrderDeliveriesResponseDto })
+  async listOrderDeliveries(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<OrderDeliveriesResponseDto> {
+    return this.orders.listDeliveriesForAdmin({ orderId: id });
   }
 
   @Post(':id/mark-creator-paid')

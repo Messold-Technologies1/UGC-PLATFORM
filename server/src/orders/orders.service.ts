@@ -2899,6 +2899,49 @@ export class OrdersService {
     return { items };
   }
 
+  /**
+   * Admin: list every delivery submitted for an order (initial + revisions),
+   * with the ORIGINAL asset URLs (admins have full access — no watermark
+   * gating, no brand-ownership check). Sorted oldest→newest so the caller can
+   * treat the last item as the latest/accepted delivery.
+   */
+  async listDeliveriesForAdmin(params: {
+    orderId: string;
+  }): Promise<OrderDeliveriesResponseDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const rows: any[] = await (this.prisma as any).orderDelivery.findMany({
+      where: { orderId: order.id },
+      orderBy: [{ revisionNumber: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        orderId: true,
+        creatorId: true,
+        revisionNumber: true,
+        assets: true,
+        note: true,
+        createdAt: true,
+        previewStatus: true,
+      },
+    });
+
+    const items: OrderDeliveryItemDto[] = rows.map((r) => ({
+      id: r.id,
+      orderId: r.orderId,
+      creatorId: r.creatorId,
+      revisionsUsed: r.revisionNumber,
+      assets: mapDeliveryAssets(r.assets),
+      note: r.note ?? null,
+      createdAt: r.createdAt,
+    }));
+
+    return { items };
+  }
+
   async listDeliveriesForCreator(params: {
     creatorUserId: string;
     page?: number;

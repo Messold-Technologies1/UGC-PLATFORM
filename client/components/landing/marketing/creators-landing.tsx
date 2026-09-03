@@ -9,6 +9,7 @@ import {
   MARKETING_CREATOR_LIST,
   creatorMeta,
   creatorRole,
+  type MarketingCreatorId,
 } from "@/components/landing/marketing/marketing-creators";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
@@ -139,26 +140,30 @@ const BRAND_NAMES = [
 
 const ASPIRATION_CARDS = [C.anju, C.sana, C.suresh, C.aashi];
 
-const CREATOR_TYPES = [
+const CREATOR_TYPES: {
+  title: string;
+  desc: string;
+  id: MarketingCreatorId;
+}[] = [
   {
     title: "UGC Creators",
     desc: "Brands need your content, not necessarily your audience.",
-    creator: C.anju,
+    id: "anju",
   },
   {
     title: "Nano Creators",
     desc: "Smaller audience. Strong community.",
-    creator: C.ananya,
+    id: "deepika",
   },
   {
     title: "Micro Creators",
     desc: "Niche audience and engaged followers.",
-    creator: C.kabir,
+    id: "kabir",
   },
   {
     title: "Influencers",
     desc: "Collaborate using your content and audience.",
-    creator: C.sakshi,
+    id: "sakshi",
   },
 ];
 
@@ -639,21 +644,24 @@ export function CreatorsLanding() {
               "mb-[clamp(40px,5vw,56px)] md:gap-[clamp(16px,2.2vw,30px)]",
             )}
           >
-            {CREATOR_TYPES.map((t) => (
+            {CREATOR_TYPES.map((t) => {
+              const creator = C[t.id];
+              if (!creator) return null;
+              return (
               <div key={t.title} className={carouselItem}>
                 <div className="relative mb-[18px]">
                   <Image
-                    src={t.creator.img}
+                    src={creator.img}
                     alt=""
                     width={420}
                     height={525}
                     className="aspect-[4/5] w-full rounded object-cover"
                   />
                   <span className="font-heading text-background absolute top-[11px] left-[11px] rounded-full bg-[rgba(24,19,19,0.72)] px-[11px] py-[5px] text-[10.5px] font-bold backdrop-blur-[6px]">
-                    {t.creator.category}
+                    {creator.category}
                   </span>
                   <span className="font-heading text-background absolute right-[11px] bottom-[11px] rounded-full bg-[rgba(24,19,19,0.72)] px-[11px] py-[5px] text-[10.5px] font-bold backdrop-blur-[6px]">
-                    {t.creator.price}
+                    {creator.price}
                   </span>
                 </div>
                 <div className="font-heading mb-2 text-[clamp(17px,1.9vw,21px)] font-bold tracking-[-0.02em]">
@@ -663,7 +671,8 @@ export function CreatorsLanding() {
                   {t.desc}
                 </p>
               </div>
-            ))}
+              );
+            })}
           </div>
           <div className="flex flex-wrap gap-2.5">
             {CATEGORIES.map((c) => (

@@ -67,7 +67,7 @@ const CREATOR_BENEFITS = [
   "Get discovered by brands",
 ];
 
-const MINI_BRAND_CARDS = [C.ananya, C.aashi, C.kabir];
+const MINI_BRAND_CARDS = [C.deepika, C.aashi, C.kabir];
 
 const OLD_WAY = [
   "Search Instagram",

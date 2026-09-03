@@ -83,8 +83,8 @@ const DASHBOARD = [
     status: "Delivered",
   },
   {
-    creator: C.ananya,
-    brief: `3 product videos · ${C.ananya.category}`,
+    creator: C.deepika,
+    brief: `3 product videos · ${C.deepika.category}`,
     status: "Revision",
   },
   {
@@ -132,7 +132,7 @@ const SEARCH_EXAMPLES: {
     where: "North India",
     budget: "₹2,000–₹8,000",
     when: "5 Days",
-    matches: [C.sana, C.disha],
+    matches: [C.sana, C.disha, C.deepika],
   },
 ];
 
@@ -217,7 +217,7 @@ const WHY = [
   },
 ];
 
-const AVATARS = [C.anju, C.sana, C.punya, C.ananya, C.aashi].map((c) => c.img);
+const AVATARS = [C.anju, C.sana, C.punya, C.deepika, C.aashi].map((c) => c.img);
 
 const BRAND_FAQS = [
   {

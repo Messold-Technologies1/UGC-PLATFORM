@@ -49,16 +49,16 @@ export const MARKETING_CREATORS = {
     price: "₹2,000",
     delivery: "5 days",
   },
-  ananya: {
-    id: "ananya",
+  deepika: {
+    id: "deepika",
     img: "/creators/female-4.jpg",
-    name: "Ananya Singh",
-    shortName: "Ananya S.",
-    category: "Parenting",
-    city: "Jaipur",
-    location: "Jaipur",
-    price: "₹2,650",
-    delivery: "4 days",
+    name: "Deepika Fartiyal",
+    shortName: "Deepika F.",
+    category: "Skincare",
+    city: "Haldwani",
+    location: "Haldwani",
+    price: "₹4,000",
+    delivery: "3 days",
   },
   aashi: {
     id: "aashi",
@@ -137,7 +137,7 @@ export const MARKETING_CREATORS = {
     price: "₹2000",
     delivery: "5 days",
   },
-} as const satisfies Record<string, MarketingCreator>;
+} as const;
 
 export type MarketingCreatorId = keyof typeof MARKETING_CREATORS;
 

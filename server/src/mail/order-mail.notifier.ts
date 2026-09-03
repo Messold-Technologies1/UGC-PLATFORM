@@ -63,13 +63,19 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const brandName = this.brandDisplayName(order.brand);
-      await this.sendToCreator(order, EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR, {
-        brandName,
-        packageName: order.packageNameSnapshot,
-        orderId: order.id,
-        briefSubmittedAt: this.formatDate(briefSubmittedAt),
-        actionUrl: this.creatorOrderBriefUrl(order.id),
-      });
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR,
+        {
+          brandName,
+          packageName: order.packageNameSnapshot,
+          orderId: order.id,
+          briefSubmittedAt: this.formatDate(briefSubmittedAt),
+          actionUrl: this.creatorOrderBriefUrl(order.id),
+        },
+        // WhatsApp: {{2}} = brand name (order_brief_submitted_for_creator).
+        [brandName],
+      );
     });
   }
 
@@ -530,6 +536,12 @@ export class OrderMailNotifier {
     order: OrderMailRow,
     templateKey: EmailTemplateKey,
     context: Record<string, string>,
+    /**
+     * Extra WhatsApp body variables ({{2}}, {{3}}, ...) after the recipient
+     * name. Only pass these for templates whose approved WhatsApp copy has the
+     * matching placeholders — the default is name-only ({{1}}).
+     */
+    extraWhatsAppVars: string[] = [],
   ): Promise<void> {
     const email = this.creatorEmail(order);
     if (!email) {
@@ -556,6 +568,7 @@ export class OrderMailNotifier {
       recipientName: this.creatorDisplayName(order),
       actionUrl: context.actionUrl,
       gate: { profileType: 'creator', profileId: order.creator.id },
+      extraBodyVars: extraWhatsAppVars,
     });
   }
 

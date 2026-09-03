@@ -35,6 +35,13 @@ export class InstagramApiError extends Error {
     message: string,
     readonly code?: number,
     readonly subcode?: number,
+    /**
+     * Graph rate-limited the request (429, or app/user request-limit codes
+     * 4/17) rather than genuinely failing it. Callers should retry with
+     * backoff instead of treating this as a broken connection — see
+     * SocialConnectionsService.syncConnection.
+     */
+    readonly rateLimited = false,
   ) {
     super(message);
     this.name = 'InstagramApiError';
@@ -255,7 +262,7 @@ export class InstagramClient {
       permissions?: string[];
     } & GraphError;
     if (!shortRes.ok || !shortData.access_token) {
-      throw this.toError(shortData, 'Instagram code exchange failed');
+      throw this.toError(shortRes, shortData, 'Instagram code exchange failed');
     }
 
     // 2) exchange for long-lived token
@@ -269,7 +276,11 @@ export class InstagramClient {
       expires_in?: number;
     } & GraphError;
     if (!longRes.ok || !longData.access_token) {
-      throw this.toError(longData, 'Instagram long-lived exchange failed');
+      throw this.toError(
+        longRes,
+        longData,
+        'Instagram long-lived exchange failed',
+      );
     }
 
     return {
@@ -295,7 +306,7 @@ export class InstagramClient {
       expires_in?: number;
     } & GraphError;
     if (!res.ok || !data.access_token) {
-      throw this.toError(data, 'Instagram token refresh failed');
+      throw this.toError(res, data, 'Instagram token refresh failed');
     }
     return {
       accessToken: data.access_token,
@@ -356,13 +367,11 @@ export class InstagramClient {
     } & GraphError;
 
     if (!res.ok) {
-      const err = this.toError(data, 'Instagram media fetch failed');
+      const err = this.toError(res, data, 'Instagram media fetch failed');
       // 429 with a wait hint: surface it so the queue can honour the exact
-      // cool-down rather than guessing a backoff.
-      throw Object.assign(err, {
-        usage,
-        rateLimited: res.status === 429 || err.code === 4 || err.code === 17,
-      });
+      // cool-down rather than guessing a backoff. rateLimited itself is now
+      // set by toError, shared with every other Graph call.
+      throw Object.assign(err, { usage });
     }
 
     const items: InstagramMediaNode[] = (data.data ?? [])
@@ -407,7 +416,7 @@ export class InstagramClient {
       media_count?: number;
     } & GraphError;
     if (!res.ok || (!data.user_id && !data.id)) {
-      throw this.toError(data, 'Instagram account fetch failed');
+      throw this.toError(res, data, 'Instagram account fetch failed');
     }
     return {
       userId: String(data.user_id ?? data.id),
@@ -461,7 +470,11 @@ export class InstagramClient {
         const data = (await res.json()) as InsightsResponse & GraphError;
         if (!res.ok) {
           if (data.error?.code === 190) {
-            throw this.toError(data, 'Instagram demographics fetch failed');
+            throw this.toError(
+              res,
+              data,
+              'Instagram demographics fetch failed',
+            );
           }
           // e.g. <100 followers / not enough data — skip this breakdown.
           this.logger.debug(
@@ -502,7 +515,7 @@ export class InstagramClient {
       const data = (await res.json()) as InsightsResponse & GraphError;
       if (!res.ok) {
         if (data.error?.code === 190) {
-          throw this.toError(data, `Instagram ${metric} fetch failed`);
+          throw this.toError(res, data, `Instagram ${metric} fetch failed`);
         }
         this.logger.debug(
           `instagram metric ${metric} skipped: ${data.error?.message}`,
@@ -519,14 +532,34 @@ export class InstagramClient {
     }
   }
 
-  private toError(body: GraphError, fallback: string): InstagramApiError {
+  /**
+   * `res` is required (even though most callers only use it for the status
+   * code) so rate-limit detection lives in one place instead of being
+   * reimplemented — and forgotten — at each call site.
+   */
+  private toError(
+    res: Response,
+    body: GraphError,
+    fallback: string,
+  ): InstagramApiError {
     const e = body.error;
     return new InstagramApiError(
       e?.message ?? fallback,
       e?.code,
       e?.error_subcode,
+      isRateLimited(res, e?.code),
     );
   }
+}
+
+/**
+ * Meta's signal for "you're being throttled, not rejected": an HTTP 429, or
+ * error codes 4 (app-level request limit) / 17 (user-level request limit).
+ * Shared by every Graph call so a rate limit is never mistaken for a broken
+ * token or a dead connection.
+ */
+function isRateLimited(res: Response, code?: number): boolean {
+  return res.status === 429 || code === 4 || code === 17;
 }
 
 /**

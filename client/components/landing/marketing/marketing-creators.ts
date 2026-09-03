@@ -27,15 +27,15 @@ export const MARKETING_CREATORS = {
     price: "₹40,000",
     delivery: "5 days",
   },
-  sana: {
-    id: "sana",
+  susmita: {
+    id: "susmita",
     img: "/creators/female-2.png",
-    name: "Sana Verma",
-    shortName: "Sana V.",
-    category: "Skincare",
-    city: "Noida",
-    location: "Noida",
-    price: "₹1,900",
+    name: "Susmita Chakraborty",
+    shortName: "Susmita C.",
+    category: "EdTech",
+    city: "Kolkata",
+    location: "Kolkata",
+    price: "₹2000",
     delivery: "2 days",
   },
   punya: {
@@ -93,16 +93,16 @@ export const MARKETING_CREATORS = {
     price: "₹1,000",
     delivery: "3 days",
   },
-  kabir: {
-    id: "kabir",
+  harshit: {
+    id: "harshit",
     img: "/creators/male-1.jpg",
-    name: "Kabir Shah",
-    shortName: "Kabir S.",
+    name: "Harshit Singh",
+    shortName: "Harshit S.",
     category: "Fitness",
-    city: "Navi Mumbai",
-    location: "Navi Mumbai",
-    price: "₹5,200",
-    delivery: "4 days",
+    city: "Hapur",
+    location: "Hapur",
+    price: "₹3,500",
+    delivery: "5 days",
   },
   suresh: {
     id: "suresh",
@@ -154,6 +154,7 @@ export const MARKETING_CREATOR_BY_NICHE = {
   fitness: MARKETING_CREATORS.yash,
   couple: MARKETING_CREATORS.couple,
   parenting: MARKETING_CREATORS.sakshi,
+  edtech: MARKETING_CREATORS.susmita,
 } as const;
 
 export const MARKETING_CREATOR_IMAGES = {
@@ -164,6 +165,7 @@ export const MARKETING_CREATOR_IMAGES = {
   fitness: MARKETING_CREATOR_BY_NICHE.fitness.img,
   couple: MARKETING_CREATOR_BY_NICHE.couple.img,
   parenting: MARKETING_CREATOR_BY_NICHE.parenting.img,
+  edtech: MARKETING_CREATOR_BY_NICHE.edtech.img,
 } as const;
 
 export function creatorMeta(creator: MarketingCreator): string {

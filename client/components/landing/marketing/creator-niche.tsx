@@ -172,8 +172,8 @@ const NICHES: {
     label: "Apps & Digital Services",
     icon: Smartphone,
     creators: [
-      shot("lifestyle", {
-        name: "Veer",
+      shot("edtech", {
+        name: cat.edtech.name,
         rating: 4.8,
         types: "App Demo | Walkthrough",
       }),

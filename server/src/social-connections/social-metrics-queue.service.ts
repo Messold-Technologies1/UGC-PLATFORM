@@ -47,6 +47,14 @@ interface SyncJobData {
  *
  * The heavy lifting lives in SocialConnectionsService.syncConnection(); this
  * service only handles queueing/concurrency so there is no dependency cycle.
+ *
+ * Rate-limit defense (mirrors InstagramMediaQueueService): the worker carries
+ * a `limiter` capping how many syncs start per second, since the cron enqueues
+ * every due connection in one burst and each sync makes several Graph calls.
+ * When Graph rate-limits a call anyway, syncConnection rethrows instead of
+ * swallowing the error, so BullMQ's `attempts`/backoff actually retries it —
+ * rather than the connection sitting in place until the next cron sweep a day
+ * later, only to land in the same kind of burst again.
  */
 @Injectable()
 export class SocialMetricsQueueService
@@ -103,6 +111,17 @@ export class SocialMetricsQueueService
       1,
       Number(this.config.get('SOCIAL_METRICS_CONCURRENCY', 3)),
     );
+    // Hard ceiling on how many syncs *start* per second. Each sync makes up
+    // to ~8 Graph calls (account + 3 totals + 4 demographic breakdowns), and
+    // the cron enqueues every due connection in one burst — without this,
+    // concurrency alone lets that burst fire dozens of Graph calls at once
+    // and trip Meta's rate limit, which previously aborted the whole sync
+    // for whichever connections lost that race (see fetchAccount: it throws
+    // on any Graph error, before totals/demographics are ever fetched).
+    const rateMax = Math.max(
+      1,
+      Number(this.config.get('SOCIAL_METRICS_RATE_MAX', 2)),
+    );
     this.worker = new Worker<SyncJobData>(
       QUEUE_NAME,
       async (job) => {
@@ -111,6 +130,7 @@ export class SocialMetricsQueueService
       {
         connection,
         concurrency,
+        limiter: { max: rateMax, duration: 1000 },
         // Keep locks short so a zombie claim is marked stalled and retried
         // instead of parking the job in `active` until a 2-minute lock expires.
         // Must outlast SYNC_TIMEOUT_MS, or a sync still running at 60s loses

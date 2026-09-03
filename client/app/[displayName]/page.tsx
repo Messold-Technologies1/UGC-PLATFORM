@@ -7,6 +7,21 @@ import { PublicCreatorProfile } from "@/features/creators/components/public-crea
 // Auth-aware (owner can view pending profile); never statically cache this route.
 export const dynamic = "force-dynamic";
 
+const RESERVED_PUBLIC_SLUGS = new Set([
+  "brands",
+  "creators",
+  "about",
+  "contact",
+  "legal",
+  "login",
+  "register",
+  "admin",
+  "brand",
+  "creator",
+  "wishlists",
+  "api",
+]);
+
 interface PageProps {
   params: Promise<{ displayName: string }>;
 }
@@ -15,6 +30,9 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { displayName } = await params;
+  if (RESERVED_PUBLIC_SLUGS.has(displayName.toLowerCase())) {
+    return { title: "Page not found" };
+  }
   const result = await fetchCreatorProfileByPublicSlug(displayName);
   if (!result.ok) return { title: "Creator" };
 
@@ -38,6 +56,10 @@ export default async function PublicCreatorProfileByDisplayNamePage({
   params,
 }: PageProps) {
   const { displayName } = await params;
+  if (RESERVED_PUBLIC_SLUGS.has(displayName.toLowerCase())) {
+    notFound();
+  }
+
   const result = await fetchCreatorProfileByPublicSlug(displayName);
 
   if (!result.ok) {

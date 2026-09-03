@@ -180,11 +180,11 @@ export function BrandsVisual() {
     <div className="relative h-full min-h-[480px] w-full overflow-hidden rounded-[28px] bg-grape/25 p-8 lg:h-full lg:rounded-[36px]">
       <div className="shadow-hard bg-foreground absolute left-1/2 top-10 w-[55%] -translate-x-1/2 -rotate-3 rounded-[28px] border-2 border-foreground p-2 aspect-9/16">
         <div className="relative h-full w-full overflow-hidden rounded-[22px] bg-linear-to-br from-pink/70 via-grape/40 to-sky/60">
-          <Image src={C.sana.img} alt="Demo" fill className="object-cover" />
+          <Image src={C.susmita.img} alt="Demo" fill className="object-cover" />
           <div className="bg-grain absolute inset-0 opacity-30" />
           <div className="bg-background/90 absolute bottom-3 left-3 right-3 rounded-xl p-2.5 backdrop-blur">
             <p className="text-[10px] font-bold">
-              {C.sana.category} · {C.sana.price}
+              {C.susmita.category} · {C.susmita.price}
             </p>
             <div className="bg-foreground/20 mt-1.5 h-1 rounded-full">
               <div className="bg-foreground h-full w-2/3 rounded-full" />

@@ -73,8 +73,8 @@ const DASHBOARD = [
     status: "In Progress",
   },
   {
-    creator: C.kabir,
-    brief: `2 reels · ${C.kabir.category}`,
+    creator: C.harshit,
+    brief: `2 reels · ${C.harshit.category}`,
     status: "Awaiting Shipment",
   },
   {
@@ -118,21 +118,21 @@ const SEARCH_EXAMPLES: {
     where: "Delhi NCR",
     budget: "₹3,000–₹7,500",
     when: "5 Days",
-    matches: [C.anju, C.punya, C.sana, C.disha],
+    matches: [C.anju, C.punya, C.deepika, C.disha],
   },
   {
     who: "Male Fitness Creators",
     where: "Mumbai",
     budget: "₹5,000–₹12,000",
     when: "7 Days",
-    matches: [C.yash, C.kabir],
+    matches: [C.yash, C.harshit],
   },
   {
     who: "Female Skincare Creators",
     where: "North India",
     budget: "₹2,000–₹8,000",
     when: "5 Days",
-    matches: [C.sana, C.disha, C.deepika],
+    matches: [C.disha, C.deepika],
   },
 ];
 
@@ -194,9 +194,9 @@ const HIRE_FOR = [
   { title: "UGC Ads", creator: C.punya },
   { title: "Product Videos", creator: C.disha },
   { title: "Instagram Reels", creator: C.anju },
-  { title: "Influencer Collaborations", creator: C.kabir },
+  { title: "Influencer Collaborations", creator: C.couple },
   { title: "Product Photography", creator: C.yash },
-  { title: "Website Content", creator: C.sana },
+  { title: "Website Content", creator: C.susmita },
   { title: "Campaign Content", creator: C.sakshi },
   { title: "Product Launches", creator: C.suresh },
 ];
@@ -217,7 +217,7 @@ const WHY = [
   },
 ];
 
-const AVATARS = [C.anju, C.sana, C.punya, C.deepika, C.aashi].map((c) => c.img);
+const AVATARS = [C.anju, C.susmita, C.punya, C.deepika, C.aashi].map((c) => c.img);
 
 const BRAND_FAQS = [
   {

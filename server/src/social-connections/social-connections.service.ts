@@ -336,8 +336,17 @@ export class SocialConnectionsService {
       select: { id: true, status: true },
     });
     if (conn && conn.status !== SocialConnectionStatus.REVOKED) {
-      // syncConnection records its own failures and never throws.
-      await this.syncConnection(conn.id);
+      // syncConnection records its own failures and normally never throws —
+      // except when Graph rate-limited the request, which it rethrows so a
+      // BullMQ worker can retry with backoff. This caller is outside the
+      // queue (an on-demand "Refresh insights" click), so there is no
+      // worker to retry it: just fall through and return whatever insights
+      // are already on file instead of failing the request.
+      await this.syncConnection(conn.id).catch((err) => {
+        this.logger.warn(
+          `social sync: on-demand refresh for ${conn.id} did not complete: ${(err as Error)?.message}`,
+        );
+      });
     }
     return this.getPublicInstagramInsights(creatorProfileId);
   }
@@ -481,8 +490,41 @@ export class SocialConnectionsService {
         );
       }
     } catch (err) {
+      // A rate limit is Meta saying "not now", not "this connection is
+      // broken" — mark it as such (leaving `status` alone so the 3-day
+      // schedule isn't disturbed) and rethrow so the caller can retry with
+      // backoff instead of waiting for tomorrow's cron sweep. The queue
+      // worker (processConnectionDirect) propagates this into a BullMQ
+      // `failed` job, which is what actually triggers the retry; the
+      // manual/inline caller (refreshInstagramForCreator) catches it itself.
+      if (err instanceof InstagramApiError && err.rateLimited) {
+        await this.recordSyncRateLimited(conn, err);
+        throw err;
+      }
       await this.recordSyncFailure(conn, err);
     }
+  }
+
+  private async recordSyncRateLimited(
+    conn: SocialConnection,
+    err: InstagramApiError,
+  ): Promise<void> {
+    this.logger.warn(
+      `social sync rate-limited: connection ${conn.id}: ${err.message} — will retry with backoff`,
+    );
+    await this.prisma.socialConnection
+      .update({
+        where: { id: conn.id },
+        data: {
+          lastSyncStatus: 'rate_limited',
+          lastSyncError: err.message.slice(0, 500),
+        },
+      })
+      .catch((e) =>
+        this.logger.warn(
+          `social sync: could not record rate-limit for ${conn.id}: ${(e as Error)?.message}`,
+        ),
+      );
   }
 
   private async recordSyncFailure(

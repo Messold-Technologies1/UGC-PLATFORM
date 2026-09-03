@@ -138,7 +138,7 @@ const BRAND_NAMES = [
   "SUGAR",
 ];
 
-const ASPIRATION_CARDS = [C.anju, C.sana, C.suresh, C.aashi];
+const ASPIRATION_CARDS = [C.anju, C.susmita, C.suresh, C.aashi];
 
 const CREATOR_TYPES: {
   title: string;
@@ -158,7 +158,7 @@ const CREATOR_TYPES: {
   {
     title: "Micro Creators",
     desc: "Niche audience and engaged followers.",
-    id: "kabir",
+    id: "harshit",
   },
   {
     title: "Influencers",
@@ -181,7 +181,7 @@ const STEPS = [
   "Complete & earn",
 ];
 
-const AVATARS = [C.anju, C.kabir, C.sana, C.yash, C.punya].map((c) => c.img);
+const AVATARS = [C.anju, C.harshit, C.susmita, C.yash, C.punya].map((c) => c.img);
 
 const TESTIMONIALS = [
   {
@@ -194,9 +194,9 @@ const TESTIMONIALS = [
   {
     quote:
       "Brands can understand my services and pricing before approaching me.",
-    name: C.sana.name,
-    role: creatorRole(C.sana),
-    img: C.sana.img,
+    name: C.susmita.name,
+    role: creatorRole(C.susmita),
+    img: C.susmita.img,
   },
   {
     quote:

@@ -67,7 +67,7 @@ const CREATOR_BENEFITS = [
   "Get discovered by brands",
 ];
 
-const MINI_BRAND_CARDS = [C.deepika, C.aashi, C.kabir];
+const MINI_BRAND_CARDS = [C.deepika, C.aashi, C.harshit];
 
 const OLD_WAY = [
   "Search Instagram",
@@ -120,9 +120,9 @@ const MARKETPLACE = [
   C.suresh,
   C.couple,
   C.aashi,
-  C.punya,
-  C.yash,
   C.disha,
+  C.harshit,
+  C.susmita,
   C.sakshi,
 ];
 

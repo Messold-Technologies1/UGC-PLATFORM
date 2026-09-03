@@ -2168,6 +2168,12 @@ export class CreatorProfileService {
       throw new Error('Creator profile load failed');
     }
 
+    this.logger.log(
+      `[admin-action] APPROVE creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${profile.creatorApproval?.status ?? 'none'} to=${ApprovalStatus.APPROVED} ` +
+        `isListed=${listingState?.isListed ?? false} becameListed=${listingState?.becameListed ?? false}`,
+    );
+
     this.creatorProfileMail.notifyApproved(creatorProfileId);
 
     return this.mapCreatorProfileResponseDto(updated);
@@ -2240,6 +2246,11 @@ export class CreatorProfileService {
       throw new Error('Creator profile load failed');
     }
 
+    this.logger.log(
+      `[admin-action] SHORTLIST creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${status} to=${ApprovalStatus.SHORTLISTED}`,
+    );
+
     return this.mapCreatorProfileResponseDto(updated);
   }
 
@@ -2261,15 +2272,17 @@ export class CreatorProfileService {
       throw new BadRequestException('Creator is not shortlisted');
     }
 
+    // profile_first Building = PENDING incomplete; approval_first Incomplete = APPROVED incomplete
+    const unshortlistedStatus =
+      getCreatorOnboardingMode(process.env.CREATOR_ONBOARDING_MODE) ===
+      'profile_first'
+        ? ApprovalStatus.PENDING
+        : ApprovalStatus.APPROVED;
+
     await this.prisma.creatorApproval.update({
       where: { creatorId: creatorProfileId },
       data: {
-        // profile_first Building = PENDING incomplete; approval_first Incomplete = APPROVED incomplete
-        status:
-          getCreatorOnboardingMode(process.env.CREATOR_ONBOARDING_MODE) ===
-          'profile_first'
-            ? ApprovalStatus.PENDING
-            : ApprovalStatus.APPROVED,
+        status: unshortlistedStatus,
         approvedById: adminUserId,
         approvedAt: new Date(),
         rejectionReason: null,
@@ -2286,6 +2299,12 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.logger.log(
+      `[admin-action] UNSHORTLIST creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${ApprovalStatus.SHORTLISTED} to=${unshortlistedStatus} ` +
+        `(back to Building profile)`,
+    );
 
     return this.mapCreatorProfileResponseDto(updated);
   }
@@ -2339,6 +2358,11 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.logger.log(
+      `[admin-action] SEND_FOR_REVIEW creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${ApprovalStatus.SELF_COMPLETED} to=${ApprovalStatus.PENDING} (moved into Awaiting review)`,
+    );
 
     return this.mapCreatorProfileResponseDto(updated);
   }
@@ -2403,7 +2427,7 @@ export class CreatorProfileService {
   ): Promise<CreatorProfileResponseDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
-      select: { id: true },
+      select: { id: true, creatorApproval: { select: { status: true } } },
     });
     if (!profile) {
       throw new NotFoundException('Creator not found');
@@ -2436,6 +2460,12 @@ export class CreatorProfileService {
     if (!updated) {
       throw new Error('Creator profile load failed');
     }
+
+    this.logger.log(
+      `[admin-action] REJECT creator=${creatorProfileId} by admin=${adminUserId} ` +
+        `from=${profile.creatorApproval?.status ?? 'none'} to=${ApprovalStatus.REJECTED} ` +
+        `hasReason=${Boolean(rejectionReason?.trim())}`,
+    );
 
     return this.mapCreatorProfileResponseDto(updated);
   }

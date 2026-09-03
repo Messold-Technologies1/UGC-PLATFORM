@@ -2,14 +2,11 @@
  * WhatsApp notification types — the WhatsApp twin of `mail.types.ts`.
  *
  * Unlike email, WhatsApp can only send **pre-approved template messages** for
- * business-initiated notifications. Each key below must map to a template you
- * have created and had approved in WhatsApp Manager. The enum value is the
- * template `name` registered with Meta; keep them in sync.
+ * business-initiated notifications. `template` below is the template `name`
+ * registered and approved in WhatsApp Manager. The mail notifiers derive it
+ * from their `EmailTemplateKey` (see `whatsAppTemplateNameForEmail`), so every
+ * email that fires also fires the matching WhatsApp template.
  */
-export enum WhatsAppTemplateKey {
-  /** Sent to the creator when a brand submits a brief. Body: {{1}}=creator, {{2}}=brand. */
-  ORDER_BRIEF_SUBMITTED_FOR_CREATOR = 'order_brief_submitted_for_creator',
-}
 
 /**
  * Opt-in gate, mirroring `MailNotificationGate`. The send is skipped unless the
@@ -22,7 +19,8 @@ export type WhatsAppNotificationGate =
 export type SendWhatsAppParams = {
   /** Recipient phone in any format; normalized to E.164 digits before sending. */
   to: string | null | undefined;
-  template: WhatsAppTemplateKey;
+  /** Approved template name registered in WhatsApp Manager. */
+  template: string;
   /** Values for the template body placeholders {{1}}, {{2}}, ... in order. */
   bodyVars?: string[];
   /**

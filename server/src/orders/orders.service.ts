@@ -55,7 +55,6 @@ import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderMailNotifier } from '../mail/order-mail.notifier';
-import { WhatsAppOrderNotifier } from '../whatsapp/whatsapp-order.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
 import { WatermarkQueueService } from '../jobs/watermark-queue.service';
@@ -385,7 +384,6 @@ export class OrdersService {
     private readonly razorpay: RazorpayService,
     private readonly orderRealtime: OrderRealtimeNotifier,
     private readonly orderMail: OrderMailNotifier,
-    private readonly whatsappOrder: WhatsAppOrderNotifier,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
     private readonly watermarkQueue: WatermarkQueueService,
@@ -1194,7 +1192,6 @@ export class OrdersService {
     });
 
     this.orderMail.notifyBriefSubmitted(order.id, now);
-    this.whatsappOrder.notifyBriefSubmitted(order.id);
   }
 
   async acceptBrief(params: {

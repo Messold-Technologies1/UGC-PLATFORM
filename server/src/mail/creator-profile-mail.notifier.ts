@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
 import { MailService } from './mail.service';
 import { EmailTemplateKey } from './mail.types';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { sendWhatsAppForEmail } from './whatsapp-bridge.util';
 
 @Injectable()
 export class CreatorProfileMailNotifier {
@@ -13,6 +15,7 @@ export class CreatorProfileMailNotifier {
     private readonly mail: MailService,
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly whatsapp: WhatsAppService,
   ) {}
 
   notifyApproved(creatorProfileId: string): void {
@@ -43,6 +46,13 @@ export class CreatorProfileMailNotifier {
           actionUrl: `${this.frontendBase()}/creator/account`,
           profileFirstMode: this.profileFirstMode(),
         },
+      });
+      await sendWhatsAppForEmail(this.whatsapp, this.config, {
+        to: this.recipientPhone(profile),
+        emailKey: EmailTemplateKey.CREATOR_PROFILE_APPROVED,
+        recipientName: this.recipientName(profile),
+        actionUrl: `${this.frontendBase()}/creator/account`,
+        gate: { profileType: 'creator', profileId: creatorProfileId },
       });
     });
   }
@@ -84,6 +94,14 @@ export class CreatorProfileMailNotifier {
         },
         context,
       });
+      await sendWhatsAppForEmail(this.whatsapp, this.config, {
+        to: this.recipientPhone(profile),
+        emailKey: EmailTemplateKey.CREATOR_PROFILE_REJECTED,
+        recipientName: this.recipientName(profile),
+        actionUrl:
+          typeof context.actionUrl === 'string' ? context.actionUrl : undefined,
+        gate: { profileType: 'creator', profileId: creatorProfileId },
+      });
     });
   }
 
@@ -123,6 +141,13 @@ export class CreatorProfileMailNotifier {
           isStage3: stage === 3,
         },
       });
+      await sendWhatsAppForEmail(this.whatsapp, this.config, {
+        to: this.recipientPhone(profile),
+        emailKey: EmailTemplateKey.CREATOR_PROFILE_COMPLETION_REMINDER,
+        recipientName: this.recipientName(profile),
+        actionUrl: `${this.frontendBase()}/creator/settings/profile`,
+        gate: { profileType: 'creator', profileId: creatorProfileId },
+      });
     });
   }
 
@@ -143,7 +168,7 @@ export class CreatorProfileMailNotifier {
         id: true,
         displayName: true,
         contactEmail: true,
-        user: { select: { email: true, name: true } },
+        user: { select: { email: true, name: true, phone: true } },
       },
     });
     if (!profile) {
@@ -159,6 +184,12 @@ export class CreatorProfileMailNotifier {
     user: { email: string };
   }): string | null {
     return profile.contactEmail?.trim() || profile.user.email?.trim() || null;
+  }
+
+  private recipientPhone(profile: {
+    user: { phone: string | null };
+  }): string | null {
+    return profile.user.phone?.trim() || null;
   }
 
   private recipientName(profile: {

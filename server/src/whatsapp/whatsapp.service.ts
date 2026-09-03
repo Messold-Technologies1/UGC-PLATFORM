@@ -2,9 +2,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppCloudTransport } from './whatsapp-cloud.transport';
-import {
-  type SendWhatsAppParams,
-  type WhatsAppNotificationGate,
+import type {
+  SendWhatsAppParams,
+  WhatsAppNotificationGate,
 } from './whatsapp.types';
 import { TimeoutError, withTimeout } from '../util/with-timeout';
 

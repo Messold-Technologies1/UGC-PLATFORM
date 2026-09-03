@@ -1019,6 +1019,9 @@ export class OrdersService {
         razorpayPaymentId: params.razorpayPaymentId,
       },
     });
+    this.logger.log(
+      `[payment] captured order marked PAID order=${order.id} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
+    );
     return order.id;
   }
 
@@ -1086,6 +1089,10 @@ export class OrdersService {
         },
       });
     });
+
+    this.logger.log(
+      `[payment] captured bulk batch marked PAID batch=${batch.id} orders=${orders.length} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
+    );
 
     return orders.map((o) => o.id);
   }
@@ -2077,6 +2084,10 @@ export class OrdersService {
       });
     });
 
+    this.logger.log(
+      `[payment] captured extra-revisions purchase PAID purchase=${purchase.id} order=${purchase.orderId} revisionsAdded=${purchase.revisionsAdded} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
+    );
+
     this.orderMail.notifyExtraRevisionsPurchased(
       purchase.orderId,
       purchase.revisionsAdded,
@@ -2301,6 +2312,10 @@ export class OrdersService {
         data: { usageRightsExtraDays: { increment: purchase.daysAdded } },
       });
     });
+
+    this.logger.log(
+      `[payment] captured usage-rights purchase PAID purchase=${purchase.id} order=${purchase.orderId} daysAdded=${purchase.daysAdded} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
+    );
 
     this.orderMail.notifyExtraUsageRightsPurchased(
       purchase.orderId,

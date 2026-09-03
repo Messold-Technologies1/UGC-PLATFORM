@@ -243,6 +243,10 @@ export class WebhooksService {
 
     const body = params.json as RazorpayWebhookBody;
 
+    this.logger.log(
+      `[payment] razorpay webhook received event=${body.event} paymentId=${body.payload?.payment?.entity?.id ?? 'n/a'} razorpayOrderId=${body.payload?.payment?.entity?.order_id ?? 'n/a'}`,
+    );
+
     if (body.event === 'payment.captured') {
       const entity = body.payload?.payment?.entity;
       if (!entity?.id || !entity.order_id) {

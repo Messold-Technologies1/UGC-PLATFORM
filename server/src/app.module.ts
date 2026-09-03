@@ -29,9 +29,11 @@ import { LegalPagesModule } from './legal-pages/legal-pages.module';
 import { MetaCapiModule } from './meta-capi/meta-capi.module';
 import { ContactUsModule } from './contact-us/contact-us.module';
 import { SocialConnectionsModule } from './social-connections/social-connections.module';
+import { LoggingModule } from './logging/logging.module';
 
 @Module({
   imports: [
+    LoggingModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: envValidationSchema,

@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
 import type { IncomingMessage } from 'node:http';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './realtime/redis-io.adapter';
 
@@ -14,7 +15,14 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
     bodyParser: false,
+    // Buffer early logs until the pino logger is wired up below, so nothing
+    // logged during bootstrap is lost or printed with the default logger.
+    bufferLogs: true,
   });
+
+  // Route every NestJS log (framework + all `Logger` calls, including the
+  // [admin-action] audit lines) through the structured pino logger.
+  app.useLogger(app.get(PinoLogger));
 
   const captureRawBody = (
     req: IncomingMessage & { rawBody?: Buffer },

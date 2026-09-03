@@ -137,6 +137,20 @@ export const envValidationSchema = Joi.object({
   /** Dev only: skip SNS signature verification on POST /api/webhooks/ses */
   SES_SNS_SKIP_SIGNATURE_VERIFY: Joi.string().valid('true', 'false').optional(),
 
+  // WhatsApp (Meta Cloud API) — optional until outbound WhatsApp is enabled.
+  // With these unset the WhatsApp service no-ops (like mail without SES).
+  WHATSAPP_ENABLED: Joi.string().valid('true', 'false').optional(),
+  WHATSAPP_PHONE_NUMBER_ID: Joi.string().min(1).optional(),
+  WHATSAPP_ACCESS_TOKEN: Joi.string().min(1).optional(),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: Joi.string().min(1).optional(),
+  WHATSAPP_API_VERSION: Joi.string().optional().default('v21.0'),
+  WHATSAPP_DEFAULT_LANGUAGE: Joi.string().optional().default('en'),
+  WHATSAPP_SEND_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1_000)
+    .max(120_000)
+    .default(10_000),
+
   // Meta (Facebook) Conversions API — server-side event tracking.
   // All optional: when the token or dataset id is unset the CAPI service
   // short-circuits and sends nothing (server-side kill switch).

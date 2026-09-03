@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +10,7 @@ import { TimeoutError, withTimeout } from '../util/with-timeout';
 
 @Injectable()
 export class RazorpayService {
+  private readonly logger = new Logger(RazorpayService.name);
   private readonly razorpay: Razorpay;
   private readonly keyId: string;
   private readonly requestTimeoutMs: number;
@@ -63,6 +65,10 @@ export class RazorpayService {
         ? order.amount
         : Number.parseInt(String(order.amount), 10);
 
+    this.logger.log(
+      `[payment] razorpay order created orderId=${order.id} amountPaise=${amount} currency=${order.currency} receipt=${order.receipt ?? params.receipt}`,
+    );
+
     return {
       id: order.id,
       amount,
@@ -84,8 +90,14 @@ export class RazorpayService {
     // constant-time compare
     const a = Buffer.from(expected, 'utf8');
     const b = Buffer.from(params.razorpaySignature, 'utf8');
-    if (a.length !== b.length) return false;
-    return crypto.timingSafeEqual(a, b);
+    const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
+    if (!valid) {
+      // A bad signature means a spoofed/misconfigured webhook — worth flagging.
+      this.logger.warn(
+        '[payment] razorpay webhook signature verification FAILED',
+      );
+    }
+    return valid;
   }
 
   // Disabled — kept for reference. Restore alongside getKeyMode above and

@@ -1,7 +1,8 @@
 import {
   ConflictException,
-  BadRequestException,  
+  BadRequestException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -108,6 +109,8 @@ function isMeWorkspaceRole(name: RoleName | null | undefined): name is MeWorkspa
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -243,6 +246,9 @@ export class AuthService {
     meta?: { ipAddress?: string; userAgent?: string },
   ): Promise<AuthResult> {
     const userId = await this.signupRegistration.registerCreatorUser(dto, meta);
+    this.logger.log(
+      `[auth] register success role=CREATOR userId=${userId} ip=${meta?.ipAddress ?? 'n/a'}`,
+    );
     // Server-side twin of the browser CompleteRegistration event, deduplicated
     // via the shared metaSignupEventId. Best-effort / fire-and-forget.
     if (this.metaCapi.enabled) {
@@ -271,6 +277,9 @@ export class AuthService {
     meta?: { ipAddress?: string; userAgent?: string },
   ): Promise<AuthResult> {
     const userId = await this.signupRegistration.registerBrandUser(dto);
+    this.logger.log(
+      `[auth] register success role=BRAND userId=${userId} ip=${meta?.ipAddress ?? 'n/a'}`,
+    );
     return this.authResultAfterSignup(userId, meta);
   }
 
@@ -279,6 +288,9 @@ export class AuthService {
     meta?: { ipAddress?: string; userAgent?: string },
   ): Promise<AuthResult> {
     const userId = await this.signupRegistration.registerAgencyUser(dto);
+    this.logger.log(
+      `[auth] register success role=AGENCY userId=${userId} ip=${meta?.ipAddress ?? 'n/a'}`,
+    );
     return this.authResultAfterSignup(userId, meta);
   }
 
@@ -296,19 +308,31 @@ export class AuthService {
       },
     });
     if (!user?.passwordHash) {
+      this.logger.warn(
+        `[auth] login failed reason=unknown_user email=${dto.email.toLowerCase()} role=${dto.role} ip=${meta?.ipAddress ?? 'n/a'}`,
+      );
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
+      this.logger.warn(
+        `[auth] login failed reason=bad_password userId=${user.id} role=${dto.role} ip=${meta?.ipAddress ?? 'n/a'}`,
+      );
       throw new UnauthorizedException('Invalid email or password');
     }
 
     if (user.status !== 'ACTIVE') {
+      this.logger.warn(
+        `[auth] login failed reason=inactive userId=${user.id} status=${user.status} ip=${meta?.ipAddress ?? 'n/a'}`,
+      );
       throw new UnauthorizedException('Account is not active');
     }
 
     if (user.primaryRole?.name !== dto.role) {
+      this.logger.warn(
+        `[auth] login failed reason=role_mismatch userId=${user.id} requestedRole=${dto.role} primaryRole=${user.primaryRole?.name ?? 'none'} ip=${meta?.ipAddress ?? 'n/a'}`,
+      );
       throw new UnauthorizedException('Invalid role');
     }
 
@@ -318,6 +342,9 @@ export class AuthService {
     if (!me) {
       throw new UnauthorizedException('Account could not be loaded');
     }
+    this.logger.log(
+      `[auth] login success userId=${user.id} role=${dto.role} ip=${meta?.ipAddress ?? 'n/a'}`,
+    );
     return { user: me, accessToken, refreshToken, expiresIn };
   }
 

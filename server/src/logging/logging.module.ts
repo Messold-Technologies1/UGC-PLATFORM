@@ -40,6 +40,12 @@ function resolveRequestId(req: IncomingMessage, res: ServerResponse): string {
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? (isProduction ? 'info' : 'debug'),
         timestamp: pino.stdTimeFunctions.isoTime,
+        // Emit the level as text ("info" / "warn" / "error") instead of pino's
+        // default numeric code (30 / 40 / 50), so it reads plainly in
+        // CloudWatch / Better Stack / any log viewer.
+        formatters: {
+          level: (label) => ({ level: label }),
+        },
         genReqId: resolveRequestId,
         // Pretty output locally; raw JSON in prod so a log drain can index it.
         transport: isProduction

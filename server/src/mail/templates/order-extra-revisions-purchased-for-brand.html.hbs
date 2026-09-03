@@ -1,0 +1,13 @@
+{{!-- context: recipientName, platformName, packageName, orderId, revisionsAdded, maxRevisions, actionUrl --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+<p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">More revisions added 🔁</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your purchase is confirmed. You added <strong>{{revisionsAdded}}</strong> extra revision(s) on your order for <strong>"{{packageName}}"</strong>.
+</p>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#374151;">
+  This order now allows up to <strong>{{maxRevisions}}</strong> revisions in total.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View order →"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team ✨</p>

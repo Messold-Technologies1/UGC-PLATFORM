@@ -178,19 +178,26 @@ export class OrderMailNotifier {
       if (!order) return;
 
       // loadOrder runs after the cap increment, so maxRevisionsSnapshot is fresh.
-      const vars: Record<string, string> = {
+      const base: Record<string, string> = {
         brandName: this.brandDisplayName(order.brand),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         revisionsAdded: String(revisionsAdded),
         maxRevisions: String(order.maxRevisionsSnapshot),
-        actionUrl: this.creatorOrderListUrl(order.id, 'revisions'),
       };
 
       await this.sendToCreator(
         order,
         EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR,
-        vars,
+        { ...base, actionUrl: this.creatorOrderListUrl(order.id, 'revisions') },
+      );
+
+      // Confirmation to the brand who bought the revisions (mirrors the
+      // extra-usage-rights flow, which mails both parties).
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_BRAND,
+        { ...base, actionUrl: this.brandOrderUrl(order.id) },
       );
     });
   }

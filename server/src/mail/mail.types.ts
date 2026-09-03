@@ -9,6 +9,7 @@ export enum EmailTemplateKey {
   ORDER_PRODUCT_RECEIVED_FOR_BRAND = 'order-product-received-for-brand',
   ORDER_REVISION_REQUESTED_FOR_CREATOR = 'order-revision-requested-for-creator',
   ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR = 'order-extra-revisions-purchased-for-creator',
+  ORDER_EXTRA_REVISIONS_PURCHASED_FOR_BRAND = 'order-extra-revisions-purchased-for-brand',
   ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_BRAND = 'order-extra-usage-rights-purchased-for-brand',
   ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_CREATOR = 'order-extra-usage-rights-purchased-for-creator',
   ORDER_CONTENT_DELIVERED_FOR_BRAND = 'order-content-delivered-for-brand',

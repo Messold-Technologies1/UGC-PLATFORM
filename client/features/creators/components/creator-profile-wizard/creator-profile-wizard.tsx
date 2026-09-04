@@ -789,7 +789,7 @@ export function CreatorProfileWizard({
         facetSelections,
         profileLanguages,
         restrictions: selectedRestrictions,
-        ...(adminMode && phone ? { phone: "+91" + phone } : {}),
+        ...(phone ? { phone: "+91" + phone } : {}),
         ...(profileImage.profileImageRemoved
           ? { profileImageKey: "" }
           : profileImage.pendingProfileImageKey

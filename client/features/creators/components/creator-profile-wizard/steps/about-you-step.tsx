@@ -18,13 +18,16 @@ export type AboutYouStepProps = {
   /** Creator profile id — used to render the Instagram connection block. */
   profileId: string;
 
-  /** Admin editing on a creator's behalf — shows the phone field. */
+  /** Admin editing on a creator's behalf. The phone field shows in both modes. */
   adminMode?: boolean;
   phone?: string;
   onPhoneChange?: (value: string) => void;
 
   displayName: string;
   onDisplayNameChange: (value: string) => void;
+
+  contactEmail: string;
+  onContactEmailChange: (value: string) => void;
 
   profileImagePreviewUrl: string | null;
   uploadingProfileImage: boolean;
@@ -40,6 +43,7 @@ export type AboutYouStepProps = {
   errors?: {
     photo?: string;
     displayName?: string;
+    contactEmail?: string;
     dateOfBirth?: string;
     gender?: string;
     instagram?: string;
@@ -55,6 +59,8 @@ export function AboutYouStep(props: AboutYouStepProps) {
     onPhoneChange,
     displayName,
     onDisplayNameChange,
+    contactEmail,
+    onContactEmailChange,
     profileImagePreviewUrl,
     uploadingProfileImage,
     profileImageInputRef,
@@ -206,6 +212,25 @@ export function AboutYouStep(props: AboutYouStepProps) {
           ) : null}
         </div>
 
+        <div className="cw-col-2 cw-field">
+          <label htmlFor="cw-email" className="cw-fieldlabel">
+            Contact email <span className="cw-req">*</span>
+          </label>
+          <input
+            id="cw-email"
+            type="email"
+            className="cw-input"
+            value={contactEmail}
+            disabled={disabled}
+            placeholder="Where brands and we can reach you"
+            autoComplete="email"
+            onChange={(e) => onContactEmailChange(e.target.value)}
+          />
+          {errors.contactEmail ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.contactEmail}</p>
+          ) : null}
+        </div>
+
         <div className="cw-field">
           <label htmlFor="cw-dob" className="cw-fieldlabel">
             Date of Birth <span className="cw-req">*</span>
@@ -252,28 +277,28 @@ export function AboutYouStep(props: AboutYouStepProps) {
           ) : null}
         </div>
 
-        {adminMode ? (
-          <div className="cw-col-2 cw-field">
-            <label htmlFor="cw-phone" className="cw-fieldlabel">
-              Phone number
-            </label>
-            <div className="cw-phone">
-              <span className="cw-phone-prefix">+91</span>
-              <input
-                id="cw-phone"
-                className="cw-input cw-phone-input"
-                value={phone ?? ""}
-                disabled={disabled}
-                inputMode="numeric"
-                autoComplete="tel"
-                placeholder="Creator's phone number"
-                onChange={(e) =>
-                  onPhoneChange?.(e.target.value.replace(/\D/g, ""))
-                }
-              />
-            </div>
+        <div className="cw-col-2 cw-field">
+          <label htmlFor="cw-phone" className="cw-fieldlabel">
+            Phone number
+          </label>
+          <div className="cw-phone">
+            <span className="cw-phone-prefix">+91</span>
+            <input
+              id="cw-phone"
+              className="cw-input cw-phone-input"
+              value={phone ?? ""}
+              disabled={disabled}
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder={
+                adminMode ? "Creator's phone number" : "Your phone number"
+              }
+              onChange={(e) =>
+                onPhoneChange?.(e.target.value.replace(/\D/g, ""))
+              }
+            />
           </div>
-        ) : null}
+        </div>
       </div>
 
       <div className="cw-hr" />

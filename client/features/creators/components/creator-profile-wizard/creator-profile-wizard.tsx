@@ -119,9 +119,11 @@ export function CreatorProfileWizard({
   onExit,
 }: CreatorProfileWizardProps) {
   const { user } = useAuth();
-  const contactEmail = adminMode
-    ? (initialProfile.contactEmail?.trim() ?? "")
-    : (user?.email ?? "");
+  const [contactEmail, setContactEmail] = useState(
+    () =>
+      initialProfile.contactEmail?.trim() ||
+      (adminMode ? "" : (user?.email ?? "")),
+  );
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [triedContinue, setTriedContinue] = useState<
@@ -789,7 +791,7 @@ export function CreatorProfileWizard({
         facetSelections,
         profileLanguages,
         restrictions: selectedRestrictions,
-        ...(adminMode && phone ? { phone: "+91" + phone } : {}),
+        ...(phone ? { phone: "+91" + phone } : {}),
         ...(profileImage.profileImageRemoved
           ? { profileImageKey: "" }
           : profileImage.pendingProfileImageKey
@@ -844,6 +846,9 @@ export function CreatorProfileWizard({
         if (!profileImage.profileImagePreviewUrl)
           missing.push("a profile photo");
         if (!displayName.trim()) missing.push("your full name");
+        if (!contactEmail.trim()) missing.push("your contact email");
+        else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contactEmail.trim()))
+          missing.push("a valid contact email");
         if (!dateOfBirth) missing.push("date of birth");
         if (!gender) missing.push("gender");
         if (!instagramConnected) missing.push("an Instagram connection");
@@ -885,6 +890,7 @@ export function CreatorProfileWizard({
     [
       profileImage.profileImagePreviewUrl,
       displayName,
+      contactEmail,
       dateOfBirth,
       gender,
       location.city,
@@ -1539,6 +1545,8 @@ export function CreatorProfileWizard({
                   onPhoneChange={setPhone}
                   displayName={displayName}
                   onDisplayNameChange={setDisplayName}
+                  contactEmail={contactEmail}
+                  onContactEmailChange={setContactEmail}
                   profileImagePreviewUrl={profileImage.profileImagePreviewUrl}
                   uploadingProfileImage={profileImage.uploadingProfileImage}
                   profileImageInputRef={profileImage.profileImageInputRef}

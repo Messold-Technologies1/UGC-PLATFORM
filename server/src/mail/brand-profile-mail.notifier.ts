@@ -8,6 +8,8 @@ import {
 } from './brand-mail.recipient';
 import { MailService } from './mail.service';
 import { EmailTemplateKey } from './mail.types';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { sendWhatsAppForEmail } from './whatsapp-bridge.util';
 
 @Injectable()
 export class BrandProfileMailNotifier {
@@ -18,6 +20,7 @@ export class BrandProfileMailNotifier {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly brandAccess: BrandAccessService,
+    private readonly whatsapp: WhatsAppService,
   ) {}
 
   /** Fire-and-forget welcome email after a brand profile is created. */
@@ -30,6 +33,7 @@ export class BrandProfileMailNotifier {
           brandName: true,
           contactFullName: true,
           contactEmail: true,
+          contactPhone: true,
         },
       });
       if (!profile) {
@@ -43,7 +47,7 @@ export class BrandProfileMailNotifier {
         await this.brandAccess.resolveBrandActorUserIdForProfile(brandProfileId);
       const user = await this.prisma.user.findUnique({
         where: { id: actorUserId },
-        select: { email: true, name: true },
+        select: { email: true, name: true, phone: true },
       });
 
       const email = resolveBrandMailAddress({
@@ -78,6 +82,13 @@ export class BrandProfileMailNotifier {
           recipientName,
           actionUrl: `${this.frontendBase()}/brand/settings/profile`,
         },
+      });
+      await sendWhatsAppForEmail(this.whatsapp, this.config, {
+        to: profile.contactPhone?.trim() || user?.phone?.trim() || null,
+        emailKey: EmailTemplateKey.BRAND_WELCOME,
+        recipientName,
+        actionUrl: `${this.frontendBase()}/brand/settings/profile`,
+        gate: { profileType: 'brand', profileId: brandProfileId },
       });
     });
   }

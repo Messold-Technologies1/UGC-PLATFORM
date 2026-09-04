@@ -9,6 +9,8 @@ import {
   resolveBrandMailAddress,
   resolveBrandMailDisplayName,
 } from './brand-mail.recipient';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { sendWhatsAppForEmail } from './whatsapp-bridge.util';
 
 const orderMailInclude = {
   id: true,
@@ -23,6 +25,7 @@ const orderMailInclude = {
       id: true,
       brandName: true,
       contactEmail: true,
+      contactPhone: true,
       contactFullName: true,
       userId: true,
       agency: { select: { ownerUserId: true } },
@@ -33,7 +36,7 @@ const orderMailInclude = {
       id: true,
       displayName: true,
       contactEmail: true,
-      user: { select: { email: true, name: true } },
+      user: { select: { email: true, name: true, phone: true } },
     },
   },
 } as const;
@@ -51,6 +54,7 @@ export class OrderMailNotifier {
     private readonly prisma: PrismaService,
     private readonly brandAccess: BrandAccessService,
     private readonly config: ConfigService,
+    private readonly whatsapp: WhatsAppService,
   ) {}
 
   notifyBriefSubmitted(orderId: string, briefSubmittedAt: Date): void {
@@ -174,19 +178,26 @@ export class OrderMailNotifier {
       if (!order) return;
 
       // loadOrder runs after the cap increment, so maxRevisionsSnapshot is fresh.
-      const vars: Record<string, string> = {
+      const base: Record<string, string> = {
         brandName: this.brandDisplayName(order.brand),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         revisionsAdded: String(revisionsAdded),
         maxRevisions: String(order.maxRevisionsSnapshot),
-        actionUrl: this.creatorOrderListUrl(order.id, 'revisions'),
       };
 
       await this.sendToCreator(
         order,
         EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR,
-        vars,
+        { ...base, actionUrl: this.creatorOrderListUrl(order.id, 'revisions') },
+      );
+
+      // Confirmation to the brand who bought the revisions (mirrors the
+      // extra-usage-rights flow, which mails both parties).
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_BRAND,
+        { ...base, actionUrl: this.brandOrderUrl(order.id) },
       );
     });
   }
@@ -497,7 +508,7 @@ export class OrderMailNotifier {
     templateKey: EmailTemplateKey,
     context: Record<string, string>,
   ): Promise<void> {
-    const { email, name } = await this.resolveBrandRecipient(order);
+    const { email, name, phone } = await this.resolveBrandRecipient(order);
     if (!email) {
       this.logger.warn(
         `order email ${templateKey}: no brand email for order ${order.id}`,
@@ -512,6 +523,13 @@ export class OrderMailNotifier {
         profileId: order.brand.id,
       },
       context: { recipientName: name, ...context },
+    });
+    await sendWhatsAppForEmail(this.whatsapp, this.config, {
+      to: phone,
+      emailKey: templateKey,
+      recipientName: name,
+      actionUrl: context.actionUrl,
+      gate: { profileType: 'brand', profileId: order.brand.id },
     });
   }
 
@@ -539,17 +557,27 @@ export class OrderMailNotifier {
         ...context,
       },
     });
+    // Every order-creator WhatsApp template is name + brand:
+    // {{1}} = creator name, {{2}} = brand name.
+    await sendWhatsAppForEmail(this.whatsapp, this.config, {
+      to: order.creator.user.phone,
+      emailKey: templateKey,
+      recipientName: this.creatorDisplayName(order),
+      actionUrl: context.actionUrl,
+      gate: { profileType: 'creator', profileId: order.creator.id },
+      extraBodyVars: [this.brandDisplayName(order.brand)],
+    });
   }
 
   private async resolveBrandRecipient(
     order: OrderMailRow,
-  ): Promise<{ email: string | null; name: string }> {
+  ): Promise<{ email: string | null; name: string; phone: string | null }> {
     const brandUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
       order.brand.id,
     );
     const user = await this.prisma.user.findUnique({
       where: { id: brandUserId },
-      select: { email: true, name: true },
+      select: { email: true, name: true, phone: true },
     });
     const email = resolveBrandMailAddress({
       contactEmail: order.brand.contactEmail,
@@ -560,7 +588,9 @@ export class OrderMailNotifier {
       brandName: order.brand.brandName,
       accountName: user?.name,
     });
-    return { email, name };
+    // Prefer the brand's stated contact phone, else the account phone.
+    const phone = order.brand.contactPhone?.trim() || user?.phone?.trim() || null;
+    return { email, name, phone };
   }
 
   private creatorEmail(order: OrderMailRow): string | null {

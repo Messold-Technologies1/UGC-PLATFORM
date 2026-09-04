@@ -30,6 +30,7 @@ import { MetaCapiModule } from './meta-capi/meta-capi.module';
 import { ContactUsModule } from './contact-us/contact-us.module';
 import { SocialConnectionsModule } from './social-connections/social-connections.module';
 import { LoggingModule } from './logging/logging.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { LoggingModule } from './logging/logging.module';
     ]),
     PrismaModule,
     MailModule,
+    WhatsAppModule,
     MetaCapiModule,
     BrandAccessModule,
     StorageModule,

@@ -26,6 +26,9 @@ export type AboutYouStepProps = {
   displayName: string;
   onDisplayNameChange: (value: string) => void;
 
+  contactEmail: string;
+  onContactEmailChange: (value: string) => void;
+
   profileImagePreviewUrl: string | null;
   uploadingProfileImage: boolean;
   profileImageInputRef: RefObject<HTMLInputElement | null>;
@@ -40,6 +43,7 @@ export type AboutYouStepProps = {
   errors?: {
     photo?: string;
     displayName?: string;
+    contactEmail?: string;
     dateOfBirth?: string;
     gender?: string;
     instagram?: string;
@@ -55,6 +59,8 @@ export function AboutYouStep(props: AboutYouStepProps) {
     onPhoneChange,
     displayName,
     onDisplayNameChange,
+    contactEmail,
+    onContactEmailChange,
     profileImagePreviewUrl,
     uploadingProfileImage,
     profileImageInputRef,
@@ -203,6 +209,25 @@ export function AboutYouStep(props: AboutYouStepProps) {
           />
           {errors.displayName ? (
             <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.displayName}</p>
+          ) : null}
+        </div>
+
+        <div className="cw-col-2 cw-field">
+          <label htmlFor="cw-email" className="cw-fieldlabel">
+            Contact email <span className="cw-req">*</span>
+          </label>
+          <input
+            id="cw-email"
+            type="email"
+            className="cw-input"
+            value={contactEmail}
+            disabled={disabled}
+            placeholder="Where brands and we can reach you"
+            autoComplete="email"
+            onChange={(e) => onContactEmailChange(e.target.value)}
+          />
+          {errors.contactEmail ? (
+            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.contactEmail}</p>
           ) : null}
         </div>
 

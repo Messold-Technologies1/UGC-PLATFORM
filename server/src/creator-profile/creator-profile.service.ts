@@ -789,6 +789,44 @@ export class CreatorProfileService {
     });
   }
 
+  /**
+   * Sync the profile's contact email to the account login email (User.email).
+   * Login looks the account up by lowercased email, so the value is normalized
+   * to lowercase. Rejects a value already used by another account (email is
+   * unique) and clears emailVerified on change, mirroring the phone sync.
+   */
+  private async syncUserEmailIfChanged(
+    tx: PrismaTransactionClient,
+    userId: string,
+    email: string,
+  ): Promise<void> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+
+    const current = await tx.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    if ((current?.email?.trim().toLowerCase() ?? '') === normalized) {
+      return;
+    }
+
+    const existing = await tx.user.findUnique({
+      where: { email: normalized },
+      select: { id: true },
+    });
+    if (existing && existing.id !== userId) {
+      throw new ConflictException(
+        'That email is already in use by another account',
+      );
+    }
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { email: normalized, emailVerified: false },
+    });
+  }
+
   private async resolveFacetSelectionRows(
     tx: PrismaTransactionClient,
     selections: {
@@ -2629,6 +2667,10 @@ export class CreatorProfileService {
 
         if (dto.phone !== undefined) {
           await this.syncUserPhoneIfChanged(tx, profile.userId, dto.phone);
+        }
+
+        if (dto.contactEmail !== undefined) {
+          await this.syncUserEmailIfChanged(tx, profile.userId, dto.contactEmail);
         }
 
         let nextIntroVideoKey: string | null | undefined = undefined;

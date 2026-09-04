@@ -1,6 +1,8 @@
 import {
   buildCreatorsContactCsv,
   buildCreatorsContactXlsx,
+  buildCreatorsOutreachCsv,
+  buildCreatorsOutreachXlsx,
   escapeCsvField,
 } from './listed-creators-export.util';
 
@@ -31,6 +33,38 @@ describe('listed-creators-export.util', () => {
     expect(Buffer.isBuffer(buffer)).toBe(true);
     expect(buffer.byteLength).toBeGreaterThan(100);
     // .xlsx files are ZIP archives → start with PK
+    expect(buffer.subarray(0, 2).toString('utf8')).toBe('PK');
+  });
+
+  it('builds outreach CSV with Name/Email/Phone and yes/no flags', () => {
+    const csv = buildCreatorsOutreachCsv([
+      {
+        name: 'Riya',
+        email: 'riya@example.com',
+        phone: '+919876543210',
+        instagramConnected: 'no',
+        identityComplete: 'yes',
+      },
+    ]);
+    expect(csv.startsWith('\uFEFF')).toBe(true);
+    expect(csv).toContain(
+      'Name,Email,Phone,instagramConnected,identityComplete',
+    );
+    expect(csv).toContain('Riya,riya@example.com,+919876543210,no,yes');
+  });
+
+  it('builds a real outreach xlsx buffer', async () => {
+    const buffer = await buildCreatorsOutreachXlsx([
+      {
+        name: 'A & B',
+        email: 'a@b.com',
+        phone: null,
+        instagramConnected: 'yes',
+        identityComplete: 'no',
+      },
+    ]);
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    expect(buffer.byteLength).toBeGreaterThan(100);
     expect(buffer.subarray(0, 2).toString('utf8')).toBe('PK');
   });
 });

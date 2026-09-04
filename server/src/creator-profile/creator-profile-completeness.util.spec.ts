@@ -2,6 +2,7 @@ import { CreatorFacetDimension, CreatorGender } from '@prisma/client';
 import {
   evaluateProfileCompleteness,
   GO_LIVE_REQUIREMENTS,
+  isIdentitySectionComplete,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_FACET_DIMENSIONS,
   REQUIRED_SECONDARY_NICHES,
@@ -179,5 +180,40 @@ describe('GO_LIVE_REQUIREMENTS catalog', () => {
   it('uses unique keys', () => {
     const keys = GO_LIVE_REQUIREMENTS.map((r) => r.key);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe('isIdentitySectionComplete', () => {
+  it('is complete with primary + secondary niches and identity facets', () => {
+    expect(
+      isIdentitySectionComplete({
+        selectedFacetDimensions: REQUIRED_FACET_DIMENSIONS,
+        nichePrimaryCount: 1,
+        nicheSecondaryCount: REQUIRED_SECONDARY_NICHES,
+      }),
+    ).toBe(true);
+  });
+
+  it('is incomplete without a primary niche', () => {
+    expect(
+      isIdentitySectionComplete({
+        selectedFacetDimensions: REQUIRED_FACET_DIMENSIONS,
+        nichePrimaryCount: 0,
+        nicheSecondaryCount: REQUIRED_SECONDARY_NICHES,
+      }),
+    ).toBe(false);
+  });
+
+  it('is incomplete without creator type', () => {
+    expect(
+      isIdentitySectionComplete({
+        selectedFacetDimensions: [
+          CreatorFacetDimension.OCCUPATION,
+          CreatorFacetDimension.APPEARANCE,
+        ],
+        nichePrimaryCount: 1,
+        nicheSecondaryCount: REQUIRED_SECONDARY_NICHES,
+      }),
+    ).toBe(false);
   });
 });

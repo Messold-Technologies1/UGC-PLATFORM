@@ -109,6 +109,23 @@ export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   { key: 'instagram', label: 'Instagram connected' },
 ] as const;
 
+export type IdentitySectionInput = {
+  selectedFacetDimensions: Iterable<CreatorFacetDimension>;
+  nichePrimaryCount: number;
+  nicheSecondaryCount: number;
+};
+
+/**
+ * Identity wizard step: primary niche + secondary niches + creator type,
+ * occupation and appearance. Used for the listed-creators outreach export.
+ */
+export function isIdentitySectionComplete(input: IdentitySectionInput): boolean {
+  if (input.nichePrimaryCount < 1) return false;
+  if (input.nicheSecondaryCount < REQUIRED_SECONDARY_NICHES) return false;
+  const selected = new Set<CreatorFacetDimension>(input.selectedFacetDimensions);
+  return REQUIRED_FACET_DIMENSIONS.every((dimension) => selected.has(dimension));
+}
+
 function hasText(value?: string | null): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }

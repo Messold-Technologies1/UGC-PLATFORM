@@ -31,6 +31,9 @@ import { CreatorReviewsService } from '../creator-reviews/creator-reviews.servic
 import {
   buildCreatorsContactCsv,
   buildCreatorsContactXlsx,
+  buildCreatorsOutreachCsv,
+  buildCreatorsOutreachXlsx,
+  yesNo,
 } from './listed-creators-export.util';
 import type { ExportListedCreatorsQueryDto } from './dto/export-listed-creators-query.dto';
 
@@ -76,6 +79,7 @@ import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
   evaluateProfileCompleteness,
+  isIdentitySectionComplete,
 } from './creator-profile-completeness.util';
 import { AdminBuildingProfileAnalyticsDto } from './dto/admin-building-profile-analytics.dto';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
@@ -1740,6 +1744,90 @@ export class CreatorProfileService {
     return {
       buffer,
       filename: `listed-creators-${stamp}.xlsx`,
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+  }
+
+  /**
+   * Listed creators missing Instagram, Identity, or both.
+   * Columns: Name, Email, Phone, instagramConnected, identityComplete (yes/no).
+   */
+  async exportListedCreatorsMissingInstagramAndIdentity(
+    query: ExportListedCreatorsQueryDto,
+  ): Promise<{
+    buffer: Buffer;
+    filename: string;
+    contentType: string;
+  }> {
+    const format = query.format ?? 'xlsx';
+    const rows = await this.prisma.creatorProfile.findMany({
+      where: { isListed: true },
+      orderBy: { displayName: 'asc' },
+      select: {
+        displayName: true,
+        contactEmail: true,
+        user: { select: { name: true, email: true, phone: true } },
+        socialConnections: {
+          where: {
+            platform: SocialPlatform.INSTAGRAM,
+            status: SocialConnectionStatus.ACTIVE,
+          },
+          select: { id: true },
+        },
+        facetSelections: {
+          select: {
+            rank: true,
+            option: { select: { dimension: true } },
+          },
+        },
+      },
+    });
+
+    const contacts = rows.flatMap((row) => {
+      const instagramConnected = row.socialConnections.length > 0;
+      const identityComplete = isIdentitySectionComplete({
+        selectedFacetDimensions: row.facetSelections.map(
+          (selection) => selection.option.dimension,
+        ),
+        nichePrimaryCount: row.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank === 0,
+        ).length,
+        nicheSecondaryCount: row.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank > 0,
+        ).length,
+      });
+      if (instagramConnected && identityComplete) return [];
+      return [
+        {
+          name: row.displayName || row.user?.name || '',
+          email: row.contactEmail?.trim() || row.user?.email || null,
+          phone: row.user?.phone ?? null,
+          instagramConnected: yesNo(instagramConnected),
+          identityComplete: yesNo(identityComplete),
+        },
+      ];
+    });
+
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    if (format === 'csv') {
+      const csv = buildCreatorsOutreachCsv(contacts);
+      return {
+        buffer: Buffer.from(csv, 'utf8'),
+        filename: `listed-missing-instagram-identity-${stamp}.csv`,
+        contentType: 'text/csv; charset=utf-8',
+      };
+    }
+
+    const buffer = await buildCreatorsOutreachXlsx(contacts);
+    return {
+      buffer,
+      filename: `listed-missing-instagram-identity-${stamp}.xlsx`,
       contentType:
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     };

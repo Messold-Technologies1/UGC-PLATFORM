@@ -6,6 +6,18 @@ export type CreatorContactExportRow = {
   instagram: string | null;
 };
 
+export type CreatorOutreachExportRow = {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  instagramConnected: 'yes' | 'no';
+  identityComplete: 'yes' | 'no';
+};
+
+export function yesNo(value: boolean): 'yes' | 'no' {
+  return value ? 'yes' : 'no';
+}
+
 /**
  * Escape a single CSV field (RFC 4180): quote when needed; double internal quotes.
  */
@@ -60,6 +72,64 @@ export async function buildCreatorsContactXlsx(
       name: row.name,
       phone: row.phone ?? '',
       instagram: row.instagram ?? '',
+    });
+  }
+
+  const arrayBuffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+export function buildCreatorsOutreachCsv(
+  rows: CreatorOutreachExportRow[],
+): string {
+  const header = ['Name', 'Email', 'Phone', 'instagramConnected', 'identityComplete'];
+  const lines = [
+    header.map(escapeCsvField).join(','),
+    ...rows.map((row) =>
+      [
+        row.name,
+        row.email,
+        row.phone,
+        row.instagramConnected,
+        row.identityComplete,
+      ]
+        .map(escapeCsvField)
+        .join(','),
+    ),
+  ];
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
+}
+
+export async function buildCreatorsOutreachXlsx(
+  rows: CreatorOutreachExportRow[],
+): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'GoCollab';
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet('Missing Instagram & Identity', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
+
+  sheet.columns = [
+    { header: 'Name', key: 'name', width: 28 },
+    { header: 'Email', key: 'email', width: 36 },
+    { header: 'Phone', key: 'phone', width: 18 },
+    { header: 'instagramConnected', key: 'instagramConnected', width: 20 },
+    { header: 'identityComplete', key: 'identityComplete', width: 18 },
+  ];
+
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true };
+  headerRow.commit();
+
+  for (const row of rows) {
+    sheet.addRow({
+      name: row.name,
+      email: row.email ?? '',
+      phone: row.phone ?? '',
+      instagramConnected: row.instagramConnected,
+      identityComplete: row.identityComplete,
     });
   }
 

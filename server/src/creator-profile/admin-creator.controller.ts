@@ -97,6 +97,32 @@ export class AdminCreatorController {
     });
   }
 
+  @Get('export-listed-missing-instagram-identity')
+  @ApiOperation({
+    summary:
+      'Download listed creators missing Instagram and/or Identity (name, email, phone, instagramConnected, identityComplete)',
+  })
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv',
+  )
+  @ApiQuery({ name: 'format', required: false, enum: ['xlsx', 'csv', 'xls'] })
+  @ApiOkResponse({
+    description: 'File download (Excel .xlsx or CSV)',
+  })
+  async exportListedMissingInstagramAndIdentity(
+    @Query() query: ExportListedCreatorsQueryDto,
+  ): Promise<StreamableFile> {
+    const { buffer, filename, contentType } =
+      await this.creatorProfileService.exportListedCreatorsMissingInstagramAndIdentity(
+        query,
+      );
+    return new StreamableFile(buffer, {
+      type: contentType,
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
   @Get()
   @ApiOperation({
     summary:

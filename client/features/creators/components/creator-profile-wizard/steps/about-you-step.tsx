@@ -18,7 +18,7 @@ export type AboutYouStepProps = {
   /** Creator profile id — used to render the Instagram connection block. */
   profileId: string;
 
-  /** Admin editing on a creator's behalf — shows the phone field. */
+  /** Admin editing on a creator's behalf. The phone field shows in both modes. */
   adminMode?: boolean;
   phone?: string;
   onPhoneChange?: (value: string) => void;
@@ -252,28 +252,28 @@ export function AboutYouStep(props: AboutYouStepProps) {
           ) : null}
         </div>
 
-        {adminMode ? (
-          <div className="cw-col-2 cw-field">
-            <label htmlFor="cw-phone" className="cw-fieldlabel">
-              Phone number
-            </label>
-            <div className="cw-phone">
-              <span className="cw-phone-prefix">+91</span>
-              <input
-                id="cw-phone"
-                className="cw-input cw-phone-input"
-                value={phone ?? ""}
-                disabled={disabled}
-                inputMode="numeric"
-                autoComplete="tel"
-                placeholder="Creator's phone number"
-                onChange={(e) =>
-                  onPhoneChange?.(e.target.value.replace(/\D/g, ""))
-                }
-              />
-            </div>
+        <div className="cw-col-2 cw-field">
+          <label htmlFor="cw-phone" className="cw-fieldlabel">
+            Phone number
+          </label>
+          <div className="cw-phone">
+            <span className="cw-phone-prefix">+91</span>
+            <input
+              id="cw-phone"
+              className="cw-input cw-phone-input"
+              value={phone ?? ""}
+              disabled={disabled}
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder={
+                adminMode ? "Creator's phone number" : "Your phone number"
+              }
+              onChange={(e) =>
+                onPhoneChange?.(e.target.value.replace(/\D/g, ""))
+              }
+            />
           </div>
-        ) : null}
+        </div>
       </div>
 
       <div className="cw-hr" />

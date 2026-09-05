@@ -34,6 +34,8 @@ export type AuthUser = {
   brandAccessRevoked: boolean;
   activeBrandProfileId: string | null;
   accessibleBrands: AccessibleBrandSummary[];
+  /** Whether this admin can open Settings and create other admin users. */
+  canManageAdmins?: boolean;
 };
 
 export type MeResponse = {

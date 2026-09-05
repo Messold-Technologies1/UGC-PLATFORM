@@ -76,4 +76,10 @@ export class MeUserDto {
     brandName: string | null;
     logoUrl: string | null;
   }>;
+
+  @ApiProperty({
+    description:
+      'Whether this admin can open Settings and create other admin users.',
+  })
+  canManageAdmins!: boolean;
 }

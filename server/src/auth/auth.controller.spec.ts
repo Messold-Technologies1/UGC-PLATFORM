@@ -48,6 +48,7 @@ describe('AuthController', () => {
     hasAgencyProfile: false,
     activeBrandProfileId: null,
     accessibleBrands: [],
+    canManageAdmins: false,
   };
 
   function createResponseMock() {

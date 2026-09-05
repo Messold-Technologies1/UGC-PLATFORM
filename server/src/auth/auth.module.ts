@@ -10,6 +10,7 @@ import { PasswordService } from './password.service';
 import { SignupModule } from './signup.module';
 import { StorageModule } from '../storage/storage.module';
 import { AdminGuard } from './guards/admin.guard';
+import { SuperAdminGuard } from './guards/super-admin.guard';
 import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
 
 @Module({
@@ -32,12 +33,19 @@ import { WorkspacePermissionGuard } from './guards/workspace-permission.guard';
     }),
   ],
   controllers: [AuthController, AuthPhoneController, AuthSignupController],
-  providers: [AuthService, PasswordService, AdminGuard, WorkspacePermissionGuard],
+  providers: [
+    AuthService,
+    PasswordService,
+    AdminGuard,
+    SuperAdminGuard,
+    WorkspacePermissionGuard,
+  ],
   exports: [
     AuthService,
     PasswordService,
     JwtModule,
     AdminGuard,
+    SuperAdminGuard,
     WorkspacePermissionGuard,
   ],
 })

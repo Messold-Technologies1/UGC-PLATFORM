@@ -88,6 +88,7 @@ describe('AuthService', () => {
       brandAccessRevoked: false,
       activeBrandProfileId: null,
       accessibleBrands: [],
+      canManageAdmins: false,
     });
 
     const result = await service.login({
@@ -153,6 +154,7 @@ describe('AuthService', () => {
       hasAgencyProfile: false,
       brandAccessRevoked: false,
       activeBrandProfileId: 'brand-profile-1',
+      canManageAdmins: false,
     });
     expect(result?.roles).toEqual(expect.arrayContaining(['BRAND', 'CREATOR']));
   });
@@ -185,7 +187,42 @@ describe('AuthService', () => {
       hasAgencyProfile: false,
       activeBrandProfileId: null,
       accessibleBrands: [],
+      canManageAdmins: false,
     });
+  });
+
+  it('sets canManageAdmins only for designated super-admin emails', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'admin-1',
+      email: 'anuj@messold.com',
+      name: 'Anuj',
+      status: 'ACTIVE',
+      brandAccessRevokedAt: null,
+      primaryRole: { name: RoleName.ADMIN },
+      userRoles: [{ role: { name: RoleName.ADMIN } }],
+      creatorProfile: null,
+      brandProfile: null,
+      ownedAgency: null,
+    });
+
+    const allowed = await service.getMeForClient('admin-1');
+    expect(allowed?.canManageAdmins).toBe(true);
+
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'admin-2',
+      email: 'other.admin@messold.com',
+      name: 'Other Admin',
+      status: 'ACTIVE',
+      brandAccessRevokedAt: null,
+      primaryRole: { name: RoleName.ADMIN },
+      userRoles: [{ role: { name: RoleName.ADMIN } }],
+      creatorProfile: null,
+      brandProfile: null,
+      ownedAgency: null,
+    });
+
+    const denied = await service.getMeForClient('admin-2');
+    expect(denied?.canManageAdmins).toBe(false);
   });
 
   it('omits creatorApprovalStatus when the user has no CREATOR role', async () => {

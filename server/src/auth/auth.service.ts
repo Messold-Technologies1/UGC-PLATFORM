@@ -18,6 +18,7 @@ import type { RegisterBrandDto } from './dto/register-brand.dto';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import { SignupRegistrationService } from './signup-registration.service';
 import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
+import { isSuperAdminEmail } from './super-admin';
 
 const SALT_ROUNDS = 10;
 const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken';
@@ -51,6 +52,8 @@ export type MeUser = {
   creatorApprovalStatus?: ApprovalStatus | null;
   /** Creator's one-way Go-Live latch. Drives the post-login redirect to finish setup. */
   creatorProfileComplete?: boolean;
+  /** Whether this admin can open Settings and create other admin users. */
+  canManageAdmins: boolean;
 };
 
 export interface AuthResult {
@@ -863,6 +866,7 @@ export class AuthService {
       hasAgencyProfile: !!user.ownedAgency,
       activeBrandProfileId,
       accessibleBrands,
+      canManageAdmins: isSuperAdminEmail(user.email),
     };
 
     if (roles.includes('CREATOR')) {

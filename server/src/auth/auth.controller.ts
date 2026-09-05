@@ -48,6 +48,7 @@ import { RegisterBrandDto } from './dto/register-brand.dto';
 import { RegisterAgencyDto } from './dto/register-agency.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { AdminGuard } from './guards/admin.guard';
+import { SuperAdminGuard } from './guards/super-admin.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AUTH_COOKIE_NAMES, AuthService } from './auth.service';
 import { PasswordService } from './password.service';
@@ -270,9 +271,11 @@ export class AuthController {
   }
 
   @Post('register-admin')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard, SuperAdminGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create an admin user (admin-only)' })
+  @ApiOperation({
+    summary: 'Create an admin user (designated super-admins only)',
+  })
   @ApiResponse({
     status: 201,
     description: 'Admin user created',

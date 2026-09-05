@@ -44,6 +44,7 @@ import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
 import { BrandSwitcher } from "@/features/brands/components/brand-switcher";
 import { useAuth } from "@/providers/auth-provider";
+import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { SITE_NAME } from "@/config/site";
 
 interface NavItem {
@@ -124,9 +125,13 @@ const roleConfigs: Record<string, NavItem[]> = {
   ],
 };
 
-function getNavItems(pathname: string): NavItem[] {
+function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
   const segment = pathname.split("/")[1];
-  return roleConfigs[segment] ?? [];
+  const items = roleConfigs[segment] ?? [];
+  if (segment === "admin" && !user?.canManageAdmins) {
+    return items.filter((item) => item.href !== "/admin/settings");
+  }
+  return items;
 }
 
 function isNavItemActive(pathname: string, item: NavItem): boolean {
@@ -279,7 +284,7 @@ export function Navbar({ className }: { className?: string } = {}) {
     () => false,
   );
 
-  const navItems = getNavItems(pathname || "");
+  const navItems = getNavItems(pathname || "", user);
 
   const [hidden, setHidden] = useState(false);
   const { scrollY } = useScroll();

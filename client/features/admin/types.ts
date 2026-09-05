@@ -230,6 +230,9 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   reviewCount?: number;
   startingPrice?: string | null;
   onLocationAvailable: boolean;
+  approvedByName?: string | null;
+  shortlistedByName?: string | null;
+  reviewSentByName?: string | null;
 }
 
 export interface AdminCreatorsListResponseDto {

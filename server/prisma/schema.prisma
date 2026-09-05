@@ -206,6 +206,8 @@ model User {
   brandProfile           BrandProfile?
   ownedAgency            Agency?
   approvedCreatorRecords CreatorApproval[]    @relation("CreatorApprovedBy")
+  shortlistedCreatorRecords CreatorApproval[] @relation("CreatorShortlistedBy")
+  sentForReviewCreatorRecords CreatorApproval[] @relation("CreatorSentForReviewBy")
   featuredCreatorRecords CreatorFeature[]     @relation("CreatorFeaturedBy")
   auditLogs              AuditLog[]           @relation("AuditLogActor")
   resolvedDisputes       OrderDispute[]       @relation("OrderDisputeResolvedBy")
@@ -1060,6 +1062,10 @@ model CreatorApproval {
   status          ApprovalStatus @default(PENDING)
   approvedById    String?        @db.Uuid
   approvedAt      DateTime?
+  /// Admin who last shortlisted this creator. Kept after they leave the list.
+  shortlistedById String?        @db.Uuid
+  /// Admin who sent a self-complete profile into Awaiting review.
+  sentForReviewById String?      @db.Uuid
   rejectionReason String?
   // True while Sakshi has this creator on the shortlist. Cleared on unshortlist
   // so a later go-live lands in Self complete instead of skipping the queue.
@@ -1067,11 +1073,15 @@ model CreatorApproval {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  creator    CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  approvedBy User?          @relation("CreatorApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  creator         CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  approvedBy      User?          @relation("CreatorApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  shortlistedBy   User?          @relation("CreatorShortlistedBy", fields: [shortlistedById], references: [id], onDelete: SetNull)
+  sentForReviewBy User?          @relation("CreatorSentForReviewBy", fields: [sentForReviewById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([approvedById])
+  @@index([shortlistedById])
+  @@index([sentForReviewById])
 }
 
 model CreatorRestriction {

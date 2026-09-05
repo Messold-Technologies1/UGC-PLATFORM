@@ -82,6 +82,7 @@ import {
   isIdentitySectionComplete,
 } from './creator-profile-completeness.util';
 import { AdminBuildingProfileAnalyticsDto } from './dto/admin-building-profile-analytics.dto';
+import { adminActorDisplayName } from './admin-actor-name.util';
 import { CreatorFacetOptionsResponseDto } from './dto/creator-facet-options-response.dto';
 import { CreatorLanguageOptionsResponseDto } from './dto/creator-language-options-response.dto';
 import { CreatorAddOnOptionsResponseDto } from './dto/creator-addon-options-response.dto';
@@ -223,7 +224,13 @@ const pendingCreatorApprovalInclude = {
 const adminCreatorListInclude = {
   user: { select: { phone: true, phoneVerified: true } },
   facetSelections: { include: { option: true } },
-  creatorApproval: true,
+  creatorApproval: {
+    include: {
+      approvedBy: { select: { name: true, email: true } },
+      shortlistedBy: { select: { name: true, email: true } },
+      sentForReviewBy: { select: { name: true, email: true } },
+    },
+  },
   feature: { select: { rank: true, featuredUntil: true } },
   packages: {
     orderBy: { priceAmount: 'asc' as const },
@@ -1622,6 +1629,15 @@ export class CreatorProfileService {
       reviewCount: profile.stats?.reviewCount ?? 0,
       startingPrice: startingPkg?.priceAmount?.toString?.() ?? null,
       onLocationAvailable: !!profile.onLocationAvailable,
+      approvedByName: adminActorDisplayName(
+        profile.creatorApproval?.approvedBy,
+      ),
+      shortlistedByName: adminActorDisplayName(
+        profile.creatorApproval?.shortlistedBy,
+      ),
+      reviewSentByName: adminActorDisplayName(
+        profile.creatorApproval?.sentForReviewBy,
+      ),
     };
   }
 
@@ -2351,12 +2367,14 @@ export class CreatorProfileService {
         status: ApprovalStatus.SHORTLISTED,
         approvedById: adminUserId,
         approvedAt: new Date(),
+        shortlistedById: adminUserId,
         wasShortlisted: true,
       },
       update: {
         status: ApprovalStatus.SHORTLISTED,
         approvedById: adminUserId,
         approvedAt: new Date(),
+        shortlistedById: adminUserId,
         rejectionReason: null,
         wasShortlisted: true,
       },
@@ -2469,6 +2487,7 @@ export class CreatorProfileService {
         status: ApprovalStatus.PENDING,
         approvedById: adminUserId,
         approvedAt: new Date(),
+        sentForReviewById: adminUserId,
         rejectionReason: null,
       },
     });

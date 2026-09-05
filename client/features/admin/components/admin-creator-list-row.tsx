@@ -280,6 +280,7 @@ export function AdminCreatorListRow({
   const isFeaturedSegment = segment === "featured";
   const showFeatureControls = isListedSegment || isFeaturedSegment;
   const profileFirst = isProfileFirstOnboardingMode();
+  const isAwaitingReviewSegment = segment === "pending";
   const canModeratePending =
     isPending && (!profileFirst || creator.completeProfile);
   const isWorking =
@@ -376,6 +377,29 @@ export function AdminCreatorListRow({
             <RowMetric label={dateColumn.label}>
               <span>{dateColumn.value}</span>
             </RowMetric>
+
+            {isAwaitingReviewSegment ? (
+              <>
+                <RowMetric label="Review sent by" className="min-w-[130px]">
+                  <span className="truncate" title={creator.reviewSentByName ?? undefined}>
+                    {creator.reviewSentByName ?? "—"}
+                  </span>
+                </RowMetric>
+                <RowMetric label="Shortlisted by" className="min-w-[130px]">
+                  <span className="truncate" title={creator.shortlistedByName ?? undefined}>
+                    {creator.shortlistedByName ?? "—"}
+                  </span>
+                </RowMetric>
+              </>
+            ) : null}
+
+            {isListedSegment ? (
+              <RowMetric label="Approved by" className="min-w-[130px]">
+                <span className="truncate" title={creator.approvedByName ?? undefined}>
+                  {creator.approvedByName ?? "—"}
+                </span>
+              </RowMetric>
+            ) : null}
 
             <RowMetric label="Rating">
               <div className="flex items-center gap-1">

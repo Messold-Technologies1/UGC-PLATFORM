@@ -149,6 +149,27 @@ export class AdminCreatorListItemDto {
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
 
+  @ApiPropertyOptional({
+    example: 'Bipasha Roy',
+    nullable: true,
+    description: 'Admin who listed / approved this creator',
+  })
+  approvedByName?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Bipasha Roy',
+    nullable: true,
+    description: 'Admin who shortlisted this creator',
+  })
+  shortlistedByName?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Bipasha Roy',
+    nullable: true,
+    description: 'Admin who sent this creator from Self complete to Awaiting review',
+  })
+  reviewSentByName?: string | null;
+
   @ApiProperty()
   submittedAt!: Date;
 }

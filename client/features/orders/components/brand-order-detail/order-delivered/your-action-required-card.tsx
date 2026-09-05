@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle,
-  Clock,
   FileEdit,
   RotateCcw,
 } from "lucide-react";
@@ -42,30 +41,6 @@ interface YourActionRequiredCardProps {
   previewPreparing?: boolean;
   creatorName?: string;
   isRevision?: boolean;
-}
-
-function computeTimeLeft(deliveredAt?: string | null): string | null {
-  if (!deliveredAt) return null;
-  const delivered = new Date(deliveredAt);
-  const deadline = new Date(delivered);
-  deadline.setDate(deadline.getDate() + 2);
-  const now = new Date();
-  const diffMs = deadline.getTime() - now.getTime();
-  
-  if (diffMs <= 0) return "0 hours";
-  
-  const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
-  const daysLeft = Math.floor(hoursLeft / 24);
-  const remainingHours = hoursLeft % 24;
-  
-  if (daysLeft > 0) {
-    if (remainingHours === 0) {
-      return `${daysLeft} day${daysLeft !== 1 ? "s" : ""}`;
-    }
-    return `${daysLeft} day${daysLeft !== 1 ? "s" : ""} ${remainingHours} hr${remainingHours !== 1 ? "s" : ""}`;
-  }
-  
-  return `${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
 }
 
 const DRAWER_CONTENT_CLASSES =
@@ -125,13 +100,11 @@ export function YourActionRequiredCard({
     order.revisionAddOnUnitPaise != null
       ? Math.round(order.revisionAddOnUnitPaise / 100)
       : null;
-  const timeLeft = computeTimeLeft(order.deliveredAt);
   const canBuyRevisions =
     canReviewDelivery &&
     !hasRevisionsRemaining &&
     order.revisionAddOnAvailable &&
-    revisionAddOnPrice != null &&
-    timeLeft !== "0 hours";
+    revisionAddOnPrice != null;
   const isAcceptPending = acceptMutation.isPending;
   const isRevisionPending = revisionMutation.isPending;
   const isIssuePending = issueMutation.isPending;
@@ -217,34 +190,15 @@ export function YourActionRequiredCard({
             Your Action Required
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            {timeLeft === "0 hours" 
-              ? "The review period for this delivery has expired." 
-              : "Please review the content and take action within"}
+            Please review the content and take action.
           </p>
-
-          {timeLeft !== null && (
-            <div className="flex items-center gap-2 mt-3">
-              <Clock className="size-4 text-destructive shrink-0" />
-              <span className="text-sm font-semibold text-destructive">
-                {timeLeft === "0 hours" ? "0 hours left" : `${timeLeft} left`}
-              </span>
-            </div>
-          )}
-
-          {timeLeft === "0 hours" && (
-            <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-               <p className="text-xs text-destructive/90 leading-relaxed">
-                 You can no longer approve or request revisions directly. Please <strong>Raise an Issue</strong> below or contact support if you need further assistance.
-               </p>
-            </div>
-          )}
         </div>
 
         <div className="mt-auto pt-5">
           <div className="flex flex-col gap-3">
             <Button
               className="w-full font-semibold h-11 rounded-xl shadow-sm"
-              disabled={!canReviewDelivery || isAcceptPending || timeLeft === "0 hours"}
+              disabled={!canReviewDelivery || isAcceptPending}
               onClick={() => setIsApproveDialogOpen(true)}
             >
               <CheckCircle className="size-4 mr-1.5" />
@@ -254,7 +208,7 @@ export function YourActionRequiredCard({
             <Button
               variant="outline"
               className="w-full font-semibold h-11 rounded-xl"
-              disabled={!canRequestRevision || timeLeft === "0 hours"}
+              disabled={!canRequestRevision}
               onClick={() => setIsRevisionDrawerOpen(true)}
             >
               <RotateCcw className="size-4 mr-1.5" />

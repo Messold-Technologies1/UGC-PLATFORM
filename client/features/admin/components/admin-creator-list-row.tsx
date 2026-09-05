@@ -393,6 +393,14 @@ export function AdminCreatorListRow({
               </>
             ) : null}
 
+            {isShortlistedSegment ? (
+              <RowMetric label="Shortlisted by" className="min-w-[130px]">
+                <span className="truncate" title={creator.shortlistedByName ?? undefined}>
+                  {creator.shortlistedByName ?? "—"}
+                </span>
+              </RowMetric>
+            ) : null}
+
             {isListedSegment ? (
               <RowMetric label="Approved by" className="min-w-[130px]">
                 <span className="truncate" title={creator.approvedByName ?? undefined}>

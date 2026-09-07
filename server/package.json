@@ -27,6 +27,7 @@
     "prisma:backfill:creator-public-slug": "ts-node prisma/backfill-creator-public-slug.ts",
     "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts",
     "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts",
+    "prisma:backfill:shortlisted-awaiting-review": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-shortlisted-awaiting-review.ts",
     "prisma:backfill:notification-preferences": "ts-node prisma/backfill-notification-preferences.ts",
     "prisma:backfill:resolve-dual-role-users": "ts-node prisma/backfill-resolve-dual-role-users.ts",
     "prisma:backfill:creator-restriction-suggestions": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-creator-restriction-suggestions.ts",

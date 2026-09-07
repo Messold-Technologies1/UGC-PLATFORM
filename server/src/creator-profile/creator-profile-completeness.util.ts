@@ -28,7 +28,6 @@ const FACET_LABELS: Record<CreatorFacetDimension, string> = {
 
 export interface ProfileCompletenessInput {
   profileImageUrl?: string | null;
-  introVideoUrl?: string | null;
   displayName?: string | null;
   contactEmail?: string | null;
   bio?: string | null;
@@ -81,7 +80,6 @@ export interface GoLiveRequirement {
  */
 export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   { key: 'profilePhoto', label: 'Profile photo' },
-  { key: 'introReel', label: 'Intro reel' },
   { key: 'displayName', label: 'Display name' },
   { key: 'contactEmail', label: 'Contact email' },
   { key: 'bio', label: 'Bio' },
@@ -139,9 +137,10 @@ export function evaluateProfileCompleteness(
 ): ProfileCompletenessResult {
   const missing: string[] = [];
 
-  // Media
+  // Media. The intro video is intentionally not part of the Go-Live checklist:
+  // it is optional before a creator is listed, and only surfaced (as the final
+  // few percent of Profile Strength) once they are approved and listed.
   if (!hasText(input.profileImageUrl)) missing.push('Profile photo');
-  if (!hasText(input.introVideoUrl)) missing.push('Intro reel');
 
   // Basic details
   if (!hasText(input.displayName)) missing.push('Display name');

@@ -37,7 +37,6 @@ async function main(): Promise<void> {
     select: {
       id: true,
       profileImageUrl: true,
-      introVideoUrl: true,
       displayName: true,
       contactEmail: true,
       bio: true,
@@ -83,7 +82,6 @@ async function main(): Promise<void> {
 
     const { complete } = evaluateProfileCompleteness({
       profileImageUrl: profile.profileImageUrl,
-      introVideoUrl: profile.introVideoUrl,
       displayName: profile.displayName,
       contactEmail: profile.contactEmail,
       bio: profile.bio,

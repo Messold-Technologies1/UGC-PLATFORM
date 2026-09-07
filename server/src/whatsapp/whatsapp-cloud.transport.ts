@@ -77,25 +77,46 @@ export class WhatsAppCloudTransport {
     };
 
     const url = `https://graph.facebook.com/${this.apiVersion}/${this.phoneNumberId}/messages`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    this.logger.log(
+      `[whatsapp] request template=${params.templateName} url=${url} payload=${JSON.stringify(body)}`,
+    );
+
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      this.logger.error(
+        `[whatsapp] request failed template=${params.templateName} to=${params.to}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      throw err;
+    }
+
+    const raw = await res.text().catch(() => '');
+    this.logger.log(
+      `[whatsapp] response template=${params.templateName} status=${res.status} body=${raw || '<empty>'}`,
+    );
 
     if (!res.ok) {
-      const detail = await res.text().catch(() => '');
       throw new Error(
-        `WhatsApp send failed (HTTP ${res.status}) template=${params.templateName}: ${detail}`,
+        `WhatsApp send failed (HTTP ${res.status}) template=${params.templateName}: ${raw}`,
       );
     }
 
-    const json = (await res.json().catch(() => ({}))) as {
-      messages?: Array<{ id?: string }>;
-    };
+    let json: { messages?: Array<{ id?: string }> } = {};
+    try {
+      json = raw ? (JSON.parse(raw) as { messages?: Array<{ id?: string }> }) : {};
+    } catch {
+      json = {};
+    }
     const messageId = json.messages?.[0]?.id ?? 'unknown';
     this.logger.log(
       `sent whatsapp template=${params.templateName} to=${params.to} messageId=${messageId}`,

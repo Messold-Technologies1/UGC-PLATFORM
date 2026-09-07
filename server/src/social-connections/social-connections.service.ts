@@ -563,11 +563,18 @@ export class SocialConnectionsService {
   }
 
   /**
-   * Park a connection in ERROR with a reason. Called when Graph reports code
-   * 190 (token expired, invalid or revoked), which no retry can fix — the
-   * creator has to reconnect.
+   * Park a connection in EXPIRED with a reason. Called when Graph reports code
+   * 190 (token expired, invalid or revoked — e.g. the creator changed their
+   * Instagram/Facebook password), which no retry or in-place refresh can fix:
+   * the creator has to reconnect.
+   *
+   * EXPIRED (not ERROR) is deliberate — ERROR is the retry state, re-enqueued by
+   * `listConnectionIdsDueForSync`, so parking a dead token there loops forever.
+   * EXPIRED is excluded from that set, so the connection goes quiet until the
+   * creator reconnects. Mirrors the metrics-sync path (`recordSyncFailure`),
+   * which already maps auth errors to EXPIRED.
    */
-  async markConnectionError(
+  async markConnectionExpired(
     connectionId: string,
     message: string,
   ): Promise<void> {
@@ -575,14 +582,14 @@ export class SocialConnectionsService {
       .update({
         where: { id: connectionId },
         data: {
-          status: SocialConnectionStatus.ERROR,
+          status: SocialConnectionStatus.EXPIRED,
           lastSyncStatus: 'error',
           lastSyncError: message.slice(0, 500),
         },
       })
       .catch((err) =>
         this.logger.warn(
-          `social: could not mark connection ${connectionId} as ERROR: ${(err as Error)?.message}`,
+          `social: could not mark connection ${connectionId} as EXPIRED: ${(err as Error)?.message}`,
         ),
       );
   }

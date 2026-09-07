@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { UnrecoverableError } from 'bullmq';
 import {
   IgMediaSyncStatus,
   SocialConnectionStatus,
@@ -675,12 +676,16 @@ export class InstagramMediaService {
       return { reels, pages, usage };
     } catch (err) {
       const message = (err as Error)?.message ?? 'unknown error';
+      const isAuthError = err instanceof InstagramApiError && err.isAuthError;
       await this.prisma.instagramMediaSyncState.update({
         where: { connectionId },
         data: { status: IgMediaSyncStatus.ERROR, lastError: message },
       });
-      if (err instanceof InstagramApiError && err.isAuthError) {
-        await this.connections.markConnectionError(connectionId, message);
+      if (isAuthError) {
+        // Graph code 190: the token is invalidated/expired/revoked (e.g. the
+        // creator changed their password). No retry or refresh recovers it —
+        // park the connection as EXPIRED so it stops being re-enqueued.
+        await this.connections.markConnectionExpired(connectionId, message);
       }
       // Failures matter more than successes here — without this the spinner
       // stays up until the client's slow backstop notices.
@@ -689,6 +694,12 @@ export class InstagramMediaService {
         status: 'error',
         error: message,
       });
+      // Auth errors are terminal: throw UnrecoverableError so BullMQ fails the
+      // job immediately instead of burning its remaining attempts (and flooding
+      // the logs) retrying a dead token. Other errors stay retryable.
+      if (isAuthError) {
+        throw new UnrecoverableError(message);
+      }
       throw err;
     }
   }

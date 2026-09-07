@@ -95,7 +95,7 @@ describe('InstagramMediaService', () => {
   const instagramMock = { fetchMediaPage: jest.fn() };
   const connectionsMock = {
     getFreshAccessToken: jest.fn().mockResolvedValue('token'),
-    markConnectionError: jest.fn(),
+    markConnectionExpired: jest.fn(),
   };
   const realtimeMock = { emitReelSyncUpdated: jest.fn() };
 

@@ -9,22 +9,24 @@ import {
 } from '@prisma/client';
 
 /**
- * One-time backfill for making the intro video optional to go live.
+ * One-time companion to the "intro video optional" change, for creators still
+ * in the Building profile stage (completeProfile = false, approval PENDING).
  *
- * The Go-Live checklist no longer requires an intro video, but `completeProfile`
- * is a one-way latch that is only re-evaluated on a creator's next profile
- * write. So a creator sitting at SHORTLISTED whose *only* remaining gap was the
- * intro video would stay stuck there until they happened to save again.
+ * `completeProfile` is a one-way latch re-evaluated only on a creator's next
+ * profile write, so a Building-profile creator whose *only* remaining gap was
+ * the intro video would stay in Building profile until they saved again. This
+ * script latches those creators complete and moves them to Self complete —
+ * exactly the PENDING -> SELF_COMPLETED transition the runtime makes on Go Live
+ * (`recomputeCreatorListingState` -> `nextApprovalStatusOnCompletion`).
  *
- * This script re-evaluates completeness for every currently-SHORTLISTED creator
- * and, when they are now complete (everything except the now-optional intro
- * video), latches `completeProfile` and moves them to PENDING (Awaiting review) —
- * the same SHORTLISTED -> PENDING transition the runtime makes on Go Live.
+ * That runtime transition only happens in profile_first onboarding mode
+ * (approval_first keeps a single PENDING review queue and has no Self complete
+ * stage), so this script no-ops unless CREATOR_ONBOARDING_MODE=profile_first —
+ * the same env the runtime reads.
  *
  * The Go-Live rule is intentionally INLINED here (no import from `src/`) so the
  * script can run inside the production container, which ships only `dist/`. It
- * mirrors `evaluateProfileCompleteness` + `recomputeCreatorListingState` as of
- * this change:
+ * mirrors `evaluateProfileCompleteness` as of this change:
  *   - media: profile photo (intro video NO LONGER required)
  *   - basics: display name, contact email, bio
  *   - about you: country, state, city, gender, date of birth, shipping address
@@ -34,10 +36,8 @@ import {
  *   - >=3 public, playable portfolio videos
  *   - an active Instagram connection
  *
- * Scope is limited to SHORTLISTED creators: an admin-curated set already in the
- * review pipeline. `isListed` still requires APPROVED, so this can never publish
- * a profile to brand discovery — the most it does is move a completed creator
- * from Shortlisted into Awaiting review. Idempotent: a second run is a no-op.
+ * `isListed` still requires APPROVED, so Self complete never publishes a profile
+ * to brand discovery. Idempotent: a second run is a no-op.
  */
 
 const prisma = new PrismaClient();
@@ -58,6 +58,10 @@ function hasText(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isProfileFirst(): boolean {
+  return process.env.CREATOR_ONBOARDING_MODE === 'profile_first';
+}
+
 function dbFingerprint(): string {
   const url = process.env.DATABASE_URL;
   if (!url) return 'DATABASE_URL=<missing>';
@@ -70,8 +74,22 @@ function dbFingerprint(): string {
 }
 
 async function main(): Promise<void> {
+  if (!isProfileFirst()) {
+    console.log(
+      '[backfill] CREATOR_ONBOARDING_MODE is not profile_first — there is no ' +
+        'Self complete stage in approval_first, so nothing to do. ' +
+        `(${dbFingerprint()})`,
+    );
+    return;
+  }
+
+  // Building profile = incomplete (completeProfile false). The PENDING ->
+  // SELF_COMPLETED transition only applies to creators currently in PENDING.
   const profiles = await prisma.creatorProfile.findMany({
-    where: { creatorApproval: { status: ApprovalStatus.SHORTLISTED } },
+    where: {
+      completeProfile: false,
+      creatorApproval: { status: ApprovalStatus.PENDING },
+    },
     select: {
       id: true,
       profileImageUrl: true,
@@ -84,7 +102,6 @@ async function main(): Promise<void> {
       gender: true,
       dateOfBirth: true,
       shippingAddress: true,
-      completeProfile: true,
       isListed: true,
       facetSelections: {
         select: { rank: true, option: { select: { dimension: true } } },
@@ -100,8 +117,8 @@ async function main(): Promise<void> {
   });
   const mandatoryAddOnNames = mandatoryOptions.map((o) => o.name);
 
-  let movedToAwaitingReview = 0;
-  let stillShortlisted = 0;
+  let movedToSelfComplete = 0;
+  let stillBuilding = 0;
 
   for (const profile of profiles) {
     const publicVideoCount = await prisma.creatorPortfolioVideo.count({
@@ -159,32 +176,35 @@ async function main(): Promise<void> {
       instagramConnectionCount > 0;
 
     if (!complete) {
-      stillShortlisted += 1;
+      stillBuilding += 1;
       continue;
     }
 
     // Latch completeProfile before flipping approval, mirroring the runtime.
-    // isListed stays false: the creator is SHORTLISTED, not APPROVED.
+    // isListed stays false: SELF_COMPLETED is not APPROVED. approvedAt is set
+    // to match nextApprovalStatusOnCompletion's SELF_COMPLETED branch.
     await prisma.$transaction(async (tx) => {
-      if (!profile.completeProfile || profile.isListed) {
-        await tx.creatorProfile.update({
-          where: { id: profile.id },
-          data: { completeProfile: true, isListed: false },
-        });
-      }
+      await tx.creatorProfile.update({
+        where: { id: profile.id },
+        data: { completeProfile: true, isListed: false },
+      });
       await tx.creatorApproval.updateMany({
-        where: { creatorId: profile.id, status: ApprovalStatus.SHORTLISTED },
-        data: { status: ApprovalStatus.PENDING, rejectionReason: null },
+        where: { creatorId: profile.id, status: ApprovalStatus.PENDING },
+        data: {
+          status: ApprovalStatus.SELF_COMPLETED,
+          rejectionReason: null,
+          approvedAt: new Date(),
+        },
       });
     });
 
-    movedToAwaitingReview += 1;
+    movedToSelfComplete += 1;
   }
 
   console.log(
-    `[backfill] Processed ${profiles.length} shortlisted creator(s). ` +
-      `movedToAwaitingReview=${movedToAwaitingReview} ` +
-      `stillShortlisted=${stillShortlisted} (${dbFingerprint()})`,
+    `[backfill] Processed ${profiles.length} building-profile creator(s). ` +
+      `movedToSelfComplete=${movedToSelfComplete} ` +
+      `stillBuilding=${stillBuilding} (${dbFingerprint()})`,
   );
 }
 

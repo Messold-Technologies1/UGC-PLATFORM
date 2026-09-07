@@ -621,7 +621,11 @@ export function CreatorProfileWizard({
       hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
       hasInstagram: instagramConnected,
       portfolioCount: (portfolioQuery.data ?? []).length,
-    });
+    },
+    // Before listing the intro video is not required, so it does not count
+    // toward Profile Strength (an otherwise-complete profile reads 100%). Once
+    // listed it counts, so a listed profile without one reads 96%.
+    { includeIntroVideo: initialProfile.isListed });
   }, [
     facets.selectedFacets,
     profileImage.profileImagePreviewUrl,
@@ -635,6 +639,7 @@ export function CreatorProfileWizard({
     introVideo.introVideoPreviewUrl,
     instagramConnected,
     portfolioQuery.data,
+    initialProfile.isListed,
   ]);
 
   const goLiveSnapshot = useMemo<GoLiveSnapshot>(() => {

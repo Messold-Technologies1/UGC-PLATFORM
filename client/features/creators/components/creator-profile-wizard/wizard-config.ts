@@ -194,11 +194,22 @@ const PORTFOLIO_TARGET = 3;
 /**
  * Turns completeness signals into a 0–100 Profile Strength percentage plus a
  * short, actionable hint pointing at the highest-impact thing still missing.
+ *
+ * The intro video is optional before a creator is listed, so it is excluded
+ * from the meter entirely until then (pass `includeIntroVideo: false`): a
+ * profile that meets every go-live requirement reads 100% without one. Once the
+ * creator is listed, the intro video counts toward the final 4%, so a listed
+ * profile without an intro video reads 96%.
  */
-export function computeProfileStrength(signals: StrengthSignals): {
+export function computeProfileStrength(
+  signals: StrengthSignals,
+  options: { includeIntroVideo?: boolean } = {},
+): {
   pct: number;
   hint: string;
 } {
+  const includeIntroVideo = options.includeIntroVideo ?? true;
+
   let score = 0;
   if (signals.hasPhoto) score += STRENGTH_WEIGHTS.photo;
   if (signals.hasName) score += STRENGTH_WEIGHTS.name;
@@ -209,13 +220,18 @@ export function computeProfileStrength(signals: StrengthSignals): {
   if (signals.hasBio) score += STRENGTH_WEIGHTS.bio;
   if (signals.hasNiche) score += STRENGTH_WEIGHTS.niche;
   if (signals.hasPackage) score += STRENGTH_WEIGHTS.package;
-  if (signals.hasIntroVideo) score += STRENGTH_WEIGHTS.introVideo;
+  if (includeIntroVideo && signals.hasIntroVideo)
+    score += STRENGTH_WEIGHTS.introVideo;
   if (signals.hasInstagram) score += STRENGTH_WEIGHTS.instagram;
   score +=
     Math.min(signals.portfolioCount / PORTFOLIO_TARGET, 1) *
     STRENGTH_WEIGHTS.portfolio;
 
-  const pct = Math.max(0, Math.min(100, Math.round(score)));
+  // Weights sum to 100. When the intro video is excluded, the reachable maximum
+  // is 96, so rescale to 100 — an otherwise-complete pre-listing profile reads
+  // 100% rather than being capped at 96%.
+  const maxScore = includeIntroVideo ? 100 : 100 - STRENGTH_WEIGHTS.introVideo;
+  const pct = Math.max(0, Math.min(100, Math.round((score / maxScore) * 100)));
 
   // Ordered by impact — the last matching line wins (highest priority).
   let hint = "Your profile is looking strong. Keep it fresh to stay on top.";

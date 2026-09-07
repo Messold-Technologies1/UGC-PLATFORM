@@ -103,6 +103,13 @@ const NICHE_DIMENSIONS = new Set(["CONTENT_CATEGORY"]);
 /** Steps to drop once the profile is already listed (live & approved). */
 const LISTED_HIDDEN_STEPS = new Set<WizardStepId>(["review", "go-live"]);
 
+/**
+ * The intro video is optional and only relevant once a creator is listed, so
+ * it is dropped from the onboarding funnel entirely and shown only after the
+ * profile is listed (live & approved), where it becomes the final step.
+ */
+const LISTED_ONLY_STEPS = new Set<WizardStepId>(["intro-video"]);
+
 // Package price rule mirrored from the long form (>= ₹500, steps of ₹500).
 function validatePackagePrice(value: string): string | undefined {
   const price = Number(value);
@@ -514,12 +521,14 @@ export function CreatorProfileWizard({
   ]);
 
   // Once a profile is listed (live & approved) there's nothing to re-submit —
-  // the wizard is just an editor, so drop the Review and Go Live steps.
+  // the wizard is just an editor, so drop the Review and Go Live steps and add
+  // the (optional) intro-video step. Before listing the intro video is not part
+  // of the funnel at all.
   const steps = useMemo(
     () =>
       initialProfile.isListed
         ? WIZARD_STEPS.filter((step) => !LISTED_HIDDEN_STEPS.has(step.id))
-        : WIZARD_STEPS,
+        : WIZARD_STEPS.filter((step) => !LISTED_ONLY_STEPS.has(step.id)),
     [initialProfile.isListed],
   );
   /**
@@ -639,7 +648,6 @@ export function CreatorProfileWizard({
       Number(pkg.deliveryDays) > 0;
     return {
       hasPhoto: Boolean(profileImage.profileImagePreviewUrl),
-      hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
       displayName,
       contactEmail,
       bio,
@@ -670,7 +678,6 @@ export function CreatorProfileWizard({
     addOns.mandatoryAddOnsPriced,
     packageDefaultsConfirmed,
     profileImage.profileImagePreviewUrl,
-    introVideo.introVideoPreviewUrl,
     displayName,
     contactEmail,
     bio,
@@ -873,8 +880,10 @@ export function CreatorProfileWizard({
         if (!portfolioConfirmed)
           missing.push("the portfolio video confirmation");
       } else if (id === "intro-video") {
-        if (!introVideo.introVideoPreviewUrl) missing.push("an intro video");
-        else if (!introConfirmed) missing.push("the intro video confirmation");
+        // The intro video is optional — a creator can save this step without
+        // one. Only ask for the confirmation once a video has been added.
+        if (introVideo.introVideoPreviewUrl && !introConfirmed)
+          missing.push("the intro video confirmation");
       } else if (id === "pricing") {
         const priceErr = validatePackagePrice(
           packages.packageDraft.priceAmount,
@@ -1002,9 +1011,8 @@ export function CreatorProfileWizard({
         : {},
       "intro-video": tried["intro-video"]
         ? {
-            video: !introVideo.introVideoPreviewUrl
-              ? "Upload your intro video to continue."
-              : undefined,
+            // The intro video itself is optional; only the confirmation is
+            // required once a video has actually been added.
             confirmed:
               introVideo.introVideoPreviewUrl && !introConfirmed
                 ? "Confirm your video meets the requirements."
@@ -1279,7 +1287,6 @@ export function CreatorProfileWizard({
       languageConfirmed;
     const identityOk = identityComplete;
     const bioOk = bio.trim().length >= BIO_MIN_CHARS;
-    const introOk = Boolean(introVideo.introVideoPreviewUrl);
     const pricingOk =
       validatePackagePrice(packages.packageDraft.priceAmount) === undefined &&
       packageDefaultsConfirmed &&
@@ -1331,11 +1338,6 @@ export function CreatorProfileWizard({
                 : "Add more to unlock higher Profile Strength."
             }`,
       },
-      {
-        stepId: "intro-video",
-        title: "Intro Video",
-        status: introOk ? "complete" : "incomplete",
-      },
     ];
   }, [
     selectedLanguages,
@@ -1351,7 +1353,6 @@ export function CreatorProfileWizard({
     languageConfirmed,
     identityComplete,
     bio,
-    introVideo.introVideoPreviewUrl,
     packages.packageDraft,
     addOns.selectedAddOnSlugs.length,
     addOns.mandatoryAddOnsPriced,
@@ -1368,8 +1369,7 @@ export function CreatorProfileWizard({
       base: "Save & Set Your Identity",
       identity: "Save & Set Your Pricing",
       pricing: "Save & Build Portfolio",
-      portfolio: "Save & Add Intro Video",
-      "intro-video": "Save & Review Profile",
+      portfolio: "Save & Review Profile",
     };
     return labelMap[activeStep.id] ?? "Continue";
   }, [activeStep.id, canEditFreely]);

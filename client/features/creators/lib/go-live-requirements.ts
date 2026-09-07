@@ -31,7 +31,6 @@ const FACET_LABELS: Record<string, string> = {
 
 export interface GoLiveSnapshot {
   hasPhoto: boolean;
-  hasIntroVideo: boolean;
   displayName: string;
   contactEmail: string;
   bio: string;
@@ -74,8 +73,10 @@ function blank(value: string | null | undefined): boolean {
 export function computeGoLiveMissing(snapshot: GoLiveSnapshot): string[] {
   const missing: string[] = [];
 
+  // The intro video is optional before listing, so it is not gated here. It is
+  // surfaced only after a creator is listed (see the wizard step) as the final
+  // few percent of Profile Strength.
   if (!snapshot.hasPhoto) missing.push("Profile photo");
-  if (!snapshot.hasIntroVideo) missing.push("Featured video");
 
   if (blank(snapshot.displayName)) missing.push("Display name");
   if (blank(snapshot.contactEmail)) missing.push("Contact email");

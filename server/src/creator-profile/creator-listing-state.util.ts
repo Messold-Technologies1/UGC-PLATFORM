@@ -90,7 +90,6 @@ export async function recomputeCreatorListingState(
     where: { id: creatorProfileId },
     select: {
       profileImageUrl: true,
-      introVideoUrl: true,
       displayName: true,
       contactEmail: true,
       bio: true,
@@ -156,7 +155,6 @@ export async function recomputeCreatorListingState(
 
     const { complete } = evaluateProfileCompleteness({
       profileImageUrl: profile.profileImageUrl,
-      introVideoUrl: profile.introVideoUrl,
       displayName: profile.displayName,
       contactEmail: profile.contactEmail,
       bio: profile.bio,

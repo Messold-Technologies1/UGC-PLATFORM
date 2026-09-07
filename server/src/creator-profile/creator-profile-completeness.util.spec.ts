@@ -12,7 +12,6 @@ import {
 function completeInput(): ProfileCompletenessInput {
   return {
     profileImageUrl: 'https://cdn/img.jpg',
-    introVideoUrl: 'https://cdn/intro.mp4',
     displayName: 'Jane Doe',
     contactEmail: 'jane@example.com',
     bio: 'I make great content.',
@@ -140,6 +139,14 @@ describe('evaluateProfileCompleteness', () => {
     expect(result.complete).toBe(false);
     expect(result.missing).toContain('Instagram connected');
   });
+
+  it('does not require an intro video to go live', () => {
+    // The intro video is optional before listing — a profile that satisfies
+    // every other requirement is complete without one.
+    const result = evaluateProfileCompleteness(completeInput());
+    expect(result.complete).toBe(true);
+    expect(result.missing).not.toContain('Intro reel');
+  });
 });
 
 describe('GO_LIVE_REQUIREMENTS catalog', () => {
@@ -148,7 +155,6 @@ describe('GO_LIVE_REQUIREMENTS catalog', () => {
     // keys, so every label the evaluator can emit must exist in the catalog.
     const emptyProfile = evaluateProfileCompleteness({
       profileImageUrl: null,
-      introVideoUrl: null,
       displayName: null,
       contactEmail: null,
       bio: null,

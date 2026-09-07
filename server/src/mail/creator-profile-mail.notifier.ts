@@ -151,6 +151,53 @@ export class CreatorProfileMailNotifier {
     });
   }
 
+  /**
+   * A social connection (Instagram) went dead — its token was invalidated or
+   * revoked and can't be refreshed, so the creator has to reconnect. Nudge them
+   * with the deep link to the profile page that hosts the reconnect button.
+   * Fire-and-forget; the caller only fires this on the transition into EXPIRED,
+   * so the creator isn't re-notified on every subsequent failed sync.
+   */
+  notifyConnectionExpired(
+    creatorProfileId: string,
+    providerName: string,
+  ): void {
+    void this.run('social_connection_expired', async () => {
+      const profile = await this.loadProfile(creatorProfileId);
+      if (!profile) return;
+
+      const email = this.recipientEmail(profile);
+      if (!email) {
+        this.logger.warn(
+          `social connection expired email: no email for profile ${creatorProfileId}`,
+        );
+        return;
+      }
+
+      const actionUrl = `${this.frontendBase()}/creator/settings/profile`;
+      await this.mail.send({
+        to: email,
+        templateKey: EmailTemplateKey.SOCIAL_CONNECTION_EXPIRED,
+        notificationGate: {
+          profileType: 'creator',
+          profileId: creatorProfileId,
+        },
+        context: {
+          recipientName: this.recipientName(profile),
+          providerName,
+          actionUrl,
+        },
+      });
+      await sendWhatsAppForEmail(this.whatsapp, this.config, {
+        to: this.recipientPhone(profile),
+        emailKey: EmailTemplateKey.SOCIAL_CONNECTION_EXPIRED,
+        recipientName: this.recipientName(profile),
+        actionUrl,
+        gate: { profileType: 'creator', profileId: creatorProfileId },
+      });
+    });
+  }
+
   private async run(label: string, fn: () => Promise<void>): Promise<void> {
     try {
       await fn();

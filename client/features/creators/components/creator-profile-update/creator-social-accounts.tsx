@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ChevronDown,
   Instagram,
   Youtube,
@@ -247,6 +248,34 @@ function InstagramConnected({
           </Button>
         )}
       </div>
+
+      {/* Reconnect warning — the token was invalidated/revoked (e.g. a password
+          change), so metrics + reels have stopped refreshing until reconnect. */}
+      {expired ? (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "flex-start",
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "1px solid var(--destructive)",
+            background: "color-mix(in srgb, var(--destructive) 8%, transparent)",
+          }}
+        >
+          <AlertTriangle
+            size={18}
+            style={{ color: "var(--destructive)", flexShrink: 0, marginTop: 1 }}
+          />
+          <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+            <strong>Your Instagram connection needs reconnecting.</strong>{" "}
+            It stopped working — usually after an Instagram password change or a
+            security reset. Brands won&apos;t see your latest followers, reach or
+            reels until you reconnect. It only takes a few seconds.
+          </div>
+        </div>
+      ) : null}
 
       {/* Accordion: keep the connected state compact and reveal the full
           Instagram metrics + audience breakdown only when the creator asks. */}

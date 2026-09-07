@@ -27,6 +27,7 @@ import {
   SocialAudienceDto,
   SocialConnectionDto,
 } from './dto/social-connection-response.dto';
+import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 
 /** Rolling window (days) each sync summarises for reach/views/profile-views. */
 const METRICS_WINDOW_DAYS = 30;
@@ -47,6 +48,7 @@ export class SocialConnectionsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly instagram: InstagramClient,
+    private readonly creatorMail: CreatorProfileMailNotifier,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -546,6 +548,46 @@ export class SocialConnectionsService {
         lastSyncError: message.slice(0, 500),
       },
     });
+    if (authError) {
+      // Only on the edge INTO expired, so the creator isn't re-emailed on every
+      // subsequent failed sync of an already-dead connection.
+      this.notifyReconnectIfNewlyExpired(
+        conn.status,
+        conn.creatorProfileId,
+        conn.platform,
+      );
+    }
+  }
+
+  /**
+   * Email the creator to reconnect, but only when the connection is crossing
+   * into EXPIRED for the first time (previous status was not already EXPIRED).
+   * Fire-and-forget — a mail failure must never break the sync path.
+   */
+  private notifyReconnectIfNewlyExpired(
+    previousStatus: SocialConnectionStatus,
+    creatorProfileId: string,
+    platform: SocialPlatform,
+  ): void {
+    if (previousStatus === SocialConnectionStatus.EXPIRED) return;
+    this.creatorMail.notifyConnectionExpired(
+      creatorProfileId,
+      this.providerDisplayName(platform),
+    );
+  }
+
+  /** Human-facing name for a platform, e.g. `INSTAGRAM` -> `Instagram`. */
+  private providerDisplayName(platform: SocialPlatform): string {
+    switch (platform) {
+      case SocialPlatform.INSTAGRAM:
+        return 'Instagram';
+      case SocialPlatform.YOUTUBE:
+        return 'YouTube';
+      case SocialPlatform.REDDIT:
+        return 'Reddit';
+      default:
+        return 'social account';
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -578,6 +620,15 @@ export class SocialConnectionsService {
     connectionId: string,
     message: string,
   ): Promise<void> {
+    // Read the current status/owner first so we can (a) fire the reconnect
+    // email only on the edge into EXPIRED, and (b) know which creator to notify.
+    const before = await this.prisma.socialConnection
+      .findUnique({
+        where: { id: connectionId },
+        select: { status: true, creatorProfileId: true, platform: true },
+      })
+      .catch(() => null);
+
     await this.prisma.socialConnection
       .update({
         where: { id: connectionId },
@@ -592,6 +643,14 @@ export class SocialConnectionsService {
           `social: could not mark connection ${connectionId} as EXPIRED: ${(err as Error)?.message}`,
         ),
       );
+
+    if (before) {
+      this.notifyReconnectIfNewlyExpired(
+        before.status,
+        before.creatorProfileId,
+        before.platform,
+      );
+    }
   }
 
   /** Decrypt the token, refreshing + persisting it if it is near expiry. */

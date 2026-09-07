@@ -150,6 +150,19 @@ export const envValidationSchema = Joi.object({
     .min(1_000)
     .max(120_000)
     .default(10_000),
+  /**
+   * Token echoed back during the Meta webhook verification handshake
+   * (GET /api/webhooks/whatsapp?hub.verify_token=...). Must match the
+   * "Verify token" entered in WhatsApp Manager > Configuration > Webhooks.
+   * When unset the GET handshake is rejected (so set it before subscribing).
+   */
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: Joi.string().min(1).optional(),
+  /**
+   * Meta App Secret, used to verify the X-Hub-Signature-256 header on incoming
+   * webhook POSTs. When set, deliveries with a missing/invalid signature are
+   * rejected; when unset, signature checking is skipped (dev only).
+   */
+  WHATSAPP_APP_SECRET: Joi.string().min(1).optional(),
 
   // Meta (Facebook) Conversions API — server-side event tracking.
   // All optional: when the token or dataset id is unset the CAPI service

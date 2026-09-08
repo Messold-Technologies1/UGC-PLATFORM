@@ -306,13 +306,16 @@ export function CreatorProfileWizard({
     () => Boolean(initialProfile.completeProfile) || adminMode,
   );
   const markAddonsReviewed = useCallback(() => setAddonsReviewed(true), []);
-  // Policy acceptance reflects the creator's OWN acceptance: it is pre-checked
-  // only for a profile that has already gone live (completeProfile). It must not
-  // be pre-checked in admin mode — an admin viewing a creator who never accepted
-  // the policies would otherwise see them ticked, falsely implying consent.
+  // Policy acceptance reflects the creator's OWN persisted consent
+  // (acceptedGoLivePolicies, set server-side on Go Live). It must not be
+  // inferred from completeProfile or forced true in admin mode — an admin
+  // viewing a creator who never accepted would otherwise see the boxes ticked,
+  // falsely implying consent.
   const [goLivePolicies, setGoLivePolicies] =
     useState<GoLivePolicyAcceptanceState>(() =>
-      createEmptyGoLivePolicyAcceptance(Boolean(initialProfile.completeProfile)),
+      createEmptyGoLivePolicyAcceptance(
+        Boolean(initialProfile.acceptedGoLivePolicies),
+      ),
     );
   const [packageErrors, setPackageErrors] = useState<{
     priceAmount?: string;
@@ -1730,7 +1733,7 @@ export function CreatorProfileWizard({
                   onEditStep={(stepId) => goToStep(stepIndex[stepId])}
                   policies={goLivePolicies}
                   onPoliciesChange={setGoLivePolicies}
-                  policiesDisabled={Boolean(initialProfile.completeProfile)}
+                  policiesDisabled={Boolean(initialProfile.acceptedGoLivePolicies)}
                   missingItems={goLiveMissing}
                 />
               ) : (

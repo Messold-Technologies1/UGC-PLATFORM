@@ -287,6 +287,13 @@ export class CreatorProfileResponseDto {
   })
   isListed!: boolean;
 
+  @ApiProperty({
+    description:
+      'Whether the creator has accepted the Go-Live policies (AI Content, Usage Rights, Payout, Creator Guidelines).',
+    example: false,
+  })
+  acceptedGoLivePolicies!: boolean;
+
   @ApiPropertyOptional({
     example: 'Does not meet guidelines.',
   })

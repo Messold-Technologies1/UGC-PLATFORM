@@ -482,6 +482,7 @@ export class CreatorProfileService {
       approvalStatus: mapped.creatorApproval?.status,
       completeProfile: mapped.completeProfile ?? false,
       isListed: mapped.isListed ?? false,
+      acceptedGoLivePolicies: Boolean(mapped.goLivePoliciesAcceptedAt),
       rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
       profileLanguages: (mapped.profileLanguages ?? []).map((row: any) => ({
         id: row.id,
@@ -2785,6 +2786,23 @@ export class CreatorProfileService {
         if (nextProfileImageKey !== undefined) {
           data.profileImageKey = nextProfileImageKey;
           data.profileImageUrl = nextProfileImageUrl;
+        }
+
+        // Go Live carries the creator's acceptance of the Go-Live policies
+        // (AI Content, Usage Rights, Payout, Creator Guidelines). Enforce it on
+        // the publish path — previously this was a client-only gate the server
+        // ignored — and record the acceptance time once, so the profile editor
+        // reflects the creator's real consent instead of inferring it from
+        // completeProfile.
+        if (dto.goLive === true) {
+          if (dto.acceptedGoLivePolicies !== true) {
+            throw new BadRequestException(
+              'You must accept the Go-Live policies to publish your profile.',
+            );
+          }
+          if (!profile.goLivePoliciesAcceptedAt) {
+            data.goLivePoliciesAcceptedAt = new Date();
+          }
         }
 
         if (Object.keys(data).length > 0) {

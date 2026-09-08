@@ -306,11 +306,13 @@ export function CreatorProfileWizard({
     () => Boolean(initialProfile.completeProfile) || adminMode,
   );
   const markAddonsReviewed = useCallback(() => setAddonsReviewed(true), []);
+  // Policy acceptance reflects the creator's OWN acceptance: it is pre-checked
+  // only for a profile that has already gone live (completeProfile). It must not
+  // be pre-checked in admin mode — an admin viewing a creator who never accepted
+  // the policies would otherwise see them ticked, falsely implying consent.
   const [goLivePolicies, setGoLivePolicies] =
     useState<GoLivePolicyAcceptanceState>(() =>
-      createEmptyGoLivePolicyAcceptance(
-        Boolean(initialProfile.completeProfile) || adminMode,
-      ),
+      createEmptyGoLivePolicyAcceptance(Boolean(initialProfile.completeProfile)),
     );
   const [packageErrors, setPackageErrors] = useState<{
     priceAmount?: string;

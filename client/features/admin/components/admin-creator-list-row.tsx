@@ -48,7 +48,10 @@ function formatRowDate(iso?: string | null): string {
   }
 }
 
-function getRowDateColumn(creator: AdminCreatorListItemDto): {
+function getRowDateColumn(
+  creator: AdminCreatorListItemDto,
+  segment: AdminCreatorListSegment,
+): {
   label: string;
   value: string;
 } {
@@ -74,6 +77,12 @@ function getRowDateColumn(creator: AdminCreatorListItemDto): {
     return {
       label: "Completed",
       value: formatRowDate(creator.approvedAt ?? creator.submittedAt),
+    };
+  }
+  if (segment === "incomplete") {
+    return {
+      label: "Registered",
+      value: formatRowDate(creator.submittedAt),
     };
   }
   return {
@@ -293,7 +302,7 @@ export function AdminCreatorListRow({
     isUnfeaturing;
   const rating = Number.parseFloat(creator.avgRating ?? "0");
   const reviewCount = creator.reviewCount ?? 0;
-  const dateColumn = getRowDateColumn(creator);
+  const dateColumn = getRowDateColumn(creator, segment);
 
   useEffect(() => {
     setRank(String(creator.featureRank ?? 0));

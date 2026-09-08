@@ -366,6 +366,11 @@ model CreatorProfile {
   /// Derived discovery gate = (approval APPROVED) AND completeProfile.
   /// Brands only ever see creators where this is true.
   isListed                     Boolean                     @default(false)
+  /// When the creator accepted the Go-Live policies (AI Content, Usage Rights,
+  /// Payout, Creator Guidelines). Set once on the first Go Live that carries
+  /// acceptedGoLivePolicies; null means never accepted. Read by the profile
+  /// editor so the policy checkboxes reflect the creator's real consent.
+  goLivePoliciesAcceptedAt     DateTime?
   /// Opt-in for transactional/profile/order emails. Set true at signup; legacy rows backfilled false.
   emailNotificationsEnabled    Boolean                     @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).

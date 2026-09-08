@@ -158,6 +158,8 @@ export type CreatorProfileItemApi = {
   completeProfile?: boolean;
   /** Discovery gate = approved AND completeProfile. */
   isListed?: boolean;
+  /** Whether the creator has accepted the Go-Live policies. */
+  acceptedGoLivePolicies?: boolean;
   available?: boolean;
   unavailableFrom?: string | null;
   unavailableTo?: string | null;

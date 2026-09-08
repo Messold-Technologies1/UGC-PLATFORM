@@ -42,7 +42,15 @@ export class WhatsAppCloudTransport {
     }
   }
 
-  async send(params: WhatsAppSendParams): Promise<void> {
+  /**
+   * POST the template to Meta and return the assigned message id (`wamid...`).
+   *
+   * The Cloud API only ever reports `accepted` here — it means Meta queued the
+   * message, NOT that it reached the phone. The real `sent`/`delivered`/`read`/
+   * `failed` outcome arrives asynchronously on the status webhook, keyed by this
+   * same id (see `WhatsAppWebhookController` / `WhatsAppService.noteStatusUpdate`).
+   */
+  async send(params: WhatsAppSendParams): Promise<string> {
     if (!this.phoneNumberId || !this.accessToken) {
       throw new Error(
         'WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN are required to send WhatsApp',
@@ -113,13 +121,18 @@ export class WhatsAppCloudTransport {
 
     let json: { messages?: Array<{ id?: string }> } = {};
     try {
-      json = raw ? (JSON.parse(raw) as { messages?: Array<{ id?: string }> }) : {};
+      json = raw
+        ? (JSON.parse(raw) as { messages?: Array<{ id?: string }> })
+        : {};
     } catch {
       json = {};
     }
     const messageId = json.messages?.[0]?.id ?? 'unknown';
+    // NOTE: this is Meta ACCEPTING the message (queued), not delivery. The
+    // delivered/read/failed outcome is logged later from the status webhook.
     this.logger.log(
-      `sent whatsapp template=${params.templateName} to=${params.to} messageId=${messageId}`,
+      `accepted whatsapp template=${params.templateName} to=${params.to} messageId=${messageId} (queued — awaiting delivery status)`,
     );
+    return messageId;
   }
 }

@@ -22,6 +22,18 @@ export class WhatsAppService implements OnModuleInit {
   private readonly sendTimeoutMs: number;
   private readonly defaultLanguage: string;
 
+  /**
+   * Best-effort in-memory map of `wamid` -> what we sent, so the status webhook
+   * can name the template/recipient when Meta reports delivery. Bounded and
+   * lossy by design (a restart or a second replica simply logs `template=?`);
+   * the delivery status is still logged either way.
+   */
+  private readonly outbound = new Map<
+    string,
+    { template: string; to: string; at: number }
+  >();
+  private static readonly OUTBOUND_MAX = 5_000;
+
   constructor(
     private readonly config: ConfigService,
     private readonly transport: WhatsAppCloudTransport,
@@ -78,11 +90,9 @@ export class WhatsAppService implements OnModuleInit {
       return;
     }
 
-    this.logger.log(
-      `sending whatsapp template=${params.template} to=${to}`,
-    );
+    this.logger.log(`sending whatsapp template=${params.template} to=${to}`);
     try {
-      await withTimeout(
+      const messageId = await withTimeout(
         this.transport.send({
           to,
           templateName: params.template,
@@ -93,6 +103,9 @@ export class WhatsAppService implements OnModuleInit {
         this.sendTimeoutMs,
         `WhatsApp send template=${params.template}`,
       );
+      if (messageId && messageId !== 'unknown') {
+        this.rememberOutbound(messageId, params.template, to);
+      }
     } catch (err) {
       if (err instanceof TimeoutError) {
         this.logger.warn(
@@ -101,6 +114,98 @@ export class WhatsAppService implements OnModuleInit {
       }
       throw err;
     }
+  }
+
+  // ---- Delivery status webhook ----
+
+  /**
+   * Verify Meta's webhook subscription handshake. Meta calls
+   * `GET /api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=...&hub.challenge=...`
+   * once when you add the callback URL; echo `hub.challenge` back only when the
+   * token matches `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. Returns the challenge string
+   * to reply with, or null to reject (403).
+   */
+  verifyWebhookChallenge(
+    mode: string | undefined,
+    token: string | undefined,
+    challenge: string | undefined,
+  ): string | null {
+    const expected = this.config
+      .get<string>('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
+      ?.trim();
+    if (!expected) {
+      this.logger.warn(
+        'whatsapp webhook verify: WHATSAPP_WEBHOOK_VERIFY_TOKEN not set; rejecting handshake',
+      );
+      return null;
+    }
+    if (mode === 'subscribe' && token === expected && challenge) {
+      this.logger.log('whatsapp webhook verify: handshake accepted');
+      return challenge;
+    }
+    this.logger.warn(
+      `whatsapp webhook verify: handshake rejected (mode=${mode ?? '<none>'}, token match=${token === expected})`,
+    );
+    return null;
+  }
+
+  /**
+   * Log a delivery-status callback from Meta. This is where a send is finally
+   * reported as truly `sent` / `delivered` / `read`, or `failed` with the Meta
+   * error code + reason — as opposed to the `accepted` (queued) line emitted at
+   * POST time. The template/recipient are filled in from the outbound map when
+   * known (best-effort).
+   */
+  noteStatusUpdate(update: {
+    messageId: string;
+    recipient?: string;
+    status: string;
+    timestamp?: string;
+    errors?: Array<{
+      code?: number;
+      title?: string;
+      message?: string;
+      error_data?: { details?: string };
+    }>;
+  }): void {
+    const known = this.outbound.get(update.messageId);
+    const template = known?.template ?? 'unknown';
+    const to = update.recipient || known?.to || 'unknown';
+    const base = `whatsapp delivery template=${template} to=${to} messageId=${update.messageId} status=${update.status}`;
+
+    if (update.status === 'failed') {
+      const err = update.errors?.[0];
+      const detail =
+        err?.error_data?.details || err?.message || err?.title || 'no detail';
+      this.logger.warn(
+        `${base} error_code=${err?.code ?? '?'} error="${detail}"`,
+      );
+      return;
+    }
+
+    this.logger.log(base);
+    // A terminal state means we no longer need to remember this id.
+    if (update.status === 'delivered' || update.status === 'read') {
+      this.outbound.delete(update.messageId);
+    }
+  }
+
+  /** Record an accepted send so the status webhook can name it later. */
+  private rememberOutbound(
+    messageId: string,
+    template: string,
+    to: string,
+  ): void {
+    if (this.outbound.size >= WhatsAppService.OUTBOUND_MAX) {
+      // Evict the oldest ~10% (Map preserves insertion order) to stay bounded.
+      const drop = Math.ceil(WhatsAppService.OUTBOUND_MAX * 0.1);
+      let removed = 0;
+      for (const key of this.outbound.keys()) {
+        this.outbound.delete(key);
+        if (++removed >= drop) break;
+      }
+    }
+    this.outbound.set(messageId, { template, to, at: Date.now() });
   }
 
   /**

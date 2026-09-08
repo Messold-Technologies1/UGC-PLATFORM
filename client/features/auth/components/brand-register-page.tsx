@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight, UserRound } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { BrandRegisterForm, brandEyebrow } from "./brand-register-form";
 
@@ -50,6 +51,32 @@ export function BrandRegisterPage() {
               Brand name, categories and the rest can wait — add them from
               your profile whenever you like.
             </p>
+
+            {/*
+              TEMPORARY — prominent "are you a creator?" redirect.
+              Some creators were signing up as brands here, so this banner is
+              intentionally loud to steer them to the creator flow. The subtle
+              footer link ("Are you a creator?") below is kept as-is; once
+              creator sign-ups stop landing on the wrong form, remove this
+              banner and rely on that small link again.
+            */}
+            <Link
+              href="/register/creator"
+              className="group border-plum-300 bg-plum-50 hover:border-plum-500 mb-6 flex items-center gap-3 rounded-2xl border p-3.5 shadow-sm transition-colors sm:p-4"
+            >
+              <span className="bg-plum-700 flex size-10 shrink-0 items-center justify-center rounded-full text-white">
+                <UserRound className="size-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="text-plum-700 block text-sm font-semibold">
+                  Are you a creator? This page is for brands.
+                </span>
+                <span className="text-muted-foreground block text-[13px] leading-snug">
+                  Sign up as a creator to list your profile and get booked.
+                </span>
+              </span>
+              <ArrowRight className="text-plum-700 size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+            </Link>
 
             <BrandRegisterForm />
 

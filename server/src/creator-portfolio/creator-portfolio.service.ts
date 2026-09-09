@@ -492,6 +492,7 @@ export class CreatorPortfolioService {
     const rows = await this.prisma.creatorPortfolioVideo.findMany({
       where: { creatorId: profile.id },
       orderBy: { createdAt: 'desc' },
+      include: this.brandCollabInclude,
     });
     return rows.map((r) => this.mapVideo(r));
   }
@@ -509,6 +510,7 @@ export class CreatorPortfolioService {
     const rows = await this.prisma.creatorPortfolioVideo.findMany({
       where: creatorProfileId ? { creatorId: creatorProfileId } : undefined,
       orderBy: { createdAt: 'desc' },
+      include: this.brandCollabInclude,
     });
 
     return rows.map((r) => this.mapVideo(r));
@@ -528,6 +530,7 @@ export class CreatorPortfolioService {
         ...playableAssetWhere(),
       },
       orderBy: { createdAt: 'desc' },
+      include: this.brandCollabInclude,
     });
 
     return rows.map((r) => this.mapVideo(r));
@@ -551,11 +554,39 @@ export class CreatorPortfolioService {
         videoKey: true,
         thumbnailKey: true,
         igMediaId: true,
+        source: true,
       },
     });
     if (!existing) throw new NotFoundException('Video not found');
     if (existing.creatorId !== profile.id) {
       throw new ForbiddenException('Not allowed to update this video');
+    }
+
+    // ---- Visibility toggle ----
+    // Applies to every source, including Brand Collab videos: the creator can
+    // hide them but not delete them.
+    const nextVisibility =
+      dto.visibilityStatus === 'private'
+        ? PortfolioVisibilityStatus.PRIVATE
+        : dto.visibilityStatus === 'public'
+          ? PortfolioVisibilityStatus.PUBLIC
+          : undefined;
+
+    // A Brand Collab tile mirrors the brand's approved final; letting the creator
+    // swap its file would defeat the "cannot be deleted" rule (they could replace
+    // it with anything). Visibility is the only change allowed on these.
+    if (existing.source === PortfolioVideoSource.ORDER && dto.videoKey?.trim()) {
+      throw new ForbiddenException(
+        'Brand Collab videos cannot be replaced. You can make it private to hide it.',
+      );
+    }
+
+    // A visibility-only change skips all the replace bookkeeping below.
+    if (nextVisibility !== undefined && !dto.videoKey?.trim()) {
+      const updated = await this.updateVideoRow(videoId, profile.id, {
+        visibilityStatus: nextVisibility,
+      });
+      return this.mapVideo(updated);
     }
 
     // ---- Replace-the-file ----
@@ -603,6 +634,7 @@ export class CreatorPortfolioService {
       Boolean(nextVideoKey) && existing.igMediaId != null;
 
     const updated = await this.updateVideoRow(videoId, profile.id, {
+      visibilityStatus: nextVisibility,
       videoKey: nextVideoKey,
       videoUrl: nextVideoKey
         ? this.storage.buildCdnUrl(nextVideoKey)
@@ -688,11 +720,21 @@ export class CreatorPortfolioService {
         creatorId: true,
         videoKey: true,
         thumbnailKey: true,
+        source: true,
       },
     });
     if (!existing) throw new NotFoundException('Video not found');
     if (existing.creatorId !== profile.id) {
       throw new ForbiddenException('Not allowed to delete this video');
+    }
+
+    // Brand Collab tiles are auto-published from a completed order and can never
+    // be deleted — only hidden. Enforced here so the API can't bypass the rule;
+    // the creator's lever is the visibility toggle instead.
+    if (existing.source === PortfolioVideoSource.ORDER) {
+      throw new ForbiddenException(
+        'Brand Collab videos come from a completed order and cannot be deleted. Make it private to hide it from your public profile.',
+      );
     }
 
     // A portfolio must always keep at least MIN_PORTFOLIO_VIDEOS videos. Once at
@@ -798,18 +840,38 @@ export class CreatorPortfolioService {
         ? 'public'
         : 'private';
 
+    const brandCollab = row.source === PortfolioVideoSource.ORDER;
+
     return {
       id: row.id,
       creatorId: row.creatorId,
       videoUrl: row.videoUrl,
       thumbnailUrl: row.thumbnailUrl ?? null,
       source: row.source,
+      // Brand Collab tiles are auto-published from a completed order and can
+      // only be hidden, never deleted (enforced in deleteVideo).
+      brandCollab,
+      // brandName is present only when the read included the sourceOrder→brand
+      // join; a read that did not is tolerated as null rather than crashing.
+      brandName: brandCollab
+        ? (row.sourceOrder?.brand?.brandName ?? null)
+        : null,
+      deletable: !brandCollab,
       assetState: row.assetState,
       igPermalink: row.igPermalink ?? null,
       visibilityStatus,
       createdAt: row.createdAt,
     } satisfies PortfolioVideoResponseDto;
   }
+
+  /**
+   * Read-time join used by the list endpoints so mapVideo can render the
+   * "Brand Collab · {brand}" badge. Kept in one place so every read stays
+   * consistent; it is a no-op for non-order rows (sourceOrder is null).
+   */
+  private readonly brandCollabInclude = {
+    sourceOrder: { select: { brand: { select: { brandName: true } } } },
+  } as const;
 
   private readonly sectionInclude = {
     videos: {

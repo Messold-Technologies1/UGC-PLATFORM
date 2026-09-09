@@ -56,6 +56,9 @@ enum RoleName {
 enum PortfolioVideoSource {
   UPLOAD
   INSTAGRAM
+  /// Auto-published from a completed order's approved final video. The object is
+  /// a copy living under the portfolio prefix, so it is independent of the order.
+  ORDER
 }
 
 /// READY     — playable from our CDN.
@@ -657,6 +660,8 @@ model Order {
   chatMessages   OrderChatMessage[]
   chatReadStates OrderChatReadState[]
   ratingReview   CreatorRatingReview?
+  /// Collab portfolio tiles auto-published from this order's approved final.
+  portfolioVideos CreatorPortfolioVideo[] @relation("OrderPortfolioVideos")
 
   @@index([brandId, createdAt])
   @@index([creatorId, createdAt])
@@ -989,6 +994,14 @@ model CreatorPortfolioVideo {
   igPostedAt  DateTime?
   importedAt  DateTime?
 
+  /// Order provenance, set when source = ORDER. `sourceOrderId` resolves the
+  /// brand for the "Brand Collab" badge and is the idempotency key (one collab
+  /// tile per order); `sourceDeliveryId` records the exact delivery/revision the
+  /// object was copied from. Both SetNull so removing the order never removes
+  /// this tile — the object is an independent copy under the portfolio prefix.
+  sourceOrderId    String? @db.Uuid
+  sourceDeliveryId String? @db.Uuid
+
   /// Mirror bookkeeping, following OrderDelivery.previewAttempts /
   /// previewUpdatedAt. `mirrorClaimedAt` is what makes the claim a genuine
   /// cross-instance lock: an in-memory Set only guards one process, so the
@@ -1006,6 +1019,7 @@ model CreatorPortfolioVideo {
   updatedAt        DateTime                  @updatedAt
 
   creator       CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  sourceOrder   Order?                         @relation("OrderPortfolioVideos", fields: [sourceOrderId], references: [id], onDelete: SetNull)
   sectionVideos CreatorPortfolioSectionVideo[]
   /// The cached reel(s) pointing at this row, so deleting it un-dims the tile.
   igMediaItems  InstagramMediaItem[]
@@ -1013,6 +1027,10 @@ model CreatorPortfolioVideo {
   @@unique([creatorId, contentHash])
   /// One Instagram reel can only be imported into a portfolio once.
   @@unique([creatorId, igMediaId])
+  /// One auto-published collab tile per completed order — makes the accept hook
+  /// and the backfill idempotent under retries. NULLs do not collide, so upload
+  /// and Instagram rows are unaffected.
+  @@unique([creatorId, sourceOrderId])
   @@index([creatorId, visibilityStatus, createdAt])
   @@index([creatorId, createdAt])
   @@index([assetState])

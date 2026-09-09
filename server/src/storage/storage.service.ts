@@ -450,6 +450,38 @@ export class StorageService {
     return finalKey;
   }
 
+  /**
+   * Copy an accepted order-delivery object into the creator's portfolio prefix,
+   * returning the new key. Same-bucket server-side copy — a metadata operation,
+   * no bytes leave S3 — and the source is deliberately kept: the order still
+   * owns its object, the portfolio now owns an independent copy, so neither
+   * side's delete can touch the other.
+   *
+   * A fresh filename is minted rather than reusing the delivery's, so the copy
+   * sits under the portfolio's own namespace with no lingering tie to the order
+   * key.
+   */
+  async copyOrderAssetToPortfolio(input: {
+    sourceKey: string;
+    creatorProfileId: string;
+  }): Promise<string> {
+    const ext = input.sourceKey.split('.').pop()?.toLowerCase();
+    if (!ext || ext.includes('/')) {
+      throw new Error('Order delivery key has no file extension to copy');
+    }
+    const destKey = `creator-portfolio/${input.creatorProfileId}/videos/${randomUUID()}.${ext}`;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: destKey,
+        CopySource: `${this.bucket}/${input.sourceKey}`,
+      }),
+    );
+
+    return destKey;
+  }
+
   async finalizeBrandLogoKey(input: {
     tempKey: string;
     brandProfileId: string;

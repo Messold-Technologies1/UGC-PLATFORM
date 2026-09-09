@@ -413,6 +413,86 @@ describe('CreatorPortfolioService video lifecycle', () => {
       expect(prismaMock.creatorPortfolioVideo.delete).not.toHaveBeenCalled();
       expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
     });
+
+    it('refuses to delete a Brand Collab (source=ORDER) video', async () => {
+      prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+        id: videoId,
+        creatorId: creatorProfileId,
+        videoKey: oldVideoKey,
+        thumbnailKey: oldThumbKey,
+        source: 'ORDER',
+      });
+
+      await expect(
+        service.deleteVideo(creatorUserId, videoId),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prismaMock.creatorPortfolioVideo.delete).not.toHaveBeenCalled();
+      expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+      // The order-video guard runs before the floor check, so the count is
+      // never even consulted.
+      expect(prismaMock.creatorPortfolioVideo.count).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateVideo visibility', () => {
+    it('toggles a video to private without touching its file', async () => {
+      prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+        id: videoId,
+        creatorId: creatorProfileId,
+        videoKey: oldVideoKey,
+        thumbnailKey: oldThumbKey,
+        igMediaId: null,
+        source: 'UPLOAD',
+      });
+
+      const result = await service.updateVideo(creatorUserId, videoId, {
+        visibilityStatus: 'private',
+      } as never);
+
+      expect(txUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: videoId },
+          data: expect.objectContaining({ visibilityStatus: 'PRIVATE' }),
+        }),
+      );
+      // A visibility-only change never rewrites or deletes the object.
+      expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+      expect(result.visibilityStatus).toBe('private');
+    });
+
+    it('lets a Brand Collab video be made private', async () => {
+      prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+        id: videoId,
+        creatorId: creatorProfileId,
+        videoKey: oldVideoKey,
+        thumbnailKey: null,
+        igMediaId: null,
+        source: 'ORDER',
+      });
+
+      await expect(
+        service.updateVideo(creatorUserId, videoId, {
+          visibilityStatus: 'private',
+        } as never),
+      ).resolves.toMatchObject({ visibilityStatus: 'private' });
+    });
+
+    it('refuses to replace the file of a Brand Collab video', async () => {
+      prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
+        id: videoId,
+        creatorId: creatorProfileId,
+        videoKey: oldVideoKey,
+        thumbnailKey: null,
+        igMediaId: null,
+        source: 'ORDER',
+      });
+
+      await expect(
+        service.updateVideo(creatorUserId, videoId, {
+          videoKey: newVideoKey,
+        } as never),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
   });
 
   describe('updateVideo replace', () => {

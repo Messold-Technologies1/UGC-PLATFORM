@@ -307,8 +307,12 @@ export function addOnPriceError(
   option: CreatorAddOnOption,
   priceAmount: string,
 ): string | null {
-  const price = Number(priceAmount);
-  if (!/^\d+$/.test(priceAmount) || !Number.isInteger(price)) {
+  const trimmed = priceAmount.trim();
+  if (trimmed === "") {
+    return `Enter a price for ${option.name}.`;
+  }
+  const price = Number(trimmed);
+  if (!/^\d+$/.test(trimmed) || !Number.isInteger(price)) {
     return `${option.name} price must be a whole number.`;
   }
   if (option.fixedPrice != null) {
@@ -318,8 +322,14 @@ export function addOnPriceError(
   }
   const min = option.minPrice ?? 0;
   const step = option.stepPrice ?? 1;
-  if (price < min || price % step !== 0) {
-    return `${option.name} price must be >= ₹${min} and in steps of ₹${step}.`;
+  if (price < min) {
+    return `${option.name} price must be at least ₹${min}.`;
+  }
+  if (step > 1 && price % step !== 0) {
+    // Point at the two nearest valid values so the fix is obvious.
+    const below = Math.max(min, Math.floor(price / step) * step);
+    const above = below + step;
+    return `${option.name} price must be in steps of ₹${step} — try ₹${below} or ₹${above}.`;
   }
   return null;
 }

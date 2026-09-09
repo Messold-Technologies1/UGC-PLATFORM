@@ -33,7 +33,11 @@ import {
   Prisma,
   PrismaClient,
 } from '@prisma/client';
-import { CopyObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 
 const prisma = new PrismaClient();
 const LOG_PREFIX = '[backfill-order-videos-to-portfolio]';
@@ -100,7 +104,18 @@ interface Totals {
   wouldCreate: number;
   skippedNoDelivery: number;
   skippedNoVideo: number;
+  skippedSourceGone: number;
   errors: number;
+}
+
+/**
+ * True when an S3 error means the source object is simply not there — an old or
+ * refunded order whose delivery objects were already reclaimed. Distinguished
+ * from a credentials/network error, which must still surface as a real failure.
+ */
+function isSourceMissing(err: unknown): boolean {
+  const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return e?.name === 'NoSuchKey' || e?.$metadata?.httpStatusCode === 404;
 }
 
 async function processOrder(
@@ -139,14 +154,9 @@ async function processOrder(
     return;
   }
 
-  if (!ctx.apply) {
-    totals.wouldCreate++;
-    console.log(
-      `${LOG_PREFIX} would publish order ${order.id} (creator ${order.creatorId}) from ${sourceKey}`,
-    );
-    return;
-  }
-
+  // Derive the extension before the dry-run branch, so the dry-run preview
+  // accounts for an unusable key exactly as the apply run would (rather than
+  // reporting it as "would create" and then skipping it on apply).
   const ext = sourceKey.split('.').pop()?.toLowerCase();
   if (!ext || ext.includes('/')) {
     totals.skippedNoVideo++;
@@ -155,15 +165,38 @@ async function processOrder(
     );
     return;
   }
+
+  if (!ctx.apply) {
+    totals.wouldCreate++;
+    console.log(
+      `${LOG_PREFIX} would publish order ${order.id} (creator ${order.creatorId}) from ${sourceKey}`,
+    );
+    return;
+  }
+
   const destKey = `creator-portfolio/${order.creatorId}/videos/${randomUUID()}.${ext}`;
 
-  await ctx.s3.send(
-    new CopyObjectCommand({
-      Bucket: ctx.bucket,
-      Key: destKey,
-      CopySource: `${ctx.bucket}/${sourceKey}`,
-    }),
-  );
+  try {
+    await ctx.s3.send(
+      new CopyObjectCommand({
+        Bucket: ctx.bucket,
+        Key: destKey,
+        CopySource: `${ctx.bucket}/${sourceKey}`,
+      }),
+    );
+  } catch (err) {
+    // A source object that no longer exists (old/refunded order that was
+    // cleaned up) is an expected skip, not a failure. Anything else — bad
+    // credentials, a network error — must still surface.
+    if (isSourceMissing(err)) {
+      totals.skippedSourceGone++;
+      console.warn(
+        `${LOG_PREFIX} order ${order.id}: source object gone (${sourceKey}) — skipping`,
+      );
+      return;
+    }
+    throw err;
+  }
 
   try {
     await prisma.creatorPortfolioVideo.create({
@@ -181,11 +214,15 @@ async function processOrder(
     totals.created++;
   } catch (err) {
     // The live accept hook may have won the race between our findUnique and
-    // create. That is a success, not a failure — the tile exists.
+    // create. The tile exists (success), and the object we just copied is now
+    // unreferenced — best-effort delete it rather than leave an orphan.
     if (
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === 'P2002'
     ) {
+      await ctx.s3
+        .send(new DeleteObjectCommand({ Bucket: ctx.bucket, Key: destKey }))
+        .catch(() => undefined);
       totals.alreadySynced++;
       return;
     }
@@ -222,6 +259,7 @@ async function main(): Promise<void> {
     wouldCreate: 0,
     skippedNoDelivery: 0,
     skippedNoVideo: 0,
+    skippedSourceGone: 0,
     errors: 0,
   };
 
@@ -255,7 +293,7 @@ async function main(): Promise<void> {
     `${LOG_PREFIX} done — scanned=${totals.scanned} alreadySynced=${totals.alreadySynced} ` +
       `${apply ? `created=${totals.created}` : `wouldCreate=${totals.wouldCreate}`} ` +
       `skippedNoDelivery=${totals.skippedNoDelivery} skippedNoVideo=${totals.skippedNoVideo} ` +
-      `errors=${totals.errors}`,
+      `skippedSourceGone=${totals.skippedSourceGone} errors=${totals.errors}`,
   );
   if (apply && totals.created > 0) {
     console.log(

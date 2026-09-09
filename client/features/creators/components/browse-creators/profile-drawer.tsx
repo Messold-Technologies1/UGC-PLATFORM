@@ -25,6 +25,7 @@ import {
   User,
   ExternalLink,
   Briefcase,
+  Handshake,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -557,6 +558,22 @@ const PortfolioTab = React.memo(function PortfolioTab({
               poster={video.thumbnailUrl ?? undefined}
               onError={() => onVideoError(video.id)}
             />
+            {video.brandCollab && (
+              <span
+                className="collab-badge"
+                style={{ pointerEvents: "none" }}
+                title={
+                  video.brandName
+                    ? `Brand Collab · ${video.brandName}`
+                    : "Brand Collab"
+                }
+              >
+                <Handshake aria-hidden size={11} strokeWidth={2.5} />
+                {video.brandName
+                  ? `Brand Collab · ${video.brandName}`
+                  : "Brand Collab"}
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -815,6 +832,8 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
         label: "UGC",
         videoUrl: video.videoUrl,
         thumbnailUrl: video.thumbnailUrl,
+        brandCollab: video.brandCollab ?? false,
+        brandName: video.brandName ?? null,
       })),
     [portfolioVideos],
   );
@@ -947,6 +966,20 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                       <ReelPoster poster={tile.thumbnailUrl || undefined} />
                     )}
                     <div className="tscrim" style={{ pointerEvents: "none" }} />
+                    {tile.brandCollab && (
+                      <span
+                        className="tbadge collab"
+                        style={{ pointerEvents: "none" }}
+                        title={
+                          tile.brandName
+                            ? `Brand Collab · ${tile.brandName}`
+                            : "Brand Collab"
+                        }
+                      >
+                        <Handshake aria-hidden size={11} strokeWidth={2.5} />
+                        Brand Collab
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

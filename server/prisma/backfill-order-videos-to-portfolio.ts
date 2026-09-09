@@ -27,6 +27,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  OrderStatus,
   PortfolioVideoAssetState,
   PortfolioVideoSource,
   PortfolioVisibilityStatus,
@@ -263,11 +264,17 @@ async function main(): Promise<void> {
     errors: 0,
   };
 
-  // Page by createdAt cursor over accepted orders only.
+  // Page by id cursor over completed orders only.
   let cursor: string | undefined;
   for (;;) {
     const orders = await prisma.order.findMany({
-      where: { acceptedAt: { not: null } },
+      // The "Completed" set the admin order list uses: a standing acceptance.
+      // Excludes orders accepted then refunded/rejected (their acceptedAt stays
+      // set, but they belong under "Cancelled"), matching the live behaviour
+      // where such an order's tile is removed on refund.
+      where: {
+        status: { in: [OrderStatus.ACCEPTED, OrderStatus.CREATOR_PAYMENT_DONE] },
+      },
       orderBy: { id: 'asc' },
       take: PAGE_SIZE,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),

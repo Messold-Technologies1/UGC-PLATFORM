@@ -3892,6 +3892,13 @@ export class OrdersService {
     });
 
     this.orderMail.notifyOrderRejected(order.id, params.resolutionNotes);
+
+    // Acceptance is reversed: pull the Brand Collab tile (if the order had been
+    // accepted before the dispute) so refunded work is not showcased publicly.
+    void this.orderPortfolioSync
+      .removeForOrder(order.id)
+      .catch(() => undefined);
+
     void this.orderRealtime
       .emitOrderDisputeResolved({
         orderId: order.id,
@@ -3942,6 +3949,12 @@ export class OrdersService {
       kind: 'refund_processed',
       audience: 'brand_and_creator',
     });
+
+    // Defensive: the tile is normally already gone from the REJECTED step, but
+    // removeForOrder is idempotent, so cover the refund transition too.
+    void this.orderPortfolioSync
+      .removeForOrder(order.id)
+      .catch(() => undefined);
 
     this.orderMail.notifyOrderRefunded(order.id, refundedAt);
 

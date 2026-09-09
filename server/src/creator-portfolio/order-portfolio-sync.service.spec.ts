@@ -26,7 +26,11 @@ describe('OrderPortfolioSyncService', () => {
     prismaMock = {
       order: { findUnique: jest.fn() },
       orderDelivery: { findFirst: jest.fn() },
-      creatorPortfolioVideo: { findUnique: jest.fn() },
+      creatorPortfolioVideo: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        delete: jest.fn().mockResolvedValue({}),
+      },
       $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
         fn({ creatorPortfolioVideo: { create: txCreate } }),
       ),
@@ -44,6 +48,7 @@ describe('OrderPortfolioSyncService', () => {
     id: orderId,
     creatorId,
     acceptedAt: new Date(),
+    status: 'ACCEPTED',
   });
   const deliveryWith = (rev: number, key: string) => ({
     id: `${deliveryId}-r${rev}`,
@@ -61,6 +66,38 @@ describe('OrderPortfolioSyncService', () => {
 
     expect(res.status).toBe('skipped');
     expect(storageMock.copyOrderAssetToPortfolio).not.toHaveBeenCalled();
+  });
+
+  it('skips an order that was accepted then refunded', async () => {
+    // acceptedAt stays set through a refund, so status is what excludes it.
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: orderId,
+      creatorId,
+      acceptedAt: new Date(),
+      status: 'REFUNDED',
+    });
+
+    const res = await service.syncAcceptedOrder(orderId);
+
+    expect(res.status).toBe('skipped');
+    expect(storageMock.copyOrderAssetToPortfolio).not.toHaveBeenCalled();
+  });
+
+  it('publishes for a paid-out (CREATOR_PAYMENT_DONE) order', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: orderId,
+      creatorId,
+      acceptedAt: new Date(),
+      status: 'CREATOR_PAYMENT_DONE',
+    });
+    prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue(null);
+    prismaMock.orderDelivery.findFirst.mockResolvedValue(
+      deliveryWith(0, sourceKey),
+    );
+
+    const res = await service.syncAcceptedOrder(orderId);
+
+    expect(res.status).toBe('created');
   });
 
   it('is idempotent when a tile already exists', async () => {
@@ -188,5 +225,51 @@ describe('OrderPortfolioSyncService', () => {
     expect(res.status).toBe('error');
     // Copy failed before any DB write, so nothing was created.
     expect(txCreate).not.toHaveBeenCalled();
+  });
+
+  describe('removeForOrder', () => {
+    it('deletes the tile and its objects when one exists', async () => {
+      prismaMock.creatorPortfolioVideo.findFirst.mockResolvedValue({
+        id: 'tile-1',
+        creatorId,
+        videoKey: 'creator-portfolio/c/videos/x.mp4',
+        thumbnailKey: 'creator-portfolio/c/thumbnails/x.jpg',
+      });
+
+      await service.removeForOrder(orderId);
+
+      expect(prismaMock.creatorPortfolioVideo.delete).toHaveBeenCalledWith({
+        where: { id: 'tile-1' },
+      });
+      expect(storageMock.deleteObjectIfExists).toHaveBeenCalledWith(
+        'creator-portfolio/c/videos/x.mp4',
+      );
+      expect(storageMock.deleteObjectIfExists).toHaveBeenCalledWith(
+        'creator-portfolio/c/thumbnails/x.jpg',
+      );
+    });
+
+    it('is a no-op when the order never had a tile', async () => {
+      prismaMock.creatorPortfolioVideo.findFirst.mockResolvedValue(null);
+
+      await service.removeForOrder(orderId);
+
+      expect(prismaMock.creatorPortfolioVideo.delete).not.toHaveBeenCalled();
+      expect(storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
+    });
+
+    it('never throws when the delete fails', async () => {
+      prismaMock.creatorPortfolioVideo.findFirst.mockResolvedValue({
+        id: 'tile-1',
+        creatorId,
+        videoKey: 'k',
+        thumbnailKey: null,
+      });
+      prismaMock.creatorPortfolioVideo.delete.mockRejectedValue(
+        new Error('db down'),
+      );
+
+      await expect(service.removeForOrder(orderId)).resolves.toBeUndefined();
+    });
   });
 });

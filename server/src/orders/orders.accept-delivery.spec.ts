@@ -100,3 +100,54 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+/**
+ * Reversing an acceptance (admin reject of a disputed order) must pull the
+ * Brand Collab tile, so refunded work is not showcased publicly.
+ */
+describe('OrdersService.adminRejectOrder → removes collab tile', () => {
+  it('calls removeForOrder for the rejected order', async () => {
+    const txClient = {
+      orderDispute: { updateMany: jest.fn().mockResolvedValue({}) },
+      order: {
+        findUnique: jest.fn().mockResolvedValue({ lastChatMessageId: null }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+    const prisma = {
+      order: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'order-9', status: 'DISPUTED' }),
+      },
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn(txClient),
+      ),
+    };
+    const orderMail = { notifyOrderRejected: jest.fn() };
+    const orderRealtime = {
+      emitOrderDisputeResolved: jest.fn().mockResolvedValue(undefined),
+    };
+    const orderPortfolioSync = {
+      removeForOrder: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new OrdersService(
+      prisma as never,
+      {} as never,
+      orderRealtime as never,
+      orderMail as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      orderPortfolioSync as never,
+    );
+
+    await service.adminRejectOrder({
+      orderId: 'order-9',
+      adminUserId: 'admin-1',
+    });
+
+    expect(orderPortfolioSync.removeForOrder).toHaveBeenCalledWith('order-9');
+  });
+});

@@ -98,8 +98,6 @@ export type CreatorProfileWizardProps = {
   onExit?: () => void;
 };
 
-const NICHE_DIMENSIONS = new Set(["CONTENT_CATEGORY"]);
-
 /** Steps to drop once the profile is already listed (live & approved). */
 const LISTED_HIDDEN_STEPS = new Set<WizardStepId>(["review", "go-live"]);
 
@@ -607,46 +605,6 @@ export function CreatorProfileWizard({
     facetCount("APPEARANCE") > 0 &&
     !identityHasBlankOther;
 
-  const strength = useMemo(() => {
-    const hasNiche = Object.entries(facets.selectedFacets).some(
-      ([dim, vals]) => NICHE_DIMENSIONS.has(dim) && (vals?.length ?? 0) > 0,
-    );
-    return computeProfileStrength({
-      hasPhoto: Boolean(profileImage.profileImagePreviewUrl),
-      hasName: displayName.trim().length > 0,
-      hasDob: Boolean(dateOfBirth),
-      hasGender: Boolean(gender),
-      hasCity: location.city.trim().length > 0,
-      hasLanguage: selectedLanguageCount > 0,
-      hasBio: bio.trim().length >= BIO_MIN_CHARS,
-      hasNiche,
-      hasPackage: Boolean(
-        validatePackagePrice(packages.packageDraft.priceAmount) === undefined,
-      ),
-      hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
-      hasInstagram: instagramConnected,
-      portfolioCount: (portfolioQuery.data ?? []).length,
-    },
-    // Before listing the intro video is not required, so it does not count
-    // toward Profile Strength (an otherwise-complete profile reads 100%). Once
-    // listed it counts, so a listed profile without one reads 96%.
-    { includeIntroVideo: initialProfile.isListed });
-  }, [
-    facets.selectedFacets,
-    profileImage.profileImagePreviewUrl,
-    displayName,
-    dateOfBirth,
-    gender,
-    location.city,
-    selectedLanguageCount,
-    bio,
-    packages.packageDraft.priceAmount,
-    introVideo.introVideoPreviewUrl,
-    instagramConnected,
-    portfolioQuery.data,
-    initialProfile.isListed,
-  ]);
-
   const goLiveSnapshot = useMemo<GoLiveSnapshot>(() => {
     const selectedFacetDimensions = Object.entries(facets.selectedFacets)
       .filter(([, values]) => Array.isArray(values) && values.length > 0)
@@ -706,6 +664,20 @@ export function CreatorProfileWizard({
   const goLiveMissing = useMemo(
     () => computeGoLiveMissing(goLiveSnapshot),
     [goLiveSnapshot],
+  );
+
+  // Profile Strength is derived from the same go-live snapshot as the checklist,
+  // so a pre-listing profile reads 100% only when there are zero go-live items
+  // left. The intro video is the one item beyond go-live: it counts toward the
+  // final few percent once the creator is listed (a listed profile without one
+  // reads 96%), and is excluded before listing.
+  const strength = useMemo(
+    () =>
+      computeProfileStrength(goLiveSnapshot, {
+        includeIntroVideo: initialProfile.isListed,
+        hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
+      }),
+    [goLiveSnapshot, initialProfile.isListed, introVideo.introVideoPreviewUrl],
   );
 
   // Whether a step's requirements are already met by the current data. Drives

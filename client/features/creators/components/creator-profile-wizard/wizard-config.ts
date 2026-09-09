@@ -8,6 +8,12 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
+import {
+  MIN_PORTFOLIO_VIDEOS,
+  REQUIRED_FACET_DIMENSIONS,
+  REQUIRED_SECONDARY_NICHES,
+  type GoLiveSnapshot,
+} from "@/features/creators/lib/go-live-requirements";
 
 export type WizardStepId =
   | "about"
@@ -153,97 +159,133 @@ export const BIO_MIN_CHARS = 100;
 export const BIO_MAX_CHARS = 500;
 
 /**
- * Signals that feed the Profile Strength meter. Each maps to a weight; the
- * total across every signal is 100.
+ * The Profile Strength meter is derived from the SAME `GoLiveSnapshot` the
+ * go-live checklist uses (`computeGoLiveMissing`), so the two can never drift:
+ * a pre-listing profile reads 100% if and only if every go-live requirement is
+ * met. The optional intro video is the one item beyond go-live — it counts only
+ * once a creator is listed, as the final few percent (see `includeIntroVideo`).
+ *
+ * Every go-live requirement carries a weight; the requirement weights sum to 96
+ * and the intro video is the remaining 4. Pre-listing the intro video is
+ * excluded and the reachable max (96) is rescaled to 100.
  */
-export type StrengthSignals = {
-  hasPhoto: boolean;
-  hasName: boolean;
-  hasDob: boolean;
-  hasGender: boolean;
-  hasCity: boolean;
-  hasLanguage: boolean;
-  hasBio: boolean;
-  hasNiche: boolean;
-  hasPackage: boolean;
-  hasIntroVideo: boolean;
-  /** Whether an Instagram account is connected. */
-  hasInstagram: boolean;
-  /** Number of portfolio videos; 3+ earns the full portfolio weight. */
-  portfolioCount: number;
-};
-
-// Weights sum to 100 so a fully-complete profile reads 100%.
 const STRENGTH_WEIGHTS = {
-  photo: 11,
-  name: 7,
-  dob: 5,
-  gender: 5,
-  city: 7,
-  language: 7,
-  bio: 11,
-  niche: 12,
-  package: 11,
-  introVideo: 4,
+  // Identity & trust
+  photo: 8,
+  name: 4,
+  bio: 8,
+  dob: 2,
+  gender: 2,
+  email: 3,
+  // Location & logistics
+  country: 2,
+  state: 2,
+  city: 3,
+  shippingAddress: 3,
+  // Niche & categories (the "Identity" step)
+  primaryNiche: 6,
+  secondaryNiches: 6,
+  creatorType: 3,
+  occupation: 3,
+  appearance: 3,
+  language: 4,
+  // Offer
+  package: 6,
+  packageDefaults: 2,
+  mandatoryAddOns: 2,
+  // Proof & reach
   portfolio: 12,
-  instagram: 8,
+  instagram: 6,
+  // Policies
+  policies: 6,
+  // Beyond go-live (listed creators only)
+  introVideo: 4,
 } as const;
 
-const PORTFOLIO_TARGET = 3;
+/** Sum of every requirement weight excluding the post-listing intro video. */
+const GO_LIVE_WEIGHT_TOTAL = 100 - STRENGTH_WEIGHTS.introVideo; // 96
+
+function isBlank(value: string | null | undefined): boolean {
+  return !value || value.trim().length === 0;
+}
 
 /**
- * Turns completeness signals into a 0–100 Profile Strength percentage plus a
+ * Turns a go-live snapshot into a 0–100 Profile Strength percentage plus a
  * short, actionable hint pointing at the highest-impact thing still missing.
  *
- * The intro video is optional before a creator is listed, so it is excluded
- * from the meter entirely until then (pass `includeIntroVideo: false`): a
- * profile that meets every go-live requirement reads 100% without one. Once the
- * creator is listed, the intro video counts toward the final 4%, so a listed
- * profile without an intro video reads 96%.
+ * `includeIntroVideo` (true once the creator is listed) folds the optional
+ * intro video into the final 4%; before listing it is excluded and the score is
+ * rescaled so an otherwise go-live-ready profile reads 100%, not 96%.
  */
 export function computeProfileStrength(
-  signals: StrengthSignals,
-  options: { includeIntroVideo?: boolean } = {},
+  snapshot: GoLiveSnapshot,
+  options: { includeIntroVideo?: boolean; hasIntroVideo?: boolean } = {},
 ): {
   pct: number;
   hint: string;
 } {
   const includeIntroVideo = options.includeIntroVideo ?? true;
+  const facets = new Set(snapshot.selectedFacetDimensions);
 
   let score = 0;
-  if (signals.hasPhoto) score += STRENGTH_WEIGHTS.photo;
-  if (signals.hasName) score += STRENGTH_WEIGHTS.name;
-  if (signals.hasDob) score += STRENGTH_WEIGHTS.dob;
-  if (signals.hasGender) score += STRENGTH_WEIGHTS.gender;
-  if (signals.hasCity) score += STRENGTH_WEIGHTS.city;
-  if (signals.hasLanguage) score += STRENGTH_WEIGHTS.language;
-  if (signals.hasBio) score += STRENGTH_WEIGHTS.bio;
-  if (signals.hasNiche) score += STRENGTH_WEIGHTS.niche;
-  if (signals.hasPackage) score += STRENGTH_WEIGHTS.package;
-  if (includeIntroVideo && signals.hasIntroVideo)
-    score += STRENGTH_WEIGHTS.introVideo;
-  if (signals.hasInstagram) score += STRENGTH_WEIGHTS.instagram;
+  if (snapshot.hasPhoto) score += STRENGTH_WEIGHTS.photo;
+  if (!isBlank(snapshot.displayName)) score += STRENGTH_WEIGHTS.name;
+  if (!isBlank(snapshot.bio)) score += STRENGTH_WEIGHTS.bio;
+  if (!isBlank(snapshot.dateOfBirth)) score += STRENGTH_WEIGHTS.dob;
+  if (!isBlank(snapshot.gender)) score += STRENGTH_WEIGHTS.gender;
+  if (!isBlank(snapshot.contactEmail)) score += STRENGTH_WEIGHTS.email;
+  if (!isBlank(snapshot.countryName)) score += STRENGTH_WEIGHTS.country;
+  if (!isBlank(snapshot.stateName)) score += STRENGTH_WEIGHTS.state;
+  if (!isBlank(snapshot.city)) score += STRENGTH_WEIGHTS.city;
+  if (!isBlank(snapshot.shippingAddress))
+    score += STRENGTH_WEIGHTS.shippingAddress;
+  if (snapshot.nichePrimaryCount >= 1) score += STRENGTH_WEIGHTS.primaryNiche;
+  if (snapshot.nicheSecondaryCount >= REQUIRED_SECONDARY_NICHES)
+    score += STRENGTH_WEIGHTS.secondaryNiches;
+  if (facets.has("CREATOR_TYPE")) score += STRENGTH_WEIGHTS.creatorType;
+  if (facets.has("OCCUPATION")) score += STRENGTH_WEIGHTS.occupation;
+  if (facets.has("APPEARANCE")) score += STRENGTH_WEIGHTS.appearance;
+  if (snapshot.languageCount >= 1) score += STRENGTH_WEIGHTS.language;
+  if (snapshot.hasPackage) score += STRENGTH_WEIGHTS.package;
+  if (snapshot.packageDefaultsConfirmed)
+    score += STRENGTH_WEIGHTS.packageDefaults;
+  if (snapshot.mandatoryAddOnsPriced) score += STRENGTH_WEIGHTS.mandatoryAddOns;
   score +=
-    Math.min(signals.portfolioCount / PORTFOLIO_TARGET, 1) *
+    Math.min(snapshot.publicVideoCount / MIN_PORTFOLIO_VIDEOS, 1) *
     STRENGTH_WEIGHTS.portfolio;
+  if (snapshot.instagramConnected) score += STRENGTH_WEIGHTS.instagram;
+  if (snapshot.policiesAccepted) score += STRENGTH_WEIGHTS.policies;
+  if (includeIntroVideo && options.hasIntroVideo)
+    score += STRENGTH_WEIGHTS.introVideo;
 
-  // Weights sum to 100. When the intro video is excluded, the reachable maximum
-  // is 96, so rescale to 100 — an otherwise-complete pre-listing profile reads
-  // 100% rather than being capped at 96%.
-  const maxScore = includeIntroVideo ? 100 : 100 - STRENGTH_WEIGHTS.introVideo;
+  // Pre-listing the reachable max is GO_LIVE_WEIGHT_TOTAL (96); rescale to 100
+  // so a go-live-ready profile reads 100% rather than being capped at 96%.
+  const maxScore = includeIntroVideo ? 100 : GO_LIVE_WEIGHT_TOTAL;
   const pct = Math.max(0, Math.min(100, Math.round((score / maxScore) * 100)));
 
   // Ordered by impact — the last matching line wins (highest priority).
+  const missingFacet = REQUIRED_FACET_DIMENSIONS.some((d) => !facets.has(d));
   let hint = "Your profile is looking strong. Keep it fresh to stay on top.";
-  if (signals.portfolioCount < PORTFOLIO_TARGET)
+  if (snapshot.publicVideoCount < MIN_PORTFOLIO_VIDEOS)
     hint = "Add portfolio videos to appear in more searches.";
-  if (!signals.hasInstagram)
+  if (!snapshot.policiesAccepted)
+    hint = "Accept the go-live policies to publish your profile.";
+  if (
+    snapshot.nicheSecondaryCount < REQUIRED_SECONDARY_NICHES ||
+    snapshot.nichePrimaryCount < 1 ||
+    missingFacet
+  )
+    hint = "Finish your Identity step — niches and categories.";
+  if (!snapshot.instagramConnected)
     hint = "Connect Instagram so brands can verify your reach.";
-  if (!signals.hasNiche)
-    hint = "Pick your niche so the right briefs find you.";
-  if (!signals.hasBio) hint = "Add a short bio brands can connect with.";
-  if (!signals.hasPhoto) hint = "Add a profile photo to build instant trust.";
-  if (!signals.hasName) hint = "Start with your name so brands know you.";
+  if (!snapshot.hasPackage)
+    hint = "Set up a package so brands can book you.";
+  if (isBlank(snapshot.bio))
+    hint = "Add a short bio brands can connect with.";
+  if (!snapshot.hasPhoto)
+    hint = "Add a profile photo to build instant trust.";
+  if (isBlank(snapshot.displayName))
+    hint = "Start with your name so brands know you.";
 
   return { pct, hint };
 }

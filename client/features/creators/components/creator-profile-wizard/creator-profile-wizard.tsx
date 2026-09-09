@@ -142,10 +142,20 @@ export function CreatorProfileWizard({
     Boolean(initialProfile.completeProfile),
   );
 
+  // A profile that was submitted before (Go-Live policies accepted) but is now
+  // Building — i.e. it was withdrawn for editing. It behaves like a live profile
+  // (free editor, "Save changes" per step) and resubmits from the Review step,
+  // rather than walking the first-time onboarding funnel again.
+  const withdrawnEditing =
+    Boolean(initialProfile.acceptedGoLivePolicies) &&
+    !initialProfile.completeProfile &&
+    !initialProfile.isListed;
+
   // An already-live (or admin-edited) profile behaves like a free editor:
   // every step is reachable from the rail, filled steps show as done, and each
   // step is saved on its own instead of walking the onboarding funnel.
-  const canEditFreely = adminMode || Boolean(initialProfile.completeProfile);
+  const canEditFreely =
+    adminMode || Boolean(initialProfile.completeProfile) || withdrawnEditing;
   // Tracks unsaved edits on the current step so we can warn before navigating.
   const [dirty, setDirty] = useState(false);
   const markDirty = useCallback(() => setDirty(true), []);
@@ -390,6 +400,10 @@ export function CreatorProfileWizard({
     Boolean(initialProfile.completeProfile) &&
     (initialProfile.approvalStatus === "SELF_COMPLETED" ||
       initialProfile.approvalStatus === "PENDING");
+
+  // While awaiting review every field is read-only — the profile is locked until
+  // the creator explicitly Withdraws. `pending` also disables during a save.
+  const fieldsDisabled = pending || awaitingReview;
 
   const withdrawMutation = useWithdrawCreatorProfileMutation({
     profileId,
@@ -1587,6 +1601,27 @@ export function CreatorProfileWizard({
             </div>
           ) : null}
 
+          {withdrawnEditing ? (
+            <div className="cw-review-banner" role="status">
+              <div className="cw-review-banner-copy">
+                <RotateCcw
+                  size={18}
+                  aria-hidden
+                  className="cw-review-banner-icon"
+                />
+                <div>
+                  <p className="cw-review-banner-title">
+                    You&apos;ve reopened your profile for editing.
+                  </p>
+                  <p className="cw-review-banner-text">
+                    Save each step you change, then Submit for review again on
+                    the last step.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <AnimatePresence mode="wait">
             <motion.div
               key={activeStep.id}
@@ -1598,7 +1633,7 @@ export function CreatorProfileWizard({
             >
               {activeStep.id === "about" ? (
                 <AboutYouStep
-                  disabled={pending}
+                  disabled={fieldsDisabled}
                   profileId={profileId}
                   adminMode={adminMode}
                   phone={phone}
@@ -1621,7 +1656,7 @@ export function CreatorProfileWizard({
                 />
               ) : activeStep.id === "base" ? (
                 <YourBaseStep
-                  disabled={pending}
+                  disabled={fieldsDisabled}
                   adminMode={adminMode}
                   countryCode={location.countryCode}
                   countries={location.countries}
@@ -1657,7 +1692,7 @@ export function CreatorProfileWizard({
                 />
               ) : activeStep.id === "identity" ? (
                 <IdentityStep
-                  disabled={pending}
+                  disabled={fieldsDisabled}
                   optionsByDimension={facets.facetOptionsByDimension}
                   selectedFacets={facets.selectedFacets}
                   onSelectSingleFacet={(dimension, slug) => {
@@ -1699,7 +1734,7 @@ export function CreatorProfileWizard({
                 />
               ) : activeStep.id === "intro-video" ? (
                 <IntroVideoStep
-                  disabled={pending}
+                  disabled={fieldsDisabled}
                   videoPreviewUrl={introVideo.introVideoPreviewUrl}
                   uploading={introVideo.uploadingIntroVideo}
                   fileInputRef={introVideo.introVideoInputRef}
@@ -1716,14 +1751,21 @@ export function CreatorProfileWizard({
                   error={portfolioQuery.isError}
                   onRetry={() => void portfolioQuery.refetch()}
                   videos={portfolioQuery.data ?? []}
-                  onAdd={() => setPfSourceOpen(true)}
-                  onReplace={(video) => openPortfolioDrawer(video)}
-                  onDelete={(video) =>
+                  onAdd={() => {
+                    if (awaitingReview) return;
+                    setPfSourceOpen(true);
+                  }}
+                  onReplace={(video) => {
+                    if (awaitingReview) return;
+                    openPortfolioDrawer(video);
+                  }}
+                  onDelete={(video) => {
+                    if (awaitingReview) return;
                     deletePortfolioMutation.mutate({
                       videoId: video.id,
                       ...(adminMode ? { adminCreatorId: profileId } : {}),
-                    })
-                  }
+                    });
+                  }}
                   onRetryFailed={(videoIds) =>
                     retryMirrorMutation.mutate(videoIds)
                   }
@@ -1731,10 +1773,12 @@ export function CreatorProfileWizard({
                   // Admins cannot connect for a creator, so no offer there.
                   instagramConnected={adminMode ? true : instagramConnected}
                   onConnectInstagram={
-                    adminMode ? undefined : () => void startInstagramConnect()
+                    adminMode || awaitingReview
+                      ? undefined
+                      : () => void startInstagramConnect()
                   }
                   connectingInstagram={connectingInstagram}
-                  disabled={pending}
+                  disabled={fieldsDisabled}
                   bio={bio}
                   onBioChange={(v) => {
                     setBio(v.slice(0, BIO_MAX_CHARS));
@@ -1751,7 +1795,7 @@ export function CreatorProfileWizard({
                 />
               ) : activeStep.id === "pricing" ? (
                 <PricingStep
-                  disabled={pending}
+                  disabled={fieldsDisabled}
                   packageDraft={packages.packageDraft}
                   onPackageChange={onPackageChange}
                   packageErrors={{

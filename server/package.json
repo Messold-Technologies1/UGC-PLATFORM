@@ -38,6 +38,7 @@
     "prisma:backfill:seed-media-s3": "ts-node prisma/backfill-seed-portfolio-videos-to-s3.ts",
     "prisma:backfill:seed-portfolio-s3": "npm run prisma:backfill:seed-media-s3",
     "prisma:reclaim:orphan-portfolio-objects": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/reclaim-orphan-portfolio-objects.ts",
+    "prisma:backfill:order-portfolio-videos": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-order-videos-to-portfolio.ts",
     "data:gen:aliases": "ts-node prisma/scripts/generate-india-location-aliases.ts"
   },
   "prisma": {

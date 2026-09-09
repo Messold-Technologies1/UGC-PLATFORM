@@ -4,8 +4,20 @@ export type PortfolioVideoApi = {
   videoUrl: string;
   thumbnailUrl?: string | null;
   visibilityStatus: "public" | "private";
-  /** UPLOAD, or INSTAGRAM for an imported reel. */
-  source?: "UPLOAD" | "INSTAGRAM";
+  /** UPLOAD, INSTAGRAM for an imported reel, or ORDER for a Brand Collab. */
+  source?: "UPLOAD" | "INSTAGRAM" | "ORDER";
+  /**
+   * True for a Brand Collab tile auto-published from a completed order. Render
+   * the "Brand Collab" badge and hide the delete control (see `deletable`).
+   */
+  brandCollab?: boolean;
+  /** Brand this collab was for, for the "Brand Collab · {brand}" badge. */
+  brandName?: string | null;
+  /**
+   * False for Brand Collab videos, which cannot be deleted (only hidden via the
+   * visibility toggle). Hide the delete control when this is false.
+   */
+  deletable?: boolean;
   /**
    * Whether the bytes are servable. PROCESSING means an import's mirror is
    * still running and there is no videoUrl yet; FAILED means it gave up and the

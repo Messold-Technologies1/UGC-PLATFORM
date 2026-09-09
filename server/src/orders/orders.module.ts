@@ -9,6 +9,7 @@ import { StorageModule } from '../storage/storage.module';
 import { OrderChatModule } from '../order-chat/order-chat.module';
 import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
 import { JobsModule } from '../jobs/jobs.module';
+import { CreatorPortfolioModule } from '../creator-portfolio/creator-portfolio.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { JobsModule } from '../jobs/jobs.module';
     OrderChatModule,
     CreatorReviewsModule,
     JobsModule,
+    CreatorPortfolioModule,
   ],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],

@@ -1,8 +1,20 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { PortfolioActingCreatorDto } from './portfolio-acting-creator.dto';
 
 export class UpdatePortfolioVideoDto extends PortfolioActingCreatorDto {
+  @ApiPropertyOptional({
+    enum: ['public', 'private'],
+    description:
+      'Change who can see this video. "private" hides it from the public ' +
+      'profile and search but keeps it visible in the creator\'s own account. ' +
+      'Works for every video, including Brand Collab videos (which cannot be ' +
+      'deleted — private is the only way to hide them).',
+  })
+  @IsOptional()
+  @IsIn(['public', 'private'])
+  visibilityStatus?: 'public' | 'private';
+
   @ApiPropertyOptional({
     example: 'creator-portfolio/<creatorId>/videos/<uuid>.mp4',
     description:

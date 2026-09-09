@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Instagram,
+  Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
@@ -1209,6 +1210,17 @@ function PortfolioTile({
         <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           <Play className="size-2.5 fill-white" strokeWidth={0} />
           {duration}
+        </span>
+      )}
+
+      {/* Brand Collab badge — real work delivered for a brand, so it carries
+          weight on the public profile. Top-right, clear of the duration badge. */}
+      {video.brandCollab && (
+        <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+          <Handshake className="size-2.5 shrink-0" strokeWidth={2.5} />
+          <span className="truncate">
+            {video.brandName ? `Collab · ${video.brandName}` : "Brand Collab"}
+          </span>
         </span>
       )}
 

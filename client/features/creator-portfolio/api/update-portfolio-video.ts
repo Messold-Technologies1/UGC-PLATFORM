@@ -18,6 +18,13 @@ export type UpdatePortfolioVideoPayload = {
    * (e.g. over the hashing size cap) — the server then clears the stored hash.
    */
   contentHash?: string;
+  /**
+   * Change who can see this video. "private" hides it from the public profile
+   * and search but keeps it in the creator's own account. Works for every
+   * video, including Brand Collab videos (which can't be deleted — private is
+   * the only way to hide them).
+   */
+  visibilityStatus?: "public" | "private";
 };
 
 export async function updatePortfolioVideo(

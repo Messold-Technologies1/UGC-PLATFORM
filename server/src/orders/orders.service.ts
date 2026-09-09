@@ -58,6 +58,7 @@ import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
 import { WatermarkQueueService } from '../jobs/watermark-queue.service';
+import { OrderPortfolioSyncService } from '../creator-portfolio/order-portfolio-sync.service';
 import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
 
 /**
@@ -387,6 +388,7 @@ export class OrdersService {
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
     private readonly watermarkQueue: WatermarkQueueService,
+    private readonly orderPortfolioSync: OrderPortfolioSyncService,
   ) {}
 
   private async resolveBrandActor(params: {
@@ -3573,6 +3575,14 @@ export class OrdersService {
     });
 
     this.orderMail.notifyContentAccepted(order.id);
+
+    // Publish the approved final into the creator's portfolio as a Brand Collab.
+    // Fire-and-forget and non-fatal, like the mail above: the copy is idempotent
+    // and the backfill/reconcile re-drives anything that fails here, so it must
+    // never block acceptance.
+    void this.orderPortfolioSync
+      .syncAcceptedOrder(order.id)
+      .catch(() => undefined);
   }
 
   async openDispute(params: {

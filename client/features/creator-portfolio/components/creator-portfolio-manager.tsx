@@ -18,6 +18,9 @@ import {
   Copy,
   X,
   Zap,
+  Eye,
+  EyeOff,
+  Handshake,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -39,6 +42,7 @@ import { ManageSectionsModal } from "./manage-sections-modal";
 import { VideoSectionAssignmentModal } from "./video-section-assignment-modal";
 import type { PortfolioVideoApi } from "../api/types";
 import { useDeletePortfolioVideoMutation } from "../hooks/use-delete-portfolio-video-mutation";
+import { useUpdatePortfolioVideoMutation } from "../hooks/use-update-portfolio-video-mutation";
 import { useMyPortfolioVideosQuery } from "../hooks/use-my-portfolio-videos-query";
 import { useRetryPortfolioMirrorMutation } from "../hooks/use-retry-portfolio-mirror-mutation";
 import { PortfolioProcessingBanner } from "@/features/creators/components/creator-profile-update/portfolio-components";
@@ -90,6 +94,7 @@ export function CreatorPortfolioManager() {
   const [isReelGalleryOpen, setIsReelGalleryOpen] = useState(false);
   const [connectingInstagram, setConnectingInstagram] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -124,6 +129,7 @@ export function CreatorPortfolioManager() {
   }, []);
 
   const deletePortfolioVideoMutation = useDeletePortfolioVideoMutation();
+  const updatePortfolioVideoMutation = useUpdatePortfolioVideoMutation();
   const videosQuery = useMyPortfolioVideosQuery({
     staleTime: 5 * 60_000,
   });
@@ -233,6 +239,26 @@ export function CreatorPortfolioManager() {
       );
     },
     [canDeleteVideos, deletePortfolioVideoMutation],
+  );
+
+  const handleToggleVisibility = useCallback(
+    (video: PortfolioVideoApi) => {
+      const nextVisibility =
+        video.visibilityStatus === "public" ? "private" : "public";
+
+      setTogglingId(video.id);
+      updatePortfolioVideoMutation.mutate(
+        { videoId: video.id, payload: { visibilityStatus: nextVisibility } },
+        {
+          onSettled: () => {
+            setTogglingId((current) =>
+              current === video.id ? null : current,
+            );
+          },
+        },
+      );
+    },
+    [updatePortfolioVideoMutation],
   );
 
   if (videosQuery.isError) {
@@ -568,6 +594,31 @@ export function CreatorPortfolioManager() {
                                     </span>
                                   </>
                                 )}
+
+                                {/* Brand Collab badge — auto-published from a
+                                    completed order. Always visible; it is
+                                    informational, not a hover affordance. */}
+                                {v.brandCollab ? (
+                                  <span className="pointer-events-none absolute left-2 top-2 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                                    <Handshake
+                                      className="size-3 shrink-0"
+                                      aria-hidden
+                                    />
+                                    <span className="truncate">
+                                      {v.brandName
+                                        ? `Brand Collab · ${v.brandName}`
+                                        : "Brand Collab"}
+                                    </span>
+                                  </span>
+                                ) : null}
+
+                                {/* Hidden-from-public marker. */}
+                                {v.visibilityStatus === "private" ? (
+                                  <span className="pointer-events-none absolute left-2 bottom-2 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                                    <EyeOff className="size-3" aria-hidden />
+                                    Private
+                                  </span>
+                                ) : null}
                               </div>
 
                               <div className="p-4 flex flex-col gap-3 flex-1">
@@ -582,26 +633,59 @@ export function CreatorPortfolioManager() {
                                     >
                                       <FolderPlus className="size-4" />
                                     </Button>
+                                    {/* Public/private toggle — the only control
+                                        a creator has over a Brand Collab tile,
+                                        and available on every video. */}
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="shrink-0 h-8 w-8 text-destructive bg-transparent hover:bg-destructive/10 hover:text-destructive"
-                                      disabled={
-                                        deletingId === v.id || !canDeleteVideos
-                                      }
-                                      onClick={() => void handleDelete(v)}
+                                      className="shrink-0 h-8 w-8 text-muted-foreground bg-transparent hover:bg-muted/50 hover:text-foreground"
+                                      disabled={togglingId === v.id}
+                                      onClick={() => handleToggleVisibility(v)}
                                       title={
-                                        canDeleteVideos
-                                          ? "Delete video"
-                                          : `Your portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos — replace one instead of deleting.`
+                                        v.visibilityStatus === "public"
+                                          ? "Hide from your public profile"
+                                          : "Show on your public profile"
+                                      }
+                                      aria-label={
+                                        v.visibilityStatus === "public"
+                                          ? "Make video private"
+                                          : "Make video public"
                                       }
                                     >
-                                      {deletingId === v.id ? (
+                                      {togglingId === v.id ? (
                                         <Spinner className="size-4" />
+                                      ) : v.visibilityStatus === "public" ? (
+                                        <Eye className="size-4" />
                                       ) : (
-                                        <Trash2 className="size-4" />
+                                        <EyeOff className="size-4" />
                                       )}
                                     </Button>
+                                    {/* Brand Collab videos come from a completed
+                                        order and can never be deleted — only
+                                        hidden via the toggle above. */}
+                                    {v.deletable === false ? null : (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="shrink-0 h-8 w-8 text-destructive bg-transparent hover:bg-destructive/10 hover:text-destructive"
+                                        disabled={
+                                          deletingId === v.id || !canDeleteVideos
+                                        }
+                                        onClick={() => void handleDelete(v)}
+                                        title={
+                                          canDeleteVideos
+                                            ? "Delete video"
+                                            : `Your portfolio must keep at least ${MIN_PORTFOLIO_VIDEOS} videos — replace one instead of deleting.`
+                                        }
+                                      >
+                                        {deletingId === v.id ? (
+                                          <Spinner className="size-4" />
+                                        ) : (
+                                          <Trash2 className="size-4" />
+                                        )}
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               </div>

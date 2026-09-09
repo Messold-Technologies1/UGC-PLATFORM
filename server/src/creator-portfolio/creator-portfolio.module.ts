@@ -6,6 +6,7 @@ import { CreatorPortfolioController } from './creator-portfolio.controller';
 import { CreatorPortfolioService } from './creator-portfolio.service';
 import { InstagramMirrorService } from './instagram-mirror.service';
 import { InstagramMirrorQueueService } from './instagram-mirror-queue.service';
+import { OrderPortfolioSyncService } from './order-portfolio-sync.service';
 
 /**
  * Creator portfolio videos: uploads, replacement, and importing reels from a
@@ -27,7 +28,8 @@ import { InstagramMirrorQueueService } from './instagram-mirror-queue.service';
     CreatorPortfolioService,
     InstagramMirrorService,
     InstagramMirrorQueueService,
+    OrderPortfolioSyncService,
   ],
-  exports: [CreatorPortfolioService],
+  exports: [CreatorPortfolioService, OrderPortfolioSyncService],
 })
 export class CreatorPortfolioModule {}

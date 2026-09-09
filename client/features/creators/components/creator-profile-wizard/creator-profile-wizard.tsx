@@ -15,6 +15,7 @@ import {
   Flame,
   Lightbulb,
   RotateCcw,
+  Clock,
 } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
@@ -1552,6 +1553,40 @@ export function CreatorProfileWizard({
             ) : null}
           </div>
 
+          {awaitingReview ? (
+            <div className="cw-review-banner" role="status">
+              <div className="cw-review-banner-copy">
+                <Clock size={18} aria-hidden className="cw-review-banner-icon" />
+                <div>
+                  <p className="cw-review-banner-title">
+                    Your profile is submitted and under review.
+                  </p>
+                  <p className="cw-review-banner-text">
+                    Withdraw it to make changes, then resubmit.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="cw-btn cw-btn-ghost"
+                onClick={handleWithdraw}
+                disabled={withdrawing}
+              >
+                {withdrawing ? (
+                  <>
+                    <Spinner className="size-4" aria-hidden />
+                    Withdrawing…
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={16} />
+                    Withdraw to edit
+                  </>
+                )}
+              </button>
+            </div>
+          ) : null}
+
           <AnimatePresence mode="wait">
             <motion.div
               key={activeStep.id}
@@ -1766,12 +1801,7 @@ export function CreatorProfileWizard({
           {/* Footer */}
           {activeStep.id !== "go-live" ? (
             <div className="cw-foot">
-              {awaitingReview ? (
-                <span className="cw-foot-note">
-                  Your profile is submitted and under review. Withdraw it to make
-                  changes, then resubmit.
-                </span>
-              ) : canEditFreely ? (
+              {canEditFreely && !awaitingReview ? (
                 <span className="cw-foot-note">
                   Save each step after you edit it.
                 </span>
@@ -1786,26 +1816,6 @@ export function CreatorProfileWizard({
                   <ArrowLeft size={16} />
                   {activeIndex === 0 ? "Exit" : "Back"}
                 </button>
-                {awaitingReview ? (
-                  <button
-                    type="button"
-                    className="cw-btn cw-btn-ghost"
-                    onClick={handleWithdraw}
-                    disabled={withdrawing}
-                  >
-                    {withdrawing ? (
-                      <>
-                        <Spinner className="size-4" aria-hidden />
-                        Withdrawing…
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw size={16} />
-                        Withdraw to edit
-                      </>
-                    )}
-                  </button>
-                ) : null}
                 <button
                   type="button"
                   className="cw-btn cw-btn-primary"

@@ -512,6 +512,54 @@
   color: var(--muted-foreground);
 }
 
+.cw-review-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--primary) 28%, transparent);
+  background: color-mix(in oklab, var(--primary) 8%, var(--card));
+}
+.cw-review-banner-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.cw-review-banner-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary);
+}
+.cw-review-banner-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+.cw-review-banner-text {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.cw-review-banner .cw-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .cw-review-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cw-review-banner .cw-btn {
+    width: 100%;
+  }
+}
+
 /* Card */
 .cw-card {
   border-radius: 18px;
@@ -1006,34 +1054,32 @@
 /* Footer */
 .cw-foot {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-}
-@media (max-width: 560px) {
-  .cw-foot {
-    flex-direction: column-reverse;
-    align-items: stretch;
-  }
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
 }
 .cw-foot-note {
   font-size: 12.5px;
   color: var(--muted-foreground);
+  max-width: none;
 }
 .cw-foot-actions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 12px;
+  width: 100%;
 }
-@media (max-width: 560px) {
+.cw-foot-actions .cw-btn {
+  flex: 1;
+  padding-inline: 16px;
+}
+@media (max-width: 640px) {
   .cw-foot-actions {
-    justify-content: space-between;
+    flex-direction: column;
   }
-  /* Share the row evenly so long labels ("Continue Building Profile") don't
-     wrap to two lines inside a shrunken button. */
   .cw-foot-actions .cw-btn {
-    flex: 1;
-    padding-inline: 12px;
+    width: 100%;
+    flex: none;
   }
 }
 .cw-btn {
@@ -1048,6 +1094,7 @@
   font-weight: 600;
   border: 1px solid transparent;
   cursor: pointer;
+  white-space: nowrap;
   transition: filter 0.14s, background 0.14s, border-color 0.14s;
 }
 .cw-btn-ghost {

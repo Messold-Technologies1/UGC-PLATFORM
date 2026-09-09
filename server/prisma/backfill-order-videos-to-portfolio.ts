@@ -61,7 +61,11 @@ function dbFingerprint(): string {
   }
 }
 
-/** First playable video key in a delivery's assets, tolerating loose JSON. */
+/**
+ * First playable video key in a delivery's assets, tolerating loose JSON.
+ * Mirrors OrderPortfolioSyncService.pickVideoKey: never returns a key for an
+ * asset explicitly marked a non-video (e.g. an image).
+ */
 function pickVideoKey(assets: Prisma.JsonValue | null): string | null {
   if (!Array.isArray(assets)) return null;
   const keyOf = (a: any): string | null =>
@@ -72,9 +76,12 @@ function pickVideoKey(assets: Prisma.JsonValue | null): string | null {
       if (key) return key;
     }
   }
+  // Fall back only to unknown-kind assets (older rows lacked `kind`).
   for (const a of assets as any[]) {
-    const key = keyOf(a);
-    if (key) return key;
+    if (a?.kind == null) {
+      const key = keyOf(a);
+      if (key) return key;
+    }
   }
   return null;
 }

@@ -153,6 +153,41 @@ describe('StorageService', () => {
     });
     expect(res.uploadUrl).toBe('https://signed.example.com/upload');
     expect(res.headers['Content-Type']).toBe('video/mp4');
-    expect(res.cdnUrl).toBe('https://cdn.example.com/creator-profile/c1/intro/a.mp4');
+    expect(res.cdnUrl).toBe(
+      'https://cdn.example.com/creator-profile/c1/intro/a.mp4',
+    );
+  });
+
+  it('copies an order delivery asset into the portfolio prefix, keeping the source', async () => {
+    sendMock.mockClear();
+    const storage = new StorageService(config as any);
+    const destKey = await storage.copyOrderAssetToPortfolio({
+      sourceKey: 'order-deliveries/o1/r2/final.mp4',
+      creatorProfileId: 'c1',
+    });
+
+    // Lands under the creator's portfolio videos prefix, keeping the extension.
+    expect(destKey.startsWith('creator-portfolio/c1/videos/')).toBe(true);
+    expect(destKey.endsWith('.mp4')).toBe(true);
+
+    // Exactly one S3 op — a copy, never a delete — so the order keeps its object.
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    const command = sendMock.mock.calls[0][0] as {
+      input: { Bucket: string; Key: string; CopySource: string };
+    };
+    expect(command.input.CopySource).toBe(
+      'bucket/order-deliveries/o1/r2/final.mp4',
+    );
+    expect(command.input.Key).toBe(destKey);
+  });
+
+  it('rejects an order asset key with no extension to copy', async () => {
+    const storage = new StorageService(config as any);
+    await expect(
+      storage.copyOrderAssetToPortfolio({
+        sourceKey: 'order-deliveries/o1/r2/noext',
+        creatorProfileId: 'c1',
+      }),
+    ).rejects.toThrow('no file extension');
   });
 });

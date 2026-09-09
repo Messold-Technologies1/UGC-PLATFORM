@@ -31,8 +31,14 @@ export function useCreatorLocationForm({
     [initialCountry?.isoCode, initialProfile?.stateName],
   );
 
+  // Seed the country from the creator's saved country in BOTH modes, so the
+  // State/City lists (which cascade off `countryCode`) match the saved
+  // `stateCode`/`city`. Only fall back to India when there is no saved country
+  // — i.e. an admin creating a brand-new creator. Previously admin mode always
+  // forced "IN", which showed the wrong country and blanked State/City for any
+  // creator whose country wasn't India.
   const [countryCode, setCountryCode] = useState(
-    () => adminMode ? "IN" : (initialCountry?.isoCode ?? ""),
+    () => initialCountry?.isoCode ?? (adminMode ? "IN" : ""),
   );
   const [stateCode, setStateCode] = useState(initialState?.isoCode ?? "");
   const [city, setCity] = useState(() => initialProfile?.city?.trim() ?? "");

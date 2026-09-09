@@ -3339,21 +3339,30 @@ export class OrdersService {
     page?: number;
     limit?: number;
     brandId?: string;
+    statuses?: OrderStatus[];
   }): Promise<AdminOrdersListResponseDto> {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
 
-    // Optional filter used by the admin brand-detail page to list a single
-    // brand's orders. brandId is BrandProfile.id (== Order.brandId).
-    const where: Prisma.OrderWhereInput | undefined = params.brandId
+    // Base scope: the whole table, or a single brand's orders (admin brand-detail
+    // page). brandId is BrandProfile.id (== Order.brandId). Status-tab badges are
+    // counted over THIS scope, so they stay accurate regardless of pagination.
+    const baseWhere: Prisma.OrderWhereInput | undefined = params.brandId
       ? { brandId: params.brandId }
       : undefined;
 
+    // The active status tab narrows the list (and its total) on top of the base
+    // scope. The count badges deliberately ignore it — see statusCounts below.
+    const listWhere: Prisma.OrderWhereInput | undefined =
+      params.statuses && params.statuses.length > 0
+        ? { ...(baseWhere ?? {}), status: { in: params.statuses } }
+        : baseWhere;
+
     const [total, rows] = await this.prisma.$transaction([
-      this.prisma.order.count({ where }),
+      this.prisma.order.count({ where: listWhere }),
       this.prisma.order.findMany({
-        where,
+        where: listWhere,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -3399,6 +3408,19 @@ export class OrdersService {
       }),
     ]);
 
+    // Count per status over the base scope (NOT the active tab's filter and NOT
+    // the page), so every status-tab badge is accurate even when there are more
+    // orders than one page can hold.
+    const grouped = await this.prisma.order.groupBy({
+      by: ['status'],
+      where: baseWhere,
+      _count: true,
+    });
+    const statusCounts: Record<string, number> = {};
+    for (const g of grouped) {
+      statusCounts[g.status] = g._count;
+    }
+
     const items: AdminOrderListItemDto[] = rows.map((r) => {
       const { creator, brand, ...orderFields } = r;
       return {
@@ -3414,7 +3436,7 @@ export class OrdersService {
       };
     });
 
-    return { items, total, page, limit };
+    return { items, total, page, limit, statusCounts };
   }
 
   async getOrderBrief(params: {

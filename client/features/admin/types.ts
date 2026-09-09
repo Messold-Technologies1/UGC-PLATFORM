@@ -291,6 +291,11 @@ export interface AdminOrdersQueryDto {
   limit?: number;
   /** Filter to a single brand's orders (BrandProfile id). */
   brandId?: string;
+  /**
+   * Restrict the list to these lifecycle statuses (the active status tab maps
+   * to several). Comma-separated, e.g. "ACCEPTED,CREATOR_PAYMENT_DONE".
+   */
+  statuses?: string;
 }
 
 export interface AdminBrandDetailDto {
@@ -343,6 +348,11 @@ export interface AdminOrdersListResponseDto {
   total: number;
   page: number;
   limit: number;
+  /**
+   * Count of orders per lifecycle status across the whole dataset (ignoring the
+   * status filter and pagination), so tab badges are always accurate.
+   */
+  statusCounts: Record<string, number>;
 }
 
 export interface AdminCreatorPayoutDetailsDto {

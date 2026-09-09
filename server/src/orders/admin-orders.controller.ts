@@ -59,6 +59,7 @@ export class AdminOrdersController {
       page: query.page,
       limit: query.limit,
       brandId: query.brandId,
+      statuses: query.statuses,
     });
   }
 

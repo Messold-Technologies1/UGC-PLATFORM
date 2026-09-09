@@ -77,41 +77,41 @@ export default function OrderManagement() {
   const [limit, setLimit] = useState(5);
   const [activeTab, setActiveTab] = useState<string>("all");
 
-  // Fetch a window of recent orders and filter/paginate client-side so the
-  // status tabs (including Dispute) work without a server round-trip per tab.
-  const { data, isLoading, isError } = useAdminOrdersQuery({ page: 1, limit: 50 });
+  // Filter and paginate on the server, so the list and the tab counts stay
+  // correct beyond a single page. The active tab maps to a set of lifecycle
+  // statuses (e.g. "Completed" = ACCEPTED + CREATOR_PAYMENT_DONE).
+  const activeStatuses =
+    activeTab === "all" ? [] : (STATUS_TAB_GROUPS[activeTab] ?? []);
+  const { data, isLoading, isError } = useAdminOrdersQuery({
+    page,
+    limit,
+    statuses: activeStatuses.length > 0 ? activeStatuses.join(",") : undefined,
+  });
 
-  const allItems = useMemo(() => data?.items ?? [], [data?.items]);
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
 
+  // Tab badges come from the server's per-status counts over the whole dataset,
+  // so they are accurate no matter which page or tab is loaded.
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const sc = data?.statusCounts ?? {};
+    const counts: Record<string, number> = {
+      all: Object.values(sc).reduce((sum, n) => sum + n, 0),
+    };
     for (const tab of STATUS_TABS) {
-      if (tab.key === "all") {
-        counts.all = allItems.length;
-      } else {
-        const statuses = STATUS_TAB_GROUPS[tab.key] ?? [];
-        counts[tab.key] = allItems.filter((item) =>
-          statuses.includes(item.order.status),
-        ).length;
-      }
+      if (tab.key === "all") continue;
+      const statuses = STATUS_TAB_GROUPS[tab.key] ?? [];
+      counts[tab.key] = statuses.reduce((sum, s) => sum + (sc[s] ?? 0), 0);
     }
     return counts;
-  }, [allItems]);
-
-  const filteredItems = useMemo(() => {
-    if (activeTab === "all") return allItems;
-    const statuses = STATUS_TAB_GROUPS[activeTab] ?? [];
-    return allItems.filter((item) => statuses.includes(item.order.status));
-  }, [allItems, activeTab]);
+  }, [data?.statusCounts]);
 
   function handleTabChange(tab: string) {
     setActiveTab(tab);
     setPage(1);
   }
 
-  const total = filteredItems.length;
+  const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
-  const items = filteredItems.slice((page - 1) * limit, page * limit);
   const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
 

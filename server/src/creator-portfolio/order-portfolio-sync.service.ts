@@ -28,6 +28,15 @@ export interface OrderPortfolioSyncResult {
 }
 
 /**
+ * Order statuses that count as a standing acceptance — the "Completed" set the
+ * admin order list uses. An order that was accepted but later refunded/rejected
+ * (DISPUTED → REJECTED → REFUNDED) is NOT here, so it gets no collab tile, and a
+ * tile created before the refund is removed (see removeForOrder). `acceptedAt`
+ * alone is broader — it stays set through a later refund — so it is not enough.
+ */
+const COMPLETED_ORDER_STATUSES = new Set(['ACCEPTED', 'CREATOR_PAYMENT_DONE']);
+
+/**
  * Publishes the approved final video of an accepted order into the creator's
  * portfolio as a "Brand Collab" tile.
  *
@@ -75,18 +84,62 @@ export class OrderPortfolioSyncService {
     }
   }
 
+  /**
+   * Remove the Brand Collab tile for an order whose acceptance was reversed
+   * (refunded/rejected), deleting the copied object too. Idempotent and
+   * never-throwing: a no-op when the order never had a tile (e.g. it was
+   * cancelled before acceptance). Call it from the refund/reject paths.
+   */
+  async removeForOrder(orderId: string): Promise<void> {
+    try {
+      const tile = await this.prisma.creatorPortfolioVideo.findFirst({
+        where: { sourceOrderId: orderId, source: PortfolioVideoSource.ORDER },
+        select: {
+          id: true,
+          creatorId: true,
+          videoKey: true,
+          thumbnailKey: true,
+        },
+      });
+      if (!tile) return;
+
+      await this.prisma.creatorPortfolioVideo.delete({
+        where: { id: tile.id },
+      });
+
+      // Best-effort object cleanup — the row is already gone, so a storage
+      // failure only leaves an orphan for the reclaim script.
+      await this.storage
+        .deleteObjectIfExists(tile.videoKey)
+        .catch(() => undefined);
+      await this.storage
+        .deleteObjectIfExists(tile.thumbnailKey)
+        .catch(() => undefined);
+
+      this.logger.log(
+        `removed Brand Collab tile ${tile.id} for reversed order ${orderId}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `failed to remove Brand Collab tile for order ${orderId}: ${(err as Error)?.message}`,
+      );
+    }
+  }
+
   private async run(orderId: string): Promise<OrderPortfolioSyncResult> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, creatorId: true, acceptedAt: true },
+      select: { id: true, creatorId: true, acceptedAt: true, status: true },
     });
     if (!order) return { status: 'skipped', reason: 'order not found' };
-    // acceptedAt is the single source of truth for "final accepted", set once in
-    // acceptDelivery. An order can move on to CREATOR_PAYMENT_DONE afterwards, so
-    // status is not checked here — acceptedAt stays set through the rest of the
-    // lifecycle.
     if (!order.acceptedAt) {
       return { status: 'skipped', reason: 'order not accepted' };
+    }
+    // Only a standing acceptance publishes a tile. An order accepted then
+    // refunded/rejected keeps acceptedAt set but leaves this set, so it is
+    // skipped here (and any tile it already had is removed on refund).
+    if (!COMPLETED_ORDER_STATUSES.has(order.status)) {
+      return { status: 'skipped', reason: `status ${order.status}` };
     }
 
     // Idempotent fast path: a tile already exists for this order. Every tile is

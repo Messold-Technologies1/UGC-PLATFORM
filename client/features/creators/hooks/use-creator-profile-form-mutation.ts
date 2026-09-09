@@ -16,6 +16,8 @@ import {
   type UpdateCreatorProfilePayload,
 } from "../api/update-creator-profile";
 import { updateCreatorProfileAdmin } from "@/features/admin/api/update-creator";
+import { withdrawCreatorProfile } from "../api/withdraw-creator-profile";
+import { withdrawCreatorProfileAdmin } from "@/features/admin/api/withdraw-creator";
 import {
   presignCreatorProfileIntroVideoUpload,
   putIntroVideoToPresignedUrl,
@@ -257,6 +259,64 @@ export function useSubmitCreatorProfileMutation({
             "Check your connection and try again.",
         },
       );
+    },
+  });
+}
+
+/**
+ * Withdraw a submitted profile back to Building so it can be edited and
+ * resubmitted. Mirrors the submit mutation's admin/creator routing and query
+ * invalidation, so the wizard reloads in its Building state on success.
+ */
+export function useWithdrawCreatorProfileMutation({
+  profileId,
+  adminMode,
+  onSuccess,
+}: {
+  profileId?: string;
+  adminMode?: boolean;
+  onSuccess?: () => void | Promise<void>;
+}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["creators", "profile", "withdraw", profileId ?? "new"],
+    mutationFn: async (): Promise<void> => {
+      if (!profileId) {
+        throw new Error("Missing profile id");
+      }
+      if (adminMode) {
+        await withdrawCreatorProfileAdmin(profileId);
+      } else {
+        await withdrawCreatorProfile(profileId);
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: creatorFacetOptionsQueryKey,
+      });
+      if (adminMode) {
+        await queryClient.invalidateQueries({ queryKey: ["creators", "list"] });
+        if (profileId) {
+          await queryClient.invalidateQueries({
+            queryKey: ["creators", "profile", profileId],
+          });
+        }
+      } else {
+        await queryClient.invalidateQueries({ queryKey: authMeQueryKey });
+        await queryClient.invalidateQueries({
+          queryKey: creatorProfileMeQueryKey,
+        });
+      }
+      toast.success("Withdrawn — you can edit and resubmit now.");
+      await onSuccess?.();
+    },
+    onError: (error) => {
+      toast.error("Could not withdraw profile", {
+        description:
+          extractProfileErrorMessage(error) ??
+          "Check your connection and try again.",
+      });
     },
   });
 }

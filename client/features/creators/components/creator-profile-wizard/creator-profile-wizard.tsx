@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Flame,
   Lightbulb,
+  RotateCcw,
 } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
@@ -36,6 +37,7 @@ import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-
 import { useSocialConnectionsQuery } from "@/features/creators/hooks/use-social-connections";
 import {
   useSubmitCreatorProfileMutation,
+  useWithdrawCreatorProfileMutation,
   useGenerateCreatorBioMutation,
   useResolveFacetOtherMutation,
 } from "@/features/creators/hooks/use-creator-profile-form-mutation";
@@ -377,6 +379,39 @@ export function CreatorProfileWizard({
     },
   });
   const pending = submitMutation.isPending;
+
+  // "Awaiting review" = submitted but not yet approved/rejected. In these two
+  // states (Self complete, or Awaiting review) the profile is locked: Submit is
+  // disabled and the only action is Withdraw. Derived from the live profile so
+  // it stays correct across refresh and in both the creator and admin views.
+  const awaitingReview =
+    !initialProfile.isListed &&
+    Boolean(initialProfile.completeProfile) &&
+    (initialProfile.approvalStatus === "SELF_COMPLETED" ||
+      initialProfile.approvalStatus === "PENDING");
+
+  const withdrawMutation = useWithdrawCreatorProfileMutation({
+    profileId,
+    adminMode,
+    onSuccess: () => {
+      // Back to Building: let the freshly-reloaded profile drive the wizard.
+      setSubmitted(false);
+      if (typeof window !== "undefined")
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+  });
+  const withdrawing = withdrawMutation.isPending;
+
+  const handleWithdraw = useCallback(() => {
+    if (withdrawing) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Withdraw your profile for editing? It will leave the review queue and you'll need to resubmit once you're done.",
+      );
+      if (!ok) return;
+    }
+    withdrawMutation.mutate();
+  }, [withdrawMutation, withdrawing]);
 
   // ---- AI bio generation ----
   const generateBioMutation = useGenerateCreatorBioMutation();
@@ -1055,6 +1090,10 @@ export function CreatorProfileWizard({
       includePackages?: boolean;
       goLive?: boolean;
     }) => {
+      if (awaitingReview) {
+        toast.error("Withdraw your profile first to make changes.");
+        return;
+      }
       if (
         introVideo.uploadingIntroVideo ||
         profileImage.uploadingProfileImage
@@ -1081,6 +1120,7 @@ export function CreatorProfileWizard({
       });
     },
     [
+      awaitingReview,
       buildPayload,
       introVideo.uploadingIntroVideo,
       profileImage.uploadingProfileImage,
@@ -1359,7 +1399,10 @@ export function CreatorProfileWizard({
   // In editor mode, editable steps get a "save this step" reminder + a Save
   // button in the header (in addition to the footer one).
   const showStepSave =
-    canEditFreely && activeStep.id !== "review" && activeStep.id !== "go-live";
+    canEditFreely &&
+    !awaitingReview &&
+    activeStep.id !== "review" &&
+    activeStep.id !== "go-live";
   const isLastStep = activeIndex >= steps.length - 1;
   const uploadingMedia =
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
@@ -1723,7 +1766,12 @@ export function CreatorProfileWizard({
           {/* Footer */}
           {activeStep.id !== "go-live" ? (
             <div className="cw-foot">
-              {canEditFreely ? (
+              {awaitingReview ? (
+                <span className="cw-foot-note">
+                  Your profile is submitted and under review. Withdraw it to make
+                  changes, then resubmit.
+                </span>
+              ) : canEditFreely ? (
                 <span className="cw-foot-note">
                   Save each step after you edit it.
                 </span>
@@ -1732,23 +1780,47 @@ export function CreatorProfileWizard({
                 <button
                   type="button"
                   className="cw-btn cw-btn-ghost"
-                  disabled={pending}
+                  disabled={pending || withdrawing}
                   onClick={handleBack}
                 >
                   <ArrowLeft size={16} />
                   {activeIndex === 0 ? "Exit" : "Back"}
                 </button>
+                {awaitingReview ? (
+                  <button
+                    type="button"
+                    className="cw-btn cw-btn-ghost"
+                    onClick={handleWithdraw}
+                    disabled={withdrawing}
+                  >
+                    {withdrawing ? (
+                      <>
+                        <Spinner className="size-4" aria-hidden />
+                        Withdrawing…
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw size={16} />
+                        Withdraw to edit
+                      </>
+                    )}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="cw-btn cw-btn-primary"
                   onClick={onPrimaryAction}
                   disabled={
+                    awaitingReview ||
                     pending ||
+                    withdrawing ||
                     profileImage.uploadingProfileImage ||
                     introVideo.uploadingIntroVideo
                   }
                 >
-                  {pending ? (
+                  {awaitingReview ? (
+                    "Submitted — under review"
+                  ) : pending ? (
                     <>
                       <Spinner className="size-4" aria-hidden />
                       {activeStep.id === "review" ? "Submitting…" : "Saving…"}

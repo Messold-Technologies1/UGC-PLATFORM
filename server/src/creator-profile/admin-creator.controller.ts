@@ -232,6 +232,23 @@ export class AdminCreatorController {
     );
   }
 
+  @Patch(':id/withdraw')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Withdraw a submitted (Self complete / Awaiting review) profile back to Building so it can be edited and resubmitted',
+  })
+  @ApiOkResponse({ type: CreatorProfileResponseDto })
+  async withdrawCreator(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileResponseDto> {
+    return this.creatorProfileService.withdrawCreatorProfileForEditing(
+      req.user.id,
+      id,
+    );
+  }
+
   @Patch(':id/feature')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Feature a listed creator for discovery ordering' })

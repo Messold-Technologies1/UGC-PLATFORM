@@ -2512,6 +2512,98 @@ export class CreatorProfileService {
   }
 
   /**
+   * Withdraw a submitted-but-not-yet-listed profile back to Building so the
+   * creator (or an admin on their behalf) can edit and resubmit. Callable from
+   * Self complete (SELF_COMPLETED) or Awaiting review (PENDING with the
+   * completeProfile latch set) — the two states where Submit is blocked.
+   *
+   * Rejected profiles are already editable, Building ones aren't submitted, and
+   * a listed/approved profile edits in place via "Save changes"; none can be
+   * withdrawn.
+   *
+   * This is the ONE sanctioned reversal of the `completeProfile` one-way latch.
+   * It is safe precisely because a withdrawable profile is never listed
+   * (isListed = APPROVED && completeProfile, and the status here is never
+   * APPROVED), so un-latching cannot un-list anyone. On the next Go Live the
+   * latch re-sets and the status returns to SELF_COMPLETED like a first submit.
+   */
+  async withdrawCreatorProfileForEditing(
+    actingUserId: string,
+    creatorProfileId: string,
+  ): Promise<CreatorProfileResponseDto> {
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: {
+        id: true,
+        userId: true,
+        completeProfile: true,
+        isListed: true,
+        creatorApproval: { select: { status: true } },
+      },
+    });
+    if (!profile) {
+      throw new NotFoundException('Creator not found');
+    }
+
+    const allowed =
+      profile.userId === actingUserId || (await this.isAdminUser(actingUserId));
+    if (!allowed) {
+      throw new ForbiddenException(
+        'Not allowed to withdraw this creator profile',
+      );
+    }
+
+    const status = profile.creatorApproval?.status;
+    if (profile.isListed || status === ApprovalStatus.APPROVED) {
+      throw new BadRequestException(
+        'A listed profile cannot be withdrawn. Use Save changes to edit it.',
+      );
+    }
+    const withdrawable =
+      profile.completeProfile === true &&
+      (status === ApprovalStatus.SELF_COMPLETED ||
+        status === ApprovalStatus.PENDING);
+    if (!withdrawable) {
+      throw new BadRequestException(
+        'Only a profile awaiting review can be withdrawn for editing.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Return the approval row to a clean PENDING (clear any send-for-review
+      // audit / rejection reason), and un-latch completeProfile so the profile
+      // is Building again. isListed is already false and stays false.
+      await tx.creatorApproval.update({
+        where: { creatorId: creatorProfileId },
+        data: {
+          status: ApprovalStatus.PENDING,
+          sentForReviewById: null,
+          rejectionReason: null,
+        },
+      });
+      await tx.creatorProfile.update({
+        where: { id: creatorProfileId },
+        data: { completeProfile: false, isListed: false },
+      });
+    });
+
+    const updated = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      include: creatorProfileWithRelationsInclude as any,
+    });
+    if (!updated) {
+      throw new Error('Creator profile load failed');
+    }
+
+    this.logger.log(
+      `[creator-action] WITHDRAW_FOR_EDITING creator=${creatorProfileId} by=${actingUserId} ` +
+        `from=${status ?? 'unknown'} to=Building (completeProfile latch reverted)`,
+    );
+
+    return this.mapCreatorProfileResponseDto(updated);
+  }
+
+  /**
    * Send the Meta "CreatorProfileListed" conversion via the Conversions API,
    * replaying the creator's own signup attribution (fbp/fbc/ip/ua) plus hashed
    * email/phone. Best-effort and fire-and-forget: never blocks or fails the
@@ -2795,6 +2887,25 @@ export class CreatorProfileService {
         // reflects the creator's real consent instead of inferring it from
         // completeProfile.
         if (dto.goLive === true) {
+          // Block a second submission while the profile is already awaiting a
+          // decision (Self complete, or Awaiting review). The creator must
+          // Withdraw first to edit and resubmit. Rejected/Building profiles are
+          // NOT blocked — a rejected creator resubmits, a building one submits
+          // for the first time.
+          const currentApproval = await tx.creatorApproval.findUnique({
+            where: { creatorId: creatorProfileId },
+            select: { status: true },
+          });
+          const submittedStatus = currentApproval?.status;
+          const alreadyAwaitingReview =
+            submittedStatus === ApprovalStatus.SELF_COMPLETED ||
+            (submittedStatus === ApprovalStatus.PENDING &&
+              profile.completeProfile);
+          if (alreadyAwaitingReview) {
+            throw new ConflictException(
+              'Your profile is already submitted and awaiting review. Withdraw it to make changes, then resubmit.',
+            );
+          }
           if (dto.acceptedGoLivePolicies !== true) {
             throw new BadRequestException(
               'You must accept the Go-Live policies to publish your profile.',

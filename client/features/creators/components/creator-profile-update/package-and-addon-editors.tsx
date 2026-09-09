@@ -9,6 +9,7 @@ import {
   PACKAGE_DEFAULT_MAX_REVISIONS,
   PACKAGE_MAX_DELIVERY_DAYS,
   PACKAGE_MIN_DELIVERY_DAYS,
+  addOnPriceError,
   normalizeWholeNumberInput,
   type PackageDraft,
   type AddOnDraft,
@@ -290,6 +291,19 @@ export function AddOnCatalogEditor({
             };
             const hint = ADDON_HINTS[option.slug];
             const warning = ADDON_WARNINGS[option.slug];
+            // Show the specific reason (min / step) inline once a value is typed,
+            // instead of only the generic "add prices" banner.
+            const priceError =
+              selected && draft.priceAmount.trim() !== ""
+                ? addOnPriceError(option, draft.priceAmount)
+                : null;
+            const stepPrice = option.stepPrice ?? 1;
+            const priceRule =
+              option.fixedPrice != null
+                ? null
+                : stepPrice > 1
+                  ? `Min ₹${option.minPrice ?? 0}, in steps of ₹${stepPrice}`
+                  : `Min ₹${option.minPrice ?? 0}`;
 
             return (
               <div
@@ -358,6 +372,7 @@ export function AddOnCatalogEditor({
                           style={{ paddingLeft: 30 }}
                           disabled={disabled || option.fixedPrice != null}
                           inputMode="numeric"
+                          aria-invalid={!!priceError}
                           value={draft.priceAmount}
                           onChange={(e) =>
                             onDraftChange(option.slug, {
@@ -368,6 +383,23 @@ export function AddOnCatalogEditor({
                           }
                         />
                       </div>
+                      {priceError ? (
+                        <p
+                          className="pe-help text-destructive"
+                          role="alert"
+                          style={{
+                            color: "var(--destructive)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                        >
+                          <AlertTriangle size={12} aria-hidden />
+                          {priceError}
+                        </p>
+                      ) : priceRule ? (
+                        <p className="pe-help">{priceRule}</p>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}

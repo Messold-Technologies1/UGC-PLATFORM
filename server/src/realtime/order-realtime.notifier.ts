@@ -4,10 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsGateway } from './payments.gateway';
 
 export type OrderPaymentEventKind =
-  | 'captured'
-  | 'failed'
-  | 'refund_processed'
-  | 'refund_failed';
+  'captured' | 'failed' | 'refund_processed' | 'refund_failed';
 
 @Injectable()
 export class OrderRealtimeNotifier {
@@ -416,11 +413,14 @@ export class OrderRealtimeNotifier {
   async emitOrderCancelled(params: {
     orderId: string;
     cancelledBy: 'BRAND' | 'CREATOR';
+    /** True when an admin ended the order on this side's behalf (support action). */
+    bySupport?: boolean;
     reason?: string | null;
   }): Promise<void> {
     await this.emitToBrandAndCreator(params.orderId, 'order.cancelled', {
       orderId: params.orderId,
       cancelledBy: params.cancelledBy,
+      bySupport: params.bySupport ?? false,
       reason: params.reason ?? null,
     });
   }

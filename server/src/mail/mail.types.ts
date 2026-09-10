@@ -1,4 +1,3 @@
-
 export enum EmailTemplateKey {
   CREATOR_PROFILE_APPROVED = 'creator-profile-approved',
   CREATOR_PROFILE_REJECTED = 'creator-profile-rejected',
@@ -22,6 +21,8 @@ export enum EmailTemplateKey {
   ORDER_BRIEF_REJECTED_FOR_CREATOR = 'order-brief-rejected-for-creator',
   ORDER_CANCELLED_FOR_BRAND = 'order-cancelled-for-brand',
   ORDER_CANCELLED_FOR_CREATOR = 'order-cancelled-for-creator',
+  ORDER_CANCELLED_BY_SUPPORT_FOR_BRAND = 'order-cancelled-by-support-for-brand',
+  ORDER_CANCELLED_BY_SUPPORT_FOR_CREATOR = 'order-cancelled-by-support-for-creator',
   ORDER_REFUNDED_FOR_BRAND = 'order-refunded-for-brand',
   ORDER_DISPUTE_OPENED_FOR_BRAND = 'order-dispute-opened-for-brand',
   ORDER_DISPUTE_OPENED_FOR_CREATOR = 'order-dispute-opened-for-creator',

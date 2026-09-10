@@ -212,7 +212,8 @@ model User {
   shortlistedCreatorRecords CreatorApproval[] @relation("CreatorShortlistedBy")
   sentForReviewCreatorRecords CreatorApproval[] @relation("CreatorSentForReviewBy")
   featuredCreatorRecords CreatorFeature[]     @relation("CreatorFeaturedBy")
-  auditLogs              AuditLog[]           @relation("AuditLogActor")
+  cancelledOrders        Order[]              @relation("OrderCancelledBy")
+  briefAcceptedOrders    Order[]              @relation("OrderBriefAcceptedBy")
   resolvedDisputes       OrderDispute[]       @relation("OrderDisputeResolvedBy")
   requestedRevisions     OrderRevision[]      @relation("OrderRevisionRequester")
   revisionPurchases      OrderRevisionPurchase[] @relation("RevisionPurchaseCreator")
@@ -597,6 +598,11 @@ model Order {
   briefId          String?   @db.Uuid
   briefSubmittedAt DateTime?
   briefAcceptedAt  DateTime?
+  /// The user who accepted the brief — the creator user, or (when support acts
+  /// on their behalf) the admin user. Null until the brief is accepted.
+  briefAcceptedByUserId  String?  @db.Uuid
+  /// True when an admin accepted the brief on the creator's behalf.
+  briefAcceptedBySupport Boolean  @default(false)
 
   /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
   requiresPhysicalProductShipment Boolean   @default(false)
@@ -622,9 +628,18 @@ model Order {
   /// REJECTED; the note is shown to both parties and included in their emails.
   cancellationReason String?
   cancelledAt        DateTime?
-  /// Who ended the order early: 'BRAND' (brand cancelled) or 'CREATOR' (creator
-  /// rejected the brief). Null for admin-driven REJECTED (refund path).
-  cancelledBy        String?
+  /// The user who ended the order early — the brand user, the creator user, or
+  /// (when support acts on their behalf) the admin user. Null for the admin
+  /// refund path, which sets REJECTED without a brief-stage actor.
+  cancelledByUserId   String?  @db.Uuid
+  /// Which side the termination is attributed to: 'BRAND' (order cancelled) or
+  /// 'CREATOR' (brief rejected). For a self-serve action this is the actor's own
+  /// role; for a support action it is the side the admin acted for.
+  cancelledOnBehalfOf String?
+  /// True when an admin performed the cancel/reject on a party's behalf. Recorded
+  /// at write time — a brand workspace can have several users, so this cannot be
+  /// reliably derived from cancelledByUserId alone.
+  cancelledBySupport  Boolean  @default(false)
 
   // Razorpay Payments
   razorpayOrderId   String?   @unique
@@ -651,6 +666,8 @@ model Order {
   creator        CreatorProfile       @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   package        CreatorPackage?      @relation(fields: [creatorPackageId], references: [id], onDelete: SetNull)
   briefRef       Brief?               @relation(fields: [briefId], references: [id], onDelete: SetNull)
+  cancelledByUser     User?           @relation("OrderCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  briefAcceptedByUser User?           @relation("OrderBriefAcceptedBy", fields: [briefAcceptedByUserId], references: [id], onDelete: SetNull)
   checkoutBatch  OrderCheckoutBatch?  @relation(fields: [checkoutBatchId], references: [id], onDelete: SetNull)
   disputes       OrderDispute[]
   revisions      OrderRevision[]
@@ -1359,21 +1376,6 @@ model CreatorAddOnOption {
   @@index([sortOrder])
 }
 
-model AuditLog {
-  id          String   @id @default(uuid()) @db.Uuid
-  actorUserId String?  @db.Uuid
-  action      String
-  entityType  String
-  entityId    String
-  metadata    Json?
-  createdAt   DateTime @default(now())
-
-  actor User? @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
-
-  @@index([actorUserId, createdAt])
-  @@index([entityType, entityId])
-  @@index([createdAt])
-}
 
 /// Outbound mail must not be sent to suppressed addresses (SES bounce/complaint).
 model EmailSuppression {

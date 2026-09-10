@@ -111,8 +111,7 @@ function toAdminOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
   };
   const contactFullName =
     b.contactFullName?.trim() || b.user?.name?.trim() || null;
-  const contactEmail =
-    b.contactEmail?.trim() || b.user?.email?.trim() || null;
+  const contactEmail = b.contactEmail?.trim() || b.user?.email?.trim() || null;
   return {
     id: b.id,
     brandName: b.brandName ?? null,
@@ -218,14 +217,18 @@ function mapDeliverablesSnapshot(value: Prisma.JsonValue): string[] {
 function mapDeliveryAssets(value: Prisma.JsonValue): OrderDeliveryAssetDto[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((v) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null))
+    .map((v) =>
+      v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null,
+    )
     .filter(Boolean)
     .map((a: any) => ({
       key: typeof a.key === 'string' ? a.key : '',
       kind: a.kind === 'video' || a.kind === 'image' ? a.kind : null,
       url: typeof a.url === 'string' ? a.url : '',
     }))
-    .filter((a) => a.key && a.url && (a.kind === 'video' || a.kind === 'image')) as any;
+    .filter(
+      (a) => a.key && a.url && (a.kind === 'video' || a.kind === 'image'),
+    );
 }
 
 /**
@@ -264,7 +267,9 @@ function mapBrandDeliveryAssets(
 ): OrderDeliveryAssetDto[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((v) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null))
+    .map((v) =>
+      v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null,
+    )
     .filter(Boolean)
     .map((a: any) => {
       const kind: 'video' | 'image' | null =
@@ -699,7 +704,7 @@ export class OrdersService {
           priceAmountSnapshot: pkg.priceAmount,
           deliveryDaysSnapshot: effectiveDeliveryDays,
           maxRevisionsSnapshot,
-          addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
+          addOnsSnapshot: addOnsSnapshot,
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: amountPaise,
           razorpayOrderId,
@@ -740,7 +745,7 @@ export class OrdersService {
         currency: 'INR',
         deliveryDaysSnapshot: effectiveDeliveryDays,
         maxRevisionsSnapshot,
-        addOnsSnapshot: addOnsSnapshot as unknown as Prisma.InputJsonValue,
+        addOnsSnapshot: addOnsSnapshot,
         addOnsTotalSnapshot: addOnsTotalDecimal,
         expectedAmountPaise: amountPaise,
       },
@@ -789,7 +794,11 @@ export class OrdersService {
   async createBulkCheckout(params: {
     actorUserId: string;
     brandProfileId?: string | null;
-    items: Array<{ creatorId: string; packageId?: string; addOnIds?: string[] }>;
+    items: Array<{
+      creatorId: string;
+      packageId?: string;
+      addOnIds?: string[];
+    }>;
   }): Promise<BulkCheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -856,14 +865,13 @@ export class OrdersService {
             creatorPackageId: draft.pkg.id,
             status: 'PENDING_PAYMENT',
             packageNameSnapshot: draft.pkg.name,
-            deliverablesSnapshot:
-              draft.pkg.deliverables as unknown as Prisma.InputJsonValue,
+            deliverablesSnapshot: draft.pkg
+              .deliverables as unknown as Prisma.InputJsonValue,
             priceAmountSnapshot: draft.pkg.priceAmount,
             currency,
             deliveryDaysSnapshot: draft.effectiveDeliveryDays,
             maxRevisionsSnapshot: draft.maxRevisionsSnapshot,
-            addOnsSnapshot:
-              draft.addOnsSnapshot as unknown as Prisma.InputJsonValue,
+            addOnsSnapshot: draft.addOnsSnapshot,
             addOnsTotalSnapshot: draft.addOnsTotalDecimal,
             expectedAmountPaise: draft.amountPaise,
             checkoutBatchId: batch.id,
@@ -957,7 +965,9 @@ export class OrdersService {
       order.addOnsTotalSnapshot === null
         ? 0
         : toPaise(order.addOnsTotalSnapshot);
-    const addOnsCount = extractAddOnIdsFromSnapshot(order.addOnsSnapshot).length;
+    const addOnsCount = extractAddOnIdsFromSnapshot(
+      order.addOnsSnapshot,
+    ).length;
 
     let razorpayOrderId = order.razorpayOrderId;
     if (!razorpayOrderId) {
@@ -1206,6 +1216,41 @@ export class OrdersService {
     });
     if (!creator) throw new NotFoundException('Creator profile not found');
 
+    return this.applyBriefAcceptance({
+      orderId: params.orderId,
+      actorUserId: params.creatorUserId,
+      bySupport: false,
+      requireCreatorId: creator.id,
+    });
+  }
+
+  /**
+   * Admin accepts the brief on the creator's behalf (support action). Same state
+   * machine as the creator's own acceptance; skips the creator-ownership check
+   * and records the acting admin (briefAcceptedBySupport = true).
+   */
+  async adminAcceptBriefOnBehalf(params: {
+    orderId: string;
+    adminUserId: string;
+  }): Promise<AcceptBriefResponseDto> {
+    return this.applyBriefAcceptance({
+      orderId: params.orderId,
+      actorUserId: params.adminUserId,
+      bySupport: true,
+    });
+  }
+
+  /**
+   * Shared brief-acceptance transition. `requireCreatorId` enforces ownership for
+   * the creator's own action; the admin path omits it. Records who accepted
+   * (briefAcceptedByUserId) and whether it was a support action.
+   */
+  private async applyBriefAcceptance(params: {
+    orderId: string;
+    actorUserId: string;
+    bySupport: boolean;
+    requireCreatorId?: string;
+  }): Promise<AcceptBriefResponseDto> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
@@ -1221,7 +1266,7 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.creatorId !== creator.id)
+    if (params.requireCreatorId && order.creatorId !== params.requireCreatorId)
       throw new ForbiddenException('Not your order');
 
     if (String(order.status) === 'BRIEF_ACCEPTED') {
@@ -1255,6 +1300,8 @@ export class OrdersService {
       data: {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: now,
+        briefAcceptedByUserId: params.actorUserId,
+        briefAcceptedBySupport: params.bySupport,
         ...(deadlines
           ? {
               deliveryDueAt: deadlines.deliveryDueAt,
@@ -1279,7 +1326,10 @@ export class OrdersService {
       deliveryGraceDeadlineAt: deadlines?.deliveryGraceDeadlineAt ?? null,
     });
 
-    this.orderMail.notifyBriefAccepted(order.id, deadlines?.deliveryDueAt ?? null);
+    this.orderMail.notifyBriefAccepted(
+      order.id,
+      deadlines?.deliveryDueAt ?? null,
+    );
 
     return {
       orderId: updated.id,
@@ -1313,35 +1363,16 @@ export class OrdersService {
     });
     if (!creator) throw new NotFoundException('Creator profile not found');
 
-    const order = await this.prisma.order.findUnique({
-      where: { id: params.orderId },
-      select: { id: true, creatorId: true, status: true },
+    await this.applyBriefTermination({
+      orderId: params.orderId,
+      onBehalfOf: 'CREATOR',
+      actorUserId: params.creatorUserId,
+      bySupport: false,
+      note,
+      allowedStatuses: ['BRIEF_SUBMITTED'],
+      notAllowedMessage: 'Order is not awaiting brief acceptance',
+      requireCreatorId: creator.id,
     });
-    if (!order) throw new NotFoundException('Order not found');
-    if (order.creatorId !== creator.id)
-      throw new ForbiddenException('Not your order');
-    if (String(order.status) !== 'BRIEF_SUBMITTED') {
-      throw new BadRequestException('Order is not awaiting brief acceptance');
-    }
-
-    const now = new Date();
-    await this.updateOrder({
-      where: { id: order.id },
-      data: {
-        status: 'REJECTED',
-        cancellationReason: note,
-        cancelledAt: now,
-        cancelledBy: 'CREATOR',
-      },
-    });
-
-    await this.orderRealtime.emitOrderCancelled({
-      orderId: order.id,
-      cancelledBy: 'CREATOR',
-      reason: note,
-    });
-
-    this.orderMail.notifyBriefRejectedByCreator(order.id, note);
   }
 
   /**
@@ -1367,19 +1398,103 @@ export class OrdersService {
       brandProfileId: params.brandProfileId,
     });
 
+    await this.applyBriefTermination({
+      orderId: params.orderId,
+      onBehalfOf: 'BRAND',
+      actorUserId: params.actorUserId,
+      bySupport: false,
+      note,
+      allowedStatuses: ['BRIEF_SUBMISSION_PENDING', 'BRIEF_SUBMITTED'],
+      notAllowedMessage:
+        'Order can only be cancelled before the creator accepts the brief',
+      requireBrandId: brand.id,
+    });
+  }
+
+  /**
+   * Admin rejects the brief on the creator's behalf (support action). Same
+   * guards as the creator's own rejection; records the acting admin and notifies
+   * both parties that support ended the order.
+   */
+  async adminRejectBriefOnBehalf(params: {
+    orderId: string;
+    adminUserId: string;
+    note: string;
+  }): Promise<void> {
+    const note = params.note?.trim();
+    if (!note) {
+      throw new BadRequestException('A rejection note is required');
+    }
+
+    await this.applyBriefTermination({
+      orderId: params.orderId,
+      onBehalfOf: 'CREATOR',
+      actorUserId: params.adminUserId,
+      bySupport: true,
+      note,
+      allowedStatuses: ['BRIEF_SUBMITTED'],
+      notAllowedMessage: 'Order is not awaiting brief acceptance',
+    });
+  }
+
+  /**
+   * Admin cancels the order on the brand's behalf (support action). Same guards
+   * as the brand's own cancellation; records the acting admin and notifies both
+   * parties that support ended the order.
+   */
+  async adminCancelOrderOnBehalf(params: {
+    orderId: string;
+    adminUserId: string;
+    note: string;
+  }): Promise<void> {
+    const note = params.note?.trim();
+    if (!note) {
+      throw new BadRequestException('A cancellation note is required');
+    }
+
+    await this.applyBriefTermination({
+      orderId: params.orderId,
+      onBehalfOf: 'BRAND',
+      actorUserId: params.adminUserId,
+      bySupport: true,
+      note,
+      allowedStatuses: ['BRIEF_SUBMISSION_PENDING', 'BRIEF_SUBMITTED'],
+      notAllowedMessage:
+        'Order can only be cancelled before the creator accepts the brief',
+    });
+  }
+
+  /**
+   * Shared brief-termination transition (creator reject / brand cancel, whether
+   * self-serve or admin-on-behalf). Moves the order to REJECTED, records who did
+   * it (cancelledByUserId), which side it is attributed to (cancelledOnBehalfOf)
+   * and whether support acted (cancelledBySupport), then notifies both parties —
+   * with the support wording when an admin performed it. `requireCreatorId` /
+   * `requireBrandId` enforce ownership for the self-serve paths; the admin paths
+   * omit them.
+   */
+  private async applyBriefTermination(params: {
+    orderId: string;
+    onBehalfOf: 'BRAND' | 'CREATOR';
+    actorUserId: string;
+    bySupport: boolean;
+    note: string;
+    allowedStatuses: string[];
+    notAllowedMessage: string;
+    requireCreatorId?: string;
+    requireBrandId?: string;
+  }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true, status: true },
+      select: { id: true, brandId: true, creatorId: true, status: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id)
+    if (params.requireCreatorId && order.creatorId !== params.requireCreatorId)
       throw new ForbiddenException('Not your order');
-
-    const cancellableStatuses = ['BRIEF_SUBMISSION_PENDING', 'BRIEF_SUBMITTED'];
-    if (!cancellableStatuses.includes(String(order.status))) {
-      throw new BadRequestException(
-        'Order can only be cancelled before the creator accepts the brief',
-      );
+    if (params.requireBrandId && order.brandId !== params.requireBrandId)
+      throw new ForbiddenException('Not your order');
+    if (!params.allowedStatuses.includes(String(order.status))) {
+      throw new BadRequestException(params.notAllowedMessage);
     }
 
     const now = new Date();
@@ -1387,19 +1502,28 @@ export class OrdersService {
       where: { id: order.id },
       data: {
         status: 'REJECTED',
-        cancellationReason: note,
+        cancellationReason: params.note,
         cancelledAt: now,
-        cancelledBy: 'BRAND',
+        cancelledByUserId: params.actorUserId,
+        cancelledOnBehalfOf: params.onBehalfOf,
+        cancelledBySupport: params.bySupport,
       },
     });
 
     await this.orderRealtime.emitOrderCancelled({
       orderId: order.id,
-      cancelledBy: 'BRAND',
-      reason: note,
+      cancelledBy: params.onBehalfOf,
+      bySupport: params.bySupport,
+      reason: params.note,
     });
 
-    this.orderMail.notifyOrderCancelledByBrand(order.id, note);
+    if (params.bySupport) {
+      this.orderMail.notifyOrderCancelledBySupport(order.id, params.note);
+    } else if (params.onBehalfOf === 'BRAND') {
+      this.orderMail.notifyOrderCancelledByBrand(order.id, params.note);
+    } else {
+      this.orderMail.notifyBriefRejectedByCreator(order.id, params.note);
+    }
   }
 
   async markProductShipped(params: {
@@ -1584,7 +1708,8 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
     if (order.acceptedAt) {
       throw new BadRequestException('Order is already accepted');
     }
@@ -1669,7 +1794,8 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
 
     if (order.acceptedAt) {
       throw new BadRequestException('Order is already accepted');
@@ -1694,7 +1820,9 @@ export class OrdersService {
           'Confirm product received before submitting delivery',
         );
       }
-      throw new BadRequestException('Order is not ready for delivery submission');
+      throw new BadRequestException(
+        'Order is not ready for delivery submission',
+      );
     }
 
     const expectedPrefix = `order-deliveries/${order.id}/`;
@@ -1845,11 +1973,14 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+    if (order.brandId !== brand.id)
+      throw new ForbiddenException('Not your order');
 
     const allowed = new Set(['DELIVERED', 'REVISION_SUBMITTED']);
     if (!allowed.has(String(order.status))) {
-      throw new BadRequestException('Order is not eligible for revision request');
+      throw new BadRequestException(
+        'Order is not eligible for revision request',
+      );
     }
     if (order.revisionCount >= order.maxRevisionsSnapshot) {
       throw new BadRequestException('Max revisions reached for this order');
@@ -1951,7 +2082,9 @@ export class OrdersService {
     // Same eligibility as requesting a revision, and only once the cap is hit.
     const allowed = new Set(['DELIVERED', 'REVISION_SUBMITTED']);
     if (!allowed.has(String(order.status))) {
-      throw new BadRequestException('Order is not eligible for extra revisions');
+      throw new BadRequestException(
+        'Order is not eligible for extra revisions',
+      );
     }
     if (order.revisionCount < order.maxRevisionsSnapshot) {
       throw new BadRequestException('This order still has revisions remaining');
@@ -2099,7 +2232,10 @@ export class OrdersService {
       revisionsAdded: purchase.revisionsAdded,
     });
 
-    return { orderId: purchase.orderId, revisionsAdded: purchase.revisionsAdded };
+    return {
+      orderId: purchase.orderId,
+      revisionsAdded: purchase.revisionsAdded,
+    };
   }
 
   /** payment.failed for an extra-revisions purchase: flip its row to FAILED. */
@@ -2424,7 +2560,8 @@ export class OrdersService {
     refundedAt?: Date | null;
     cancellationReason?: string | null;
     cancelledAt?: Date | null;
-    cancelledBy?: string | null;
+    cancelledOnBehalfOf?: string | null;
+    cancelledBySupport?: boolean | null;
     disputes?: Array<{ openedAt: Date; resolvedAt: Date | null }>;
   }): OrderListSummaryDto {
     const hasBrief = order.briefSubmittedAt != null;
@@ -2450,7 +2587,8 @@ export class OrdersService {
       refundedAt: order.refundedAt ?? null,
       cancellationReason: order.cancellationReason ?? null,
       cancelledAt: order.cancelledAt ?? null,
-      cancelledBy: order.cancelledBy ?? null,
+      cancelledBy: order.cancelledOnBehalfOf ?? null,
+      cancelledBySupport: order.cancelledBySupport ?? false,
       disputeOpenedAt: latestDispute?.openedAt ?? null,
       disputeResolvedAt: latestDispute?.resolvedAt ?? null,
     };
@@ -2487,13 +2625,18 @@ export class OrdersService {
     refundedAt: Date | null;
     cancellationReason?: string | null;
     cancelledAt?: Date | null;
-    cancelledBy?: string | null;
+    cancelledOnBehalfOf?: string | null;
+    cancelledBySupport?: boolean | null;
     createdAt: Date;
     updatedAt: Date;
   }): OrderDetailsPublicDto {
-    const addOnsRaw = Array.isArray(order.addOnsSnapshot) ? order.addOnsSnapshot : [];
+    const addOnsRaw = Array.isArray(order.addOnsSnapshot)
+      ? order.addOnsSnapshot
+      : [];
     const addOnsSnapshot = addOnsRaw
-      .map((v) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null))
+      .map((v) =>
+        v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : null,
+      )
       .filter(Boolean)
       .map((a: any) => ({
         id: String(a.id ?? ''),
@@ -2544,7 +2687,8 @@ export class OrdersService {
       refundedAt: order.refundedAt,
       cancellationReason: order.cancellationReason ?? null,
       cancelledAt: order.cancelledAt ?? null,
-      cancelledBy: order.cancelledBy ?? null,
+      cancelledBy: order.cancelledOnBehalfOf ?? null,
+      cancelledBySupport: order.cancelledBySupport ?? false,
       // Extra-revisions purchase info. Unit price is resolved only on the brand
       // details path (below); other viewers keep the null default.
       revisionsPerPurchase: REVISIONS_PER_ADDON,
@@ -2565,11 +2709,13 @@ export class OrdersService {
     };
   }
 
-  private mapOrderDetailsAdmin(order: {
-    razorpayOrderId: string | null;
-    razorpayPaymentId: string | null;
-    razorpayRefundId: string | null;
-  } & Parameters<OrdersService['mapOrderDetails']>[0]): OrderDetailsAdminDto {
+  private mapOrderDetailsAdmin(
+    order: {
+      razorpayOrderId: string | null;
+      razorpayPaymentId: string | null;
+      razorpayRefundId: string | null;
+    } & Parameters<OrdersService['mapOrderDetails']>[0],
+  ): OrderDetailsAdminDto {
     return {
       ...this.mapOrderDetails(order),
       razorpayOrderId: order.razorpayOrderId,
@@ -2652,7 +2798,9 @@ export class OrdersService {
         refundedAt: true,
         cancellationReason: true,
         cancelledAt: true,
-        cancelledBy: true,
+        cancelledByUserId: true,
+        cancelledOnBehalfOf: true,
+        cancelledBySupport: true,
         createdAt: true,
         updatedAt: true,
         creator: {
@@ -2668,13 +2816,16 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+    if (order.brandId !== brand.id)
+      throw new ForbiddenException('Not your order');
 
     const { creator, brandId, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetails(orderFields);
 
     // Surface the price to buy +N revisions so the brand's CTA can show it.
-    const revisionUnitPaise = await this.resolveRevisionAddOnUnitPaise(creator.id);
+    const revisionUnitPaise = await this.resolveRevisionAddOnUnitPaise(
+      creator.id,
+    );
     mappedOrder.revisionAddOnUnitPaise = revisionUnitPaise;
     mappedOrder.revisionAddOnAvailable = revisionUnitPaise != null;
 
@@ -2715,10 +2866,7 @@ export class OrdersService {
       'REVISION_REQUESTED',
       'REVISION_SUBMITTED',
     ]);
-    if (
-      revisionActiveStatuses.has(order.status) &&
-      order.revisionCount > 0
-    ) {
+    if (revisionActiveStatuses.has(order.status) && order.revisionCount > 0) {
       const currentRevision = await this.prisma.orderRevision.findUnique({
         where: {
           orderId_revisionNumber: {
@@ -2808,7 +2956,9 @@ export class OrdersService {
         refundedAt: true,
         cancellationReason: true,
         cancelledAt: true,
-        cancelledBy: true,
+        cancelledByUserId: true,
+        cancelledOnBehalfOf: true,
+        cancelledBySupport: true,
         createdAt: true,
         updatedAt: true,
         brand: {
@@ -2817,7 +2967,8 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.creatorId !== creator.id) throw new ForbiddenException('Not your order');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
 
     const { brand, creatorId, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetails(orderFields);
@@ -2826,10 +2977,7 @@ export class OrdersService {
       'REVISION_REQUESTED',
       'REVISION_SUBMITTED',
     ]);
-    if (
-      revisionActiveStatuses.has(order.status) &&
-      order.revisionCount > 0
-    ) {
+    if (revisionActiveStatuses.has(order.status) && order.revisionCount > 0) {
       const currentRevision = await this.prisma.orderRevision.findUnique({
         where: {
           orderId_revisionNumber: {
@@ -2879,7 +3027,8 @@ export class OrdersService {
       select: { id: true, brandId: true, acceptedAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) throw new ForbiddenException('Not your order');
+    if (order.brandId !== brand.id)
+      throw new ForbiddenException('Not your order');
 
     const rows: any[] = await (this.prisma as any).orderDelivery.findMany({
       where: { orderId: order.id },
@@ -3075,7 +3224,9 @@ export class OrdersService {
         refundedAt: true,
         cancellationReason: true,
         cancelledAt: true,
-        cancelledBy: true,
+        cancelledByUserId: true,
+        cancelledOnBehalfOf: true,
+        cancelledBySupport: true,
         createdAt: true,
         updatedAt: true,
         revisionPurchases: {
@@ -3114,8 +3265,13 @@ export class OrdersService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    const { creator, brand, revisionPurchases, usageRightsPurchases, ...orderFields } =
-      order;
+    const {
+      creator,
+      brand,
+      revisionPurchases,
+      usageRightsPurchases,
+      ...orderFields
+    } = order;
     const mappedOrder = this.mapOrderDetailsAdmin(orderFields);
 
     // Full pricing ledger: what the brand paid vs what to pay the creator and
@@ -3241,7 +3397,9 @@ export class OrdersService {
           refundedAt: true,
           cancellationReason: true,
           cancelledAt: true,
-          cancelledBy: true,
+          cancelledByUserId: true,
+          cancelledOnBehalfOf: true,
+          cancelledBySupport: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
@@ -3324,7 +3482,9 @@ export class OrdersService {
           refundedAt: true,
           cancellationReason: true,
           cancelledAt: true,
-          cancelledBy: true,
+          cancelledByUserId: true,
+          cancelledOnBehalfOf: true,
+          cancelledBySupport: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
@@ -3399,7 +3559,9 @@ export class OrdersService {
           refundedAt: true,
           cancellationReason: true,
           cancelledAt: true,
-          cancelledBy: true,
+          cancelledByUserId: true,
+          cancelledOnBehalfOf: true,
+          cancelledBySupport: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,

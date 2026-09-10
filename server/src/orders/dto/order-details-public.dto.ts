@@ -21,7 +21,8 @@ export class OrderActiveDisputeDto {
   @ApiPropertyOptional({
     description:
       "Admin's resolution note, present once the dispute has been resolved/closed",
-    example: 'Both parties agreed to continue; creator to re-deliver by Friday.',
+    example:
+      'Both parties agreed to continue; creator to re-deliver by Friday.',
   })
   resolutionNotes?: string | null;
 
@@ -105,7 +106,8 @@ export class OrderDetailsPublicDto {
   briefId?: string;
 
   @ApiPropertyOptional({
-    description: 'Promised delivery due date (deliveryDaysSnapshot from clock start)',
+    description:
+      'Promised delivery due date (deliveryDaysSnapshot from clock start)',
   })
   deliveryDueAt?: Date | null;
 
@@ -141,7 +143,10 @@ export class OrderDetailsPublicDto {
   @ApiPropertyOptional({ example: '199.00' })
   addOnsTotalSnapshot?: string | null;
 
-  @ApiProperty({ example: 29900, description: 'Expected total amount in paise' })
+  @ApiProperty({
+    example: 29900,
+    description: 'Expected total amount in paise',
+  })
   expectedAmountPaise!: number;
 
   @ApiPropertyOptional()
@@ -190,7 +195,8 @@ export class OrderDetailsPublicDto {
 
   @ApiProperty({
     example: 60,
-    description: 'Extra usage-rights days the brand has purchased on this order',
+    description:
+      'Extra usage-rights days the brand has purchased on this order',
   })
   usageRightsExtraDays!: number;
 
@@ -260,8 +266,13 @@ export class OrderDetailsPublicDto {
 
   @ApiPropertyOptional({
     description:
-      "Who ended the order early: 'BRAND' (cancelled) or 'CREATOR' (rejected)",
+      "Which side the order was ended for: 'BRAND' (cancelled) or 'CREATOR' (rejected). For an admin-on-behalf action this is the side support acted for.",
   })
   cancelledBy?: string | null;
-}
 
+  @ApiPropertyOptional({
+    description:
+      'True when an admin ended the order on a party\'s behalf (shown to users as "cancelled by the support team").',
+  })
+  cancelledBySupport?: boolean;
+}

@@ -53,7 +53,8 @@ export class OrderListSummaryDto {
   briefId?: string;
 
   @ApiPropertyOptional({
-    description: 'Promised delivery due date (deliveryDaysSnapshot from clock start)',
+    description:
+      'Promised delivery due date (deliveryDaysSnapshot from clock start)',
   })
   deliveryDueAt?: Date | null;
 
@@ -86,9 +87,15 @@ export class OrderListSummaryDto {
 
   @ApiPropertyOptional({
     description:
-      "Who ended the order early: 'BRAND' (cancelled) or 'CREATOR' (rejected)",
+      "Which side the order was ended for: 'BRAND' (cancelled) or 'CREATOR' (rejected). For an admin-on-behalf action this is the side support acted for.",
   })
   cancelledBy?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'True when an admin ended the order on a party\'s behalf (shown to users as "cancelled by the support team").',
+  })
+  cancelledBySupport?: boolean;
 
   @ApiPropertyOptional({
     description: 'When the latest dispute was opened (for Disputed on)',

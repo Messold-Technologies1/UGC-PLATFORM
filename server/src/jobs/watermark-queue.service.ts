@@ -291,6 +291,44 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * On-read opportunistic recovery. A read path that has already loaded a
+   * delivery's preview fields hands them here to re-drive the watermark ONLY
+   * when it is genuinely owed — the same predicate the safety-net poller
+   * (JobsService.processStuckWatermarks) applies, evaluated for a single row.
+   *
+   * Fire-and-forget: returns immediately, never throws, never blocks the
+   * response. The DB is already awake serving the read, so this recovers a
+   * preview dropped by a rare Redis failure at the moment the brand looks at it
+   * — no standing poll, no extra compute wake. processDeliveryDirect's atomic
+   * claim makes concurrent/duplicate calls (a polling client, two brand tabs)
+   * cheap no-ops, so it is safe to call on every read.
+   *
+   * The attempt-budget guard lives here, not in the claim: claimForProcessing
+   * does not cap attempts, so without this a poison delivery would be re-driven
+   * past its budget on every read. Mirrors the poller's `previewAttempts < max`.
+   */
+  redriveOnReadIfOwed(row: {
+    id: string;
+    previewStatus: string | null;
+    previewAttempts: number;
+    previewUpdatedAt: Date | null;
+  }): void {
+    if (row.previewAttempts >= this.maxAttempts()) return;
+
+    const owed =
+      row.previewStatus === 'pending' ||
+      row.previewStatus === 'failed' ||
+      (row.previewStatus === 'processing' &&
+        row.previewUpdatedAt !== null &&
+        row.previewUpdatedAt.getTime() <= Date.now() - STALE_PROCESSING_MS);
+    if (!owed) return;
+
+    // processDeliveryDirect rethrows for the worker's benefit; a void caller has
+    // nowhere to put that, so swallow like runInlineGuarded / the poller.
+    void this.processDeliveryDirect(row.id, 'on-read').catch(() => undefined);
+  }
+
+  /**
    * Atomically claim a delivery for processing. A single conditional UPDATE is
    * the cross-instance lock: only the caller whose UPDATE flips the row wins, so
    * the worker, watchdog, delayed recheck and safety-net poller can never

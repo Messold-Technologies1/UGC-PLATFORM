@@ -116,6 +116,22 @@ describe('InstagramMirrorService mirror claim', () => {
       ]);
     });
 
+    it('scopes to one creator when a creatorId is given (on-read reconcile)', async () => {
+      prisma.creatorPortfolioVideo.findMany.mockResolvedValue([
+        { id: 'a', mirrorAttempts: 1 },
+      ]);
+
+      await expect(
+        service.listStuckMirrorIds(25, 'creator-1'),
+      ).resolves.toEqual(['a']);
+
+      const { where } = prisma.creatorPortfolioVideo.findMany.mock.calls[0]![0];
+      expect(where.creatorId).toBe('creator-1');
+      // Still the same stuck predicate, just narrowed to this creator.
+      expect(where.assetState).toBe('PROCESSING');
+      expect(where.source).toBe('INSTAGRAM');
+    });
+
     it('honours a configured stale window', async () => {
       configValues.IG_MIRROR_STALE_CLAIM_MS = 120_000;
       prisma.creatorPortfolioVideo.findMany.mockResolvedValue([]);

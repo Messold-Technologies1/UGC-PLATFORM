@@ -36,6 +36,7 @@ import {
 import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
 import { MIN_PORTFOLIO_VIDEOS } from '../creator-profile/creator-profile-completeness.util';
 import { playableAssetWhere } from './portfolio-video-asset.util';
+import { InstagramMirrorQueueService } from './instagram-mirror-queue.service';
 import {
   type ImportInstagramReelsDto,
   type ImportInstagramReelsResponseDto,
@@ -53,6 +54,7 @@ export class CreatorPortfolioService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly config: ConfigService,
+    private readonly mirrorQueue: InstagramMirrorQueueService,
   ) {}
 
   private async isAdminUser(userId: string): Promise<boolean> {
@@ -494,6 +496,23 @@ export class CreatorPortfolioService {
       orderBy: { createdAt: 'desc' },
       include: this.brandCollabInclude,
     });
+
+    // On-read recovery: if this creator has any Instagram reel still stuck in
+    // PROCESSING (a mirror a rare Redis failure abandoned — hidden from their
+    // public profile), re-drive it now that they are looking at their gallery.
+    // Gated on a processing tile actually being present so an idle gallery load
+    // triggers no extra queries; the reconcile's own stale-claim predicate keeps
+    // a mirror that is genuinely still in flight untouched. Fire-and-forget —
+    // never blocks or fails the read.
+    const hasStuckCandidate = rows.some(
+      (r) =>
+        r.assetState === PortfolioVideoAssetState.PROCESSING &&
+        r.source === PortfolioVideoSource.INSTAGRAM,
+    );
+    if (hasStuckCandidate) {
+      void this.mirrorQueue.reconcileStuckMirrorsForCreator(profile.id);
+    }
+
     return rows.map((r) => this.mapVideo(r));
   }
 

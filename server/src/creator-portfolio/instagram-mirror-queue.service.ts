@@ -10,6 +10,7 @@ import { Cron } from '@nestjs/schedule';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
 import { shouldRunInline } from '../jobs/bullmq-watchdog.util';
 import { withTimeout } from '../util/with-timeout';
+import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
 import { InstagramMirrorService } from './instagram-mirror.service';
 
 const QUEUE_NAME = 'instagram-media-mirror';
@@ -205,11 +206,15 @@ export class InstagramMirrorQueueService
    * nothing did: the row sat in PROCESSING for good. The database knows: a
    * claim older than the stale window means whoever took it is gone.
    *
-   * Modelled on JobsService.processStuckWatermarks, including the sparse cadence
-   * — a mirror finishing up to 10 minutes late in a rare failure is fine, and it
-   * lets the database idle rather than being polled awake.
+   * Modelled on JobsService.processStuckWatermarks, and phase-aligned with it and
+   * the reel-sync reconcile onto the shared RECONCILE_BACKSTOP_CRON (hourly
+   * catch-all; see that constant) so all three backstops share a single database
+   * wake and the Neon compute can autosuspend between them. The primary
+   * enqueue -> worker path still recovers the common cases in ~2 min, so this is
+   * only the rare backstop for a mirror Redis dropped; finishing it up to ~1h
+   * late in that case is an accepted trade.
    */
-  @Cron('0 */10 * * * *')
+  @Cron(RECONCILE_BACKSTOP_CRON)
   async reconcileStuckMirrors(): Promise<void> {
     if (this.reconcileRunning) return;
     this.reconcileRunning = true;
@@ -240,6 +245,39 @@ export class InstagramMirrorQueueService
       );
     } finally {
       this.reconcileRunning = false;
+    }
+  }
+
+  /**
+   * Creator-scoped on-read reconcile. The same recover step as
+   * reconcileStuckMirrors, limited to one creator's videos, for the
+   * opportunistic call when a creator opens their own gallery: a mirror a rare
+   * Redis failure abandoned (PROCESSING with a stale or absent claim) is
+   * re-driven right then, so the reel reappears on their public profile without
+   * waiting for the hourly backstop.
+   *
+   * Fire-and-forget: never throws (errors are logged), so a void caller can
+   * ignore it. It takes no single-flight guard — that guard is for the global
+   * cron's full-table scan; here the atomic claimForMirror is the real guard
+   * against double-processing, and the queries are bounded to one creator, so a
+   * creator polling their gallery only ever triggers cheap no-op scans.
+   */
+  async reconcileStuckMirrorsForCreator(creatorId: string): Promise<void> {
+    try {
+      // Park budget-spent rows first so the re-drive below cannot pick them up.
+      await this.mirror.parkExhaustedMirrors(25, creatorId);
+      const stuck = await this.mirror.listStuckMirrorIds(25, creatorId);
+      if (stuck.length === 0) return;
+      this.logger.log(
+        `ig-mirror on-read: re-driving ${stuck.length} abandoned mirror(s) for creator ${creatorId}`,
+      );
+      for (const videoId of stuck) {
+        await this.enqueue(videoId).catch(() => undefined);
+      }
+    } catch (err) {
+      this.logger.error(
+        `ig-mirror on-read reconcile failed for creator ${creatorId}: ${(err as Error)?.message}`,
+      );
     }
   }
 

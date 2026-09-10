@@ -714,7 +714,6 @@ const InstagramTab = React.memo(function InstagramTab({
   if (!hasInstagramInsightsData(data)) {
     return (
       <div className="dr-section" style={{ paddingTop: 18 }}>
-        <SectionHeading>Instagram audience</SectionHeading>
         <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
           This creator hasn&rsquo;t connected Instagram yet.
         </p>
@@ -724,10 +723,7 @@ const InstagramTab = React.memo(function InstagramTab({
 
   return (
     <div className="dr-section" style={{ paddingTop: 18 }}>
-      <SectionHeading>Instagram audience</SectionHeading>
-      <div style={{ marginTop: 12 }}>
-        <InstagramInsights insights={data} variant="compact" />
-      </div>
+      <InstagramInsights insights={data} variant="compact" />
     </div>
   );
 });

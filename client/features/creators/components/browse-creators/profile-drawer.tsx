@@ -723,7 +723,11 @@ const InstagramTab = React.memo(function InstagramTab({
 
   return (
     <div className="dr-section" style={{ paddingTop: 18 }}>
-      <InstagramInsights insights={data} variant="compact" />
+      <InstagramInsights
+        insights={data}
+        variant="compact"
+        showHeader={false}
+      />
     </div>
   );
 });

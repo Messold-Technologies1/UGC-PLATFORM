@@ -276,4 +276,26 @@ export class ListCreatorsQueryDto {
   @Min(1)
   @Max(30)
   maxDeliveryDays?: number;
+
+  @ApiPropertyOptional({
+    example: 1000,
+    description:
+      'Minimum Instagram followers (inclusive). Matches creators whose connected Instagram account has at least this many followers.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => toOptionalNonNegativeNumber(value))
+  @IsInt()
+  @Min(0)
+  minFollowers?: number;
+
+  @ApiPropertyOptional({
+    example: 50000,
+    description:
+      'Maximum Instagram followers (inclusive). Must be >= minFollowers when both are set.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => toOptionalNonNegativeNumber(value))
+  @IsInt()
+  @Min(0)
+  maxFollowers?: number;
 }

@@ -3,6 +3,8 @@ import {
   CreatorFacetDimension,
   PortfolioVisibilityStatus,
   Prisma,
+  SocialConnectionStatus,
+  SocialPlatform,
 } from '@prisma/client';
 import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
@@ -200,6 +202,29 @@ export function buildListCreatorsWhere(
       packages: {
         some: {
           priceAmount,
+        },
+      },
+    });
+  }
+
+  const minFollowers = query.minFollowers;
+  const maxFollowers = query.maxFollowers;
+  if (minFollowers !== undefined || maxFollowers !== undefined) {
+    const followersCount: Prisma.IntNullableFilter = {};
+    if (minFollowers !== undefined) {
+      followersCount.gte = minFollowers;
+    }
+    if (maxFollowers !== undefined) {
+      followersCount.lte = maxFollowers;
+    }
+    // Match creators with a live Instagram connection whose follower count is in
+    // range. ACTIVE only, so the count reflects a currently-synced account.
+    clauses.push({
+      socialConnections: {
+        some: {
+          platform: SocialPlatform.INSTAGRAM,
+          status: SocialConnectionStatus.ACTIVE,
+          followersCount,
         },
       },
     });

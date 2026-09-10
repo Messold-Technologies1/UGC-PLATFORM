@@ -35,6 +35,11 @@ import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import type { Creator, CreatorProfile, AddOn } from "../../types";
 import { useCreatorProfileQuery } from "../../hooks/use-creator-profile-query";
 import { useCreatorRatingReviewsQuery } from "../../hooks/use-creator-rating-reviews-query";
+import { usePublicInstagramInsightsQuery } from "../../hooks/use-public-instagram-insights";
+import {
+  InstagramInsights,
+  hasInstagramInsightsData,
+} from "../instagram-insights/instagram-insights";
 import { usePublicPortfolioVideosQuery } from "@/features/creator-portfolio/hooks/use-public-portfolio-videos-query";
 import { mapProfileItemToCreatorProfile } from "../../api/map-profile-to-creator";
 import { formatContentPreferenceLabel } from "../../lib/format-content-preference-label";
@@ -71,6 +76,7 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "packages", label: "Packages" },
   { id: "portfolio", label: "Portfolio" },
+  { id: "instagram", label: "Instagram" },
   { id: "reviews", label: "Reviews" },
 ] as const;
 
@@ -688,6 +694,44 @@ const ReviewsTab = React.memo(function ReviewsTab({
   );
 });
 
+const InstagramTab = React.memo(function InstagramTab({
+  creatorId,
+}: {
+  creatorId: string;
+}) {
+  const { data, isLoading } = usePublicInstagramInsightsQuery(creatorId);
+
+  if (isLoading) {
+    return (
+      <div className="dr-section" style={{ paddingTop: 18 }}>
+        <SkeletonBlock height={60} />
+        <SkeletonBlock height={130} style={{ marginTop: 12 }} />
+        <SkeletonBlock height={90} style={{ marginTop: 12 }} />
+      </div>
+    );
+  }
+
+  if (!hasInstagramInsightsData(data)) {
+    return (
+      <div className="dr-section" style={{ paddingTop: 18 }}>
+        <SectionHeading>Instagram audience</SectionHeading>
+        <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+          This creator hasn&rsquo;t connected Instagram yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dr-section" style={{ paddingTop: 18 }}>
+      <SectionHeading>Instagram audience</SectionHeading>
+      <div style={{ marginTop: 12 }}>
+        <InstagramInsights insights={data} variant="compact" />
+      </div>
+    </div>
+  );
+});
+
 export const ProfileDrawer = React.memo(function ProfileDrawer({
   creatorId,
   open,
@@ -1028,6 +1072,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               onIntroError={handleIntroError}
               isLoading={isProfileLoading || isVideosLoading}
             />
+          )}
+          {activeId && tab === "instagram" && (
+            <InstagramTab creatorId={activeId} />
           )}
           {activeId && tab === "reviews" && <ReviewsTab creatorId={activeId} />}
 

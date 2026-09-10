@@ -2,6 +2,8 @@ import {
   ApprovalStatus,
   CreatorFacetDimension,
   PortfolioVisibilityStatus,
+  SocialConnectionStatus,
+  SocialPlatform,
 } from '@prisma/client';
 import {
   buildAdminCreatorApprovalSearchWhere,
@@ -112,6 +114,42 @@ describe('creator-list-filters.util', () => {
             packages: {
               some: {
                 priceAmount: { lte: 1000 },
+              },
+            },
+          },
+        ],
+      });
+    });
+
+    it('filters by Instagram follower range (active connections only)', () => {
+      const q: ListCreatorsQueryDto = { minFollowers: 1000, maxFollowers: 50000 };
+      expect(buildListCreatorsWhere(q)).toEqual({
+        AND: [
+          { isListed: true },
+          {
+            socialConnections: {
+              some: {
+                platform: SocialPlatform.INSTAGRAM,
+                status: SocialConnectionStatus.ACTIVE,
+                followersCount: { gte: 1000, lte: 50000 },
+              },
+            },
+          },
+        ],
+      });
+    });
+
+    it('filters by minimum Instagram followers only', () => {
+      const q: ListCreatorsQueryDto = { minFollowers: 10000 };
+      expect(buildListCreatorsWhere(q)).toEqual({
+        AND: [
+          { isListed: true },
+          {
+            socialConnections: {
+              some: {
+                platform: SocialPlatform.INSTAGRAM,
+                status: SocialConnectionStatus.ACTIVE,
+                followersCount: { gte: 10000 },
               },
             },
           },

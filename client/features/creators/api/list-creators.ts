@@ -15,6 +15,8 @@ export type CreatorListApiFilters = {
   minPrice?: string | number;
   maxPrice?: string | number;
   maxDeliveryDays?: string | number;
+  minFollowers?: string | number;
+  maxFollowers?: string | number;
   creatorType?: string[];
   appearance?: string[];
   occupation?: string[];
@@ -66,6 +68,12 @@ export function serializeCreatorListApiParams(
   }
   if (filters.maxDeliveryDays !== undefined && filters.maxDeliveryDays !== "") {
     params.set("maxDeliveryDays", String(filters.maxDeliveryDays));
+  }
+  if (filters.minFollowers !== undefined && filters.minFollowers !== "") {
+    params.set("minFollowers", String(filters.minFollowers));
+  }
+  if (filters.maxFollowers !== undefined && filters.maxFollowers !== "") {
+    params.set("maxFollowers", String(filters.maxFollowers));
   }
 
   const facetArrayParams: Array<[string, string[] | undefined]> = [

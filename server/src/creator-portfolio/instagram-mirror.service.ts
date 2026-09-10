@@ -395,11 +395,16 @@ export class InstagramMirrorService {
    * Videos whose mirror was claimed and never finished — a process that died
    * mid-stream, or a job Redis lost. Nothing else recovers these: BullMQ's
    * stalled checker only helps while the job still exists.
+   *
+   * Pass `creatorId` to scope the scan to one creator — used by the on-read
+   * reconcile when a creator opens their own gallery; omit it for the global
+   * backstop sweep.
    */
-  async listStuckMirrorIds(limit = 25): Promise<string[]> {
+  async listStuckMirrorIds(limit = 25, creatorId?: string): Promise<string[]> {
     const staleBefore = new Date(Date.now() - this.staleClaimMs());
     const rows = await this.prisma.creatorPortfolioVideo.findMany({
       where: {
+        ...(creatorId ? { creatorId } : {}),
         assetState: PortfolioVideoAssetState.PROCESSING,
         source: PortfolioVideoSource.INSTAGRAM,
         OR: [
@@ -417,10 +422,14 @@ export class InstagramMirrorService {
   /**
    * Park a stuck row whose budget is spent. Separate from the scan so the cron
    * can distinguish "re-drive this" from "give up on this".
+   *
+   * Pass `creatorId` to scope to one creator (on-read reconcile); omit it for
+   * the global backstop sweep.
    */
-  async parkExhaustedMirrors(limit = 25): Promise<number> {
+  async parkExhaustedMirrors(limit = 25, creatorId?: string): Promise<number> {
     const rows = await this.prisma.creatorPortfolioVideo.findMany({
       where: {
+        ...(creatorId ? { creatorId } : {}),
         assetState: PortfolioVideoAssetState.PROCESSING,
         source: PortfolioVideoSource.INSTAGRAM,
         mirrorAttempts: { gte: this.maxMirrorAttempts() },

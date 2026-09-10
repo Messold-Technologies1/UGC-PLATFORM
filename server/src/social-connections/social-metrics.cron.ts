@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
+import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
 import { SocialConnectionsService } from './social-connections.service';
 import { SocialMetricsQueueService } from './social-metrics-queue.service';
 import { InstagramMediaService } from './instagram-media.service';
@@ -111,10 +112,14 @@ export class SocialMetricsCron {
    * database does: a state still SYNCING long after anything could plausibly be
    * running means nothing is. Modelled on JobsService.processStuckWatermarks.
    *
-   * Every 15 minutes rather than continuously — a spinner clearing up to 15 min
-   * late in a rare failure beats pinning the database awake with a poll.
+   * Phase-aligned with the watermark and ig-mirror backstops onto
+   * RECONCILE_BACKSTOP_CRON (every 30 min, on the hour and half hour) so all
+   * three share a single database wake and the Neon compute can autosuspend
+   * between them, instead of three staggered schedules poking it every few
+   * minutes. A spinner clearing up to ~30 min late in a rare failure beats
+   * pinning the database awake around the clock.
    */
-  @Cron('0 */15 * * * *')
+  @Cron(RECONCILE_BACKSTOP_CRON)
   async reconcileStuckReelSyncs(): Promise<void> {
     if (!this.enabled()) return;
     if (this.config.get<string>('IG_MEDIA_SYNC_ENABLED') === 'false') return;

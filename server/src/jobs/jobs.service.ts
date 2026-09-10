@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -42,12 +43,14 @@ export class JobsService {
    * It runs every 30 minutes rather than continuously: a watermark preview being
    * up to ~30 min late in the rare Redis-failure case is acceptable, and the
    * sparse cadence lets the Neon compute endpoint autosuspend between runs
-   * instead of being pinned awake 24/7 by a 30-second poll.
+   * instead of being pinned awake 24/7 by a 30-second poll. It shares
+   * RECONCILE_BACKSTOP_CRON with the ig-mirror and reel-sync backstops so all
+   * three fire on the same tick — one database wake serves every sweep.
    *
    * `dead` rows and those past the attempt budget are skipped so a poison
    * delivery is not re-driven forever.
    */
-  @Cron('0 */30 * * * *') // every 30 minutes
+  @Cron(RECONCILE_BACKSTOP_CRON) // every 30 minutes, aligned with the other backstops
   async processStuckWatermarks(): Promise<void> {
     if (this.reconcileRunning) return;
     this.reconcileRunning = true;

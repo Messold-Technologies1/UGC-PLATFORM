@@ -10,6 +10,7 @@ import { Cron } from '@nestjs/schedule';
 import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
 import { shouldRunInline } from '../jobs/bullmq-watchdog.util';
 import { withTimeout } from '../util/with-timeout';
+import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
 import { InstagramMirrorService } from './instagram-mirror.service';
 
 const QUEUE_NAME = 'instagram-media-mirror';
@@ -205,11 +206,14 @@ export class InstagramMirrorQueueService
    * nothing did: the row sat in PROCESSING for good. The database knows: a
    * claim older than the stale window means whoever took it is gone.
    *
-   * Modelled on JobsService.processStuckWatermarks, including the sparse cadence
-   * — a mirror finishing up to 10 minutes late in a rare failure is fine, and it
-   * lets the database idle rather than being polled awake.
+   * Modelled on JobsService.processStuckWatermarks, and phase-aligned with it and
+   * the reel-sync reconcile onto RECONCILE_BACKSTOP_CRON (every 30 min, on the
+   * hour and half hour) so all three backstops share a single database wake and
+   * the Neon compute can autosuspend between them. A mirror finishing up to
+   * ~30 min late in a rare Redis failure is an accepted trade; the primary
+   * enqueue -> worker path still recovers the common cases in ~2 min.
    */
-  @Cron('0 */10 * * * *')
+  @Cron(RECONCILE_BACKSTOP_CRON)
   async reconcileStuckMirrors(): Promise<void> {
     if (this.reconcileRunning) return;
     this.reconcileRunning = true;

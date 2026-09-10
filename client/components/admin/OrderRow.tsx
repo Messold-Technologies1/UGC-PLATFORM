@@ -38,6 +38,8 @@ export default function OrderRow({
   order,
   creator,
   brand,
+  cancelledByActor,
+  briefAcceptedByActor,
   delay = 0,
 }: OrderRowProps) {
   const statusClass =
@@ -47,6 +49,19 @@ export default function OrderRow({
     STATUS_LABELS[order.status] ?? order.status.replaceAll("_", " ");
   const brandLabel = brand.brandName?.trim() || "Unnamed Brand";
   const creatorLabel = creator.displayName?.trim() || "Creator";
+
+  // "Actioned by": who ended the order early (REJECTED) or accepted the brief.
+  // role ADMIN means our support team acted on a party's behalf.
+  const terminated = order.status === "REJECTED" && !!cancelledByActor;
+  const actor = terminated ? cancelledByActor : (briefAcceptedByActor ?? null);
+  const bySupport = actor?.role === "ADMIN";
+  const actionVerb = terminated
+    ? order.cancelledBy === "BRAND"
+      ? "Cancelled"
+      : "Rejected"
+    : "Accepted";
+  const onBehalf =
+    order.cancelledBy === "BRAND" ? "brand" : "creator";
 
   return (
     <tr
@@ -143,6 +158,32 @@ export default function OrderRow({
         >
           {statusLabel}
         </Badge>
+      </td>
+      <td className="px-8 py-6">
+        {actor ? (
+          <div className="flex flex-col gap-0.5">
+            <span
+              className="text-xs font-bold text-foreground truncate max-w-[10rem]"
+              title={actor.name}
+            >
+              {bySupport ? "Support team" : actor.name}
+            </span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+              {actionVerb}
+              {bySupport ? ` · for ${onBehalf}` : ""}
+            </span>
+            {bySupport ? (
+              <span
+                className="text-[10px] text-muted-foreground/70 truncate max-w-[10rem]"
+                title={actor.name}
+              >
+                {actor.name}
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground/40">—</span>
+        )}
       </td>
       <td className="px-8 py-6 text-right">
         <div className="flex items-center justify-end gap-2">

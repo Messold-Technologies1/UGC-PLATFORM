@@ -337,10 +337,22 @@ export interface AdminBrandWishlistsResponseDto {
   items: AdminBrandWishlistDto[];
 }
 
+/**
+ * Who performed a brief-stage action on an order (admin views only). `role`
+ * distinguishes a support action (ADMIN) from the party acting themselves; the
+ * attributed side of a termination is carried by order.cancelledBy.
+ */
+export interface OrderActionActor {
+  name: string;
+  role: string;
+}
+
 export interface AdminOrderListItemDto {
   order: OrderListSummary;
   creator: OrderCreatorSnapshot;
   brand: OrderBrandSnapshot;
+  cancelledByActor?: OrderActionActor | null;
+  briefAcceptedByActor?: OrderActionActor | null;
 }
 
 export interface AdminOrdersListResponseDto {
@@ -406,6 +418,8 @@ export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   revisionPurchases?: OrderRevisionPurchaseDto[];
   usageRightsPurchases?: OrderUsageRightsPurchaseDto[];
   usageRightsSettlement?: OrderUsageRightsSettlementDto;
+  cancelledByActor?: OrderActionActor | null;
+  briefAcceptedByActor?: OrderActionActor | null;
 }
 
 export interface AdminOrderDetailsResponseDto {
@@ -453,6 +467,11 @@ export interface AdminOrderActionPayload {
 
 export interface AdminRejectOrderPayload extends AdminOrderActionPayload {
   resolutionNotes?: string;
+}
+
+/** Admin acting on a party's behalf for the brief flow (reject / cancel). */
+export interface AdminBriefActionPayload extends AdminOrderActionPayload {
+  note: string;
 }
 
 export interface AdminResolveDisputePayload extends AdminOrderActionPayload {

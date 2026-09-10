@@ -2,10 +2,13 @@ import { isAxiosError } from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  acceptBriefAdminOrder,
+  cancelAdminOrder,
   closeDisputeAdminOrder,
   markAdminOrderCreatorPaid,
   refundAdminOrder,
   rejectAdminOrder,
+  rejectBriefAdminOrder,
 } from "../api/admin-order-actions";
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -63,6 +66,54 @@ export function useCloseDisputeAdminOrderMutation() {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Unable to close this dispute."));
+    },
+  });
+}
+
+export function useAcceptBriefAdminOrderMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["admin", "orders", "brief-accept"],
+    mutationFn: acceptBriefAdminOrder,
+    onSuccess: async () => {
+      toast.success("Brief accepted on the creator's behalf.");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to accept the brief."));
+    },
+  });
+}
+
+export function useRejectBriefAdminOrderMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["admin", "orders", "brief-reject"],
+    mutationFn: rejectBriefAdminOrder,
+    onSuccess: async () => {
+      toast.success("Brief rejected on the creator's behalf.");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to reject the brief."));
+    },
+  });
+}
+
+export function useCancelAdminOrderMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["admin", "orders", "cancel"],
+    mutationFn: cancelAdminOrder,
+    onSuccess: async () => {
+      toast.success("Order cancelled on the brand's behalf.");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to cancel this order."));
     },
   });
 }

@@ -1,6 +1,7 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import type {
+  AdminBriefActionPayload,
   AdminOrderActionPayload,
   AdminOrderRefundResponseDto,
   AdminRejectOrderPayload,
@@ -22,6 +23,26 @@ export async function rejectAdminOrder({
   await api.post(ENDPOINTS.ADMIN.ORDERS.REJECT(orderId), {
     resolutionNotes,
   });
+}
+
+export async function acceptBriefAdminOrder({
+  orderId,
+}: AdminOrderActionPayload): Promise<void> {
+  await api.post(ENDPOINTS.ADMIN.ORDERS.BRIEF_ACCEPT(orderId));
+}
+
+export async function rejectBriefAdminOrder({
+  orderId,
+  note,
+}: AdminBriefActionPayload): Promise<void> {
+  await api.post(ENDPOINTS.ADMIN.ORDERS.BRIEF_REJECT(orderId), { note });
+}
+
+export async function cancelAdminOrder({
+  orderId,
+  note,
+}: AdminBriefActionPayload): Promise<void> {
+  await api.post(ENDPOINTS.ADMIN.ORDERS.CANCEL(orderId), { note });
 }
 
 export async function refundAdminOrder({

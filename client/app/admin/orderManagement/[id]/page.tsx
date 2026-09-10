@@ -38,10 +38,13 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  useAcceptBriefAdminOrderMutation,
+  useCancelAdminOrderMutation,
   useCloseDisputeAdminOrderMutation,
   useMarkAdminOrderCreatorPaidMutation,
   useRefundAdminOrderMutation,
   useRejectAdminOrderMutation,
+  useRejectBriefAdminOrderMutation,
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
 import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
 import { AdminOrderBriefAccordion } from "@/features/admin/components/admin-order-brief-accordion";
@@ -191,12 +194,16 @@ export default function AdminOrderDetailsPage() {
   const idParam = params.id;
   const orderId = Array.isArray(idParam) ? idParam[0] : idParam;
   const [confirmAction, setConfirmAction] = useState<
-    "mark-creator-paid" | "refund" | null
+    "mark-creator-paid" | "refund" | "brief-accept" | null
   >(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
   const [closeDisputeDialogOpen, setCloseDisputeDialogOpen] = useState(false);
   const [disputeNotes, setDisputeNotes] = useState("");
+  const [briefRejectDialogOpen, setBriefRejectDialogOpen] = useState(false);
+  const [briefRejectNotes, setBriefRejectNotes] = useState("");
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelNotes, setCancelNotes] = useState("");
   const { data, isLoading, isError, error } = useAdminOrderDetailsQuery(
     orderId ?? "",
   );
@@ -204,6 +211,9 @@ export default function AdminOrderDetailsPage() {
   const rejectOrderMutation = useRejectAdminOrderMutation();
   const refundOrderMutation = useRefundAdminOrderMutation();
   const closeDisputeMutation = useCloseDisputeAdminOrderMutation();
+  const acceptBriefMutation = useAcceptBriefAdminOrderMutation();
+  const rejectBriefMutation = useRejectBriefAdminOrderMutation();
+  const cancelOrderMutation = useCancelAdminOrderMutation();
 
   if (isLoading) {
     return <AdminOrderDetailsSkeleton />;
@@ -243,6 +253,12 @@ export default function AdminOrderDetailsPage() {
     order.status === "ACCEPTED" && !order.creatorPaidAt;
   const canRejectOrder = order.status === "DISPUTED";
   const canRefundOrder = order.status === "REJECTED" && !order.refundedAt;
+  // Pre-acceptance brief actions the admin can take on a party's behalf.
+  const canAcceptBrief = order.status === "BRIEF_SUBMITTED";
+  const canRejectBrief = order.status === "BRIEF_SUBMITTED";
+  const canCancelOrder =
+    order.status === "BRIEF_SUBMISSION_PENDING" ||
+    order.status === "BRIEF_SUBMITTED";
   const refundComplete =
     order.status === "REFUNDED" ||
     Boolean(order.refundedAt) ||
@@ -254,7 +270,10 @@ export default function AdminOrderDetailsPage() {
     markCreatorPaidMutation.isPending ||
     rejectOrderMutation.isPending ||
     refundOrderMutation.isPending ||
-    closeDisputeMutation.isPending;
+    closeDisputeMutation.isPending ||
+    acceptBriefMutation.isPending ||
+    rejectBriefMutation.isPending ||
+    cancelOrderMutation.isPending;
 
   const handleConfirmAction = () => {
     if (!confirmAction) return;
@@ -267,9 +286,45 @@ export default function AdminOrderDetailsPage() {
       return;
     }
 
+    if (confirmAction === "brief-accept") {
+      acceptBriefMutation.mutate(
+        { orderId: order.id },
+        { onSuccess: () => setConfirmAction(null) },
+      );
+      return;
+    }
+
     refundOrderMutation.mutate(
       { orderId: order.id },
       { onSuccess: () => setConfirmAction(null) },
+    );
+  };
+
+  const handleRejectBrief = () => {
+    const note = briefRejectNotes.trim();
+    if (note.length < 3) return;
+    rejectBriefMutation.mutate(
+      { orderId: order.id, note },
+      {
+        onSuccess: () => {
+          setBriefRejectDialogOpen(false);
+          setBriefRejectNotes("");
+        },
+      },
+    );
+  };
+
+  const handleCancelOrder = () => {
+    const note = cancelNotes.trim();
+    if (note.length < 3) return;
+    cancelOrderMutation.mutate(
+      { orderId: order.id, note },
+      {
+        onSuccess: () => {
+          setCancelDialogOpen(false);
+          setCancelNotes("");
+        },
+      },
     );
   };
 
@@ -313,13 +368,21 @@ export default function AdminOrderDetailsPage() {
           action: "Mark Paid",
           icon: BadgeDollarSign,
         }
-      : {
-          title: "Refund to brand",
-          description:
-            "Marks the order REFUNDED and emails the brand. Issue the actual refund to the brand manually (Razorpay dashboard / bank transfer) — this does not call Razorpay. Use this after the order has been rejected.",
-          action: "Refund to brand",
-          icon: RotateCcw,
-        };
+      : confirmAction === "brief-accept"
+        ? {
+            title: "Accept brief on the creator's behalf",
+            description:
+              "Accepts the submitted brief for this creator and starts the delivery clock, exactly as if the creator accepted it. Use this only when you've confirmed the creator wants to proceed.",
+            action: "Accept brief",
+            icon: CheckCircle2,
+          }
+        : {
+            title: "Refund to brand",
+            description:
+              "Marks the order REFUNDED and emails the brand. Issue the actual refund to the brand manually (Razorpay dashboard / bank transfer) — this does not call Razorpay. Use this after the order has been rejected.",
+            action: "Refund to brand",
+            icon: RotateCcw,
+          };
   const ConfirmIcon = confirmActionCopy.icon;
 
   const timelineConfig = [
@@ -792,6 +855,13 @@ export default function AdminOrderDetailsPage() {
                         {formatDate(order.cancelledAt)}
                       </p>
                     ) : null}
+                    {order.cancelledByActor ? (
+                      <p className="mt-1 text-xs font-semibold text-rose-700/90 dark:text-rose-300/80">
+                        {order.cancelledByActor.role === "ADMIN"
+                          ? `Actioned by the support team (${order.cancelledByActor.name})`
+                          : `Actioned by ${order.cancelledByActor.name}`}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {order.dispute && order.status === "DISPUTED" ? (
@@ -833,6 +903,55 @@ export default function AdminOrderDetailsPage() {
                     ) : null}
                   </div>
                 ) : null}
+                {(canAcceptBrief || canRejectBrief || canCancelOrder) && (
+                  <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/20 p-3 dark:border-border/10">
+                    <p className="text-[11px] font-black uppercase tracking-[0.12em] text-muted-foreground">
+                      Brief stage · act on behalf
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full justify-start rounded-xl border-emerald-500/20 bg-emerald-500/10 text-emerald-700 shadow-none hover:bg-emerald-500/20 hover:text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 dark:hover:text-emerald-300"
+                      disabled={!canAcceptBrief || isActionPending}
+                      onClick={() => setConfirmAction("brief-accept")}
+                    >
+                      {acceptBriefMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      Accept brief (as creator)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full justify-start rounded-xl border-rose-500/20 bg-rose-500/10 text-rose-700 shadow-none hover:bg-rose-500/20 hover:text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 dark:hover:text-rose-300"
+                      disabled={!canRejectBrief || isActionPending}
+                      onClick={() => setBriefRejectDialogOpen(true)}
+                    >
+                      {rejectBriefMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Ban className="h-4 w-4" />
+                      )}
+                      Reject brief (as creator)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full justify-start rounded-xl border-amber-500/20 bg-amber-500/10 text-amber-700 shadow-none hover:bg-amber-500/20 hover:text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 dark:hover:text-amber-300"
+                      disabled={!canCancelOrder || isActionPending}
+                      onClick={() => setCancelDialogOpen(true)}
+                    >
+                      {cancelOrderMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CircleSlash className="h-4 w-4" />
+                      )}
+                      Cancel order (as brand)
+                    </Button>
+                  </div>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1134,6 +1253,133 @@ export default function AdminOrderDetailsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
               Close Dispute
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={briefRejectDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !rejectBriefMutation.isPending) {
+            setBriefRejectDialogOpen(false);
+            setBriefRejectNotes("");
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!rejectBriefMutation.isPending}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-4 w-4 text-destructive" />
+              Reject brief on the creator&rsquo;s behalf
+            </DialogTitle>
+            <DialogDescription>
+              Ends the order before acceptance, exactly as if the creator
+              declined the brief. Both parties are emailed that the support team
+              ended the order, with the reason below. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Reason (required, shared with both parties)
+            </p>
+            <Textarea
+              value={briefRejectNotes}
+              onChange={(event) => setBriefRejectNotes(event.target.value)}
+              disabled={rejectBriefMutation.isPending}
+              maxLength={2000}
+              placeholder="Why is support rejecting this brief?"
+              className="min-h-28"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={rejectBriefMutation.isPending}
+              onClick={() => {
+                setBriefRejectDialogOpen(false);
+                setBriefRejectNotes("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                rejectBriefMutation.isPending ||
+                briefRejectNotes.trim().length < 3
+              }
+              onClick={handleRejectBrief}
+            >
+              {rejectBriefMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Reject brief
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !cancelOrderMutation.isPending) {
+            setCancelDialogOpen(false);
+            setCancelNotes("");
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!cancelOrderMutation.isPending}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CircleSlash className="h-4 w-4 text-destructive" />
+              Cancel order on the brand&rsquo;s behalf
+            </DialogTitle>
+            <DialogDescription>
+              Ends the order before the creator accepts, exactly as if the brand
+              cancelled. Both parties are emailed that the support team ended the
+              order, with the reason below. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Reason (required, shared with both parties)
+            </p>
+            <Textarea
+              value={cancelNotes}
+              onChange={(event) => setCancelNotes(event.target.value)}
+              disabled={cancelOrderMutation.isPending}
+              maxLength={2000}
+              placeholder="Why is support cancelling this order?"
+              className="min-h-28"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cancelOrderMutation.isPending}
+              onClick={() => {
+                setCancelDialogOpen(false);
+                setCancelNotes("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                cancelOrderMutation.isPending || cancelNotes.trim().length < 3
+              }
+              onClick={handleCancelOrder}
+            >
+              {cancelOrderMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Cancel order
             </Button>
           </DialogFooter>
         </DialogContent>

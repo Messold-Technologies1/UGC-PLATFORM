@@ -1,8 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderDetailsPublicDto } from './order-details-public.dto';
+import { OrderActionActorDto } from './order-action-actor.dto';
 
 export class OrderRevisionPurchaseDto {
-  @ApiProperty({ example: 2, description: 'Revisions granted by this purchase' })
+  @ApiProperty({
+    example: 2,
+    description: 'Revisions granted by this purchase',
+  })
   revisionsAdded!: number;
 
   @ApiProperty({ example: 20000, description: 'Per-pack price in paise' })
@@ -16,7 +20,10 @@ export class OrderRevisionPurchaseDto {
 }
 
 export class OrderUsageRightsPurchaseDto {
-  @ApiProperty({ example: 30, description: 'Usage-rights days granted by this purchase' })
+  @ApiProperty({
+    example: 30,
+    description: 'Usage-rights days granted by this purchase',
+  })
   daysAdded!: number;
 
   @ApiProperty({ example: 30000, description: 'Per-block price in paise' })
@@ -32,7 +39,9 @@ export class OrderUsageRightsPurchaseDto {
 /** Settlement figures for usage-rights purchases (non-refundable). All paise.
  *  brandPaid = platformFee + payToCreator. */
 export class OrderUsageRightsSettlementDto {
-  @ApiProperty({ description: 'Total the brand paid for usage-rights extensions' })
+  @ApiProperty({
+    description: 'Total the brand paid for usage-rights extensions',
+  })
   brandPaidPaise!: number;
 
   @ApiProperty({ description: '20% platform fee' })
@@ -100,4 +109,20 @@ export class OrderDetailsAdminDto extends OrderDetailsPublicDto {
 
   @ApiPropertyOptional({ type: () => OrderUsageRightsSettlementDto })
   usageRightsSettlement?: OrderUsageRightsSettlementDto;
+
+  @ApiPropertyOptional({
+    type: () => OrderActionActorDto,
+    nullable: true,
+    description:
+      'Who ended the order early (REJECTED). role ADMIN = support acted on a party behalf; the attributed side is cancelledBy.',
+  })
+  cancelledByActor?: OrderActionActorDto | null;
+
+  @ApiPropertyOptional({
+    type: () => OrderActionActorDto,
+    nullable: true,
+    description:
+      'Who accepted the brief. role ADMIN = support accepted on the creator behalf.',
+  })
+  briefAcceptedByActor?: OrderActionActorDto | null;
 }

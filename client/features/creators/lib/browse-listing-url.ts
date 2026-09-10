@@ -45,6 +45,8 @@ export function parseBrowseListingParams(
       maxPrice: sp.get("maxPrice") ?? DEFAULT_FILTERS.maxPrice,
       maxDeliveryDays:
         sp.get("maxDeliveryDays") ?? DEFAULT_FILTERS.maxDeliveryDays,
+      minFollowers: sp.get("minFollowers") ?? DEFAULT_FILTERS.minFollowers,
+      maxFollowers: sp.get("maxFollowers") ?? DEFAULT_FILTERS.maxFollowers,
       onLocationAvailable: parseBoolean(
         sp,
         "onLocationAvailable",
@@ -98,6 +100,8 @@ export function serializeBrowseListingParams(
   if (filters.maxDeliveryDays) {
     params.set("maxDeliveryDays", filters.maxDeliveryDays);
   }
+  if (filters.minFollowers) params.set("minFollowers", filters.minFollowers);
+  if (filters.maxFollowers) params.set("maxFollowers", filters.maxFollowers);
   if (filters.onLocationAvailable) params.set("onLocationAvailable", "true");
 
   const ageGroup = filters.ageGroup.trim();

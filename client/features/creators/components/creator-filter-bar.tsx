@@ -39,6 +39,7 @@ import {
   CREATOR_PRICE_MAX,
   CREATOR_PRICE_MIN,
   DELIVERY_WITHIN_OPTIONS,
+  FOLLOWER_RANGE_OPTIONS,
   // DEFAULT_FILTERS,
   type Filters,
 } from "../types/creator-filter-types";
@@ -398,6 +399,41 @@ const DeliveryWithinBody = memo(function DeliveryWithinBody({
   );
 });
 
+interface FollowersBodyProps {
+  minFollowers: string;
+  maxFollowers: string;
+  onChange: (min: string, max: string) => void;
+}
+
+const FollowersBody = memo(function FollowersBody({
+  minFollowers,
+  maxFollowers,
+  onChange,
+}: FollowersBodyProps) {
+  const selected =
+    FOLLOWER_RANGE_OPTIONS.find(
+      (o) => o.min === minFollowers && o.max === maxFollowers,
+    )?.value ?? "";
+  return (
+    <div>
+      <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+        Instagram followers
+      </h5>
+      <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
+        Shows creators with a connected Instagram account in this follower range.
+      </p>
+      <CheckboxRow
+        items={FOLLOWER_RANGE_OPTIONS}
+        selected={selected}
+        onToggle={(value) => {
+          const opt = FOLLOWER_RANGE_OPTIONS.find((o) => o.value === value);
+          onChange(opt?.min ?? "", opt?.max ?? "");
+        }}
+      />
+    </div>
+  );
+});
+
 interface SmartSearchBarProps {
   value?: string;
   onChange?: (value: string) => void;
@@ -560,6 +596,19 @@ function buildActiveChips(filters: Filters): ActiveChip[] {
     });
   }
 
+  if (filters.minFollowers || filters.maxFollowers) {
+    const preset = FOLLOWER_RANGE_OPTIONS.find(
+      (option) =>
+        option.min === filters.minFollowers &&
+        option.max === filters.maxFollowers,
+    );
+    chips.push({
+      id: "followers",
+      label: preset ? `${preset.label} followers` : "Followers",
+      type: "minFollowers",
+    });
+  }
+
   if (filters.onLocationAvailable)
     chips.push({
       id: "on-loc",
@@ -632,6 +681,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     (chip: ActiveChip) => {
       if (chip.type === "minPrice") {
         onChange({ ...filters, minPrice: "", maxPrice: "" });
+      } else if (chip.type === "minFollowers") {
+        onChange({ ...filters, minFollowers: "", maxFollowers: "" });
       } else if (chip.type === "maxDeliveryDays") {
         onChange({ ...filters, maxDeliveryDays: "" });
       } else if (chip.type === "onLocationAvailable") {
@@ -734,6 +785,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   const langCount = filters.language.length;
   const priceCount = filters.minPrice || filters.maxPrice ? 1 : 0;
   const deliveryCount = filters.maxDeliveryDays ? 1 : 0;
+  const followersCount = filters.minFollowers || filters.maxFollowers ? 1 : 0;
 
   const appearanceCount = filters.appearance.length;
   const ageCount = filters.ageGroup ? 1 : 0;
@@ -753,6 +805,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
     langCount +
     priceCount +
     deliveryCount +
+    followersCount +
     ageCount +
     moreCount;
 
@@ -907,6 +960,27 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                       maxPrice={filters.maxPrice}
                       onCommit={(min, max) =>
                         onChange({ ...filters, minPrice: min, maxPrice: max })
+                      }
+                    />
+                  </FilterPopover>
+
+                  <FilterPopover
+                    id="followers"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Followers"
+                    icon={<Grid3X3 className="size-[15px]" />}
+                    activeCount={followersCount}
+                  >
+                    <FollowersBody
+                      minFollowers={filters.minFollowers}
+                      maxFollowers={filters.maxFollowers}
+                      onChange={(min, max) =>
+                        onChange({
+                          ...filters,
+                          minFollowers: min,
+                          maxFollowers: max,
+                        })
                       }
                     />
                   </FilterPopover>
@@ -1171,6 +1245,19 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             maxDeliveryDays={filters.maxDeliveryDays}
                             onChange={(value) =>
                               onChange({ ...filters, maxDeliveryDays: value })
+                            }
+                          />
+                        </div>
+                        <div>
+                          <FollowersBody
+                            minFollowers={filters.minFollowers}
+                            maxFollowers={filters.maxFollowers}
+                            onChange={(min, max) =>
+                              onChange({
+                                ...filters,
+                                minFollowers: min,
+                                maxFollowers: max,
+                              })
                             }
                           />
                         </div>

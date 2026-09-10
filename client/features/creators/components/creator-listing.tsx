@@ -122,6 +122,8 @@ function filtersEqual(a: Filters, b: Filters): boolean {
     a.minPrice === b.minPrice &&
     a.maxPrice === b.maxPrice &&
     a.maxDeliveryDays === b.maxDeliveryDays &&
+    a.minFollowers === b.minFollowers &&
+    a.maxFollowers === b.maxFollowers &&
     a.onLocationAvailable === b.onLocationAvailable &&
     stringArraysEqual(a.restrictions, b.restrictions) &&
     stringArraysEqual(a.creatorType, b.creatorType) &&
@@ -287,6 +289,8 @@ export function CreatorListing({
       minPrice: filters.minPrice || undefined,
       maxPrice: filters.maxPrice || undefined,
       maxDeliveryDays: filters.maxDeliveryDays || undefined,
+      minFollowers: filters.minFollowers || undefined,
+      maxFollowers: filters.maxFollowers || undefined,
       // personaTags: filters.personaTags,
       restrictions: filters.restrictions,
       creatorType: filters.creatorType.length ? filters.creatorType : undefined,

@@ -83,7 +83,6 @@ describe('OrdersService admin brief actions on behalf', () => {
         data: expect.objectContaining({
           status: 'BRIEF_ACCEPTED',
           briefAcceptedByUserId: 'admin-9',
-          briefAcceptedBySupport: true,
         }),
       }),
     );
@@ -106,7 +105,6 @@ describe('OrdersService admin brief actions on behalf', () => {
           status: 'REJECTED',
           cancelledByUserId: 'admin-9',
           cancelledOnBehalfOf: 'BRAND',
-          cancelledBySupport: true,
           cancellationReason: 'Cancelled at the brand request.',
         }),
       }),
@@ -138,7 +136,6 @@ describe('OrdersService admin brief actions on behalf', () => {
           status: 'REJECTED',
           cancelledByUserId: 'admin-9',
           cancelledOnBehalfOf: 'CREATOR',
-          cancelledBySupport: true,
         }),
       }),
     );
@@ -189,7 +186,6 @@ describe('OrdersService admin brief actions on behalf', () => {
           status: 'REJECTED',
           cancelledByUserId: 'creator-user-1',
           cancelledOnBehalfOf: 'CREATOR',
-          cancelledBySupport: false,
         }),
       }),
     );

@@ -92,12 +92,6 @@ export class OrderListSummaryDto {
   cancelledBy?: string | null;
 
   @ApiPropertyOptional({
-    description:
-      'True when an admin ended the order on a party\'s behalf (shown to users as "cancelled by the support team").',
-  })
-  cancelledBySupport?: boolean;
-
-  @ApiPropertyOptional({
     description: 'When the latest dispute was opened (for Disputed on)',
   })
   disputeOpenedAt?: Date | null;

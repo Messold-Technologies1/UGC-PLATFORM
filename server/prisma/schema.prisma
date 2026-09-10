@@ -599,10 +599,9 @@ model Order {
   briefSubmittedAt DateTime?
   briefAcceptedAt  DateTime?
   /// The user who accepted the brief — the creator user, or (when support acts
-  /// on their behalf) the admin user. Null until the brief is accepted.
-  briefAcceptedByUserId  String?  @db.Uuid
-  /// True when an admin accepted the brief on the creator's behalf.
-  briefAcceptedBySupport Boolean  @default(false)
+  /// on their behalf) the admin user. Resolve their role to tell which. Null
+  /// until the brief is accepted.
+  briefAcceptedByUserId String?  @db.Uuid
 
   /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
   requiresPhysicalProductShipment Boolean   @default(false)
@@ -629,17 +628,14 @@ model Order {
   cancellationReason String?
   cancelledAt        DateTime?
   /// The user who ended the order early — the brand user, the creator user, or
-  /// (when support acts on their behalf) the admin user. Null for the admin
-  /// refund path, which sets REJECTED without a brief-stage actor.
+  /// (when support acts on their behalf) the admin user. Resolve their role to
+  /// tell which. Null for the admin refund path, which sets REJECTED without a
+  /// brief-stage actor.
   cancelledByUserId   String?  @db.Uuid
   /// Which side the termination is attributed to: 'BRAND' (order cancelled) or
   /// 'CREATOR' (brief rejected). For a self-serve action this is the actor's own
   /// role; for a support action it is the side the admin acted for.
   cancelledOnBehalfOf String?
-  /// True when an admin performed the cancel/reject on a party's behalf. Recorded
-  /// at write time — a brand workspace can have several users, so this cannot be
-  /// reliably derived from cancelledByUserId alone.
-  cancelledBySupport  Boolean  @default(false)
 
   // Razorpay Payments
   razorpayOrderId   String?   @unique

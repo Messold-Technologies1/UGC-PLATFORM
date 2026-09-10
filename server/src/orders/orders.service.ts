@@ -1219,7 +1219,6 @@ export class OrdersService {
     return this.applyBriefAcceptance({
       orderId: params.orderId,
       actorUserId: params.creatorUserId,
-      bySupport: false,
       requireCreatorId: creator.id,
     });
   }
@@ -1227,7 +1226,8 @@ export class OrdersService {
   /**
    * Admin accepts the brief on the creator's behalf (support action). Same state
    * machine as the creator's own acceptance; skips the creator-ownership check
-   * and records the acting admin (briefAcceptedBySupport = true).
+   * and records the acting admin (briefAcceptedByUserId — resolve their role to
+   * tell it was support).
    */
   async adminAcceptBriefOnBehalf(params: {
     orderId: string;
@@ -1236,19 +1236,18 @@ export class OrdersService {
     return this.applyBriefAcceptance({
       orderId: params.orderId,
       actorUserId: params.adminUserId,
-      bySupport: true,
     });
   }
 
   /**
    * Shared brief-acceptance transition. `requireCreatorId` enforces ownership for
    * the creator's own action; the admin path omits it. Records who accepted
-   * (briefAcceptedByUserId) and whether it was a support action.
+   * (briefAcceptedByUserId) — resolve that user's role to tell whether it was the
+   * creator or support.
    */
   private async applyBriefAcceptance(params: {
     orderId: string;
     actorUserId: string;
-    bySupport: boolean;
     requireCreatorId?: string;
   }): Promise<AcceptBriefResponseDto> {
     const order = await this.prisma.order.findUnique({
@@ -1301,7 +1300,6 @@ export class OrdersService {
         status: 'BRIEF_ACCEPTED',
         briefAcceptedAt: now,
         briefAcceptedByUserId: params.actorUserId,
-        briefAcceptedBySupport: params.bySupport,
         ...(deadlines
           ? {
               deliveryDueAt: deadlines.deliveryDueAt,
@@ -1467,11 +1465,11 @@ export class OrdersService {
   /**
    * Shared brief-termination transition (creator reject / brand cancel, whether
    * self-serve or admin-on-behalf). Moves the order to REJECTED, records who did
-   * it (cancelledByUserId), which side it is attributed to (cancelledOnBehalfOf)
-   * and whether support acted (cancelledBySupport), then notifies both parties —
-   * with the support wording when an admin performed it. `requireCreatorId` /
-   * `requireBrandId` enforce ownership for the self-serve paths; the admin paths
-   * omit them.
+   * it (cancelledByUserId) and which side it is attributed to
+   * (cancelledOnBehalfOf), then notifies both parties — with the support wording
+   * when an admin performed it (`bySupport`, known from the call path; resolve the
+   * actor's role to tell after the fact). `requireCreatorId` / `requireBrandId`
+   * enforce ownership for the self-serve paths; the admin paths omit them.
    */
   private async applyBriefTermination(params: {
     orderId: string;
@@ -1506,7 +1504,6 @@ export class OrdersService {
         cancelledAt: now,
         cancelledByUserId: params.actorUserId,
         cancelledOnBehalfOf: params.onBehalfOf,
-        cancelledBySupport: params.bySupport,
       },
     });
 
@@ -2561,7 +2558,6 @@ export class OrdersService {
     cancellationReason?: string | null;
     cancelledAt?: Date | null;
     cancelledOnBehalfOf?: string | null;
-    cancelledBySupport?: boolean | null;
     disputes?: Array<{ openedAt: Date; resolvedAt: Date | null }>;
   }): OrderListSummaryDto {
     const hasBrief = order.briefSubmittedAt != null;
@@ -2588,7 +2584,6 @@ export class OrdersService {
       cancellationReason: order.cancellationReason ?? null,
       cancelledAt: order.cancelledAt ?? null,
       cancelledBy: order.cancelledOnBehalfOf ?? null,
-      cancelledBySupport: order.cancelledBySupport ?? false,
       disputeOpenedAt: latestDispute?.openedAt ?? null,
       disputeResolvedAt: latestDispute?.resolvedAt ?? null,
     };
@@ -2626,7 +2621,6 @@ export class OrdersService {
     cancellationReason?: string | null;
     cancelledAt?: Date | null;
     cancelledOnBehalfOf?: string | null;
-    cancelledBySupport?: boolean | null;
     createdAt: Date;
     updatedAt: Date;
   }): OrderDetailsPublicDto {
@@ -2688,7 +2682,6 @@ export class OrdersService {
       cancellationReason: order.cancellationReason ?? null,
       cancelledAt: order.cancelledAt ?? null,
       cancelledBy: order.cancelledOnBehalfOf ?? null,
-      cancelledBySupport: order.cancelledBySupport ?? false,
       // Extra-revisions purchase info. Unit price is resolved only on the brand
       // details path (below); other viewers keep the null default.
       revisionsPerPurchase: REVISIONS_PER_ADDON,
@@ -2800,7 +2793,6 @@ export class OrdersService {
         cancelledAt: true,
         cancelledByUserId: true,
         cancelledOnBehalfOf: true,
-        cancelledBySupport: true,
         createdAt: true,
         updatedAt: true,
         creator: {
@@ -2958,7 +2950,6 @@ export class OrdersService {
         cancelledAt: true,
         cancelledByUserId: true,
         cancelledOnBehalfOf: true,
-        cancelledBySupport: true,
         createdAt: true,
         updatedAt: true,
         brand: {
@@ -3226,7 +3217,6 @@ export class OrdersService {
         cancelledAt: true,
         cancelledByUserId: true,
         cancelledOnBehalfOf: true,
-        cancelledBySupport: true,
         createdAt: true,
         updatedAt: true,
         revisionPurchases: {
@@ -3399,7 +3389,6 @@ export class OrdersService {
           cancelledAt: true,
           cancelledByUserId: true,
           cancelledOnBehalfOf: true,
-          cancelledBySupport: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
@@ -3484,7 +3473,6 @@ export class OrdersService {
           cancelledAt: true,
           cancelledByUserId: true,
           cancelledOnBehalfOf: true,
-          cancelledBySupport: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
@@ -3561,7 +3549,6 @@ export class OrdersService {
           cancelledAt: true,
           cancelledByUserId: true,
           cancelledOnBehalfOf: true,
-          cancelledBySupport: true,
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,

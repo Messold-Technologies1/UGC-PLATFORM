@@ -60,6 +60,10 @@ function OrderTableSkeleton({ rows }: { rows: number }) {
             <Skeleton className="h-6 w-28 rounded-full" />
           </td>
           <td className="px-8 py-6">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="mt-2 h-2 w-16" />
+          </td>
+          <td className="px-8 py-6">
             <div className="flex justify-end gap-2">
               <Skeleton className="h-9 w-9 rounded-lg" />
               <Skeleton className="h-9 w-9 rounded-lg" />
@@ -153,6 +157,7 @@ export default function OrderManagement() {
                 <th className="px-8 py-4">Package Details</th>
                 <th className="px-8 py-4">Financials</th>
                 <th className="px-8 py-4">Status</th>
+                <th className="px-8 py-4">Actioned By</th>
                 <th className="px-8 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -162,7 +167,7 @@ export default function OrderManagement() {
               {!isLoading && isError && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-8 py-20 text-center text-sm text-muted-foreground"
                   >
                     We could not load the order list right now. Try again
@@ -174,7 +179,7 @@ export default function OrderManagement() {
               {!isLoading && !isError && items.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-8 py-20 text-center text-sm text-muted-foreground"
                   >
                     No orders are available yet.
@@ -190,6 +195,8 @@ export default function OrderManagement() {
                     order={item.order}
                     creator={item.creator}
                     brand={item.brand}
+                    cancelledByActor={item.cancelledByActor}
+                    briefAcceptedByActor={item.briefAcceptedByActor}
                     delay={index * 60}
                   />
                 ))}

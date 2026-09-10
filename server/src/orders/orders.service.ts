@@ -15,6 +15,7 @@ import {
 import type { CreatorAddOn } from '@prisma/client';
 import type { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
 import type { AdminOrderListItemDto } from './dto/admin-order-list-item.dto';
+import type { OrderActionActorDto } from './dto/order-action-actor.dto';
 import type { BrandOrdersListResponseDto } from './dto/brand-orders-list-response.dto';
 import type { BrandOrderListItemDto } from './dto/brand-order-list-item.dto';
 import type { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
@@ -79,6 +80,18 @@ const adminOrderBrandSnapshotSelect = {
   contactEmail: true,
   user: { select: { name: true, email: true } },
 } as Prisma.BrandProfileSelect;
+
+/**
+ * Enough of the acting user to render "who accepted/cancelled" in admin views:
+ * a display name and their roles (to resolve ADMIN = support vs the party
+ * themselves). Admin-only — never selected into brand/creator responses.
+ */
+const orderActionActorSelect = {
+  name: true,
+  email: true,
+  primaryRole: { select: { name: true } },
+  userRoles: { select: { role: { select: { name: true } } } },
+} as const;
 
 /**
  * The brand must not see the creator's real identity anywhere in the order
@@ -3176,6 +3189,33 @@ export class OrdersService {
     return { items, total, page, limit };
   }
 
+  /**
+   * Resolve a joined acting user (selected via orderActionActorSelect) to the
+   * admin-facing { name, role } shape. ADMIN wins across primary + extra roles,
+   * so a support action reads as ADMIN and the party acting themselves reads as
+   * CREATOR/BRAND. Admin views only.
+   */
+  private mapOrderActionActor(
+    user:
+      | {
+          name: string | null;
+          email: string;
+          primaryRole: { name: string } | null;
+          userRoles: Array<{ role: { name: string } }>;
+        }
+      | null
+      | undefined,
+  ): OrderActionActorDto | null {
+    if (!user) return null;
+    const isAdmin =
+      user.primaryRole?.name === RoleName.ADMIN ||
+      user.userRoles.some((ur) => ur.role.name === RoleName.ADMIN);
+    const role = isAdmin
+      ? 'ADMIN'
+      : (user.primaryRole?.name ?? user.userRoles[0]?.role.name ?? 'UNKNOWN');
+    return { name: user.name ?? user.email, role };
+  }
+
   async getOrderDetailsForAdmin(params: {
     orderId: string;
   }): Promise<AdminOrderDetailsResponseDto> {
@@ -3217,6 +3257,9 @@ export class OrdersService {
         cancelledAt: true,
         cancelledByUserId: true,
         cancelledOnBehalfOf: true,
+        briefAcceptedByUserId: true,
+        cancelledByUser: { select: orderActionActorSelect },
+        briefAcceptedByUser: { select: orderActionActorSelect },
         createdAt: true,
         updatedAt: true,
         revisionPurchases: {
@@ -3263,6 +3306,12 @@ export class OrdersService {
       ...orderFields
     } = order;
     const mappedOrder = this.mapOrderDetailsAdmin(orderFields);
+    mappedOrder.cancelledByActor = this.mapOrderActionActor(
+      order.cancelledByUser,
+    );
+    mappedOrder.briefAcceptedByActor = this.mapOrderActionActor(
+      order.briefAcceptedByUser,
+    );
 
     // Full pricing ledger: what the brand paid vs what to pay the creator and
     // refund the brand (for extra revisions bought but not used).
@@ -3549,6 +3598,8 @@ export class OrdersService {
           cancelledAt: true,
           cancelledByUserId: true,
           cancelledOnBehalfOf: true,
+          cancelledByUser: { select: orderActionActorSelect },
+          briefAcceptedByUser: { select: orderActionActorSelect },
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
@@ -3584,9 +3635,10 @@ export class OrdersService {
     }
 
     const items: AdminOrderListItemDto[] = rows.map((r) => {
-      const { creator, brand, ...orderFields } = r;
+      const { creator, brand, cancelledByUser, briefAcceptedByUser, ...rest } =
+        r;
       return {
-        order: this.mapOrderListSummary(orderFields),
+        order: this.mapOrderListSummary(rest),
         creator: {
           id: creator.id,
           displayName: creator.displayName,
@@ -3595,6 +3647,8 @@ export class OrdersService {
           city: creator.city ?? null,
         },
         brand: toAdminOrderBrandSnapshotDto(brand),
+        cancelledByActor: this.mapOrderActionActor(cancelledByUser),
+        briefAcceptedByActor: this.mapOrderActionActor(briefAcceptedByUser),
       };
     });
 

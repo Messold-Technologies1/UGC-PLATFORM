@@ -258,6 +258,12 @@ export const ENDPOINTS = {
         `/api/admin/orders/${encodeURIComponent(id)}/mark-creator-paid`,
       REJECT: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/reject`,
+      BRIEF_ACCEPT: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/brief/accept`,
+      BRIEF_REJECT: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/brief/reject`,
+      CANCEL: (id: string) =>
+        `/api/admin/orders/${encodeURIComponent(id)}/cancel`,
       REFUND: (id: string) =>
         `/api/admin/orders/${encodeURIComponent(id)}/refund`,
       CLOSE_DISPUTE: (id: string) =>

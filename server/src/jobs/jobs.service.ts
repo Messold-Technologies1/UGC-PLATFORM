@@ -40,17 +40,19 @@ export class JobsService {
    * in `processing`, means a preview is genuinely owed — so a low-frequency scan
    * against the DB is the real backstop.
    *
-   * It runs every 30 minutes rather than continuously: a watermark preview being
-   * up to ~30 min late in the rare Redis-failure case is acceptable, and the
-   * sparse cadence lets the Neon compute endpoint autosuspend between runs
-   * instead of being pinned awake 24/7 by a 30-second poll. It shares
-   * RECONCILE_BACKSTOP_CRON with the ig-mirror and reel-sync backstops so all
-   * three fire on the same tick — one database wake serves every sweep.
+   * Runs on RECONCILE_BACKSTOP_CRON (hourly catch-all; see that constant) rather
+   * than continuously. It is now only the rare backstop for a preview that Redis
+   * dropped AND no brand is looking at: the common case recovers on read via
+   * WatermarkQueueService.redriveOnReadIfOwed the moment a brand opens the order,
+   * so a preview nobody is waiting on being up to ~1h late is fine. Shares the
+   * expression with the ig-mirror and reel-sync backstops so all three fire on
+   * the same tick — one database wake serves every sweep and Neon can autosuspend
+   * between them.
    *
    * `dead` rows and those past the attempt budget are skipped so a poison
    * delivery is not re-driven forever.
    */
-  @Cron(RECONCILE_BACKSTOP_CRON) // every 30 minutes, aligned with the other backstops
+  @Cron(RECONCILE_BACKSTOP_CRON)
   async processStuckWatermarks(): Promise<void> {
     if (this.reconcileRunning) return;
     this.reconcileRunning = true;

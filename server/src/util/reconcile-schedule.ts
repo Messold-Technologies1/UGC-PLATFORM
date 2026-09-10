@@ -2,20 +2,27 @@
  * Shared schedule for the DB-truth backstop reconcile crons (watermark pipeline,
  * Instagram reel-mirror, Instagram reel-cache sync).
  *
- * All three are intentionally phase-aligned to this SAME expression so they fire
- * together: the database wakes once, runs all three sweeps, then gets a long
- * clean idle window and can autosuspend (Neon serverless compute bills for
- * awake-time, not data). Three *staggered* schedules (previously 10 / 15 / 30
- * min) poke the compute every few minutes and defeat autosuspend entirely.
+ * These are the rare CATCH-ALL for the truly-abandoned case: a job that Redis
+ * dropped or a process that crashed mid-work, which no one is actively looking
+ * at. The common cases are handled without this timer:
+ *   - the primary BullMQ path (worker + delayed recheck) recovers most failures
+ *     within ~2 min;
+ *   - user-facing paths recover on read — e.g. WatermarkQueueService
+ *     .redriveOnReadIfOwed re-drives an owed preview the moment a brand opens the
+ *     order, and a creator's "Refresh" re-drives a stuck reel sync — at zero
+ *     extra database wake, because the read already woke the compute.
  *
- * Keep them identical. Do NOT give one a faster or offset cadence to "recover
- * quicker" — that re-pins the compute awake around the clock and undoes the cost
- * saving. These are backstops for the rare case where Redis itself failed; the
- * primary BullMQ path (worker + delayed recheck) already recovers the common
- * cases within ~2 minutes, so a 30-minute floor here is safe. A stuck item
- * recovering up to ~30 min late in a genuine Redis outage is an accepted trade.
+ * So this only needs to sweep for work that nothing else will ever trigger.
+ * Hourly (on the hour) is plenty, and all three crons share this ONE expression
+ * so they fire on the same tick: the database wakes once, runs every sweep, then
+ * gets a long clean idle window and can autosuspend (Neon serverless compute
+ * bills for awake-time, not data). Staggered or more-frequent schedules poke the
+ * compute around the clock and defeat autosuspend — the reason this was
+ * consolidated. Keep them identical and do not speed one up to "recover quicker";
+ * recovery speed for anything a user cares about comes from the on-read paths,
+ * not from this backstop.
  *
- * Six-field expression (second minute hour dom month dow): second 0 of minute 0
- * and 30 — i.e. twice an hour, on the hour and half hour.
+ * Six-field expression (second minute hour dom month dow): second 0, minute 0 —
+ * i.e. once an hour, on the hour.
  */
-export const RECONCILE_BACKSTOP_CRON = '0 */30 * * * *';
+export const RECONCILE_BACKSTOP_CRON = '0 0 * * * *';

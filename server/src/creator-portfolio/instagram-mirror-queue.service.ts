@@ -207,11 +207,12 @@ export class InstagramMirrorQueueService
    * claim older than the stale window means whoever took it is gone.
    *
    * Modelled on JobsService.processStuckWatermarks, and phase-aligned with it and
-   * the reel-sync reconcile onto RECONCILE_BACKSTOP_CRON (every 30 min, on the
-   * hour and half hour) so all three backstops share a single database wake and
-   * the Neon compute can autosuspend between them. A mirror finishing up to
-   * ~30 min late in a rare Redis failure is an accepted trade; the primary
-   * enqueue -> worker path still recovers the common cases in ~2 min.
+   * the reel-sync reconcile onto the shared RECONCILE_BACKSTOP_CRON (hourly
+   * catch-all; see that constant) so all three backstops share a single database
+   * wake and the Neon compute can autosuspend between them. The primary
+   * enqueue -> worker path still recovers the common cases in ~2 min, so this is
+   * only the rare backstop for a mirror Redis dropped; finishing it up to ~1h
+   * late in that case is an accepted trade.
    */
   @Cron(RECONCILE_BACKSTOP_CRON)
   async reconcileStuckMirrors(): Promise<void> {

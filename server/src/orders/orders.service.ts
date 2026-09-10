@@ -2893,12 +2893,25 @@ export class OrdersService {
         note: true,
         createdAt: true,
         previewStatus: true,
+        previewAttempts: true,
+        previewUpdatedAt: true,
       },
     });
 
     // Brands only get the original files once they have accepted the order.
     // Until then they see the watermarked preview copies.
     const accepted = !!order.acceptedAt;
+
+    // On-read recovery: a preview is only ever owed before acceptance. If a rare
+    // Redis failure left one pending/failed/stuck, re-drive it now that the brand
+    // is looking — the DB is already awake for this read, so it costs no extra
+    // compute wake and the preview is ready by the client's next poll. Each call
+    // is a fire-and-forget no-op unless that row is genuinely owed and in budget.
+    if (!accepted) {
+      for (const r of rows) {
+        this.watermarkQueue.redriveOnReadIfOwed(r);
+      }
+    }
 
     const items: OrderDeliveryItemDto[] = rows.map((r) => ({
       id: r.id,

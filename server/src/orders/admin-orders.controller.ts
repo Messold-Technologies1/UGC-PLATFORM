@@ -23,6 +23,8 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminRejectOrderDto } from './dto/admin-reject-order.dto';
+import { AdminBriefActionDto } from './dto/admin-brief-action.dto';
+import { AcceptBriefResponseDto } from './dto/accept-brief-response.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 import { OrdersService } from './orders.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
@@ -118,6 +120,59 @@ export class AdminOrdersController {
       orderId: id,
       adminUserId: req.user.id,
       resolutionNotes: dto.resolutionNotes,
+    });
+  }
+
+  @Post(':id/brief/accept')
+  @ApiOperation({
+    summary: "Accept the brief on the creator's behalf (support action)",
+  })
+  @ApiCreatedResponse({ type: AcceptBriefResponseDto })
+  async acceptBriefOnBehalf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<AcceptBriefResponseDto> {
+    return this.orders.adminAcceptBriefOnBehalf({
+      orderId: id,
+      adminUserId: req.user.id,
+    });
+  }
+
+  @Post(':id/brief/reject')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      "Reject the brief on the creator's behalf (support action); notifies both parties",
+  })
+  @ApiNoContentResponse()
+  async rejectBriefOnBehalf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminBriefActionDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.orders.adminRejectBriefOnBehalf({
+      orderId: id,
+      adminUserId: req.user.id,
+      note: dto.note,
+    });
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      "Cancel the order on the brand's behalf (support action); notifies both parties",
+  })
+  @ApiNoContentResponse()
+  async cancelOnBehalf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminBriefActionDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.orders.adminCancelOrderOnBehalf({
+      orderId: id,
+      adminUserId: req.user.id,
+      note: dto.note,
     });
   }
 

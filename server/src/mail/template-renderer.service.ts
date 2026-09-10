@@ -31,6 +31,8 @@ const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = [
   EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_CREATOR,
   EmailTemplateKey.ORDER_CANCELLED_FOR_BRAND,
   EmailTemplateKey.ORDER_CANCELLED_FOR_CREATOR,
+  EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_BRAND,
+  EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_CREATOR,
   EmailTemplateKey.ORDER_REFUNDED_FOR_BRAND,
   EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_BRAND,
   EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_CREATOR,
@@ -68,10 +70,9 @@ export class TemplateRendererService implements OnModuleInit {
     );
 
     const shellPath = join(partialsDir, 'email-shell.html.hbs');
-    this.shellTemplate = Handlebars.compile(
-      readFileSync(shellPath, 'utf8'),
-      { noEscape: false },
-    );
+    this.shellTemplate = Handlebars.compile(readFileSync(shellPath, 'utf8'), {
+      noEscape: false,
+    });
 
     for (const key of ALL_TEMPLATE_KEYS) {
       this.compiled.set(key, this.loadTemplateSet(key));
@@ -98,9 +99,7 @@ export class TemplateRendererService implements OnModuleInit {
     };
   }
 
-  private withDefaults(
-    context: EmailTemplateContext,
-  ): EmailTemplateContext {
+  private withDefaults(context: EmailTemplateContext): EmailTemplateContext {
     const frontendUrl = this.config
       .get<string>('FRONTEND_URL', 'http://localhost:3000')
       .replace(/\/$/, '');

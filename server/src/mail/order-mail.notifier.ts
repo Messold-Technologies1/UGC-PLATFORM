@@ -63,20 +63,21 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const brandName = this.brandDisplayName(order.brand);
-      await this.sendToCreator(order, EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR, {
-        brandName,
-        packageName: order.packageNameSnapshot,
-        orderId: order.id,
-        briefSubmittedAt: this.formatDate(briefSubmittedAt),
-        actionUrl: this.creatorOrderBriefUrl(order.id),
-      });
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR,
+        {
+          brandName,
+          packageName: order.packageNameSnapshot,
+          orderId: order.id,
+          briefSubmittedAt: this.formatDate(briefSubmittedAt),
+          actionUrl: this.creatorOrderBriefUrl(order.id),
+        },
+      );
     });
   }
 
-  notifyBriefAccepted(
-    orderId: string,
-    deliveryDueAt: Date | null,
-  ): void {
+  notifyBriefAccepted(orderId: string, deliveryDueAt: Date | null): void {
     void this.run('brief_accepted', async () => {
       const order = await this.loadOrder(orderId);
       if (!order) return;
@@ -90,7 +91,11 @@ export class OrderMailNotifier {
         ctx.deliveryDueAt = this.formatDate(deliveryDueAt);
       }
 
-      await this.sendToBrand(order, EmailTemplateKey.ORDER_BRIEF_ACCEPTED_FOR_BRAND, ctx);
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_BRIEF_ACCEPTED_FOR_BRAND,
+        ctx,
+      );
     });
   }
 
@@ -125,20 +130,21 @@ export class OrderMailNotifier {
     });
   }
 
-  notifyProductReceived(
-    orderId: string,
-    deliveryDueAt: Date,
-  ): void {
+  notifyProductReceived(orderId: string, deliveryDueAt: Date): void {
     void this.run('product_received', async () => {
       const order = await this.loadOrder(orderId);
       if (!order) return;
 
-      await this.sendToBrand(order, EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND, {
-        creatorName: order.creator.displayName,
-        orderId: order.id,
-        deliveryDueAt: this.formatDate(deliveryDueAt),
-        actionUrl: this.brandOrderUrl(order.id),
-      });
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND,
+        {
+          creatorName: order.creator.displayName,
+          orderId: order.id,
+          deliveryDueAt: this.formatDate(deliveryDueAt),
+          actionUrl: this.brandOrderUrl(order.id),
+        },
+      );
     });
   }
 
@@ -275,19 +281,20 @@ export class OrderMailNotifier {
         },
       );
 
-      await this.sendToBrand(order, EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND, {
-        creatorName: order.creator.displayName,
-        packageName: order.packageNameSnapshot,
-        orderId: order.id,
-        actionUrl: this.brandOrderUrl(order.id),
-      });
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND,
+        {
+          creatorName: order.creator.displayName,
+          packageName: order.packageNameSnapshot,
+          orderId: order.id,
+          actionUrl: this.brandOrderUrl(order.id),
+        },
+      );
     });
   }
 
-  notifyOrderRejected(
-    orderId: string,
-    resolutionNotes?: string | null,
-  ): void {
+  notifyOrderRejected(orderId: string, resolutionNotes?: string | null): void {
     void this.run('order_rejected', async () => {
       const order = await this.loadOrder(orderId);
       if (!order) return;
@@ -306,11 +313,15 @@ export class OrderMailNotifier {
         actionUrl: this.brandOrderUrl(order.id),
       });
 
-      await this.sendToCreator(order, EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR, {
-        ...base,
-        brandName: this.brandDisplayName(order.brand),
-        actionUrl: this.creatorOrderUrl(order.id),
-      });
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR,
+        {
+          ...base,
+          brandName: this.brandDisplayName(order.brand),
+          actionUrl: this.creatorOrderUrl(order.id),
+        },
+      );
     });
   }
 
@@ -381,6 +392,42 @@ export class OrderMailNotifier {
         {
           ...base,
           brandName: this.brandDisplayName(order.brand),
+          actionUrl: this.creatorOrderUrl(order.id),
+        },
+      );
+    });
+  }
+
+  /**
+   * An admin ended the order on a party's behalf (support action). Both parties
+   * are told support cancelled the order, with the reason note — no brand/creator
+   * is named as the canceller.
+   */
+  notifyOrderCancelledBySupport(orderId: string, note: string): void {
+    void this.run('order_cancelled_by_support', async () => {
+      const order = await this.loadOrder(orderId);
+      if (!order) return;
+
+      const base: Record<string, string> = {
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        cancellationNote: note.trim(),
+      };
+
+      await this.sendToBrand(
+        order,
+        EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_BRAND,
+        {
+          ...base,
+          actionUrl: this.brandOrderUrl(order.id),
+        },
+      );
+
+      await this.sendToCreator(
+        order,
+        EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_CREATOR,
+        {
+          ...base,
           actionUrl: this.creatorOrderUrl(order.id),
         },
       );
@@ -572,9 +619,8 @@ export class OrderMailNotifier {
   private async resolveBrandRecipient(
     order: OrderMailRow,
   ): Promise<{ email: string | null; name: string; phone: string | null }> {
-    const brandUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
-      order.brand.id,
-    );
+    const brandUserId =
+      await this.brandAccess.resolveBrandActorUserIdForProfile(order.brand.id);
     const user = await this.prisma.user.findUnique({
       where: { id: brandUserId },
       select: { email: true, name: true, phone: true },
@@ -589,7 +635,8 @@ export class OrderMailNotifier {
       accountName: user?.name,
     });
     // Prefer the brand's stated contact phone, else the account phone.
-    const phone = order.brand.contactPhone?.trim() || user?.phone?.trim() || null;
+    const phone =
+      order.brand.contactPhone?.trim() || user?.phone?.trim() || null;
     return { email, name, phone };
   }
 

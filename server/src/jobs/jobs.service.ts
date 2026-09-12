@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
+import {
+  PREVIEW_RECONCILE_CRON,
+  RECONCILE_BACKSTOP_CRON,
+} from '../util/reconcile-schedule';
+import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
+import { previewReconcileWhere } from '../preview-video/preview-reconcile.where';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -18,15 +23,21 @@ function isPrismaPoolTimeout(err: unknown): boolean {
 const MAX_ATTEMPTS = 6;
 /** How old a stuck `processing` row must be before the safety net reclaims it. */
 const STALE_PROCESSING_MS = 600_000; // 10 min
+/** Rows fetched per page while draining the preview backlog. */
+const PREVIEW_RECONCILE_BATCH = 25;
+/** Safety bound so one reconcile run can't spin unbounded on a huge/failing set. */
+const PREVIEW_RECONCILE_MAX_PER_RUN = 2000;
 
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
   private reconcileRunning = false;
+  private previewReconcileRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly watermarkQueue: WatermarkQueueService,
+    private readonly previewQueue: PreviewVideoQueueService,
   ) {}
 
   /**
@@ -97,6 +108,84 @@ export class JobsService {
       throw err;
     } finally {
       this.reconcileRunning = false;
+    }
+  }
+
+  /**
+   * DB-truth backstop for the card-preview pipeline, and the slow-drip backfill
+   * of pre-existing creators.
+   *
+   * The primary path is enqueue -> BullMQ worker (with an inline watchdog), fired
+   * whenever a source video changes. This scan catches two cases that path
+   * can't: a preview Redis dropped, and creators predating this feature (their
+   * `previewVideoStatus` is NULL). The run-once backfill script does the initial
+   * bulk; this just sweeps up stragglers.
+   *
+   * Runs twice a month (PREVIEW_RECONCILE_CRON) — preview generation is not
+   * time-sensitive. Because it runs rarely, each run drains the owed rows
+   * batch-by-batch (cursor-paged by id) up to a safety cap, rather than a fixed
+   * page, so a sweep actually clears the backlog. `dead` rows and those past the
+   * attempt budget are skipped by the shared predicate so a poison source isn't
+   * re-driven forever.
+   */
+  @Cron(PREVIEW_RECONCILE_CRON)
+  async processStuckPreviews(): Promise<void> {
+    if (this.previewReconcileRunning) return;
+    this.previewReconcileRunning = true;
+
+    try {
+      const staleProcessingBefore = new Date(Date.now() - STALE_PROCESSING_MS);
+      const where = previewReconcileWhere(staleProcessingBefore);
+      let cursor: string | undefined;
+      let processed = 0;
+
+      for (;;) {
+        if (processed >= PREVIEW_RECONCILE_MAX_PER_RUN) {
+          this.logger.warn(
+            `preview_poller hit per-run cap ${PREVIEW_RECONCILE_MAX_PER_RUN}; remainder next run`,
+          );
+          break;
+        }
+
+        // Cursor-page by id: we only ever move forward, so a row that ends up
+        // `failed` this run is not re-selected within the same run (avoids a
+        // spin on a failing source); it is retried on the next sweep.
+        const batch = await this.prisma.creatorProfile.findMany({
+          where,
+          select: { id: true },
+          orderBy: { id: 'asc' },
+          take: PREVIEW_RECONCILE_BATCH,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+        if (batch.length === 0) break;
+
+        this.logger.log(
+          `preview_poller batch=${batch.length} processedSoFar=${processed}`,
+        );
+        for (const c of batch) {
+          try {
+            await this.previewQueue.processCreatorDirect(c.id, 'poller');
+          } catch {
+            // logged inside processCreatorDirect; next sweep retries
+          }
+        }
+        cursor = batch[batch.length - 1].id;
+        processed += batch.length;
+      }
+
+      if (processed > 0) {
+        this.logger.log(`preview_poller done total=${processed}`);
+      }
+    } catch (err) {
+      if (isPrismaPoolTimeout(err)) {
+        this.logger.warn(
+          'preview_poller skipped: database connection pool busy (will retry)',
+        );
+        return;
+      }
+      throw err;
+    } finally {
+      this.previewReconcileRunning = false;
     }
   }
 }

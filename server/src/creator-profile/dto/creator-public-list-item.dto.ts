@@ -78,6 +78,13 @@ export class CreatorPublicListItemDto {
   introVideoUrl?: string | null;
 
   @ApiPropertyOptional({
+    example: 'https://cdn.example.com/creator-profile/<id>/preview/<uuid>.mp4',
+    description:
+      'Faststart + downscaled card-preview rendition for hover-to-play, when generated. Clients prefer this over the raw intro/portfolio URL.',
+  })
+  previewVideoUrl?: string | null;
+
+  @ApiPropertyOptional({
     example:
       'https://cdn.example.com/creator-profile/<id>/profile-image/<uuid>.jpg',
     description: 'Public profile image URL for discovery cards (optional).',

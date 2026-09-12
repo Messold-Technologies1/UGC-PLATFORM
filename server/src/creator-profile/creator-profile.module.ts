@@ -11,6 +11,7 @@ import { CreatorDemoVideosModule } from '../creator-demo-videos/creator-demo-vid
 import { AiModule } from '../ai/ai.module';
 import { CreatorBioGeneratorService } from './creator-bio-generator.service';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
+import { PreviewVideoModule } from '../preview-video/preview-video.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FacetOtherResolverService } from './facet-other-resolver.service';
     CreatorReviewsModule,
     CreatorDemoVideosModule,
     AiModule,
+    PreviewVideoModule,
   ],
   controllers: [CreatorProfileController, AdminCreatorController],
   providers: [

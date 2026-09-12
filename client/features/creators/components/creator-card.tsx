@@ -61,27 +61,44 @@ export const CreatorCard = memo(function CreatorCard({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [imageSrc, setImageSrc] = useState(stillImageSrc);
-  const [videoVisible, setVideoVisible] = useState(false);
+  // `srcAttached` latches true on the first hover and stays true so the loaded
+  // media (and its buffer) is retained across hovers — a second hover replays
+  // instantly instead of re-fetching from the CDN. `playing` drives the
+  // poster/video crossfade per hover.
+  const [srcAttached, setSrcAttached] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  // Hover-intent timer: a mouse sweeping across the grid shouldn't kick off a
+  // load+play (and a CDN connection) for every card it crosses.
+  const hoverTimerRef = useRef<number | null>(null);
+  const HOVER_INTENT_MS = 130;
+
+  const clearHoverTimer = useCallback(() => {
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     setImageSrc(stillImageSrc);
-    setVideoVisible(false);
+    setSrcAttached(false);
+    setPlaying(false);
     setIsMuted(true);
+    clearHoverTimer();
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
       videoRef.current.muted = true;
     }
-  }, [creator.id, stillImageSrc]);
+  }, [creator.id, stillImageSrc, clearHoverTimer]);
+
+  // Clean up a pending hover-intent timer on unmount.
+  useEffect(() => clearHoverTimer, [clearHoverTimer]);
 
   const queryClient = useQueryClient();
 
   const handleMouseEnter = useCallback(() => {
-    // Only flag the video as visible — its src is attached lazily (see the
-    // <video> element), so we can't call play() synchronously here; the effect
-    // below starts playback once the source is actually attached.
-    if (hasVideo) setVideoVisible(true);
     // Warm the profile-drawer data so the Overview tab is (usually) already
     // cached by the time the card is clicked, instead of starting the fetch on
     // open. `prefetchQuery` is a no-op when the data is still fresh.
@@ -90,37 +107,54 @@ export const CreatorCard = memo(function CreatorCard({
       queryFn: () => getCreatorProfileClient(creator.id),
       staleTime: 2 * 60_000,
     });
-  }, [hasVideo, queryClient, creator.id]);
 
-  // Start playback on the render after `videoVisible` flips true, i.e. once the
+    if (!hasVideo) return;
+    // Wait out a brief hover-intent window before attaching the source and
+    // starting playback. Its src is attached lazily (see the <video> element),
+    // so we can't call play() synchronously here; the effect below starts
+    // playback once the source is actually attached.
+    clearHoverTimer();
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      setSrcAttached(true);
+      setPlaying(true);
+    }, HOVER_INTENT_MS);
+  }, [hasVideo, queryClient, creator.id, clearHoverTimer]);
+
+  // Start playback on the render after `playing` flips true, i.e. once the
   // lazily-attached source exists.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !videoVisible) return;
+    if (!video || !playing) return;
     video.muted = isMuted;
     void video.play().catch(() => {});
-  }, [videoVisible, isMuted]);
+  }, [playing, isMuted]);
 
-  // The source is attached lazily with preload="none", so the effect above
-  // often calls play() before any frame data has buffered — that play() can
-  // reject/stall, leaving the card on its poster (the reason hover didn't
-  // reliably start the video). Retry once the media signals it can play, as
-  // long as the pointer is still on the card.
+  // The source is attached lazily, so the effect above can call play() before
+  // enough frame data has buffered — that play() can reject/stall, leaving the
+  // card on its poster (the reason hover didn't reliably start the video).
+  // Retry once the media signals it can play, as long as the pointer is still
+  // on the card.
   const handleCanPlay = useCallback(() => {
     const video = videoRef.current;
-    if (!video || !videoVisible) return;
+    if (!video || !playing) return;
     video.muted = isMuted;
     void video.play().catch(() => {});
-  }, [videoVisible, isMuted]);
+  }, [playing, isMuted]);
 
   const handleMouseLeave = useCallback(() => {
+    // Cancel a hover-intent that never matured into playback.
+    clearHoverTimer();
     if (!hasVideo || !videoRef.current) return;
+    // Pause but keep the source attached: the browser retains what it buffered,
+    // so the next hover resumes instantly instead of re-fetching from the CDN.
+    // (Resetting currentTime just rewinds the retained buffer to the start.)
     videoRef.current.pause();
     videoRef.current.currentTime = 0;
     videoRef.current.muted = true;
-    setVideoVisible(false);
+    setPlaying(false);
     setIsMuted(true);
-  }, [hasVideo]);
+  }, [hasVideo, clearHoverTimer]);
 
   const handleToggleMute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -192,10 +226,7 @@ export const CreatorCard = memo(function CreatorCard({
             src={imageSrc}
             alt={`${creator.name}'s content`}
             fill
-            className={cn(
-              "real-media",
-              hasVideo && videoVisible && "opacity-0",
-            )}
+            className={cn("real-media", hasVideo && playing && "opacity-0")}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 214px"
             onError={handleImageError}
           />
@@ -213,13 +244,17 @@ export const CreatorCard = memo(function CreatorCard({
         {hasVideo ? (
           <video
             ref={videoRef}
-            src={videoVisible ? creator.previewVideoUrl! : undefined}
+            // Once attached on first hover, the src stays put so the buffer is
+            // retained for instant replay on later hovers.
+            src={srcAttached ? creator.previewVideoUrl! : undefined}
             poster={videoThumbnail || profileImage || undefined}
-            className={cn("real-media", !videoVisible && "opacity-0")}
+            className={cn("real-media", !playing && "opacity-0")}
             muted={isMuted}
             loop
             playsInline
-            preload="none"
+            // metadata (not none): once the src is attached the browser fetches
+            // the moov/first frame, so playback can begin promptly on hover.
+            preload="metadata"
             onCanPlay={handleCanPlay}
             onLoadedData={handleCanPlay}
           />

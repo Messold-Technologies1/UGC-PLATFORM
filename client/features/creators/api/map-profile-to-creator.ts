@@ -129,8 +129,15 @@ export function mapProfileToListingCreator(
       : "";
   const firstPortfolioVideo = getFirstPortfolioVideo(profile);
   const introVideoUrl = trimString(profile.introVideoUrl);
+  // Prefer the server-generated card preview (faststart + downscaled) when it
+  // exists; fall back to the raw intro / first portfolio video until the
+  // rendition has been produced (or on older records).
+  const serverPreviewVideoUrl = trimString(profile.previewVideoUrl);
   const previewVideoUrl =
-    introVideoUrl || trimString(firstPortfolioVideo?.videoUrl) || null;
+    serverPreviewVideoUrl ||
+    introVideoUrl ||
+    trimString(firstPortfolioVideo?.videoUrl) ||
+    null;
   const previewVideoThumbnail =
     trimString(firstPortfolioVideo?.thumbnailUrl) || null;
 

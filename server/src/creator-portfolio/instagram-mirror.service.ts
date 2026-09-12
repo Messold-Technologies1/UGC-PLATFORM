@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { InstagramMediaService } from '../social-connections/instagram-media.service';
 import { PortfolioRealtimeNotifier } from '../realtime/portfolio-realtime.notifier';
+import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { PORTFOLIO_VIDEO_MAX_BYTES } from './dto/multipart-portfolio-upload.dto';
 
 /**
@@ -68,6 +69,7 @@ export class InstagramMirrorService {
     private readonly storage: StorageService,
     private readonly media: InstagramMediaService,
     private readonly realtime: PortfolioRealtimeNotifier,
+    private readonly previewQueue: PreviewVideoQueueService,
   ) {}
 
   private timeoutMs(): number {
@@ -170,6 +172,9 @@ export class InstagramMirrorService {
         creatorProfileId: video.creatorId,
         assetState: 'READY',
       });
+
+      // Now READY, this reel is eligible as the card-preview source.
+      void this.previewQueue.enqueueDirty(video.creatorId);
     } catch (err) {
       const message = (err as Error)?.message ?? 'unknown error';
       // A rejected URL or content type will never succeed, so fail terminally

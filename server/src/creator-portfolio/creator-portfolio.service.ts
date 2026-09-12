@@ -37,6 +37,7 @@ import { recomputeCreatorListingState } from '../creator-profile/creator-listing
 import { MIN_PORTFOLIO_VIDEOS } from '../creator-profile/creator-profile-completeness.util';
 import { playableAssetWhere } from './portfolio-video-asset.util';
 import { InstagramMirrorQueueService } from './instagram-mirror-queue.service';
+import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import {
   type ImportInstagramReelsDto,
   type ImportInstagramReelsResponseDto,
@@ -55,7 +56,19 @@ export class CreatorPortfolioService {
     private readonly storage: StorageService,
     private readonly config: ConfigService,
     private readonly mirrorQueue: InstagramMirrorQueueService,
+    private readonly previewQueue: PreviewVideoQueueService,
   ) {}
+
+  /**
+   * Mark a creator's card preview stale and queue a rebuild. Called after any
+   * change to the set of portfolio videos, since the newest public video is the
+   * card-preview source when the creator has no intro video. Fire-and-forget and
+   * never fatal — the card falls back to the raw URL and the reconcile backstop
+   * re-drives anything dropped.
+   */
+  private markPreviewDirty(creatorId: string): void {
+    void this.previewQueue.enqueueDirty(creatorId);
+  }
 
   private async isAdminUser(userId: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
@@ -299,6 +312,9 @@ export class CreatorPortfolioService {
     // A new public video may complete the ≥3-videos rule → latch completeProfile.
     await recomputeCreatorListingState(this.prisma, profile.id);
 
+    // Newest video may become the card-preview source (when there's no intro).
+    void this.markPreviewDirty(profile.id);
+
     return this.mapVideo(created);
   }
 
@@ -448,6 +464,10 @@ export class CreatorPortfolioService {
       // three-video rule. A PROCESSING one cannot, and playableAssetWhere()
       // makes the recompute agree.
       await recomputeCreatorListingState(this.prisma, profile.id);
+      // A newly imported reel may become the card-preview source once its S3
+      // key exists (a still-mirroring PROCESSING row is skipped by the source
+      // resolver until it lands).
+      void this.markPreviewDirty(profile.id);
     }
 
     return {
@@ -720,6 +740,9 @@ export class CreatorPortfolioService {
       );
     }
 
+    // Replacing a video's asset may change the card-preview source.
+    void this.markPreviewDirty(profile.id);
+
     return this.mapVideo(updated);
   }
 
@@ -782,6 +805,9 @@ export class CreatorPortfolioService {
       existing.thumbnailKey,
       `deleted portfolio thumbnail ${videoId}`,
     );
+
+    // Deleting a video may change which video is newest → card-preview source.
+    void this.markPreviewDirty(profile.id);
   }
 
   /**

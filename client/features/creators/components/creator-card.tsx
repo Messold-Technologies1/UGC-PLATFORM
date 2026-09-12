@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, MapPin, ArrowRight, Volume2, VolumeX } from "lucide-react";
+import { Play, MapPin, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
@@ -67,7 +67,8 @@ export const CreatorCard = memo(function CreatorCard({
   // poster/video crossfade per hover.
   const [srcAttached, setSrcAttached] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  // Card previews are always muted — the server rendition is encoded without an
+  // audio track (see PreviewVideoService `-an`), so there's no sound to toggle.
   // Hover-intent timer: a mouse sweeping across the grid shouldn't kick off a
   // load+play (and a CDN connection) for every card it crosses.
   const hoverTimerRef = useRef<number | null>(null);
@@ -84,12 +85,10 @@ export const CreatorCard = memo(function CreatorCard({
     setImageSrc(stillImageSrc);
     setSrcAttached(false);
     setPlaying(false);
-    setIsMuted(true);
     clearHoverTimer();
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
-      videoRef.current.muted = true;
     }
   }, [creator.id, stillImageSrc, clearHoverTimer]);
 
@@ -126,9 +125,8 @@ export const CreatorCard = memo(function CreatorCard({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !playing) return;
-    video.muted = isMuted;
     void video.play().catch(() => {});
-  }, [playing, isMuted]);
+  }, [playing]);
 
   // The source is attached lazily, so the effect above can call play() before
   // enough frame data has buffered — that play() can reject/stall, leaving the
@@ -138,9 +136,8 @@ export const CreatorCard = memo(function CreatorCard({
   const handleCanPlay = useCallback(() => {
     const video = videoRef.current;
     if (!video || !playing) return;
-    video.muted = isMuted;
     void video.play().catch(() => {});
-  }, [playing, isMuted]);
+  }, [playing]);
 
   const handleMouseLeave = useCallback(() => {
     // Cancel a hover-intent that never matured into playback.
@@ -151,24 +148,8 @@ export const CreatorCard = memo(function CreatorCard({
     // (Resetting currentTime just rewinds the retained buffer to the start.)
     videoRef.current.pause();
     videoRef.current.currentTime = 0;
-    videoRef.current.muted = true;
     setPlaying(false);
-    setIsMuted(true);
   }, [hasVideo, clearHoverTimer]);
-
-  const handleToggleMute = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMuted((prev) => {
-      const next = !prev;
-      if (videoRef.current) {
-        videoRef.current.muted = next;
-        if (!next) {
-          void videoRef.current.play().catch(() => {});
-        }
-      }
-      return next;
-    });
-  }, []);
 
   const handleImageError = useCallback(() => {
     if (profileImage && imageSrc !== profileImage) {
@@ -249,7 +230,7 @@ export const CreatorCard = memo(function CreatorCard({
             src={srcAttached ? creator.previewVideoUrl! : undefined}
             poster={videoThumbnail || profileImage || undefined}
             className={cn("real-media", !playing && "opacity-0")}
-            muted={isMuted}
+            muted
             loop
             playsInline
             // metadata (not none): once the src is attached the browser fetches
@@ -292,17 +273,6 @@ export const CreatorCard = memo(function CreatorCard({
             {creator.languages.slice(0, 2).join(", ")}
           </div>
         </div>
-
-        {hasVideo ? (
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            className="absolute bottom-3 right-3 z-20 flex size-7 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-all hover:bg-black/60"
-            aria-label={isMuted ? "Unmute video" : "Mute video"}
-          >
-            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-          </button>
-        ) : null}
       </div>
 
       <div className="foot">

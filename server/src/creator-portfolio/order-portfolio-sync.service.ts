@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
+import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 
 /** Shape of one entry in OrderDelivery.assets (stored loosely as JSON). */
 interface DeliveryAsset {
@@ -66,6 +67,7 @@ export class OrderPortfolioSyncService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly previewQueue: PreviewVideoQueueService,
   ) {}
 
   /**
@@ -186,6 +188,8 @@ export class OrderPortfolioSyncService {
         await recomputeCreatorListingState(tx, order.creatorId);
         return row;
       });
+      // A new Brand-Collab tile may become the newest card-preview source.
+      void this.previewQueue.enqueueDirty(order.creatorId);
       return { status: 'created', videoId: created.id };
     } catch (err) {
       // A racing accept/backfill created the tile between our existence check

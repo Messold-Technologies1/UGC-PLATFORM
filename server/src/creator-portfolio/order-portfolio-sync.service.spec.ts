@@ -41,7 +41,9 @@ describe('OrderPortfolioSyncService', () => {
       deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
     };
 
-    service = new OrderPortfolioSyncService(prismaMock, storageMock);
+    service = new OrderPortfolioSyncService(prismaMock, storageMock, {
+      enqueueDirty: jest.fn(),
+    } as never);
   });
 
   const acceptedOrder = () => ({

@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { PortfolioVisibilityStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
+import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
+import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -16,6 +19,8 @@ function isPrismaPoolTimeout(err: unknown): boolean {
 /** Total processing attempts before a delivery is terminal (`dead`). Mirrors
  *  WatermarkQueueService's cap so the safety net stops selecting exhausted rows. */
 const MAX_ATTEMPTS = 6;
+/** Preview-pipeline attempt cap. Mirrors PreviewVideoQueueService's default. */
+const PREVIEW_MAX_ATTEMPTS = 5;
 /** How old a stuck `processing` row must be before the safety net reclaims it. */
 const STALE_PROCESSING_MS = 600_000; // 10 min
 
@@ -23,10 +28,12 @@ const STALE_PROCESSING_MS = 600_000; // 10 min
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
   private reconcileRunning = false;
+  private previewReconcileRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly watermarkQueue: WatermarkQueueService,
+    private readonly previewQueue: PreviewVideoQueueService,
   ) {}
 
   /**
@@ -97,6 +104,87 @@ export class JobsService {
       throw err;
     } finally {
       this.reconcileRunning = false;
+    }
+  }
+
+  /**
+   * DB-truth backstop for the card-preview pipeline, and the mechanism that
+   * backfills existing creators.
+   *
+   * The primary path is enqueue -> BullMQ worker (with an inline watchdog), fired
+   * whenever a source video changes. This low-frequency scan catches two cases
+   * that path can't: a preview Redis dropped, and the initial backfill — every
+   * listed creator predating this feature has `previewVideoStatus = NULL`, so it
+   * is selected here and drained in bounded batches over successive ticks.
+   *
+   * Shares RECONCILE_BACKSTOP_CRON with the other backstops so all fire on one
+   * tick and the database wakes once (see that constant). `dead` rows and those
+   * past the attempt budget are skipped so a poison source isn't re-driven
+   * forever.
+   */
+  @Cron(RECONCILE_BACKSTOP_CRON)
+  async processStuckPreviews(): Promise<void> {
+    if (this.previewReconcileRunning) return;
+    this.previewReconcileRunning = true;
+
+    try {
+      const staleProcessingBefore = new Date(Date.now() - STALE_PROCESSING_MS);
+      const stuck = await this.prisma.creatorProfile.findMany({
+        where: {
+          isListed: true,
+          previewVideoAttempts: { lt: PREVIEW_MAX_ATTEMPTS },
+          AND: [
+            {
+              OR: [
+                { previewVideoStatus: null },
+                { previewVideoStatus: { in: ['pending', 'failed'] } },
+                {
+                  previewVideoStatus: 'processing',
+                  previewVideoUpdatedAt: { lte: staleProcessingBefore },
+                },
+              ],
+            },
+            {
+              // Only creators that actually have a source video to encode.
+              OR: [
+                { introVideoKey: { not: null } },
+                {
+                  portfolioVideos: {
+                    some: {
+                      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+                      videoKey: { not: null },
+                      ...playableAssetWhere(),
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        select: { id: true },
+        take: 25,
+      });
+
+      if (stuck.length === 0) return;
+
+      this.logger.log(`preview_poller processing=${stuck.length}`);
+      for (const c of stuck) {
+        try {
+          await this.previewQueue.processCreatorDirect(c.id, 'poller');
+        } catch {
+          // logged inside processCreatorDirect; next run retries
+        }
+      }
+    } catch (err) {
+      if (isPrismaPoolTimeout(err)) {
+        this.logger.warn(
+          'preview_poller skipped: database connection pool busy (will retry)',
+        );
+        return;
+      }
+      throw err;
+    } finally {
+      this.previewReconcileRunning = false;
     }
   }
 }

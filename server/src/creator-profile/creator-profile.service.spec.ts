@@ -258,6 +258,7 @@ describe('CreatorProfileService', () => {
             Promise.resolve(selections),
           ),
       } as any,
+      { enqueue: jest.fn(), enqueueDirty: jest.fn() } as any,
     );
   });
 

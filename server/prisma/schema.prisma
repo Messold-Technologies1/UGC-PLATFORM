@@ -344,6 +344,20 @@ model CreatorProfile {
   publicSlug                   String                      @unique
   introVideoKey                String?
   introVideoUrl                String?
+  /// Card preview: a faststart + downscaled rendition of the effective source
+  /// video (the intro video if present, else the oldest portfolio video),
+  /// generated off-request so hover-to-play on discovery cards starts quickly
+  /// instead of streaming a raw multi-MB upload. `previewVideoSourceKey` records
+  /// which original S3 key it was built from, so the pipeline regenerates when
+  /// the effective source changes (intro added/removed, first portfolio video
+  /// deleted/reordered) and no-ops when it hasn't. Status mirrors the watermark
+  /// pipeline's state machine (pending | processing | ready | failed | dead).
+  previewVideoKey              String?
+  previewVideoUrl              String?
+  previewVideoSourceKey        String?
+  previewVideoStatus           String?
+  previewVideoAttempts         Int                         @default(0)
+  previewVideoUpdatedAt        DateTime?
   profileImageKey              String?
   profileImageUrl              String?
   city                         String?
@@ -423,6 +437,9 @@ model CreatorProfile {
   @@index([isListed])
   @@index([completeProfile])
   @@index([completeProfile, isListed])
+  // Serves the preview-video reconcile backstop: cheap lookup of listed
+  // creators whose card preview is still owed (pending/failed/null/stale).
+  @@index([isListed, previewVideoStatus])
   // Serves the completion-reminder poll: WHERE completeProfile = false AND createdAt in window.
   @@index([completeProfile, createdAt])
   @@index([createdAt])

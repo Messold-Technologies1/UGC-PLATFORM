@@ -48,6 +48,7 @@ describe('CreatorPortfolioService admin portfolio access', () => {
       storageMock as never,
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
+      { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
     );
   });
 
@@ -371,6 +372,7 @@ describe('CreatorPortfolioService video lifecycle', () => {
       storageMock as never,
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
+      { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
     );
   });
 
@@ -708,6 +710,7 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
       storageMock as never,
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
+      { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
     );
   });
 
@@ -890,6 +893,7 @@ describe('CreatorPortfolioService Instagram import', () => {
       storageMock as never,
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
+      { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
     );
   });
 
@@ -1116,6 +1120,7 @@ describe('CreatorPortfolioService assertOwnedFailedImport', () => {
       {} as never,
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
+      { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
     );
     prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
       creatorId: creatorProfileId,

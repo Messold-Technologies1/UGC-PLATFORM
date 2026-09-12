@@ -106,6 +106,10 @@ export const envValidationSchema = Joi.object({
   // otherwise steal jobs into `active` with no live handler.
   BULLMQ_WORKER_ENABLED: Joi.string().valid('true', 'false').optional(),
   WATERMARK_ENABLED: Joi.string().valid('true', 'false').optional(),
+  // Card-preview generation (faststart + downscaled hover clips). Shares
+  // REDIS_URL / BULLMQ_WORKER_ENABLED with the watermark pipeline; runs inline
+  // when Redis is absent. Set 'false' to disable generation entirely.
+  PREVIEW_VIDEO_ENABLED: Joi.string().valid('true', 'false').optional(),
   WATERMARK_TEXT: Joi.string().min(1).max(40).optional().default('gocollab'),
 
   // Razorpay Payments

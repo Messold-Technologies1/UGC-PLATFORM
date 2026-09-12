@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WatermarkModule } from '../watermark/watermark.module';
+import { PreviewVideoModule } from '../preview-video/preview-video.module';
 import { CreatorReminderModule } from './creator-reminder.module';
 import { JobsService } from './jobs.service';
 import { WatermarkQueueService } from './watermark-queue.service';
@@ -9,6 +10,7 @@ import { WatermarkQueueService } from './watermark-queue.service';
   imports: [
     ScheduleModule.forRoot(),
     WatermarkModule,
+    PreviewVideoModule,
     CreatorReminderModule,
   ],
   providers: [JobsService, WatermarkQueueService],

@@ -90,6 +90,7 @@ import { recomputeCreatorListingState } from './creator-listing-state.util';
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger.util';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
+import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -124,6 +125,7 @@ const CREATOR_LIST_BASE_SELECT = {
   displayName: true,
   publicSlug: true,
   introVideoUrl: true,
+  previewVideoUrl: true,
   profileImageUrl: true,
   city: true,
   countryName: true,
@@ -287,6 +289,7 @@ export class CreatorProfileService {
     private readonly creatorReviews: CreatorReviewsService,
     private readonly metaCapi: MetaCapiService,
     private readonly facetOtherResolver: FacetOtherResolverService,
+    private readonly previewQueue: PreviewVideoQueueService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -1429,6 +1432,7 @@ export class CreatorProfileService {
       // Brands see the opaque public slug, never the creator's real name.
       name: profile.publicSlug,
       introVideoUrl: profile.introVideoUrl ?? null,
+      previewVideoUrl: profile.previewVideoUrl ?? null,
       profileImageUrl: profile.profileImageUrl ?? null,
       city: profile.city ?? null,
       countryName: profile.countryName ?? null,
@@ -2752,7 +2756,7 @@ export class CreatorProfileService {
           )
         : undefined;
 
-    const { response, becameListed } = await this.prisma.$transaction(
+    const { response, becameListed, introChanged } = await this.prisma.$transaction(
       async (tx) => {
         const profile = await tx.creatorProfile.findUnique({
           where: { id: creatorProfileId },
@@ -2874,6 +2878,12 @@ export class CreatorProfileService {
         if (nextIntroVideoKey !== undefined) {
           data.introVideoKey = nextIntroVideoKey;
           data.introVideoUrl = nextIntroVideoUrl;
+          // The intro drives the card preview's effective source, so a change
+          // (set, replaced, or removed) invalidates any existing rendition.
+          // Reset status + attempts so the pipeline regenerates from scratch,
+          // even if a prior source had exhausted its retry budget.
+          data.previewVideoStatus = 'pending';
+          data.previewVideoAttempts = 0;
         }
         if (nextProfileImageKey !== undefined) {
           data.profileImageKey = nextProfileImageKey;
@@ -3007,6 +3017,7 @@ export class CreatorProfileService {
         return {
           response: this.mapCreatorProfileResponseDto(updated),
           becameListed: listingState?.becameListed === true,
+          introChanged: nextIntroVideoKey !== undefined,
         };
       },
       { timeout: 30_000, maxWait: 10_000 },
@@ -3017,6 +3028,13 @@ export class CreatorProfileService {
     // profile after an earlier admin approval). Best-effort / fire-and-forget.
     if (becameListed) {
       void this.fireCreatorListedMetaEvent(creatorProfileId);
+    }
+
+    // Regenerate the card preview when the intro video (its primary source)
+    // changed. Fire-and-forget: a missing preview degrades to the raw URL, and
+    // the reconcile backstop re-drives anything this drops.
+    if (introChanged) {
+      void this.previewQueue.enqueue(creatorProfileId);
     }
 
     return response;

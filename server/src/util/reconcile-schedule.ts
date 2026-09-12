@@ -26,3 +26,19 @@
  * i.e. once an hour, on the hour.
  */
 export const RECONCILE_BACKSTOP_CRON = '0 0 * * * *';
+
+/**
+ * Schedule for the card-preview reconcile (see JobsService.processStuckPreviews).
+ *
+ * Unlike the hourly backstop above, preview generation is NOT time-sensitive: a
+ * source change enqueues its own job immediately, so the reconcile is only a
+ * catch-all for the rare dropped job plus the slow-drip backfill of pre-existing
+ * creators. The run-once backfill script does the initial bulk; this just sweeps
+ * up stragglers. Twice a month is plenty, and each run drains the owed rows
+ * batch-by-batch (cursor-paged) rather than a fixed 25, so a sweep clears the
+ * backlog instead of nibbling at it.
+ *
+ * Six-field expression (second minute hour dom month dow): 03:00 UTC on the 1st
+ * and 15th of every month.
+ */
+export const PREVIEW_RECONCILE_CRON = '0 0 3 1,15 * *';

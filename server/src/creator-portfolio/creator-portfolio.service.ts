@@ -38,6 +38,7 @@ import { MIN_PORTFOLIO_VIDEOS } from '../creator-profile/creator-profile-complet
 import { playableAssetWhere } from './portfolio-video-asset.util';
 import { InstagramMirrorQueueService } from './instagram-mirror-queue.service';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
+import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
 import {
   type ImportInstagramReelsDto,
   type ImportInstagramReelsResponseDto,
@@ -57,6 +58,7 @@ export class CreatorPortfolioService {
     private readonly config: ConfigService,
     private readonly mirrorQueue: InstagramMirrorQueueService,
     private readonly previewQueue: PreviewVideoQueueService,
+    private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
   ) {}
 
   /**
@@ -312,7 +314,11 @@ export class CreatorPortfolioService {
     // A new public video may complete the ≥3-videos rule → latch completeProfile.
     await recomputeCreatorListingState(this.prisma, profile.id);
 
-    // Newest video may become the card-preview source (when there's no intro).
+    // Normalize the upload to a web-safe H.264/AAC MP4 (the normalize job also
+    // re-triggers the card preview once the final file is in place). We also
+    // nudge the preview directly so it still generates if normalization is
+    // disabled — the extra pass is a cheap no-op once the source settles.
+    void this.mediaNormalizeQueue.enqueuePortfolio(created.id);
     void this.markPreviewDirty(profile.id);
 
     return this.mapVideo(created);
@@ -740,7 +746,9 @@ export class CreatorPortfolioService {
       );
     }
 
-    // Replacing a video's asset may change the card-preview source.
+    // A replaced asset needs normalizing (and may change the card-preview
+    // source; the normalize job re-triggers the preview once swapped).
+    void this.mediaNormalizeQueue.enqueuePortfolio(videoId);
     void this.markPreviewDirty(profile.id);
 
     return this.mapVideo(updated);

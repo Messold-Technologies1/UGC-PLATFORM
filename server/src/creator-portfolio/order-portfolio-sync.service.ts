@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { recomputeCreatorListingState } from '../creator-profile/creator-listing-state.util';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
+import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
 
 /** Shape of one entry in OrderDelivery.assets (stored loosely as JSON). */
 interface DeliveryAsset {
@@ -68,6 +69,7 @@ export class OrderPortfolioSyncService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly previewQueue: PreviewVideoQueueService,
+    private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
   ) {}
 
   /**
@@ -188,7 +190,9 @@ export class OrderPortfolioSyncService {
         await recomputeCreatorListingState(tx, order.creatorId);
         return row;
       });
-      // A new Brand-Collab tile may become the newest card-preview source.
+      // Normalize the copied delivery asset (it may be a raw HEVC upload) and
+      // let the new Brand-Collab tile become the card-preview source.
+      void this.mediaNormalizeQueue.enqueuePortfolio(created.id);
       void this.previewQueue.enqueueDirty(order.creatorId);
       return { status: 'created', videoId: created.id };
     } catch (err) {

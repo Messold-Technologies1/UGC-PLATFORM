@@ -7,6 +7,11 @@ import {
 } from '../util/reconcile-schedule';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { previewReconcileWhere } from '../preview-video/preview-reconcile.where';
+import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
+import {
+  introNormalizeOwedWhere,
+  portfolioNormalizeOwedWhere,
+} from '../media-normalize/media-normalize.reconcile';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -33,11 +38,13 @@ export class JobsService {
   private readonly logger = new Logger(JobsService.name);
   private reconcileRunning = false;
   private previewReconcileRunning = false;
+  private normalizeReconcileRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly watermarkQueue: WatermarkQueueService,
     private readonly previewQueue: PreviewVideoQueueService,
+    private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
   ) {}
 
   /**
@@ -186,6 +193,110 @@ export class JobsService {
       throw err;
     } finally {
       this.previewReconcileRunning = false;
+    }
+  }
+
+  /**
+   * DB-truth backstop + backfill for video normalization (portfolio + intro).
+   *
+   * New/replaced/mirrored videos enqueue their own normalize job; this sweep
+   * catches anything Redis dropped and drains creators/videos predating the
+   * feature (status NULL). The run-once backfill script does the initial bulk;
+   * this is the safety net. Twice a month (PREVIEW_RECONCILE_CRON) — not
+   * time-sensitive — cursor-paged, up to a per-run cap. `dead` rows and those
+   * past the attempt budget are skipped by the shared predicates.
+   */
+  @Cron(PREVIEW_RECONCILE_CRON)
+  async processStuckMediaNormalize(): Promise<void> {
+    if (this.normalizeReconcileRunning) return;
+    this.normalizeReconcileRunning = true;
+
+    try {
+      const staleBefore = new Date(Date.now() - STALE_PROCESSING_MS);
+
+      // Portfolio videos.
+      const portfolioWhere = portfolioNormalizeOwedWhere(staleBefore);
+      let cursor: string | undefined;
+      let processed = 0;
+      for (;;) {
+        if (processed >= PREVIEW_RECONCILE_MAX_PER_RUN) {
+          this.logger.warn(
+            `normalize_poller (portfolio) hit per-run cap ${PREVIEW_RECONCILE_MAX_PER_RUN}`,
+          );
+          break;
+        }
+        const batch = await this.prisma.creatorPortfolioVideo.findMany({
+          where: portfolioWhere,
+          select: { id: true },
+          orderBy: { id: 'asc' },
+          take: PREVIEW_RECONCILE_BATCH,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+        if (batch.length === 0) break;
+        for (const v of batch) {
+          try {
+            await this.mediaNormalizeQueue.processDirect(
+              'portfolio',
+              v.id,
+              'poller',
+            );
+          } catch {
+            // logged inside processDirect
+          }
+        }
+        cursor = batch[batch.length - 1].id;
+        processed += batch.length;
+      }
+
+      // Intro videos.
+      const introWhere = introNormalizeOwedWhere(staleBefore);
+      let introCursor: string | undefined;
+      let introProcessed = 0;
+      for (;;) {
+        if (introProcessed >= PREVIEW_RECONCILE_MAX_PER_RUN) {
+          this.logger.warn(
+            `normalize_poller (intro) hit per-run cap ${PREVIEW_RECONCILE_MAX_PER_RUN}`,
+          );
+          break;
+        }
+        const batch = await this.prisma.creatorProfile.findMany({
+          where: introWhere,
+          select: { id: true },
+          orderBy: { id: 'asc' },
+          take: PREVIEW_RECONCILE_BATCH,
+          ...(introCursor ? { cursor: { id: introCursor }, skip: 1 } : {}),
+        });
+        if (batch.length === 0) break;
+        for (const c of batch) {
+          try {
+            await this.mediaNormalizeQueue.processDirect(
+              'intro',
+              c.id,
+              'poller',
+            );
+          } catch {
+            // logged inside processDirect
+          }
+        }
+        introCursor = batch[batch.length - 1].id;
+        introProcessed += batch.length;
+      }
+
+      if (processed > 0 || introProcessed > 0) {
+        this.logger.log(
+          `normalize_poller done portfolio=${processed} intro=${introProcessed}`,
+        );
+      }
+    } catch (err) {
+      if (isPrismaPoolTimeout(err)) {
+        this.logger.warn(
+          'normalize_poller skipped: database connection pool busy (will retry)',
+        );
+        return;
+      }
+      throw err;
+    } finally {
+      this.normalizeReconcileRunning = false;
     }
   }
 }

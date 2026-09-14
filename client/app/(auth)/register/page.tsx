@@ -21,11 +21,6 @@ export default function RegisterPage() {
           </>
         }
         subtitle="Sign up once. Pick whether you’re a creator or a brand right after — your workspace is built around it."
-        altPrompt={{
-          label: "Already have an account?",
-          cta: "Log in",
-          href: "/login",
-        }}
       >
         <UnifiedSignupForm />
       </UnifiedAuthShell>

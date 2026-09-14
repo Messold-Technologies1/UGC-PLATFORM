@@ -169,6 +169,55 @@ export class SignupRegistrationService {
     return userId;
   }
 
+  /**
+   * Attach the CREATOR role and a creator profile to an EXISTING user who
+   * signed up (via Google or email+password) without picking a role yet.
+   * Mirrors {@link registerCreatorUser} but skips user creation — used by the
+   * post-signup "choose your role" step. Reuses the same transactional profile
+   * creation, which also enforces the one-email-one-role rule.
+   */
+  async onboardExistingUserAsCreator(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true },
+    });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    const existingCreator = await this.prisma.creatorProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (existingCreator) {
+      // Already a creator — nothing to do; treat as idempotent success.
+      return;
+    }
+
+    // Google supplies a name; email+password signup may not. Fall back to the
+    // email local-part so the profile is valid — the creator edits it on the
+    // profile screen we drop them onto next.
+    const displayName =
+      user.name?.trim() || user.email.split('@')[0] || 'Creator';
+
+    const creatorProfileId = await this.prisma.$transaction(
+      async (tx) =>
+        this.creatorProfileService.createCreatorProfileInTransaction(
+          tx,
+          userId,
+          {
+            displayName,
+            contactEmail: user.email,
+          },
+        ),
+      { timeout: 30_000, maxWait: 10_000 },
+    );
+
+    await this.creatorReminders
+      .scheduleReminders(creatorProfileId)
+      .catch(() => undefined);
+  }
+
   async registerAgencyUser(dto: RegisterAgencyDto): Promise<string> {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({

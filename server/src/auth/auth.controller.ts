@@ -46,6 +46,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RegisterCreatorDto } from './dto/register-creator.dto';
 import { RegisterBrandDto } from './dto/register-brand.dto';
 import { RegisterAgencyDto } from './dto/register-agency.dto';
+import { OnboardingRoleDto } from './dto/onboarding-role.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { AdminGuard } from './guards/admin.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
@@ -446,6 +447,38 @@ export class AuthController {
         : '?error=oauth_failed';
       res.redirect(`${frontendUrl}/auth/callback${qs}`);
     }
+  }
+
+  @Post('onboarding/role')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Choose creator/brand after a role-less signup',
+    description:
+      'Attaches the chosen workspace role to the current account. CREATOR also ' +
+      'creates a creator profile (client then routes to Edit Profile); BRAND ' +
+      'attaches the role only (client routes to brand setup). One email can ' +
+      'only be one workspace role.',
+  })
+  @ApiBody({ type: OnboardingRoleDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Role attached; returns updated user',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'This email is already registered as a different account type',
+  })
+  async onboardingRole(
+    @Body() dto: OnboardingRoleDto,
+    @Req() req: Request & { user: { id: string } },
+  ) {
+    const user = await this.authService.onboardWorkspaceRole(
+      req.user.id,
+      dto.role,
+    );
+    return { user };
   }
 
   @Post('refresh')

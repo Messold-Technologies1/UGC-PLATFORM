@@ -8,7 +8,12 @@ import type { AuthUser } from "./use-me-query";
 export type LoginPayload = {
   email: string;
   password: string;
-  role: string;
+  /**
+   * Optional. The unified login screen omits it and the server detects the
+   * workspace role from the email. Legacy per-role login forms may still send
+   * it, in which case it must match the account's primary role.
+   */
+  role?: string;
 };
 
 export type LoginResponse = {

@@ -11,6 +11,14 @@ export function resolveImmediatePostAuthPath(
   user: AuthUser,
   callbackUrl: string | null,
 ): string {
+  // Signed up (Google or email+password) but hasn't picked creator/brand yet —
+  // send them to the post-signup role-choice step, preserving any callback.
+  if (user.roles.length === 0 && !user.primaryRole) {
+    return `/onboarding/role${
+      callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""
+    }`;
+  }
+
   if (user.roles.length === 0) {
     return postAuthContinuePath(callbackUrl);
   }

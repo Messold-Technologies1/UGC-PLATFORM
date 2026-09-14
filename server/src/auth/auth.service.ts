@@ -297,6 +297,41 @@ export class AuthService {
     return this.authResultAfterSignup(userId, meta);
   }
 
+  /**
+   * Post-signup "choose your role" step. Attaches CREATOR or BRAND to an
+   * already-authenticated account that signed up (via Google or email+password)
+   * without a role. CREATOR also gets a creator profile so the client can drop
+   * them straight onto Edit Profile; BRAND gets the role only and the client
+   * routes to the brand setup screen to collect brand details. The one
+   * email = one workspace role rule is enforced (a cross-role attempt throws
+   * ConflictException). Returns the refreshed `me` payload.
+   */
+  async onboardWorkspaceRole(
+    userId: string,
+    role: Extract<RoleName, 'CREATOR' | 'BRAND'>,
+  ): Promise<MeUser> {
+    if (role === RoleName.CREATOR) {
+      await this.signupRegistration.onboardExistingUserAsCreator(userId);
+    } else {
+      const brandProfile = await this.prisma.brandProfile.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      // Set BRAND as primary only when the account has no workspace yet — never
+      // steal an existing creator primary (ensureUserHasRole would reject that).
+      await this.ensureUserHasRole(userId, RoleName.BRAND, {
+        forcePrimary: !brandProfile,
+      });
+    }
+
+    this.logger.log(`[auth] onboard role=${role} userId=${userId}`);
+    const me = await this.getMeForClient(userId);
+    if (!me) {
+      throw new UnauthorizedException('Account could not be loaded');
+    }
+    return me;
+  }
+
   async login(
     dto: LoginDto,
     meta?: { ipAddress?: string; userAgent?: string },
@@ -332,7 +367,13 @@ export class AuthService {
       throw new UnauthorizedException('Account is not active');
     }
 
-    if (user.primaryRole?.name !== dto.role) {
+    // Role is optional on the unified login screen. When the client sends one
+    // (legacy per-role login forms), it must still match the account's primary
+    // role. When omitted, the role is detected from the email and the client
+    // routes by the account's primary role after login. A user with no
+    // workspace role yet (signed up but never chose creator/brand) logs in
+    // fine, and the client sends them to the role-choice step.
+    if (dto.role && user.primaryRole?.name !== dto.role) {
       this.logger.warn(
         `[auth] login failed reason=role_mismatch userId=${user.id} requestedRole=${dto.role} primaryRole=${user.primaryRole?.name ?? 'none'} ip=${meta?.ipAddress ?? 'n/a'}`,
       );

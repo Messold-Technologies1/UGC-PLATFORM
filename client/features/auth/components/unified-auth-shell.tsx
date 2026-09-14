@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { SITE_NAME } from "@/config/site";
 
 /** Aurora background — brand wine (#6e2545) blended into creator crimson
- * (#B3123F) so the single screen carries both identities without splitting. */
+ * (#B3123F) so the single screen carries both identities. Covers the whole
+ * page; the form sits on a floating white card over it. */
 const AURORA_BG: CSSProperties = {
   background:
     "radial-gradient(120% 90% at 12% 8%, #7a2a4d 0%, rgba(122,42,77,0) 55%)," +
@@ -12,80 +14,69 @@ const AURORA_BG: CSSProperties = {
     "linear-gradient(135deg, #6e2545 0%, #8f1a41 52%, #B3123F 100%)",
 };
 
-function LogoMark() {
-  return (
-    <div className="flex items-center gap-2.5 text-white">
-      <span className="flex size-8 items-center justify-center rounded-[10px] border border-white/25 bg-white/15">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M4 7.5C4 6 5 5 6.5 5H17.5C19 5 20 6 20 7.5V15C20 16.5 19 17.5 17.5 17.5H10L5.5 20.5V17.5C4.7 17.2 4 16.4 4 15.3V7.5Z"
-            fill="#fff"
-          />
-        </svg>
-      </span>
-      <span className="text-[18px] font-extrabold tracking-tight">GoCollab</span>
-    </div>
-  );
-}
-
 interface UnifiedAuthShellProps {
   eyebrow: string;
   title: ReactNode;
   subtitle: string;
-  /** Top-right helper link (e.g. "Log in" / "Create an account"). */
-  altPrompt?: { label: string; cta: string; href: string };
   children: ReactNode;
 }
 
 /**
- * Two-pane auth shell used by the unified login and signup screens. The left
- * pane is the Aurora hero; the right pane holds the form card. On small screens
- * the hero collapses to a slim gradient header and the card sits below.
+ * Full-bleed Aurora auth shell for the unified login and signup screens.
+ * The gradient covers the entire page; a slim logo bar sits on top and a
+ * floating white card holds the form. On large screens the marketing headline
+ * sits to the left of the card; on small screens only the card shows.
  */
 export function UnifiedAuthShell({
   eyebrow,
   title,
   subtitle,
-  altPrompt,
   children,
 }: UnifiedAuthShellProps) {
   return (
-    <div className="grid min-h-dvh grid-cols-1 bg-white lg:grid-cols-2">
-      {/* Hero */}
+    <div
+      className="relative min-h-dvh overflow-hidden"
+      style={AURORA_BG}
+    >
+      {/* soft light blooms */}
       <div
-        className="relative hidden overflow-hidden px-16 py-14 lg:flex lg:flex-col"
-        style={AURORA_BG}
-      >
-        <div
-          className="pointer-events-none absolute -left-28 -top-36 size-[520px] rounded-full"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,0) 68%)",
-          }}
-        />
-        <div
-          className="pointer-events-none absolute -bottom-28 -right-24 size-[420px] rounded-full"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255,214,224,.22), rgba(255,214,224,0) 66%)",
-          }}
-        />
-        <div className="relative flex items-center justify-between">
-          <LogoMark />
-          {altPrompt ? (
-            <span className="text-[13.5px] font-medium text-white/80">
-              {altPrompt.label}{" "}
-              <Link
-                href={altPrompt.href}
-                className="font-bold text-white underline decoration-white/50 underline-offset-2"
-              >
-                {altPrompt.cta}
-              </Link>
-            </span>
-          ) : null}
-        </div>
+        className="pointer-events-none absolute -left-28 -top-36 size-[520px] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,0) 68%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute -bottom-28 -right-24 size-[420px] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(255,214,224,.22), rgba(255,214,224,0) 66%)",
+        }}
+      />
 
-        <div className="relative mt-auto max-w-[440px] text-white">
+      {/* Slim logo navbar */}
+      <header className="relative z-10 flex items-center px-5 py-4 sm:px-8">
+        <Link
+          href="/"
+          prefetch
+          className="inline-flex items-center rounded-full bg-white/95 px-4 py-2 shadow-sm ring-1 ring-black/5"
+          aria-label={`${SITE_NAME} home`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- static public asset */}
+          <img
+            src="/brand-logo.png"
+            alt={`${SITE_NAME}`}
+            className="h-7 w-auto object-contain"
+            loading="eager"
+            decoding="async"
+            draggable={false}
+          />
+        </Link>
+      </header>
+
+      {/* Content: headline (lg only) + floating card */}
+      <main className="relative z-10 mx-auto grid min-h-[calc(100dvh-72px)] w-full max-w-6xl grid-cols-1 items-center gap-10 px-5 pb-14 sm:px-8 lg:grid-cols-2 lg:gap-8">
+        <div className="hidden max-w-[460px] text-white lg:block">
           <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold">
             <span className="size-[7px] rounded-full bg-[#ffd0dc]" />
             {eyebrow}
@@ -97,21 +88,13 @@ export function UnifiedAuthShell({
             {subtitle}
           </p>
         </div>
-      </div>
 
-      {/* Form pane */}
-      <div className="relative flex flex-col">
-        {/* Slim gradient header on mobile */}
-        <div
-          className="flex items-center justify-between px-6 py-5 lg:hidden"
-          style={AURORA_BG}
-        >
-          <LogoMark />
+        <div className="flex w-full justify-center lg:justify-end">
+          <div className="w-full max-w-[440px] rounded-[22px] bg-white p-8 shadow-[0_40px_90px_-30px_rgba(20,4,12,0.6)] sm:p-10">
+            {children}
+          </div>
         </div>
-        <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10 lg:px-16">
-          <div className="w-full max-w-[420px]">{children}</div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -21,11 +21,6 @@ export default function LoginPage() {
           </>
         }
         subtitle="Just your email and password — we’ll take you straight to your creator or brand workspace."
-        altPrompt={{
-          label: "New here?",
-          cta: "Create an account",
-          href: "/register",
-        }}
       >
         <UnifiedLoginForm />
       </UnifiedAuthShell>

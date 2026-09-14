@@ -50,14 +50,11 @@ export function getPostLogoutLoginHref(params?: {
 
   if (isAdminPath(pathname)) return "/admin/login";
 
-  const fromPath = inferLoginRoleFromPath(pathname);
-  if (fromPath) return `/login?role=${fromPath}`;
-
   const role = params?.primaryRole?.toUpperCase();
   if (role === "ADMIN") return "/admin/login";
-  if (role === "CREATOR") return "/login?role=creator";
-  if (role === "BRAND") return "/login?role=brand";
-  if (role === "AGENCY") return "/login?role=agency";
+
+  // Unified login: creators and brands all land on the single /login screen
+  // (the role is detected from the email at login), so no ?role= is added.
   return "/login";
 }
 

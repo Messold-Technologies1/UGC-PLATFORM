@@ -5,6 +5,7 @@ export const ENDPOINTS = {
     REGISTER_CREATOR: "/api/auth/register/creator",
     REGISTER_BRAND: "/api/auth/register/brand",
     REGISTER_ADMIN: "/api/auth/register-admin",
+    ONBOARDING_ROLE: "/api/auth/onboarding/role",
     GOOGLE: "/api/auth/google",
     GOOGLE_CALLBACK: "/api/auth/google/callback",
     PHONE_SEND_OTP: "/api/auth/phone/send-otp",

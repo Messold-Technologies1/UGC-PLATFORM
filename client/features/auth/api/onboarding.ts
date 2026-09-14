@@ -1,0 +1,21 @@
+import api from "@/lib/api";
+import { ENDPOINTS } from "@/lib/endpoints";
+import type { AuthUser } from "@/features/auth/hooks/use-me-query";
+
+export type OnboardingRole = "CREATOR" | "BRAND";
+
+/**
+ * Post-signup role choice. Attaches the chosen workspace role to the current
+ * (already-authenticated) account. CREATOR also provisions a creator profile
+ * server-side; BRAND attaches the role only and the client then routes to the
+ * brand setup screen. Returns the refreshed user.
+ */
+export async function chooseWorkspaceRole(
+  role: OnboardingRole,
+): Promise<AuthUser> {
+  const { data } = await api.post<{ user: AuthUser }>(
+    ENDPOINTS.AUTH.ONBOARDING_ROLE,
+    { role },
+  );
+  return data.user;
+}

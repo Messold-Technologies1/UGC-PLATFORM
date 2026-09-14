@@ -232,7 +232,7 @@ export function PublicCreatorProfile({
   const isBrand = meUser?.roles?.includes("BRAND") ?? false;
   const router = useRouter();
 
-  const bookHref = "/register/brand";
+  const bookHref = "/register";
   // Logged-in brands go to the authenticated creator page which has the full
   // OrderModal + Razorpay checkout inside AuthProvider context
   const brandBookHref = `/brand/creators?creatorId=${profile.id}`;
@@ -811,10 +811,10 @@ export function PublicCreatorProfile({
             <Link href="/" className="hover:text-neutral-900">
               Browse creators
             </Link>
-            <Link href="/register/brand" className="hover:text-neutral-900">
+            <Link href="/register" className="hover:text-neutral-900">
               For brands
             </Link>
-            <Link href="/register/creator" className="hover:text-neutral-900">
+            <Link href="/register" className="hover:text-neutral-900">
               Become a creator
             </Link>
           </nav>

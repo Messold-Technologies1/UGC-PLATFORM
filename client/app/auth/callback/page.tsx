@@ -38,7 +38,7 @@ function AuthCallbackInner() {
               : "Google sign-in failed. Try again.";
         toast.error(message);
         beginClientNavigation();
-        router.replace(callback ? buildLoginHref(callback) : "/login?role=brand");
+        router.replace(callback ? buildLoginHref(callback) : "/login");
         return;
       }
 

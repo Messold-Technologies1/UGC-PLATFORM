@@ -476,7 +476,7 @@ export function CreatorListing({
                       size="lg"
                       className="min-w-[180px] rounded-xl mt-6"
                     >
-                      <Link href="/register/brand">Load more</Link>
+                      <Link href="/register">Load more</Link>
                     </Button>
                   ) : null
                 ) : isFetchingNextPage ? (

@@ -1130,7 +1130,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 router.push(
                   isBrand && activeId
                     ? `/brand/creators?creatorId=${activeId}`
-                    : "/register/brand",
+                    : "/register",
                 );
                 return;
               }

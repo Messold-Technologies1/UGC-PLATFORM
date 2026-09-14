@@ -57,6 +57,7 @@ export function UnifiedSignupForm() {
   const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleTermsWarned, setGoogleTermsWarned] = useState(false);
 
   const callbackUrl = searchParams.get("callbackUrl");
   const loginHref = callbackUrl
@@ -85,11 +86,14 @@ export function UnifiedSignupForm() {
 
   const handleGoogle = useCallback(() => {
     if (!form.getValues("termsAccepted")) {
+      setGoogleTermsWarned(true);
       form.setError("termsAccepted", {
         message: "Please accept the terms to continue",
       });
+      document.getElementById("signup-terms")?.focus();
       return;
     }
+    setGoogleTermsWarned(false);
     setGoogleLoading(true);
     // No role param: the user chooses creator/brand after Google returns.
     startGoogleOAuth({ callbackUrl });
@@ -198,11 +202,13 @@ export function UnifiedSignupForm() {
             id="signup-terms"
             checked={termsAccepted}
             disabled={pending}
-            onCheckedChange={(checked) =>
-              form.setValue("termsAccepted", checked === true, {
+            onCheckedChange={(checked) => {
+              const accepted = checked === true;
+              form.setValue("termsAccepted", accepted, {
                 shouldValidate: true,
-              })
-            }
+              });
+              if (accepted) setGoogleTermsWarned(false);
+            }}
             className={cn(
               "mt-0.5 size-4 shrink-0 rounded-[4px] border shadow-none data-[state=checked]:border-deep-pink data-[state=checked]:bg-deep-pink data-[state=checked]:text-white",
               form.formState.errors.termsAccepted
@@ -254,10 +260,8 @@ export function UnifiedSignupForm() {
 
       <button
         type="button"
-        disabled={pending || !termsAccepted}
+        disabled={pending}
         onClick={handleGoogle}
-        aria-disabled={!termsAccepted}
-        title={!termsAccepted ? "Accept the terms first" : undefined}
         className={authSecondaryClass}
       >
         {googleLoading ? (
@@ -267,10 +271,8 @@ export function UnifiedSignupForm() {
         )}
         Continue with Google
       </button>
-      {!termsAccepted ? (
-        <p className="mt-2 text-center text-[11.5px] text-[#a89ea3]">
-          Tick the box above to sign up with Google.
-        </p>
+      {googleTermsWarned ? (
+        <FieldWarn>Please accept the terms to continue</FieldWarn>
       ) : null}
 
       <p className="mt-5 text-center text-[13px] text-[#8B8489]">

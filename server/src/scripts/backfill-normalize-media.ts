@@ -8,9 +8,10 @@
  * claimed atomically, and a failed row is retried on a re-run or by the cron.
  *
  * Usage (from server/):
+ *   # production (the deployed image already has dist/):
  *   BULLMQ_WORKER_ENABLED=false npm run backfill:normalize-media
- *   # production (after `npm run build`):
- *   BULLMQ_WORKER_ENABLED=false node dist/scripts/backfill-normalize-media.js
+ *   # dev, without a build:
+ *   BULLMQ_WORKER_ENABLED=false node -r ts-node/register/transpile-only src/scripts/backfill-normalize-media.ts
  *
  * Env:
  *   NORMALIZE_BACKFILL_BATCH  rows fetched per page (default 25)

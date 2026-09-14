@@ -9,11 +9,10 @@
  * concurrently-running app/worker never double-encodes.
  *
  * Usage (from server/):
- *   # dev / one-off, no build needed:
+ *   # production (the deployed image already has dist/):
  *   BULLMQ_WORKER_ENABLED=false npm run backfill:preview-videos
- *
- *   # production (after `npm run build`):
- *   BULLMQ_WORKER_ENABLED=false node dist/scripts/backfill-preview-videos.js
+ *   # dev, without a build:
+ *   BULLMQ_WORKER_ENABLED=false node -r ts-node/register/transpile-only src/scripts/backfill-preview-videos.ts
  *
  * Env:
  *   PREVIEW_BACKFILL_BATCH   rows fetched per page (default 25)

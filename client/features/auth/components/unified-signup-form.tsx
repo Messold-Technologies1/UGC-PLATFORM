@@ -18,6 +18,7 @@ import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immedi
 import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { GoogleMark } from "./google-mark";
+import { FieldWarn } from "@/features/auth/components/field-warn";
 import {
   authCtaClass,
   authFieldClass,
@@ -110,50 +111,61 @@ export function UnifiedSignupForm() {
       </p>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
-        <label htmlFor="signup-email" className={authLabelClass}>
-          Email
-        </label>
-        <input
-          id="signup-email"
-          type="email"
-          autoComplete="email"
-          placeholder="you@email.com"
-          disabled={pending}
-          className={cn(authFieldClass, "mb-4")}
-          {...form.register("email")}
-        />
-        {form.formState.errors.email ? (
-          <p className="mb-2 text-xs font-semibold text-[#DB4A4A]">
-            {form.formState.errors.email.message}
-          </p>
-        ) : null}
-
-        <label htmlFor="signup-password" className={authLabelClass}>
-          Password
-        </label>
-        <div className="relative mb-4">
+        <div className="mb-4">
+          <label htmlFor="signup-email" className={authLabelClass}>
+            Email
+          </label>
           <input
-            id="signup-password"
-            type={showPassword ? "text" : "password"}
-            autoComplete="new-password"
-            placeholder="Create a password"
+            id="signup-email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@email.com"
             disabled={pending}
-            className={cn(authFieldClass, "pr-14")}
-            {...form.register("password")}
+            aria-invalid={Boolean(form.formState.errors.email)}
+            className={cn(
+              authFieldClass,
+              form.formState.errors.email &&
+                "border-amber-500 focus:border-amber-500 focus:ring-amber-500/15",
+            )}
+            {...form.register("email")}
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#8B8489] hover:text-[#181313]"
-          >
-            {showPassword ? "Hide" : "Show"}
-          </button>
+          {form.formState.errors.email ? (
+            <FieldWarn>{form.formState.errors.email.message}</FieldWarn>
+          ) : null}
         </div>
-        {form.formState.errors.password ? (
-          <p className="mb-2 text-xs font-semibold text-[#DB4A4A]">
-            {form.formState.errors.password.message}
-          </p>
-        ) : null}
+
+        <div className="mb-4">
+          <label htmlFor="signup-password" className={authLabelClass}>
+            Password
+          </label>
+          <div className="relative">
+            <input
+              id="signup-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Create a password"
+              disabled={pending}
+              aria-invalid={Boolean(form.formState.errors.password)}
+              className={cn(
+                authFieldClass,
+                "pr-14",
+                form.formState.errors.password &&
+                  "border-amber-500 focus:border-amber-500 focus:ring-amber-500/15",
+              )}
+              {...form.register("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#8B8489] hover:text-[#181313]"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+          {form.formState.errors.password ? (
+            <FieldWarn>{form.formState.errors.password.message}</FieldWarn>
+          ) : null}
+        </div>
 
         {/* Terms — required for BOTH email and Google signup. */}
         <div className="mb-5 mt-1 flex items-start gap-3">
@@ -166,7 +178,12 @@ export function UnifiedSignupForm() {
                 shouldValidate: true,
               })
             }
-            className="mt-0.5 size-4 shrink-0 rounded-[4px] border border-neutral-300 shadow-none data-[state=checked]:border-deep-pink data-[state=checked]:bg-deep-pink data-[state=checked]:text-white"
+            className={cn(
+              "mt-0.5 size-4 shrink-0 rounded-[4px] border shadow-none data-[state=checked]:border-deep-pink data-[state=checked]:bg-deep-pink data-[state=checked]:text-white",
+              form.formState.errors.termsAccepted
+                ? "border-amber-500"
+                : "border-neutral-300",
+            )}
           />
           <div className="min-w-0 flex-1">
             <label
@@ -190,9 +207,9 @@ export function UnifiedSignupForm() {
               , and confirm I’m over 13.
             </label>
             {form.formState.errors.termsAccepted ? (
-              <p className="mt-1 text-xs font-semibold text-[#DB4A4A]">
+              <FieldWarn>
                 {form.formState.errors.termsAccepted.message}
-              </p>
+              </FieldWarn>
             ) : null}
           </div>
         </div>

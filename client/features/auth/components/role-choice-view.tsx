@@ -162,8 +162,7 @@ export function RoleChoiceView() {
           How will you use GoCollab?
         </h1>
         <p className="mx-auto mt-3.5 mb-9 max-w-[520px] text-[15px] text-white/80">
-          Pick one to set up your workspace. An email can only be a creator or a
-          brand, not both.
+          Choose your world. We’ll build everything around it.
         </p>
 
         <div className="grid grid-cols-1 gap-5 text-left sm:grid-cols-2">

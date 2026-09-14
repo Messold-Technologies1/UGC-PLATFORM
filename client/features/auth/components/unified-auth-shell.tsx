@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { SITE_NAME } from "@/config/site";
 
 /** Aurora background — brand wine (#6e2545) blended into creator crimson
  * (#B3123F) so the single screen carries both identities. Covers the whole
@@ -23,9 +21,11 @@ interface UnifiedAuthShellProps {
 
 /**
  * Full-bleed Aurora auth shell for the unified login and signup screens.
- * The gradient covers the entire page; a slim logo bar sits on top and a
- * floating white card holds the form. On large screens the marketing headline
- * sits to the left of the card; on small screens only the card shows.
+ * The gradient covers the entire page and a floating white card holds the
+ * form. The site navbar is rendered by the surrounding layout/page and floats
+ * over the top, so the content is padded to clear it. On large screens the
+ * marketing headline sits to the left of the card; on small screens only the
+ * card shows.
  */
 export function UnifiedAuthShell({
   eyebrow,
@@ -34,10 +34,7 @@ export function UnifiedAuthShell({
   children,
 }: UnifiedAuthShellProps) {
   return (
-    <div
-      className="relative min-h-dvh overflow-hidden"
-      style={AURORA_BG}
-    >
+    <div className="relative min-h-dvh overflow-hidden" style={AURORA_BG}>
       {/* soft light blooms */}
       <div
         className="pointer-events-none absolute -left-28 -top-36 size-[520px] rounded-full"
@@ -54,28 +51,9 @@ export function UnifiedAuthShell({
         }}
       />
 
-      {/* Slim logo navbar */}
-      <header className="relative z-10 flex items-center px-5 py-4 sm:px-8">
-        <Link
-          href="/"
-          prefetch
-          className="inline-flex items-center rounded-full bg-white/95 px-4 py-2 shadow-sm ring-1 ring-black/5"
-          aria-label={`${SITE_NAME} home`}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- static public asset */}
-          <img
-            src="/brand-logo.png"
-            alt={`${SITE_NAME}`}
-            className="h-7 w-auto object-contain"
-            loading="eager"
-            decoding="async"
-            draggable={false}
-          />
-        </Link>
-      </header>
-
-      {/* Content: headline (lg only) + floating card */}
-      <main className="relative z-10 mx-auto grid min-h-[calc(100dvh-72px)] w-full max-w-6xl grid-cols-1 items-center gap-10 px-5 pb-14 sm:px-8 lg:grid-cols-2 lg:gap-8">
+      {/* Content: headline (lg only) + floating card. Top padding clears the
+          floating navbar. */}
+      <main className="relative z-10 mx-auto grid min-h-dvh w-full max-w-6xl grid-cols-1 items-center gap-10 px-5 pb-14 pt-28 sm:px-8 lg:grid-cols-2 lg:gap-8 lg:pt-24">
         <div className="hidden max-w-[460px] text-white lg:block">
           <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold">
             <span className="size-[7px] rounded-full bg-[#ffd0dc]" />

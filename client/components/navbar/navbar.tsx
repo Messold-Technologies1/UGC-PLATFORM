@@ -20,8 +20,6 @@ import {
   FileText,
   ChevronDown,
   MessageSquare,
-  Megaphone,
-  Camera,
   Building2,
   Heart,
   Video,
@@ -34,12 +32,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
 import { BrandSwitcher } from "@/features/brands/components/brand-switcher";
@@ -160,74 +152,19 @@ function GuestLoginMenu({
   onNavigate?: () => void;
   triggerClassName?: string;
 }) {
+  // Unified login: one screen for creators and brands (role detected from the
+  // email), so this is a single link rather than a role-split dropdown.
   return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn("gap-1", guestPill, triggerClassName)}
-        >
-          Log in
-          <ChevronDown className="size-3.5 opacity-50" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={16}
-        className="w-56 p-2 rounded-2xl shadow-xl border-border/50"
-      >
-        <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-1">
-          Log in as
-        </div>
-        <DropdownMenuItem
-          asChild
-          className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
-        >
-          <Link
-            href="/login?role=creator"
-            prefetch
-            onClick={onNavigate}
-            className="flex items-center gap-3 w-full"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ef3e51]/10 text-[#ef3e51]">
-              <Camera className="size-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-sm leading-none mb-1">
-                As a Creator
-              </span>
-              <span className="text-[11px] text-muted-foreground leading-none">
-                Find work
-              </span>
-            </div>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          asChild
-          className="rounded-xl p-2 focus:bg-accent cursor-pointer mb-1"
-        >
-          <Link
-            href="/login?role=brand"
-            prefetch
-            onClick={onNavigate}
-            className="flex items-center gap-3 w-full"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#5138ed]/10 text-[#5138ed]">
-              <Megaphone className="size-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-sm leading-none mb-1">
-                As a Brand
-              </span>
-              <span className="text-[11px] text-muted-foreground leading-none">
-                Hire creators
-              </span>
-            </div>
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      asChild
+      variant="outline"
+      size="sm"
+      className={cn(guestPill, triggerClassName)}
+    >
+      <Link href="/login" prefetch onClick={onNavigate}>
+        Log in
+      </Link>
+    </Button>
   );
 }
 
@@ -594,48 +531,24 @@ export function Navbar({ className }: { className?: string } = {}) {
                     For Brands
                   </Link>
                   <div className="my-2 h-px bg-border/60" />
-                  <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  {/* Unified auth: single login + single registration entry. */}
+                  <Link
+                    href="/login"
+                    prefetch
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <User className="size-4 opacity-70" />
                     Log in
-                  </div>
-                  <Link
-                    href="/login?role=creator"
-                    prefetch
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    <Camera className="size-4 text-[#ef3e51]" />
-                    As a Creator
-                  </Link>
-                  <Link
-                    href="/login?role=brand"
-                    prefetch
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    <Megaphone className="size-4 text-[#5138ed]" />
-                    As a Brand
                   </Link>
                   <div className="flex flex-col gap-1 mt-1 border-t border-border/60 pt-2">
-                    <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
-                      Get Started
-                    </div>
                     <Link
-                      href="/register/creator"
+                      href="/register"
                       prefetch
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                      className="flex items-center justify-center gap-2 rounded-full bg-primary px-3 py-2.5 text-sm font-semibold font-heading text-primary-foreground transition-colors hover:bg-primary/90"
                     >
-                      <User className="size-4 opacity-70" />
-                      As a Creator
-                    </Link>
-                    <Link
-                      href="/register/brand"
-                      prefetch
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      <Briefcase className="size-4 opacity-70" />
-                      As a Brand
+                      Create an account
                     </Link>
                   </div>
                 </>

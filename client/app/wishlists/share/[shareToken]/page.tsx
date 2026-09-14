@@ -380,7 +380,7 @@ export default function PublicWishlistPage({
 
   const handleOrderCreators = useCallback(() => {
     if (!canUseBrand) {
-      router.push(`/register/brand?callbackUrl=${encodeURIComponent(pathname)}`);
+      router.push(`/register?callbackUrl=${encodeURIComponent(pathname)}`);
       return;
     }
     if (!data) return;
@@ -391,7 +391,7 @@ export default function PublicWishlistPage({
     setImportOpen(true);
   }, [canUseBrand, data, isSameBrand, pathname, router]);
 
-  const registerHref = `/register/brand?callbackUrl=${encodeURIComponent(pathname)}`;
+  const registerHref = `/register?callbackUrl=${encodeURIComponent(pathname)}`;
   const getStartedHref = meUser ? "/brand/creators" : registerHref;
 
   return (
@@ -456,7 +456,7 @@ export default function PublicWishlistPage({
               This shortlist is no longer shared or the link has expired.
             </p>
             <Link
-              href="/register/brand"
+              href="/register"
               className="mt-6 rounded-full bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-rose-600 transition-colors"
             >
               Create your own shortlist

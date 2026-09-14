@@ -437,13 +437,13 @@ export function BrandsLanding() {
             </p>
             <div className="mb-6 flex flex-wrap gap-3">
               <PillButton
-                href="/register/brand"
+                href="/register"
                 className={cn(plumCta, "px-[30px] py-[17px] text-[15px]")}
               >
                 Explore Creators — Free
               </PillButton>
               <PillButton
-                href="/register/brand"
+                href="/register"
                 variant="ghost"
                 className="text-muted-foreground self-center px-1 py-2 text-[14.5px] font-semibold underline underline-offset-[3px]"
               >
@@ -477,7 +477,7 @@ export function BrandsLanding() {
                 ))}
               </div>
               <PillButton
-                href="/register/brand"
+                href="/register"
                 className={cn(
                   plumCta,
                   "mb-[18px] w-full rounded-[14px] py-[15px] text-[14.5px]",
@@ -663,7 +663,7 @@ export function BrandsLanding() {
               onExampleChange={setSearchExample}
             />
             <PillButton
-              href="/register/brand"
+              href="/register"
               className={cn(plumCta, "px-[30px] py-4 text-[15px]")}
             >
               Show Me Creators
@@ -738,7 +738,7 @@ export function BrandsLanding() {
               See. Compare. Choose with confidence.
             </h3>
             <PillButton
-              href="/register/brand"
+              href="/register"
               className={cn(plumCta, "px-[30px] py-4 text-[15px]")}
             >
               Explore Creators
@@ -956,7 +956,7 @@ export function BrandsLanding() {
             There&rsquo;s no payment required to browse.
           </div>
           <PillButton
-            href="/register/brand"
+            href="/register"
             className={cn(plumCta, "px-8 py-[18px] text-[15.5px]")}
           >
             Explore Creators — Free
@@ -1041,7 +1041,7 @@ export function BrandsLanding() {
               ))}
             </div>
             <PillButton
-              href="/register/brand"
+              href="/register"
               className="bg-white text-foreground shadow-hard border-0 px-8 py-[18px] text-[15.5px] font-bold hover:bg-white hover:-translate-y-0.5 hover:translate-x-0.5 hover:shadow-none"
             >
               Explore Creators — Free
@@ -1054,7 +1054,7 @@ export function BrandsLanding() {
       <div className="h-[84px] md:hidden" aria-hidden />
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
-          href="/register/brand"
+          href="/register"
           className="bg-plum-700 hover:bg-plum-700 border-foreground w-full border-2 py-3.5 text-sm font-bold text-white"
         >
           Explore Creators — Free

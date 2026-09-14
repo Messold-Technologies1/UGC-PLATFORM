@@ -286,7 +286,7 @@ export function CreatorsLanding() {
               they need creators like you.
             </p>
             <PillButton
-              href="/register/creator"
+              href="/register"
               className={cn(pinkCta, "px-8 py-[18px] text-[15.5px] font-bold")}
             >
               Create My Profile — Free
@@ -741,7 +741,7 @@ export function CreatorsLanding() {
               ))}
             </div>
             <PillButton
-              href="/register/creator"
+              href="/register"
               className={cn(pinkCta, "px-8 py-[17px] text-[15.5px] font-bold")}
             >
               Make My Profile Discoverable
@@ -852,7 +852,7 @@ export function CreatorsLanding() {
               even know you yet.
             </p>
             <PillButton
-              href="/register/creator"
+              href="/register"
               className="bg-background text-foreground hover:bg-background/90 px-8 py-[18px] text-[15.5px] font-bold"
             >
               Create Your {SITE_NAME} Profile — Free
@@ -877,7 +877,7 @@ export function CreatorsLanding() {
       <div className="h-[84px] md:hidden" aria-hidden />
       <div className="border-foreground bg-background/90 fixed inset-x-0 bottom-0 z-90 flex gap-2.5 border-t-2 px-3.5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-[14px] md:hidden">
         <PillButton
-          href="/register/creator"
+          href="/register"
           className="bg-deep-pink hover:bg-deep-pink text-white border-foreground w-full border-2 py-3.5 text-sm font-bold"
         >
           Create My Profile — Free

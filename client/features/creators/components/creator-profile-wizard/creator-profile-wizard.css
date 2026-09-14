@@ -560,6 +560,59 @@
   }
 }
 
+.cw-price-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, #0d9488 26%, transparent);
+  background: color-mix(in oklab, #14b8a6 11%, var(--card));
+}
+.cw-price-tip-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #0f766e;
+}
+.cw-price-tip-copy {
+  min-width: 0;
+  flex: 1;
+}
+.cw-price-tip-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #134e4a;
+}
+.cw-price-tip-text {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #3f6561;
+}
+.cw-price-tip-close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px 0 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #3f6561;
+  cursor: pointer;
+}
+.cw-price-tip-close:hover {
+  background: color-mix(in oklab, #0f766e 12%, transparent);
+  color: #134e4a;
+}
+.pe-pkg > .cw-price-tip {
+  margin-bottom: 12px;
+}
+
 /* Card */
 .cw-card {
   border-radius: 18px;

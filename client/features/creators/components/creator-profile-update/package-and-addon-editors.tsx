@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { AlertTriangle, Check } from "lucide-react";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
@@ -72,6 +73,7 @@ export function PackageEditor({
   defaultsConfirmed,
   onDefaultsConfirmedChange,
   defaultsConfirmedError,
+  children,
 }: {
   draft: PackageDraft;
   disabled: boolean;
@@ -84,9 +86,11 @@ export function PackageEditor({
   defaultsConfirmed?: boolean;
   onDefaultsConfirmedChange?: (confirmed: boolean) => void;
   defaultsConfirmedError?: string;
+  children?: ReactNode;
 }) {
   return (
     <div className="pe-pkg">
+      {children}
       <div className="pe-grid pe-grid-2">
         <div className="pe-field">
           <label htmlFor="packagePriceAmount">

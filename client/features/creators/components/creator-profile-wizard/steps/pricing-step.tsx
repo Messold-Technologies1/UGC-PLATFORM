@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Lightbulb, X } from "lucide-react";
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
 import {
   PackageEditor,
@@ -11,6 +11,7 @@ import { PackageEarningsBanner } from "@/features/creators/components/creator-pr
 import type { PackageDraft, AddOnDraft } from "@/features/creators/hooks/creator-profile-form-utils";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
 import { WizardAccordionSection } from "./wizard-parts";
+import { useAuth } from "@/providers/auth-provider";
 
 export type PricingStepProps = {
   disabled: boolean;
@@ -43,6 +44,67 @@ export type PricingStepProps = {
 };
 
 type PricingSectionId = "package" | "addons";
+
+const START_LOW_TIP_KEY = "ugc:pricing-start-low-tip-dismissed";
+
+function startLowTipStorageKey(userId: string) {
+  return `${START_LOW_TIP_KEY}:${userId}`;
+}
+
+function StartLowGrowFastTip() {
+  const { user } = useAuth();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      // Old installs stored a single browser-wide flag. Ignore it so a new
+      // account still sees the tip after another profile dismissed it.
+      window.localStorage.removeItem(START_LOW_TIP_KEY);
+      if (window.localStorage.getItem(startLowTipStorageKey(user.id)) !== "1") {
+        setVisible(true);
+      } else {
+        setVisible(false);
+      }
+    } catch {
+      setVisible(true);
+    }
+  }, [user?.id]);
+
+  if (!visible) return null;
+
+  function dismiss() {
+    setVisible(false);
+    if (!user?.id) return;
+    try {
+      window.localStorage.setItem(startLowTipStorageKey(user.id), "1");
+    } catch {
+      // ignore quota / private mode
+    }
+  }
+
+  return (
+    <div className="cw-price-tip" role="note">
+      <Lightbulb size={18} aria-hidden className="cw-price-tip-icon" />
+      <div className="cw-price-tip-copy">
+        <p className="cw-price-tip-title">Tip: Start low, grow fast 🚀</p>
+        <p className="cw-price-tip-text">
+          Want to get your first few orders faster? Keep your starting price as
+          low as possible. Once you start getting regular orders, you can
+          increase your price anytime.
+        </p>
+      </div>
+      <button
+        type="button"
+        className="cw-price-tip-close"
+        aria-label="Dismiss pricing tip"
+        onClick={dismiss}
+      >
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
 
 export function PricingStep({
   disabled,
@@ -155,7 +217,9 @@ export function PricingStep({
             defaultsConfirmed={defaultsConfirmed}
             onDefaultsConfirmedChange={onDefaultsConfirmedChange}
             defaultsConfirmedError={errors.defaultsConfirmed}
-          />
+          >
+            <StartLowGrowFastTip />
+          </PackageEditor>
           {extraCount > 0 && !addonsReviewed ? (
             <div className="cw-addon-nudge">
               <p className="cw-addon-nudge-title">Review your add-ons</p>

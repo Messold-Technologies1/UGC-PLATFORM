@@ -81,6 +81,7 @@ describe('InstagramMirrorService mirror claim', () => {
       {} as never,
       { emitVideoAssetUpdated: jest.fn() } as never,
       { enqueueDirty: jest.fn() } as never,
+      { enqueuePortfolio: jest.fn() } as never,
     );
   });
 

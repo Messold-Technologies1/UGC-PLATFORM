@@ -49,6 +49,11 @@ describe('CreatorPortfolioService admin portfolio access', () => {
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
       { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
+      {
+        enqueuePortfolio: jest.fn(),
+        enqueueIntro: jest.fn(),
+        processDirect: jest.fn(),
+      } as never,
     );
   });
 
@@ -373,6 +378,11 @@ describe('CreatorPortfolioService video lifecycle', () => {
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
       { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
+      {
+        enqueuePortfolio: jest.fn(),
+        enqueueIntro: jest.fn(),
+        processDirect: jest.fn(),
+      } as never,
     );
   });
 
@@ -711,6 +721,11 @@ describe('CreatorPortfolioService duplicate-upload guard', () => {
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
       { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
+      {
+        enqueuePortfolio: jest.fn(),
+        enqueueIntro: jest.fn(),
+        processDirect: jest.fn(),
+      } as never,
     );
   });
 
@@ -894,6 +909,11 @@ describe('CreatorPortfolioService Instagram import', () => {
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
       { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
+      {
+        enqueuePortfolio: jest.fn(),
+        enqueueIntro: jest.fn(),
+        processDirect: jest.fn(),
+      } as never,
     );
   });
 
@@ -1121,6 +1141,11 @@ describe('CreatorPortfolioService assertOwnedFailedImport', () => {
       configMock as never,
       { reconcileStuckMirrorsForCreator: jest.fn() } as never,
       { enqueue: jest.fn(), enqueueDirty: jest.fn() } as never,
+      {
+        enqueuePortfolio: jest.fn(),
+        enqueueIntro: jest.fn(),
+        processDirect: jest.fn(),
+      } as never,
     );
     prismaMock.creatorPortfolioVideo.findUnique.mockResolvedValue({
       creatorId: creatorProfileId,

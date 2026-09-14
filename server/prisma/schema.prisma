@@ -344,6 +344,15 @@ model CreatorProfile {
   publicSlug                   String                      @unique
   introVideoKey                String?
   introVideoUrl                String?
+  /// Media-normalization state for the intro video: it is transcoded to a
+  /// web-safe H.264/AAC MP4 (downscaled + faststart, audio kept) off-request so
+  /// every browser can play it in the profile drawer/public profile — the raw
+  /// upload may be HEVC/.mov that some browsers render black-with-audio. Status
+  /// mirrors the preview/watermark state machine
+  /// (pending | processing | ready | failed | dead).
+  introVideoNormalizeStatus    String?
+  introVideoNormalizeAttempts  Int                         @default(0)
+  introVideoNormalizeUpdatedAt DateTime?
   /// Card preview: a faststart + downscaled rendition of the effective source
   /// video (the intro video if present, else the oldest portfolio video),
   /// generated off-request so hover-to-play on discovery cards starts quickly
@@ -440,6 +449,8 @@ model CreatorProfile {
   // Serves the preview-video reconcile backstop: cheap lookup of listed
   // creators whose card preview is still owed (pending/failed/null/stale).
   @@index([isListed, previewVideoStatus])
+  // Serves the intro-video normalization reconcile/backfill.
+  @@index([introVideoNormalizeStatus])
   // Serves the completion-reminder poll: WHERE completeProfile = false AND createdAt in window.
   @@index([completeProfile, createdAt])
   @@index([createdAt])
@@ -1045,6 +1056,15 @@ model CreatorPortfolioVideo {
   /// created before the guard existed, or for files too large to hash in the
   /// browser. NULLs do not collide under the unique index below.
   contentHash      String?
+  /// Media-normalization state: the uploaded/mirrored file is transcoded to a
+  /// web-safe H.264/AAC MP4 (downscaled + faststart, audio kept) off-request and
+  /// swapped in place, so every browser can play it in the drawer/profile. A raw
+  /// HEVC/.mov upload otherwise renders black-with-audio on some browsers. Status
+  /// mirrors the preview/watermark state machine
+  /// (pending | processing | ready | failed | dead).
+  videoNormalizeStatus    String?
+  videoNormalizeAttempts  Int       @default(0)
+  videoNormalizeUpdatedAt DateTime?
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
@@ -1066,6 +1086,8 @@ model CreatorPortfolioVideo {
   @@index([assetState])
   /// Drives the stuck-mirror reconcile scan.
   @@index([assetState, mirrorClaimedAt])
+  /// Drives the media-normalization reconcile/backfill scan.
+  @@index([videoNormalizeStatus])
 }
 
 model CreatorPortfolioSection {

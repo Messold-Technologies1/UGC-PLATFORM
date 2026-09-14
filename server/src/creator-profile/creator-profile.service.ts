@@ -91,6 +91,7 @@ import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.u
 import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger.util';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
+import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -290,6 +291,7 @@ export class CreatorProfileService {
     private readonly metaCapi: MetaCapiService,
     private readonly facetOtherResolver: FacetOtherResolverService,
     private readonly previewQueue: PreviewVideoQueueService,
+    private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -3030,10 +3032,12 @@ export class CreatorProfileService {
       void this.fireCreatorListedMetaEvent(creatorProfileId);
     }
 
-    // Regenerate the card preview when the intro video (its primary source)
-    // changed. Fire-and-forget: a missing preview degrades to the raw URL, and
-    // the reconcile backstop re-drives anything this drops.
+    // When the intro video changed: normalize the new file to a web-safe
+    // H.264/AAC MP4 (the normalize job also re-triggers the card preview once
+    // the final file is in place), and nudge the preview directly too so it
+    // still regenerates if normalization is disabled or the intro was removed.
     if (introChanged) {
+      void this.mediaNormalizeQueue.enqueueIntro(creatorProfileId);
       void this.previewQueue.enqueue(creatorProfileId);
     }
 

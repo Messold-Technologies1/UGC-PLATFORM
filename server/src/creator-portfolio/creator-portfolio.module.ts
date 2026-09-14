@@ -3,6 +3,7 @@ import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { SocialConnectionsModule } from '../social-connections/social-connections.module';
 import { PreviewVideoModule } from '../preview-video/preview-video.module';
+import { MediaNormalizeModule } from '../media-normalize/media-normalize.module';
 import { CreatorPortfolioController } from './creator-portfolio.controller';
 import { CreatorPortfolioService } from './creator-portfolio.service';
 import { InstagramMirrorService } from './instagram-mirror.service';
@@ -24,6 +25,7 @@ import { OrderPortfolioSyncService } from './order-portfolio-sync.service';
     forwardRef(() => SocialConnectionsModule),
     RealtimeModule,
     PreviewVideoModule,
+    MediaNormalizeModule,
   ],
   controllers: [CreatorPortfolioController],
   providers: [

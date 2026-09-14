@@ -71,9 +71,8 @@ const setupSchema = z.object({
         return false;
       }
     }, "Enter a valid website URL"),
-  termsAccepted: z.boolean().refine((v) => v === true, {
-    message: "You must accept the terms",
-  }),
+  // Terms of Service + Privacy Policy are accepted on the main signup page, so
+  // only the Brand Guidelines acceptance is collected here.
   guidelinesAccepted: z.boolean().refine((v) => v === true, {
     message: "You must accept the Brand Guidelines",
   }),
@@ -102,7 +101,6 @@ export function BrandGoogleSetupDialog({
     defaultValues: {
       contactPhone: "",
       website: "",
-      termsAccepted: false,
       guidelinesAccepted: false,
     },
   });
@@ -315,46 +313,6 @@ export function BrandGoogleSetupDialog({
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="setup-terms"
-                checked={form.watch("termsAccepted")}
-                onCheckedChange={(checked) =>
-                  form.setValue("termsAccepted", checked === true, {
-                    shouldValidate: true,
-                  })
-                }
-                className="mt-0.5"
-              />
-              <Label
-                htmlFor="setup-terms"
-                className="text-[13px] font-normal leading-snug text-muted-foreground"
-              >
-                I agree to the{" "}
-                <Link
-                  href="/legal/terms"
-                  target="_blank"
-                  className="font-semibold text-foreground underline"
-                >
-                  Terms of Service
-                </Link>
-                {" and "}
-                <Link
-                  href="/legal/privacy"
-                  target="_blank"
-                  className="font-semibold text-foreground underline"
-                >
-                  Privacy Policy
-                </Link>
-                .
-              </Label>
-            </div>
-            {form.formState.errors.termsAccepted ? (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.termsAccepted.message}
-              </p>
-            ) : null}
-
             <div className="flex items-start gap-3">
               <Checkbox
                 id="setup-guidelines"

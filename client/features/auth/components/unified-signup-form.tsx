@@ -28,6 +28,7 @@ import {
 } from "./unified-auth-controls";
 
 const signupSchema = z.object({
+  name: z.string().trim().min(2, "Enter your full name"),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   termsAccepted: z.boolean().refine((v) => v === true, {
@@ -65,7 +66,7 @@ export function UnifiedSignupForm() {
   const form = useForm<SignupData>({
     resolver: zodResolver(signupSchema),
     mode: "onChange",
-    defaultValues: { email: "", password: "", termsAccepted: false },
+    defaultValues: { name: "", email: "", password: "", termsAccepted: false },
   });
   const termsAccepted = form.watch("termsAccepted");
 
@@ -96,6 +97,7 @@ export function UnifiedSignupForm() {
 
   const onSubmit = (data: SignupData) => {
     registerMutation.mutate({
+      name: data.name.trim(),
       email: data.email.trim().toLowerCase(),
       password: data.password,
     });
@@ -111,6 +113,29 @@ export function UnifiedSignupForm() {
       </p>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
+        <div className="mb-4">
+          <label htmlFor="signup-name" className={authLabelClass}>
+            Full name
+          </label>
+          <input
+            id="signup-name"
+            type="text"
+            autoComplete="name"
+            placeholder="Your name"
+            disabled={pending}
+            aria-invalid={Boolean(form.formState.errors.name)}
+            className={cn(
+              authFieldClass,
+              form.formState.errors.name &&
+                "border-amber-500 focus:border-amber-500 focus:ring-amber-500/15",
+            )}
+            {...form.register("name")}
+          />
+          {form.formState.errors.name ? (
+            <FieldWarn>{form.formState.errors.name.message}</FieldWarn>
+          ) : null}
+        </div>
+
         <div className="mb-4">
           <label htmlFor="signup-email" className={authLabelClass}>
             Email

@@ -58,6 +58,8 @@ export function PhoneVerificationField({
   onVerifiedChange,
   onVerified,
   onVerifiedPhone,
+  initialPhone,
+  initialVerified = false,
 }: {
   idPrefix: string;
   disabled?: boolean;
@@ -65,9 +67,32 @@ export function PhoneVerificationField({
   onVerified?: () => void | Promise<void>;
   /** Fires with the verified E.164 phone (e.g. "+919876543210") on success. */
   onVerifiedPhone?: (phone: string) => void;
+  /**
+   * Pre-fill the field with an existing number (E.164, e.g. "+919876543210").
+   * Used on edit-profile screens so a saved number shows up instead of a blank
+   * field.
+   */
+  initialPhone?: string;
+  /**
+   * Treat {@link initialPhone} as already verified (grandfathered or previously
+   * verified). The field then shows "Verified" with the OTP flow hidden, and
+   * only asks for a fresh OTP once the number is edited to a different value.
+   */
+  initialVerified?: boolean;
 }) {
-  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState(() =>
+    normalizePhoneForOtp(initialPhone ?? ""),
+  );
   const [otpSentToPhone, setOtpSentToPhone] = useState<string | null>(null);
+  // The number that was already verified when the field mounted (grandfathered
+  // or saved earlier). Captured once so it stays a stable anchor even as the
+  // parent re-renders with a changed `initialVerified` after the user edits —
+  // reverting to this exact number counts as verified again with no re-OTP.
+  const [initialVerifiedPhone] = useState<string | null>(() =>
+    initialVerified && initialPhone
+      ? normalizePhoneForOtp(initialPhone)
+      : null,
+  );
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -82,7 +107,9 @@ export function PhoneVerificationField({
     [phoneInput],
   );
   const phoneVerified =
-    Boolean(normalizedPhone) && verifiedPhone === normalizedPhone;
+    Boolean(normalizedPhone) &&
+    (verifiedPhone === normalizedPhone ||
+      initialVerifiedPhone === normalizedPhone);
   const activeOtpPhone =
     otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
 

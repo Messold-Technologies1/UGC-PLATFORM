@@ -11,6 +11,7 @@ import { CreatorSocialAccounts } from "@/features/creators/components/creator-pr
 import { genderOptions } from "@/features/creators/hooks/creator-profile-form-utils";
 import type { CreatorGender } from "@/features/creators/api/create-creator-profile";
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
+import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
 
 export type AboutYouStepProps = {
   disabled: boolean;
@@ -22,6 +23,10 @@ export type AboutYouStepProps = {
   adminMode?: boolean;
   phone?: string;
   onPhoneChange?: (value: string) => void;
+  /** Whether the creator's phone is already OTP-verified. */
+  phoneVerified?: boolean;
+  /** Fires when the phone becomes verified via the OTP widget. */
+  onPhoneVerifiedChange?: (verified: boolean) => void;
 
   displayName: string;
   onDisplayNameChange: (value: string) => void;
@@ -57,6 +62,8 @@ export function AboutYouStep(props: AboutYouStepProps) {
     adminMode = false,
     phone,
     onPhoneChange,
+    phoneVerified = false,
+    onPhoneVerifiedChange,
     displayName,
     onDisplayNameChange,
     contactEmail,
@@ -279,25 +286,48 @@ export function AboutYouStep(props: AboutYouStepProps) {
 
         <div className="cw-col-2 cw-field">
           <label htmlFor="cw-phone" className="cw-fieldlabel">
-            Phone number
+            Phone number{!adminMode ? <span className="cw-req"> *</span> : null}
           </label>
-          <div className="cw-phone">
-            <span className="cw-phone-prefix">+91</span>
-            <input
-              id="cw-phone"
-              className="cw-input cw-phone-input"
-              value={phone ?? ""}
-              disabled={disabled}
-              inputMode="numeric"
-              autoComplete="tel"
-              placeholder={
-                adminMode ? "Creator's phone number" : "Your phone number"
-              }
-              onChange={(e) =>
-                onPhoneChange?.(e.target.value.replace(/\D/g, ""))
-              }
-            />
-          </div>
+          {adminMode || phoneVerified ? (
+            <>
+              <div className="cw-phone">
+                <span className="cw-phone-prefix">+91</span>
+                <input
+                  id="cw-phone"
+                  className="cw-input cw-phone-input"
+                  value={phone ?? ""}
+                  disabled={disabled || (!adminMode && phoneVerified)}
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder={
+                    adminMode ? "Creator's phone number" : "Your phone number"
+                  }
+                  onChange={(e) =>
+                    onPhoneChange?.(e.target.value.replace(/\D/g, ""))
+                  }
+                />
+              </div>
+              {!adminMode && phoneVerified ? (
+                <span className="cw-facet-help" style={{ color: "#2E9B57" }}>
+                  Mobile number verified.
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <PhoneVerificationField
+                idPrefix="cw"
+                disabled={disabled}
+                onVerifiedChange={(v) => onPhoneVerifiedChange?.(v)}
+                onVerifiedPhone={(p) =>
+                  onPhoneChange?.(p.replace(/^\+91/, ""))
+                }
+              />
+              <span className="cw-facet-help">
+                Verify your mobile number to continue.
+              </span>
+            </>
+          )}
         </div>
       </div>
 

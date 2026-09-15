@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { registerAccount } from "@/features/auth/api/signup-account";
+import { sendSignupPhoneOtp } from "@/features/auth/api/phone-otp";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
@@ -31,6 +32,12 @@ const signupSchema = z.object({
   name: z.string().trim().min(2, "Enter your full name"),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  phone: z
+    .string()
+    .regex(/^\+91[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
+  phoneOtpCode: z
+    .string()
+    .regex(/^\d{4,10}$/, "Enter the code sent to your phone"),
   termsAccepted: z.boolean().refine((v) => v === true, {
     message: "Please accept the terms to continue",
   }),
@@ -67,9 +74,63 @@ export function UnifiedSignupForm() {
   const form = useForm<SignupData>({
     resolver: zodResolver(signupSchema),
     mode: "onChange",
-    defaultValues: { name: "", email: "", password: "", termsAccepted: false },
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      phone: "",
+      phoneOtpCode: "",
+      termsAccepted: false,
+    },
   });
   const termsAccepted = form.watch("termsAccepted");
+  const phoneValue = form.watch("phone");
+  const phoneDigits = phoneValue?.startsWith("+91")
+    ? phoneValue.slice(3)
+    : phoneValue ?? "";
+  const phoneComplete = /^\+91[6-9]\d{9}$/.test(phoneValue ?? "");
+
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpResendAt, setOtpResendAt] = useState<number | null>(null);
+  const [, setOtpTick] = useState(0);
+  const resendSeconds = otpResendAt
+    ? Math.max(0, Math.ceil((otpResendAt - Date.now()) / 1000))
+    : 0;
+
+  useEffect(() => {
+    if (!otpResendAt) return;
+    const id = window.setInterval(() => setOtpTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [otpResendAt]);
+
+  const sendOtpMutation = useMutation({
+    mutationFn: sendSignupPhoneOtp,
+    onSuccess: () => {
+      setOtpSent(true);
+      setOtpResendAt(Date.now() + 60_000);
+      toast.success("Verification code sent");
+    },
+    onError: (error) => {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      toast.error(
+        status === 429
+          ? "Too many attempts. Please wait a moment."
+          : status === 503
+            ? "Phone verification is temporarily unavailable."
+            : "Could not send the code. Check the number and try again.",
+      );
+    },
+  });
+
+  const handleSendOtp = useCallback(() => {
+    if (!phoneComplete) {
+      form.setError("phone", {
+        message: "Enter a valid 10-digit mobile number",
+      });
+      return;
+    }
+    sendOtpMutation.mutate({ phone: phoneValue });
+  }, [form, phoneComplete, phoneValue, sendOtpMutation]);
 
   const registerMutation = useMutation({
     mutationFn: registerAccount,
@@ -104,6 +165,8 @@ export function UnifiedSignupForm() {
       name: data.name.trim(),
       email: data.email.trim().toLowerCase(),
       password: data.password,
+      phone: data.phone,
+      phoneOtpCode: data.phoneOtpCode,
     });
   };
 
@@ -195,6 +258,94 @@ export function UnifiedSignupForm() {
             <FieldWarn>{form.formState.errors.password.message}</FieldWarn>
           ) : null}
         </div>
+
+        {/* Phone + OTP — verified at account creation for email signup. */}
+        <div className="mb-4">
+          <label htmlFor="signup-phone" className={authLabelClass}>
+            Phone number
+          </label>
+          <div className="flex gap-2">
+            <div className="flex flex-1 items-stretch overflow-hidden rounded-[13px] border-[1.5px] border-[#e7e1e4] bg-white focus-within:border-deep-pink">
+              <span className="flex items-center bg-[#faf4f6] px-3 text-[14px] font-semibold text-[#8B8489]">
+                +91
+              </span>
+              <input
+                id="signup-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                placeholder="9876543210"
+                disabled={pending}
+                aria-invalid={Boolean(form.formState.errors.phone)}
+                className="h-[50px] flex-1 bg-transparent px-3 text-[14.5px] text-[#181313] outline-none placeholder:text-[#B0AAAE]"
+                value={phoneDigits}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  form.setValue("phone", digits ? `+91${digits}` : "", {
+                    shouldValidate: true,
+                  });
+                  setOtpSent(false);
+                  setOtpResendAt(null);
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSendOtp}
+              disabled={pending || !phoneComplete || resendSeconds > 0}
+              className="h-[50px] shrink-0 rounded-[13px] border-[1.5px] border-[#e7e1e4] bg-white px-4 text-[13px] font-semibold text-[#181313] hover:bg-[#faf4f6] disabled:opacity-60"
+            >
+              {sendOtpMutation.isPending
+                ? "Sending…"
+                : resendSeconds > 0
+                  ? `${resendSeconds}s`
+                  : otpSent
+                    ? "Resend"
+                    : "Send OTP"}
+            </button>
+          </div>
+          {form.formState.errors.phone ? (
+            <FieldWarn>{form.formState.errors.phone.message}</FieldWarn>
+          ) : null}
+        </div>
+
+        {otpSent ? (
+          <div className="mb-4">
+            <label htmlFor="signup-otp" className={authLabelClass}>
+              Verification code
+            </label>
+            <input
+              id="signup-otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={10}
+              placeholder="Enter the 6-digit code"
+              disabled={pending}
+              aria-invalid={Boolean(form.formState.errors.phoneOtpCode)}
+              className={cn(
+                authFieldClass,
+                form.formState.errors.phoneOtpCode &&
+                  "border-amber-500 focus:border-amber-500 focus:ring-amber-500/15",
+              )}
+              value={form.watch("phoneOtpCode")}
+              onChange={(e) =>
+                form.setValue(
+                  "phoneOtpCode",
+                  e.target.value.replace(/\D/g, "").slice(0, 10),
+                  { shouldValidate: true },
+                )
+              }
+            />
+            <p className="mt-1 text-[11.5px] text-[#a89ea3]">
+              Sent to +91 {phoneDigits}. It’s verified when you create your
+              account.
+            </p>
+            {form.formState.errors.phoneOtpCode ? (
+              <FieldWarn>{form.formState.errors.phoneOtpCode.message}</FieldWarn>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Terms — required for BOTH email and Google signup. */}
         <div className="mb-5 mt-1 flex items-start gap-3">

@@ -21,6 +21,16 @@ export async function sendPhoneOtp(
   await api.post(ENDPOINTS.AUTH.PHONE_SEND_OTP, payload);
 }
 
+/**
+ * Send an OTP during signup (unauthenticated). The code is verified server-side
+ * when the account is created (POST /auth/register with phone + phoneOtpCode).
+ */
+export async function sendSignupPhoneOtp(
+  payload: SendPhoneOtpPayload,
+): Promise<void> {
+  await api.post(ENDPOINTS.AUTH.SIGNUP_PHONE_SEND_OTP, payload);
+}
+
 export async function verifyPhoneOtp(
   payload: VerifyPhoneOtpPayload,
 ): Promise<VerifyPhoneOtpResponse> {

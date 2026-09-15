@@ -209,7 +209,7 @@ function BrandManagementContent({
           ) : (
             items.map((brand) => {
               const displayName =
-                brand.brandName ?? brand.name ?? "Unnamed Brand";
+                brand.brandName?.trim() || "Unnamed Brand";
 
               return (
                 <div

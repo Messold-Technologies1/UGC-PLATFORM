@@ -56,7 +56,7 @@ function AuthCallbackInner() {
         if (callback) qs.set("callbackUrl", callback);
         const q = qs.toString();
         beginClientNavigation();
-        router.replace(`/register/brand/complete${q ? `?${q}` : ""}`);
+        router.replace(`/onboarding/brand${q ? `?${q}` : ""}`);
         return;
       }
 

@@ -5,15 +5,11 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AgencyService } from '../agency/agency.service';
-import { BrandProfileService } from '../brand-profile/brand-profile.service';
-import { CreateBrandProfileDto } from '../brand-profile/dto/create-brand-profile.dto';
 import { CreatorProfileService } from '../creator-profile/creator-profile.service';
 import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
-import type { RegisterBrandDto } from './dto/register-brand.dto';
-import type { RegisterCreatorDto } from './dto/register-creator.dto';
 import { PhoneVerificationService } from './phone-verification.service';
 
 const SALT_ROUNDS = 10;
@@ -25,7 +21,6 @@ export class SignupRegistrationService {
     private readonly phoneVerification: PhoneVerificationService,
     private readonly storage: StorageService,
     private readonly creatorProfileService: CreatorProfileService,
-    private readonly brandProfileService: BrandProfileService,
     private readonly agencyService: AgencyService,
     private readonly creatorReminders: CreatorReminderQueueService,
   ) {}
@@ -44,137 +39,12 @@ export class SignupRegistrationService {
     throw new BadRequestException('Invalid or expired verification code.');
   }
 
-  private registerBrandDtoToCreateDto(dto: RegisterBrandDto): CreateBrandProfileDto {
-    const { email: _e, password: _p, contactEmail: _ce, contactPhone: _phone, ...rest } =
-      dto;
-    // contactEmail is optional at signup; brands can set it later in settings.
-    // Outbound mail uses contactEmail if set, otherwise the account (User) email.
-    return { ...rest } as CreateBrandProfileDto;
-  }
-
-  async registerCreatorUser(
-    dto: RegisterCreatorDto,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ): Promise<string> {
-    const email = dto.email.trim().toLowerCase();
-    const existing = await this.prisma.user.findUnique({
-      where: { email },
-    });
-    if (existing) {
-      throw new ConflictException('User with this email already exists');
-    }
-
-    // await this.assertSignupPhoneOtpApproved(dto.phone, dto.phoneOtpCode);
-
-    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-
-    const { userId, creatorProfileId } = await this.prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.create({
-          data: {
-            email,
-            name: dto.name.trim(),
-            passwordHash,
-            phone: dto.phone.trim(),
-            // Set to true when signup OTP verification is re-enabled.
-            phoneVerified: false,
-            primaryRoleId: null,
-          },
-        });
-        const id = await this.creatorProfileService.createCreatorProfileInTransaction(
-          tx,
-          user.id,
-          {
-            displayName: dto.name.trim(),
-            contactEmail: email,
-            metaFbp: dto.metaFbp?.trim() || null,
-            metaFbc: dto.metaFbc?.trim() || null,
-            metaSignupIp: meta?.ipAddress ?? null,
-            metaSignupUserAgent: meta?.userAgent ?? null,
-          },
-        );
-        return { userId: user.id, creatorProfileId: id };
-      },
-      { timeout: 30_000, maxWait: 10_000 },
-    );
-
-    // Schedule the "finish your profile" drip AFTER the transaction commits, so
-    // a rolled-back signup never leaves orphan reminder jobs. Best-effort — the
-    // backstop sweep covers any scheduling failure.
-    await this.creatorReminders
-      .scheduleReminders(creatorProfileId)
-      .catch(() => undefined);
-
-    return userId;
-  }
-
-  async registerBrandUser(dto: RegisterBrandDto): Promise<string> {
-    const email = dto.email.trim().toLowerCase();
-    const existing = await this.prisma.user.findUnique({
-      where: { email },
-    });
-    if (existing) {
-      throw new ConflictException('User with this email already exists');
-    }
-
-    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const brandDto = this.registerBrandDtoToCreateDto(dto);
-    const logoKey = brandDto.logoKey?.trim();
-    const pronunciationAudioKey = brandDto.brandPronunciationAudioKey?.trim();
-    if (logoKey) {
-      if (!this.storage.isTempBrandLogoKeyForSignup(email, logoKey)) {
-        throw new BadRequestException('Invalid logoKey');
-      }
-    }
-    if (pronunciationAudioKey) {
-      if (!this.storage.isTempBrandPronunciationAudioKeyForSignup(
-        email,
-        pronunciationAudioKey,
-      )) {
-        throw new BadRequestException('Invalid brandPronunciationAudioKey');
-      }
-    }
-
-    const userName = dto.contactFullName?.trim() || null;
-
-    const { userId, brandProfileId } = await this.prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.create({
-          data: {
-            email,
-            name: userName,
-            passwordHash,
-            primaryRoleId: null,
-          },
-        });
-        const id =
-          await this.brandProfileService.runCreateOwnedBrandProfileInTransaction(
-            tx,
-            user.id,
-            brandDto,
-            { signupEmail: email, forcePrimaryBrandRole: true },
-          );
-        return { userId: user.id, brandProfileId: id };
-      },
-      { timeout: 30_000, maxWait: 10_000 },
-    );
-
-    await this.brandProfileService.finalizeOwnedBrandProfileAssets({
-      brandProfileId,
-      actorUserId: userId,
-      logoKey,
-      pronunciationAudioKey,
-    });
-
-    return userId;
-  }
-
   /**
    * Attach the CREATOR role and a creator profile to an EXISTING user who
    * signed up (via Google or email+password) without picking a role yet.
-   * Mirrors {@link registerCreatorUser} but skips user creation — used by the
-   * post-signup "choose your role" step. Reuses the same transactional profile
-   * creation, which also enforces the one-email-one-role rule.
+   * Used by the post-signup "choose your role" step. Reuses the same
+   * transactional profile creation, which also enforces the one-email-one-role
+   * rule.
    */
   async onboardExistingUserAsCreator(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({

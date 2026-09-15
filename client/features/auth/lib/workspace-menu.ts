@@ -30,22 +30,15 @@ export function canSwitchToWorkspace(
 
 export function canSetUpWorkspace(
   user: AuthUser,
-  role: WorkspaceMenuRole,
+  _role: WorkspaceMenuRole,
 ): boolean {
-  if (role === "BRAND") {
-    return (
-      !canSwitchToWorkspace(user, role) &&
-      !user.hasBrandProfile &&
-      !user.hasAgencyProfile &&
-      !user.brandAccessRevoked
-    );
-  }
-
-  return !canSwitchToWorkspace(user, role) && !user.hasCreatorProfile;
+  // One email = one workspace. The only remaining setup is finishing
+  // creator/brand choice after unified signup.
+  return user.roles.length === 0 && !user.primaryRole;
 }
 
 export function workspaceSetupHref(
-  role: WorkspaceMenuRole,
+  _role: WorkspaceMenuRole,
   callbackUrl?: string | null,
 ): string {
   const params = new URLSearchParams();
@@ -56,6 +49,6 @@ export function workspaceSetupHref(
   }
 
   const query = params.toString();
-  const path = role === "BRAND" ? "/register/brand" : "/register/creator";
+  const path = "/onboarding/role";
   return query ? `${path}?${query}` : path;
 }

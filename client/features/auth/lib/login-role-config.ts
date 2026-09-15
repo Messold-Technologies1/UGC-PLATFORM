@@ -127,7 +127,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     submitLabel: "Log in as Brand",
     signupCta: "Create a brand account",
     signupLine: "New to GoCollab as a brand?",
-    signupHref: "/register/brand",
+    signupHref: "/register",
     theme: {
       accent: "#6e2545",
       accent2: "#6e2545",
@@ -175,7 +175,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     submitLabel: "Log in as Creator",
     signupCta: "Create a creator account",
     signupLine: "New to GoCollab as a creator?",
-    signupHref: "/register/creator",
+    signupHref: "/register",
     theme: {
       accent: "#B3123F",
       accent2: "#B3123F",

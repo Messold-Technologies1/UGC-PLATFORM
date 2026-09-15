@@ -2,28 +2,12 @@ export const ENDPOINTS = {
   AUTH: {
     LOGIN: "/api/auth/login",
     REGISTER: "/api/auth/register",
-    REGISTER_CREATOR: "/api/auth/register/creator",
-    REGISTER_BRAND: "/api/auth/register/brand",
     REGISTER_ADMIN: "/api/auth/register-admin",
     ONBOARDING_ROLE: "/api/auth/onboarding/role",
     GOOGLE: "/api/auth/google",
     GOOGLE_CALLBACK: "/api/auth/google/callback",
     PHONE_SEND_OTP: "/api/auth/phone/send-otp",
     PHONE_VERIFY_OTP: "/api/auth/phone/verify-otp",
-    SIGNUP_PHONE_SEND_OTP: "/api/auth/signup/phone/send-otp",
-    SIGNUP_CREATOR_PORTFOLIO_VIDEO_PRESIGN:
-      "/api/auth/signup/presign/creator-portfolio-video",
-    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_CREATE:
-      "/api/auth/signup/multipart/creator-portfolio-video/create",
-    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_SIGN_PART:
-      "/api/auth/signup/multipart/creator-portfolio-video/sign-part",
-    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_COMPLETE:
-      "/api/auth/signup/multipart/creator-portfolio-video/complete",
-    SIGNUP_CREATOR_PORTFOLIO_VIDEO_MULTIPART_ABORT:
-      "/api/auth/signup/multipart/creator-portfolio-video/abort",
-    SIGNUP_BRAND_LOGO_PRESIGN: "/api/auth/signup/presign/brand-logo",
-    SIGNUP_BRAND_PRONUNCIATION_PRESIGN:
-      "/api/auth/signup/presign/brand-pronunciation",
     REFRESH: "/api/auth/refresh",
     FORGOT_PASSWORD: "/api/auth/forgot-password",
     RESET_PASSWORD: "/api/auth/reset-password",

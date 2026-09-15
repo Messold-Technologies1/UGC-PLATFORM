@@ -10,9 +10,8 @@ import { UnifiedSignupForm } from "@/features/auth/components/unified-signup-for
 export const metadata: Metadata = { title: "Create your account" };
 
 export default function RegisterPage() {
-  // The unified /register page carries the site navbar itself. Its sibling
-  // routes /register/creator and /register/brand keep their own layouts, so a
-  // shared register layout would double the navbar there.
+  // The unified /register page carries the site navbar itself.
+  // Brand setup after role choice lives at /onboarding/brand.
   return (
     <AuthProvider>
       <div className="relative min-h-dvh">

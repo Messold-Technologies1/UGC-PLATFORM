@@ -32,7 +32,7 @@ export function resolveImmediatePostAuthPath(
     (user.primaryRole === "BRAND" || user.roles.includes("BRAND")) &&
     !user.hasBrandProfile
   ) {
-    return `/register/brand/complete${
+    return `/onboarding/brand${
       callbackUrl
         ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
         : ""

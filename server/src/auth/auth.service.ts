@@ -13,11 +13,8 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
-import type { RegisterCreatorDto } from './dto/register-creator.dto';
-import type { RegisterBrandDto } from './dto/register-brand.dto';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import { SignupRegistrationService } from './signup-registration.service';
-import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { isSuperAdminEmail } from './super-admin';
 
 const SALT_ROUNDS = 10;
@@ -119,7 +116,6 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly signupRegistration: SignupRegistrationService,
-    private readonly metaCapi: MetaCapiService,
   ) {}
 
   private hashRefreshToken(token: string): string {
@@ -242,48 +238,6 @@ export class AuthService {
       throw new UnauthorizedException('Account could not be loaded');
     }
     return { user: me, accessToken, refreshToken, expiresIn };
-  }
-
-  async registerCreator(
-    dto: RegisterCreatorDto,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ): Promise<AuthResult> {
-    const userId = await this.signupRegistration.registerCreatorUser(dto, meta);
-    this.logger.log(
-      `[auth] register success role=CREATOR userId=${userId} ip=${meta?.ipAddress ?? 'n/a'}`,
-    );
-    // Server-side twin of the browser CompleteRegistration event, deduplicated
-    // via the shared metaSignupEventId. Best-effort / fire-and-forget.
-    if (this.metaCapi.enabled) {
-      void this.metaCapi.sendEvent({
-        eventName: 'CreatorRegistration',
-        eventId: dto.metaSignupEventId,
-        actionSource: 'website',
-        eventSourceUrl:
-          this.config.get<string>('FRONTEND_URL') || undefined,
-        userData: {
-          email: dto.email,
-          phone: dto.phone,
-          ...splitFullName(dto.name),
-          fbp: dto.metaFbp,
-          fbc: dto.metaFbc,
-          clientIpAddress: meta?.ipAddress,
-          clientUserAgent: meta?.userAgent,
-        },
-      });
-    }
-    return this.authResultAfterSignup(userId, meta);
-  }
-
-  async registerBrand(
-    dto: RegisterBrandDto,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ): Promise<AuthResult> {
-    const userId = await this.signupRegistration.registerBrandUser(dto);
-    this.logger.log(
-      `[auth] register success role=BRAND userId=${userId} ip=${meta?.ipAddress ?? 'n/a'}`,
-    );
-    return this.authResultAfterSignup(userId, meta);
   }
 
   async registerAgency(

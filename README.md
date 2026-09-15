@@ -251,7 +251,7 @@ NestJS API (REST)
 7. On completion → funds released to creator, brand leaves review
 
 ### Creator sets up profile
-1. Registers at `/register/creator` → profile creation wizard
+1. Registers at `/register`, chooses Creator, then completes the profile wizard
 2. Fills bio, niche/style/language facets, on-location availability
 3. Uploads intro reel and portfolio videos
 4. Sets packages (name, price, delivery days, revisions, video length)

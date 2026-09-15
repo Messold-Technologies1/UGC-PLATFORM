@@ -58,7 +58,10 @@ function shouldSkipRefreshOn401(url: string) {
 
 function isPublicBrowsingPath(pathname: string) {
   if (pathname === "/") return true;
-  if (pathname === "/login" || pathname === "/signup") return true;
+  if (pathname === "/login" || pathname === "/signup" || pathname === "/register")
+    return true;
+  if (pathname.startsWith("/register/")) return true;
+  if (pathname.startsWith("/onboarding/")) return true;
   if (pathname.startsWith("/auth/")) return true;
   if (pathname.startsWith("/creators/")) return true;
   if (pathname.startsWith("/wishlists/share/")) return true;

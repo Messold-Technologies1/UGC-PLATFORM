@@ -45,6 +45,16 @@ const nextConfig: NextConfig = {
         destination: "/brand/orders/:orderId",
         permanent: true,
       },
+      {
+        source: "/register/creator",
+        destination: "/register",
+        permanent: true,
+      },
+      {
+        source: "/register/brand/complete",
+        destination: "/onboarding/brand",
+        permanent: true,
+      },
     ];
   },
   async headers() {

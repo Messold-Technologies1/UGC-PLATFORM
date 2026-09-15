@@ -231,7 +231,7 @@ export default function AdminBrandDetailPage() {
   }
 
   const brand = brandQuery.data;
-  const displayName = brand.brandName ?? brand.name ?? "Unnamed Brand";
+  const displayName = brand.brandName?.trim() || "Unnamed Brand";
   const wishlists = wishlistsQuery.data?.items ?? [];
   const ordersTotal = ordersQuery.data?.total ?? 0;
   const orders = ordersQuery.data?.items ?? [];

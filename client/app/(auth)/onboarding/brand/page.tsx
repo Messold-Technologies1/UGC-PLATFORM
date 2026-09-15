@@ -8,32 +8,53 @@ import { BrandGoogleSetupDialog } from "@/features/auth/components/brand-google-
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 
-function BrandCompleteInner() {
-  const { data: user = null, isPending: isLoading } = useMeQuery();
+const BRAND_SETUP_PATH = "/onboarding/brand";
+
+function BrandSetupInner() {
+  const { data: user = null, isPending, isFetched } = useMeQuery();
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
   const [ready, setReady] = useState(false);
 
+  const userId = user?.id ?? null;
+  const hasBrandProfile = Boolean(user?.hasBrandProfile);
+  const isBrand = Boolean(user?.roles.includes("BRAND"));
+
   useEffect(() => {
-    if (isLoading) return;
-    if (!user) {
+    if (isPending || !isFetched) return;
+    if (!userId || !user) {
       beginClientNavigation();
-      router.replace("/login?role=brand");
+      router.replace("/login");
       return;
     }
-    if (user.hasBrandProfile) {
+    if (hasBrandProfile) {
+      const target = resolveImmediatePostAuthPath(user, callbackUrl);
+      const targetPath = target.split("?")[0];
+      if (targetPath === BRAND_SETUP_PATH) {
+        setReady(true);
+        return;
+      }
       beginClientNavigation();
-      router.replace(resolveImmediatePostAuthPath(user, callbackUrl));
+      router.replace(target);
       return;
     }
-    if (!user.roles.includes("BRAND")) {
+    if (!isBrand) {
       beginClientNavigation();
       router.replace("/");
       return;
     }
     setReady(true);
-  }, [callbackUrl, isLoading, router, user]);
+  }, [
+    callbackUrl,
+    hasBrandProfile,
+    isBrand,
+    isFetched,
+    isPending,
+    router,
+    user,
+    userId,
+  ]);
 
   if (!ready || !user) {
     return (
@@ -48,7 +69,7 @@ function BrandCompleteInner() {
   );
 }
 
-export default function BrandCompletePage() {
+export default function BrandOnboardingPage() {
   return (
     <Suspense
       fallback={
@@ -57,7 +78,7 @@ export default function BrandCompletePage() {
         </div>
       }
     >
-      <BrandCompleteInner />
+      <BrandSetupInner />
     </Suspense>
   );
 }

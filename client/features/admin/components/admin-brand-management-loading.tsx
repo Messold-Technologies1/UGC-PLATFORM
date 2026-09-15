@@ -202,7 +202,7 @@ function BrandManagementFixtureContent() {
 
         <div className="grid grid-cols-1 gap-4">
           {BRAND_MANAGEMENT_FIXTURE_ITEMS.map((brand) => {
-            const displayName = brand.brandName ?? brand.name ?? "Unnamed Brand";
+            const displayName = brand.brandName?.trim() || "Unnamed Brand";
 
             return (
               <div

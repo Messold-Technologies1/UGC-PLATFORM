@@ -8,8 +8,6 @@ import type { PasswordService } from './password.service';
 describe('AuthController', () => {
   const authService = {
     register: jest.fn(),
-    registerCreator: jest.fn(),
-    registerBrand: jest.fn(),
     registerAgency: jest.fn(),
     registerAdmin: jest.fn(),
     login: jest.fn(),
@@ -82,7 +80,6 @@ describe('AuthController', () => {
     const res = createResponseMock();
 
     const result = await controller.register(
-      undefined,
       {
         email: user.email,
         name: user.name ?? undefined,

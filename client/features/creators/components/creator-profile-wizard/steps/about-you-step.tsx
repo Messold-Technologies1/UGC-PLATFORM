@@ -288,43 +288,45 @@ export function AboutYouStep(props: AboutYouStepProps) {
           <label htmlFor="cw-phone" className="cw-fieldlabel">
             Phone number{!adminMode ? <span className="cw-req"> *</span> : null}
           </label>
-          {adminMode || phoneVerified ? (
-            <>
-              <div className="cw-phone">
-                <span className="cw-phone-prefix">+91</span>
-                <input
-                  id="cw-phone"
-                  className="cw-input cw-phone-input"
-                  value={phone ?? ""}
-                  disabled={disabled || (!adminMode && phoneVerified)}
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  placeholder={
-                    adminMode ? "Creator's phone number" : "Your phone number"
-                  }
-                  onChange={(e) =>
-                    onPhoneChange?.(e.target.value.replace(/\D/g, ""))
-                  }
-                />
-              </div>
-              {!adminMode && phoneVerified ? (
-                <span className="cw-facet-help" style={{ color: "#2E9B57" }}>
-                  Mobile number verified.
-                </span>
-              ) : null}
-            </>
+          {adminMode ? (
+            <div className="cw-phone">
+              <span className="cw-phone-prefix">+91</span>
+              <input
+                id="cw-phone"
+                className="cw-input cw-phone-input"
+                value={phone ?? ""}
+                disabled={disabled}
+                inputMode="numeric"
+                autoComplete="tel"
+                placeholder="Creator's phone number"
+                onChange={(e) =>
+                  onPhoneChange?.(e.target.value.replace(/\D/g, ""))
+                }
+              />
+            </div>
           ) : (
             <>
+              {/*
+                Seed the field with the saved number and its verified state so
+                an existing creator sees "Verified" instead of a blank OTP
+                widget. Editing the number to a different value re-arms the
+                Send OTP / Verify flow; reverting to the saved number clears it
+                again with no re-OTP.
+              */}
               <PhoneVerificationField
                 idPrefix="cw"
                 disabled={disabled}
+                initialPhone={phone ? `+91${phone}` : undefined}
+                initialVerified={phoneVerified}
                 onVerifiedChange={(v) => onPhoneVerifiedChange?.(v)}
                 onVerifiedPhone={(p) =>
                   onPhoneChange?.(p.replace(/^\+91/, ""))
                 }
               />
               <span className="cw-facet-help">
-                Verify your mobile number to continue.
+                {phoneVerified
+                  ? "Your mobile number is verified. Edit it to change — you'll verify the new number."
+                  : "Verify your mobile number to continue."}
               </span>
             </>
           )}

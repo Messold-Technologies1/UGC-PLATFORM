@@ -8,12 +8,10 @@ import { z } from "zod";
 import { isAxiosError } from "axios";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -65,10 +63,7 @@ const setupSchema = z.object({
       }
     }, "Enter a valid website URL"),
   // Terms of Service + Privacy Policy are accepted on the main signup page, so
-  // only the Brand Guidelines acceptance is collected here.
-  guidelinesAccepted: z.boolean().refine((v) => v === true, {
-    message: "You must accept the Brand Guidelines",
-  }),
+  // no policy checkboxes are collected here.
 });
 
 type SetupData = z.infer<typeof setupSchema>;
@@ -98,7 +93,6 @@ export function BrandGoogleSetupDialog({
     resolver: zodResolver(setupSchema),
     defaultValues: {
       website: "",
-      guidelinesAccepted: false,
     },
   });
 
@@ -282,40 +276,6 @@ export function BrandGoogleSetupDialog({
             </p>
             {logoError ? (
               <p className="text-xs text-red-500">{logoError}</p>
-            ) : null}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="setup-guidelines"
-                checked={form.watch("guidelinesAccepted")}
-                onCheckedChange={(checked) =>
-                  form.setValue("guidelinesAccepted", checked === true, {
-                    shouldValidate: true,
-                  })
-                }
-                className="mt-0.5"
-              />
-              <Label
-                htmlFor="setup-guidelines"
-                className="text-[13px] font-normal leading-snug text-muted-foreground"
-              >
-                I agree to the{" "}
-                <Link
-                  href="/legal/brand-guidelines"
-                  target="_blank"
-                  className="font-semibold text-foreground underline"
-                >
-                  Brand Guidelines
-                </Link>
-                .
-              </Label>
-            </div>
-            {form.formState.errors.guidelinesAccepted ? (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.guidelinesAccepted.message}
-              </p>
             ) : null}
           </div>
 

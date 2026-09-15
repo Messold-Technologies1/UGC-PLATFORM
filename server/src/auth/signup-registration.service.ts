@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AgencyService } from '../agency/agency.service';
+import { BrandProfileService } from '../brand-profile/brand-profile.service';
+import type { CreateBrandProfileDto } from '../brand-profile/dto/create-brand-profile.dto';
 import { CreatorProfileService } from '../creator-profile/creator-profile.service';
 import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,9 +23,31 @@ export class SignupRegistrationService {
     private readonly phoneVerification: PhoneVerificationService,
     private readonly storage: StorageService,
     private readonly creatorProfileService: CreatorProfileService,
+    private readonly brandProfileService: BrandProfileService,
     private readonly agencyService: AgencyService,
     private readonly creatorReminders: CreatorReminderQueueService,
   ) {}
+
+  /**
+   * Create a brand profile for an EXISTING user who already has a verified
+   * phone (normal email+password signup). Uses their name as the contact name
+   * and their verified phone as the contact phone, so they skip the
+   * /onboarding/brand setup step entirely. Attaches the BRAND role
+   * (forcePrimaryBrandRole) and sends the brand welcome mail.
+   */
+  async onboardExistingUserAsBrand(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true },
+    });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+    await this.brandProfileService.createOwnedBrandProfileForUser(userId, {
+      contactFullName: user.name?.trim() || '',
+      ...(user.phone ? { contactPhone: user.phone } : {}),
+    } as CreateBrandProfileDto);
+  }
 
   private async assertSignupPhoneOtpApproved(
     phone: string,

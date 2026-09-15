@@ -317,15 +317,30 @@ export class AuthService {
     if (role === RoleName.CREATOR) {
       await this.signupRegistration.onboardExistingUserAsCreator(userId);
     } else {
-      const brandProfile = await this.prisma.brandProfile.findUnique({
-        where: { userId },
-        select: { id: true },
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          phone: true,
+          phoneVerified: true,
+          brandProfile: { select: { id: true } },
+        },
       });
-      // Set BRAND as primary only when the account has no workspace yet — never
-      // steal an existing creator primary (ensureUserHasRole would reject that).
-      await this.ensureUserHasRole(userId, RoleName.BRAND, {
-        forcePrimary: !brandProfile,
-      });
+      if (user?.brandProfile) {
+        // Already has a brand profile — just make sure the role is attached.
+        await this.ensureUserHasRole(userId, RoleName.BRAND);
+      } else if (user?.phoneVerified && user?.phone) {
+        // Normal email+password brand: the phone was already collected and
+        // verified at signup, so create the brand profile now and skip the
+        // /onboarding/brand step. createOwnedBrandProfileForUser attaches the
+        // BRAND role (forcePrimaryBrandRole) itself.
+        await this.signupRegistration.onboardExistingUserAsBrand(userId);
+      } else {
+        // Google brand (no verified phone yet) — attach the role only; the
+        // client routes to /onboarding/brand to add + verify a phone.
+        await this.ensureUserHasRole(userId, RoleName.BRAND, {
+          forcePrimary: true,
+        });
+      }
     }
 
     this.logger.log(`[auth] onboard role=${role} userId=${userId}`);

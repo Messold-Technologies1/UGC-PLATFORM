@@ -68,7 +68,7 @@ export function UnifiedAuthShell({
         </div>
 
         <div className="flex w-full justify-center lg:justify-end">
-          <div className="w-full max-w-[440px] rounded-[22px] bg-white p-8 shadow-[0_40px_90px_-30px_rgba(20,4,12,0.6)] sm:p-10">
+          <div className="w-full max-w-[520px] rounded-[22px] bg-white p-5 shadow-[0_40px_90px_-30px_rgba(20,4,12,0.6)] sm:p-6">
             {children}
           </div>
         </div>

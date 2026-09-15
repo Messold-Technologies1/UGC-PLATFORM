@@ -108,6 +108,7 @@ export function UnifiedSignupForm() {
     onSuccess: () => {
       setOtpSent(true);
       setOtpResendAt(Date.now() + 60_000);
+      form.clearErrors("phoneOtpCode");
       toast.success("Verification code sent");
     },
     onError: (error) => {
@@ -170,17 +171,31 @@ export function UnifiedSignupForm() {
     });
   };
 
+  const onInvalidSubmit = useCallback(() => {
+    if (otpSent) return;
+    form.setError("phoneOtpCode", {
+      type: "manual",
+      message: "Please verify your number. Click Send OTP.",
+    });
+    document.getElementById("signup-phone")?.focus();
+  }, [form, otpSent]);
+
+  const needsOtpWarning = !otpSent && Boolean(form.formState.errors.phoneOtpCode);
+
   return (
     <>
-      <h2 className="text-[24px] font-extrabold tracking-tight text-[#181313]">
+      <h2 className="text-[22px] font-extrabold tracking-tight text-[#181313]">
         Create your account
       </h2>
-      <p className="mt-2 mb-6 text-[13.5px] text-[#8B8489]">
+      <p className="mt-1.5 mb-4 text-[13px] text-[#8B8489]">
         Start with email — you’ll choose Creator or Brand next.
       </p>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
-        <div className="mb-4">
+      <form
+        onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)}
+        className="flex flex-col"
+      >
+        <div className="mb-3">
           <label htmlFor="signup-name" className={authLabelClass}>
             Full name
           </label>
@@ -203,7 +218,7 @@ export function UnifiedSignupForm() {
           ) : null}
         </div>
 
-        <div className="mb-4">
+        <div className="mb-3">
           <label htmlFor="signup-email" className={authLabelClass}>
             Email
           </label>
@@ -226,7 +241,7 @@ export function UnifiedSignupForm() {
           ) : null}
         </div>
 
-        <div className="mb-4">
+        <div className="mb-3">
           <label htmlFor="signup-password" className={authLabelClass}>
             Password
           </label>
@@ -249,7 +264,7 @@ export function UnifiedSignupForm() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#8B8489] hover:text-[#181313]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[12.5px] font-semibold text-[#8B8489] hover:text-[#181313]"
             >
               {showPassword ? "Hide" : "Show"}
             </button>
@@ -260,13 +275,20 @@ export function UnifiedSignupForm() {
         </div>
 
         {/* Phone + OTP — verified at account creation for email signup. */}
-        <div className="mb-4">
+        <div className="mb-3">
           <label htmlFor="signup-phone" className={authLabelClass}>
             Phone number
           </label>
           <div className="flex gap-2">
-            <div className="flex flex-1 items-stretch overflow-hidden rounded-[13px] border-[1.5px] border-[#e7e1e4] bg-white focus-within:border-deep-pink">
-              <span className="flex items-center bg-[#faf4f6] px-3 text-[14px] font-semibold text-[#8B8489]">
+            <div
+              className={cn(
+                "flex flex-1 items-stretch overflow-hidden rounded-[11px] border-[1.5px] bg-white focus-within:border-deep-pink",
+                form.formState.errors.phone || needsOtpWarning
+                  ? "border-amber-500 focus-within:border-amber-500"
+                  : "border-[#e7e1e4]",
+              )}
+            >
+              <span className="flex items-center bg-[#faf4f6] px-2.5 text-[13px] font-semibold text-[#8B8489]">
                 +91
               </span>
               <input
@@ -276,14 +298,17 @@ export function UnifiedSignupForm() {
                 autoComplete="tel-national"
                 placeholder="9876543210"
                 disabled={pending}
-                aria-invalid={Boolean(form.formState.errors.phone)}
-                className="h-[50px] flex-1 bg-transparent px-3 text-[14.5px] text-[#181313] outline-none placeholder:text-[#B0AAAE]"
+                aria-invalid={
+                  Boolean(form.formState.errors.phone) || needsOtpWarning
+                }
+                className="h-[42px] flex-1 bg-transparent px-3 text-[14px] text-[#181313] outline-none placeholder:text-[#B0AAAE]"
                 value={phoneDigits}
                 onChange={(e) => {
                   const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
                   form.setValue("phone", digits ? `+91${digits}` : "", {
                     shouldValidate: true,
                   });
+                  form.clearErrors("phoneOtpCode");
                   setOtpSent(false);
                   setOtpResendAt(null);
                 }}
@@ -293,7 +318,10 @@ export function UnifiedSignupForm() {
               type="button"
               onClick={handleSendOtp}
               disabled={pending || !phoneComplete || resendSeconds > 0}
-              className="h-[50px] shrink-0 rounded-[13px] border-[1.5px] border-[#e7e1e4] bg-white px-4 text-[13px] font-semibold text-[#181313] hover:bg-[#faf4f6] disabled:opacity-60"
+              className={cn(
+                "h-[42px] shrink-0 rounded-[11px] border-[1.5px] bg-white px-3.5 text-[13px] font-semibold text-[#181313] hover:bg-[#faf4f6] disabled:opacity-60",
+                needsOtpWarning ? "border-amber-500" : "border-[#e7e1e4]",
+              )}
             >
               {sendOtpMutation.isPending
                 ? "Sending…"
@@ -306,11 +334,13 @@ export function UnifiedSignupForm() {
           </div>
           {form.formState.errors.phone ? (
             <FieldWarn>{form.formState.errors.phone.message}</FieldWarn>
+          ) : needsOtpWarning ? (
+            <FieldWarn>Please verify your number. Click Send OTP.</FieldWarn>
           ) : null}
         </div>
 
         {otpSent ? (
-          <div className="mb-4">
+          <div className="mb-3">
             <label htmlFor="signup-otp" className={authLabelClass}>
               Verification code
             </label>
@@ -348,7 +378,7 @@ export function UnifiedSignupForm() {
         ) : null}
 
         {/* Terms — required for BOTH email and Google signup. */}
-        <div className="mb-5 mt-1 flex items-start gap-3">
+        <div className="mb-4 mt-0.5 flex items-start gap-3">
           <Checkbox
             id="signup-terms"
             checked={termsAccepted}
@@ -426,7 +456,7 @@ export function UnifiedSignupForm() {
         <FieldWarn>Please accept the terms to continue</FieldWarn>
       ) : null}
 
-      <p className="mt-5 text-center text-[13px] text-[#8B8489]">
+      <p className="mt-4 text-center text-[13px] text-[#8B8489]">
         Already have an account?{" "}
         <Link href={loginHref} className="font-bold text-[#181313] hover:underline">
           Log in

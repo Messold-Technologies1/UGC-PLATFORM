@@ -3569,7 +3569,7 @@ export class OrdersService {
         ? { ...(baseWhere ?? {}), status: { in: params.statuses } }
         : baseWhere;
 
-    const [total, rows] = await this.prisma.$transaction([
+    const [total, rows, grouped] = await this.prisma.$transaction([
       this.prisma.order.count({ where: listWhere }),
       this.prisma.order.findMany({
         where: listWhere,
@@ -3619,19 +3619,20 @@ export class OrdersService {
           },
         },
       }),
+      // Per-status counts over the base scope (NOT the active tab and NOT the
+      // page), so every badge is the full order total for that status.
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
     ]);
 
-    // Count per status over the base scope (NOT the active tab's filter and NOT
-    // the page), so every status-tab badge is accurate even when there are more
-    // orders than one page can hold.
-    const grouped = await this.prisma.order.groupBy({
-      by: ['status'],
-      where: baseWhere,
-      _count: true,
-    });
     const statusCounts: Record<string, number> = {};
     for (const g of grouped) {
-      statusCounts[g.status] = g._count;
+      const count =
+        typeof g._count === 'object' ? (g._count._all ?? 0) : g._count;
+      statusCounts[g.status] = count;
     }
 
     const items: AdminOrderListItemDto[] = rows.map((r) => {

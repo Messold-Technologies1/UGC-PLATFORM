@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import OrderRow from "@/components/admin/OrderRow";
 import { OrderStatusTab } from "@/features/orders/components/brand-order-detail/order-status-tab";
-import { STATUS_TAB_GROUPS, STATUS_TABS } from "@/features/orders/constants";
+import {
+  ADMIN_STATUS_TAB_GROUPS,
+  ADMIN_STATUS_TABS,
+  tabCountsFromStatusCounts,
+} from "@/features/orders/constants";
 import {
   Pagination,
   PaginationContent,
@@ -80,34 +84,33 @@ export default function OrderManagement() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
   const [activeTab, setActiveTab] = useState<string>("all");
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
 
-  // Filter and paginate on the server, so the list and the tab counts stay
-  // correct beyond a single page. The active tab maps to a set of lifecycle
-  // statuses (e.g. "Completed" = ACCEPTED + CREATOR_PAYMENT_DONE).
+  // Filter and paginate the list on the server. Tab badges use statusCounts,
+  // which is a groupBy over every order (not this page and not this tab).
   const activeStatuses =
-    activeTab === "all" ? [] : (STATUS_TAB_GROUPS[activeTab] ?? []);
+    activeTab === "all" ? [] : (ADMIN_STATUS_TAB_GROUPS[activeTab] ?? []);
   const { data, isLoading, isError } = useAdminOrdersQuery({
     page,
     limit,
     statuses: activeStatuses.length > 0 ? activeStatuses.join(",") : undefined,
   });
 
+  useEffect(() => {
+    if (data?.statusCounts) setStatusCounts(data.statusCounts);
+  }, [data?.statusCounts]);
+
   const items = useMemo(() => data?.items ?? [], [data?.items]);
 
-  // Tab badges come from the server's per-status counts over the whole dataset,
-  // so they are accurate no matter which page or tab is loaded.
-  const tabCounts = useMemo(() => {
-    const sc = data?.statusCounts ?? {};
-    const counts: Record<string, number> = {
-      all: Object.values(sc).reduce((sum, n) => sum + n, 0),
-    };
-    for (const tab of STATUS_TABS) {
-      if (tab.key === "all") continue;
-      const statuses = STATUS_TAB_GROUPS[tab.key] ?? [];
-      counts[tab.key] = statuses.reduce((sum, s) => sum + (sc[s] ?? 0), 0);
-    }
-    return counts;
-  }, [data?.statusCounts]);
+  const tabCounts = useMemo(
+    () =>
+      tabCountsFromStatusCounts(
+        statusCounts,
+        ADMIN_STATUS_TABS,
+        ADMIN_STATUS_TAB_GROUPS,
+      ),
+    [statusCounts],
+  );
 
   function handleTabChange(tab: string) {
     setActiveTab(tab);
@@ -135,6 +138,7 @@ export default function OrderManagement() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         tabCounts={tabCounts}
+        tabs={ADMIN_STATUS_TABS}
       />
 
       <section className="bg-card dark:bg-card/10 border border-border/50 dark:border-border/10 rounded-3xl overflow-hidden glass-panel shadow-sm">

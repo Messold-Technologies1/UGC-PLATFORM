@@ -10,9 +10,9 @@ describe('OrdersService.listOrdersForAdmin', () => {
     const count = jest.fn().mockResolvedValue(15);
     const findMany = jest.fn().mockResolvedValue([]); // empty page → no mapping
     const groupBy = jest.fn().mockResolvedValue([
-      { status: 'CREATOR_PAYMENT_DONE', _count: 12 },
-      { status: 'ACCEPTED', _count: 3 },
-      { status: 'DELIVERED', _count: 7 },
+      { status: 'CREATOR_PAYMENT_DONE', _count: { _all: 12 } },
+      { status: 'ACCEPTED', _count: { _all: 3 } },
+      { status: 'DELIVERED', _count: { _all: 7 } },
     ]);
     const prisma = {
       $transaction: jest.fn(async (ops: Promise<unknown>[]) =>
@@ -45,7 +45,10 @@ describe('OrdersService.listOrdersForAdmin', () => {
     });
     // The badge count is a groupBy over the base scope, not the page.
     expect(groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({ by: ['status'], _count: true }),
+      expect.objectContaining({
+        by: ['status'],
+        _count: { _all: true },
+      }),
     );
   });
 

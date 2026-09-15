@@ -1,18 +1,20 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { STATUS_TABS } from "../../constants";
+import { STATUS_TABS, type OrderStatusTabDef } from "../../constants";
 
 interface OrderStatusTabProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   tabCounts: Record<string, number>;
+  tabs?: readonly OrderStatusTabDef[];
 }
 
 export function OrderStatusTab({
   activeTab,
   onTabChange,
   tabCounts,
+  tabs = STATUS_TABS,
 }: OrderStatusTabProps) {
   return (
     <div
@@ -20,7 +22,7 @@ export function OrderStatusTab({
       className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm pt-4 lg:pt-5 pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10 2xl:-mx-12 2xl:px-12 mb-2"
     >
       <div className="flex w-full flex-nowrap overflow-x-auto scrollbar-hide snap-x snap-mandatory lg:flex-wrap gap-1 rounded-[14px] border border-border bg-card p-1.5 shadow-sm">
-        {STATUS_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           const count = tabCounts[tab.key] ?? 0;
 

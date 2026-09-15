@@ -59,6 +59,64 @@ export const STATUS_TABS = [
   { key: "cancelled", label: "Cancelled" },
 ] as const;
 
+/** Admin order list: split completed vs paid-out and rejected vs refunded. */
+export const ADMIN_STATUS_TAB_GROUPS: Record<string, string[]> = {
+  all: [],
+  brief: ["BRIEF_SUBMISSION_PENDING"],
+  payment: ["PENDING_PAYMENT"],
+  progress: [
+    "BRIEF_SUBMITTED",
+    "BRIEF_ACCEPTED",
+    "PRODUCT_SHIPPED",
+    "PRODUCT_RECEIVED",
+  ],
+  review: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
+  dispute: ["DISPUTED"],
+  completed: ["ACCEPTED"],
+  paidOut: ["CREATOR_PAYMENT_DONE"],
+  rejected: ["REJECTED"],
+  refunded: ["REFUNDED"],
+};
+
+export const ADMIN_STATUS_TABS = [
+  { key: "all", label: "All" },
+  { key: "brief", label: "Brief Required" },
+  { key: "payment", label: "Awaiting Payment" },
+  { key: "progress", label: "In Progress" },
+  { key: "review", label: "In Review" },
+  { key: "dispute", label: "Dispute" },
+  { key: "completed", label: "Completed" },
+  { key: "paidOut", label: "Paid Out" },
+  { key: "rejected", label: "Cancelled" },
+  { key: "refunded", label: "Refunded" },
+] as const;
+
+export type OrderStatusTabDef = {
+  key: string;
+  label: string;
+};
+
+/** Badge counts from a full-dataset per-status aggregate, never the page. */
+export function tabCountsFromStatusCounts(
+  statusCounts: Record<string, number> | undefined,
+  tabs: readonly OrderStatusTabDef[],
+  groups: Record<string, string[]>,
+): Record<string, number> {
+  const sc = statusCounts ?? {};
+  const asNumber = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+  const counts: Record<string, number> = {
+    all: Object.values(sc).reduce((sum, n) => sum + asNumber(n), 0),
+  };
+  for (const tab of tabs) {
+    if (tab.key === "all") continue;
+    const statuses = groups[tab.key] ?? [];
+    counts[tab.key] = statuses.reduce((sum, s) => sum + asNumber(sc[s]), 0);
+  }
+  return counts;
+}
+
 export const STATUS_PILL_STYLE: Record<
   string,
   { dot: string; bg: string; text: string }

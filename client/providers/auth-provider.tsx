@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.clear();
       beginClientNavigation();
       router.replace(redirectPath);
+      router.refresh();
       logoutStartedRef.current = false;
       setIsLoggingOut(false);
     }

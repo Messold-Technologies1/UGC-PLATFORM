@@ -266,7 +266,7 @@ export function Navbar({ className }: { className?: string } = {}) {
           <div className="flex shrink-0 items-center gap-6 overflow-visible lg:gap-8">
             <Link
               href="/"
-              prefetch
+              prefetch={false}
               className="z-10 flex shrink-0 items-center overflow-visible py-1"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- static public asset; explicit box avoids Next/Image layout collapse in pill navbar */}

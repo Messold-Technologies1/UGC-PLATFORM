@@ -10,6 +10,7 @@ export function AuthLogoLink({ className, imageClassName }: AuthLogoLinkProps) {
   return (
     <Link
       href="/"
+      prefetch={false}
       className={cn("inline-block", className)}
       aria-label="Go to GoCollab home"
     >

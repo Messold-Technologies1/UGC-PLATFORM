@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AgencyModule } from '../agency/agency.module';
+import { BrandProfileModule } from '../brand-profile/brand-profile.module';
 import { CreatorProfileModule } from '../creator-profile/creator-profile.module';
 import { CreatorReminderModule } from '../jobs/creator-reminder.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -16,6 +17,7 @@ import { SignupRegistrationService } from './signup-registration.service';
     PrismaModule,
     StorageModule,
     forwardRef(() => CreatorProfileModule),
+    forwardRef(() => BrandProfileModule),
     forwardRef(() => AgencyModule),
     CreatorReminderModule,
   ],

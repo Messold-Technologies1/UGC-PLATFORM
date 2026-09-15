@@ -571,7 +571,7 @@ export class OrdersController {
   @Get(':id/rating-review')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
-    summary: 'Get rating/review for an order (brand or creator on that order)',
+    summary: 'Get rating/review for an order (brand, creator, or admin)',
   })
   @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
   @ApiOkResponse({ type: CreatorRatingReviewDto })

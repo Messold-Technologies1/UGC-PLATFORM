@@ -124,16 +124,6 @@ export default function OrderManagement() {
 
   return (
     <div className="p-12 max-w-[1400px] mx-auto space-y-8 group selection-active">
-      <section className="mb-12">
-        <h2 className="font-headline text-5xl font-extrabold tracking-tight mb-2">
-          Order Management
-        </h2>
-        <p className="text-muted-foreground text-sm max-w-2xl">
-          Monitor and control all platform transactions. Use the detailed view
-          to audit individual deliverables and payment statuses.
-        </p>
-      </section>
-
       <OrderStatusTab
         activeTab={activeTab}
         onTabChange={handleTabChange}

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, RoleName } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateCreatorRatingReviewDto } from './dto/create-creator-rating-review.dto';
@@ -198,7 +198,21 @@ export class CreatorReviewsService {
     const isBrand = brandActorUserId === params.viewerUserId;
     const isCreator = order.creator.userId === params.viewerUserId;
     if (!isBrand && !isCreator) {
-      throw new ForbiddenException('Not allowed to view this review');
+      const viewer = await this.prisma.user.findUnique({
+        where: { id: params.viewerUserId },
+        select: {
+          primaryRole: { select: { name: true } },
+          userRoles: { select: { role: { select: { name: true } } } },
+        },
+      });
+      const isAdmin =
+        viewer?.primaryRole?.name === RoleName.ADMIN ||
+        Boolean(
+          viewer?.userRoles.some((ur) => ur.role.name === RoleName.ADMIN),
+        );
+      if (!isAdmin) {
+        throw new ForbiddenException('Not allowed to view this review');
+      }
     }
 
     const row = await this.prisma.creatorRatingReview.findUnique({

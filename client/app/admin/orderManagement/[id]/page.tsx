@@ -14,6 +14,7 @@ import {
   Clock,
   Copy,
   FileText,
+  ChevronRight,
   History,
   Loader2,
   Package,
@@ -48,13 +49,13 @@ import {
 } from "@/features/admin/hooks/use-admin-order-action-mutations";
 import { AdminOrderChat } from "@/features/admin/components/admin-order-chat";
 import { AdminOrderBriefAccordion } from "@/features/admin/components/admin-order-brief-accordion";
+import { AdminOrderReviewCard } from "@/features/admin/components/admin-order-review-card";
 import { AdminOrderVideosCard } from "@/features/admin/components/admin-order-videos-card";
 import { CreatorBankingDetailsCard } from "@/features/admin/components/creator-banking-details-card";
 import TrackingTimeline, {
   TimelineItem,
 } from "@/components/ui/tracking-timeline";
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
-import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
 
 function initials(value?: string | null) {
   if (!value?.trim()) return "";
@@ -93,26 +94,6 @@ function formatCurrency(amount: number | string, currency: string) {
     style: "currency",
     currency: currency || "USD",
   }).format(Number(amount) || 0);
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABELS[status] ?? status.replaceAll("_", " ");
-  const className =
-    STATUS_COLORS[status] ?? "bg-muted text-muted-foreground border-border";
-
-  return (
-    <Badge
-      variant="outline"
-      className={`${className} gap-1.5 py-1 px-3 shadow-sm`}
-    >
-      {status === "DISPUTED" || status === "REJECTED" ? (
-        <AlertCircle className="h-3.5 w-3.5" />
-      ) : (
-        <CheckCircle2 className="h-3.5 w-3.5" />
-      )}
-      {label}
-    </Badge>
-  );
 }
 
 function CopyableId({ id, label }: { id?: string | null; label: string }) {
@@ -154,9 +135,8 @@ function CopyableId({ id, label }: { id?: string | null; label: string }) {
 function AdminOrderDetailsSkeleton() {
   return (
     <div className="p-12 max-w-[1400px] mx-auto space-y-8">
-      <section className="mb-12 space-y-4">
-        <Skeleton className="h-12 w-80" />
-        <Skeleton className="h-5 w-lg max-w-full" />
+      <section className="mb-8">
+        <Skeleton className="h-9 w-72" />
       </section>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
@@ -487,32 +467,33 @@ export default function AdminOrderDetailsPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="mb-12 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"
+        className="mb-8"
       >
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-4">
-            <h2 className="font-headline text-5xl font-extrabold tracking-tight text-foreground">
-              Order Details
-            </h2>
-            <StatusBadge status={order.status} />
-          </div>
-          {/* <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="rounded-md border border-border/50 bg-secondary/50 px-2 py-1 font-mono text-xs">
-              {order.id}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button asChild variant="outline" size="icon" className="size-9 shrink-0 rounded-full">
+            <Link href="/admin/orderManagement" aria-label="Back to orders">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <nav
+            aria-label="Breadcrumb"
+            className="flex min-w-0 items-center gap-1.5 text-sm"
+          >
+            <Link
+              href="/admin/orderManagement"
+              className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Orders
+            </Link>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-muted-foreground/50"
+              aria-hidden
+            />
+            <span className="truncate font-semibold text-foreground">
+              {order.packageNameSnapshot?.trim() || "Order"}
             </span>
-            <span className="text-muted-foreground/50">•</span>
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              Created {formatDate(order.createdAt)}
-            </span>
-          </p> */}
+          </nav>
         </div>
-        {/* <Button asChild variant="outline" className="rounded-xl">
-          <Link href="/admin/orderManagement">
-            <ArrowLeft className="h-4 w-4" />
-            Back to orders
-          </Link>
-        </Button> */}
       </motion.section>
 
       <motion.div
@@ -807,6 +788,10 @@ export default function AdminOrderDetailsPage() {
               orderId={order.id}
               acceptedAt={order.acceptedAt}
             />
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <AdminOrderReviewCard orderId={order.id} />
           </motion.div>
 
           <motion.div variants={itemVariants}>

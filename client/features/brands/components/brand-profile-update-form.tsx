@@ -609,8 +609,19 @@ function BrandProfileUpdateFormContent({
             <PhoneVerificationField
               idPrefix="brand-profile"
               disabled={pending}
+              // Seed the saved contact number and treat it as verified — it was
+              // always collected through an OTP-gated flow (signup / onboarding),
+              // so an existing brand should see it as verified instead of a blank
+              // "Send OTP" field. Editing it to a different number re-arms OTP.
+              initialPhone={initialProfile?.contactPhone ?? undefined}
+              initialVerified={Boolean(initialProfile?.contactPhone?.trim())}
               onVerifiedChange={setPhoneVerified}
               onVerified={() => void refreshUser()}
+              // The widget owns the phone input, so push a freshly verified
+              // number back into the form value that gets saved.
+              onVerifiedPhone={(p) =>
+                form.setValue("contactPhone", p, { shouldDirty: true })
+              }
             />
             {form.formState.errors.contactPhone && (
               <span className="pe-help text-destructive mt-1">

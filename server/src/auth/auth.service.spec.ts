@@ -38,6 +38,11 @@ describe('AuthService', () => {
     registerAgencyUser: jest.fn(),
   };
 
+  const phoneVerification = {
+    sendVerificationCode: jest.fn(),
+    verifyCode: jest.fn(),
+  };
+
   let service: AuthService;
 
   beforeEach(() => {
@@ -58,6 +63,7 @@ describe('AuthService', () => {
       jwt as unknown as JwtService,
       config as unknown as ConfigService,
       signupRegistration as any,
+      phoneVerification as any,
     );
   });
 

@@ -8,6 +8,7 @@ export const ENDPOINTS = {
     GOOGLE_CALLBACK: "/api/auth/google/callback",
     PHONE_SEND_OTP: "/api/auth/phone/send-otp",
     PHONE_VERIFY_OTP: "/api/auth/phone/verify-otp",
+    SIGNUP_PHONE_SEND_OTP: "/api/auth/signup/phone/send-otp",
     REFRESH: "/api/auth/refresh",
     FORGOT_PASSWORD: "/api/auth/forgot-password",
     RESET_PASSWORD: "/api/auth/reset-password",

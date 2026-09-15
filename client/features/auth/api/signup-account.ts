@@ -7,6 +7,10 @@ export type RegisterAccountPayload = {
   name: string;
   email: string;
   password: string;
+  /** E.164 phone verified via OTP at signup (normal email+password flow). */
+  phone?: string;
+  /** OTP code sent to `phone`; verified server-side at account creation. */
+  phoneOtpCode?: string;
 };
 
 /**

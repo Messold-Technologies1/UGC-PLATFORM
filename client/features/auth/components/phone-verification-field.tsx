@@ -57,11 +57,14 @@ export function PhoneVerificationField({
   disabled = false,
   onVerifiedChange,
   onVerified,
+  onVerifiedPhone,
 }: {
   idPrefix: string;
   disabled?: boolean;
   onVerifiedChange: (verified: boolean) => void;
   onVerified?: () => void | Promise<void>;
+  /** Fires with the verified E.164 phone (e.g. "+919876543210") on success. */
+  onVerifiedPhone?: (phone: string) => void;
 }) {
   const [phoneInput, setPhoneInput] = useState("");
   const [otpSentToPhone, setOtpSentToPhone] = useState<string | null>(null);
@@ -157,6 +160,7 @@ export function PhoneVerificationField({
       setOtpError(null);
       setPhoneError(null);
       setOtpResendAvailableAt(null);
+      onVerifiedPhone?.(variables.phone);
       void onVerified?.();
       toast.success("Mobile number verified");
     },

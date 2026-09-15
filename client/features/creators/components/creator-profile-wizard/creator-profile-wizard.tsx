@@ -184,6 +184,11 @@ export function CreatorProfileWizard({
   const [phone, setPhone] = useState(
     () => initialProfile.phone?.replace("+91", "") ?? "",
   );
+  // Phone OTP verification (creators must verify before leaving the About step).
+  // Already true for accounts that verified at signup; Google creators verify here.
+  const [phoneVerified, setPhoneVerified] = useState(
+    () => Boolean(initialProfile.phoneVerified),
+  );
 
   const enabled = adminMode || Boolean(user);
   const profileImage = useCreatorProfileImage({
@@ -890,6 +895,8 @@ export function CreatorProfileWizard({
           missing.push("a valid contact email");
         if (!dateOfBirth) missing.push("date of birth");
         if (!gender) missing.push("gender");
+        if (!adminMode && !phoneVerified)
+          missing.push("a verified phone number");
         if (!instagramConnected) missing.push("an Instagram connection");
       } else if (id === "base") {
         if (!location.city.trim()) missing.push("city");
@@ -934,6 +941,8 @@ export function CreatorProfileWizard({
       contactEmail,
       dateOfBirth,
       gender,
+      adminMode,
+      phoneVerified,
       location.city,
       shippingAddress,
       selectedLanguageCount,
@@ -1638,6 +1647,8 @@ export function CreatorProfileWizard({
                   adminMode={adminMode}
                   phone={phone}
                   onPhoneChange={setPhone}
+                  phoneVerified={phoneVerified}
+                  onPhoneVerifiedChange={setPhoneVerified}
                   displayName={displayName}
                   onDisplayNameChange={setDisplayName}
                   contactEmail={contactEmail}

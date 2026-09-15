@@ -15,6 +15,7 @@ import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import { SignupRegistrationService } from './signup-registration.service';
+import { PhoneVerificationService } from './phone-verification.service';
 import { isSuperAdminEmail } from './super-admin';
 
 const SALT_ROUNDS = 10;
@@ -116,7 +117,36 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly signupRegistration: SignupRegistrationService,
+    private readonly phoneVerification: PhoneVerificationService,
   ) {}
+
+  /**
+   * Verify a signup OTP for the given phone. Throws a BadRequest with a
+   * user-facing message when the code is not approved. Also enforces phone
+   * uniqueness across existing users (mirrors the authenticated verify guard).
+   */
+  private async assertSignupPhoneVerified(
+    phone: string,
+    code: string,
+  ): Promise<void> {
+    const existing = await this.prisma.user.findFirst({
+      where: { phone },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        'This phone number is already linked to another account.',
+      );
+    }
+    const status = await this.phoneVerification.verifyCode(phone, code);
+    if (status === 'approved') return;
+    if (status === 'max_attempts_reached') {
+      throw new BadRequestException(
+        'Too many OTP attempts. Please resend the code and try again.',
+      );
+    }
+    throw new BadRequestException('Invalid or expired verification code.');
+  }
 
   private hashRefreshToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
@@ -165,6 +195,17 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
+    // Normal (email+password) signup collects and verifies the phone up front,
+    // so the account is created with a verified phone. Google signups omit it
+    // and verify later in the post-auth setup step.
+    const phone = dto.phone?.trim();
+    if (phone) {
+      if (!dto.phoneOtpCode?.trim()) {
+        throw new BadRequestException('Phone verification code is required.');
+      }
+      await this.assertSignupPhoneVerified(phone, dto.phoneOtpCode.trim());
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
     const user = await this.prisma.user.create({
@@ -173,6 +214,15 @@ export class AuthService {
         name: dto.name ?? null,
         passwordHash,
         primaryRoleId: null,
+        ...(phone
+          ? {
+              phone,
+              phoneVerified: true,
+              phoneOtpLastStatus: 'approved',
+              phoneOtpLastPhone: phone,
+              phoneOtpLastAttemptAt: new Date(),
+            }
+          : {}),
       },
     });
 

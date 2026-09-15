@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { completeBrandSetup } from "@/features/auth/api/complete-brand-setup";
+import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
 import {
   authMeQueryKey,
   fetchAuthMe,
@@ -42,7 +43,6 @@ import { cn } from "@/lib/utils";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-const PHONE_E164_IN_REGEX = /^\+91[6-9]\d{9}$/;
 
 function normalizeWebsite(raw: string): string {
   const trimmed = raw.trim();
@@ -52,13 +52,6 @@ function normalizeWebsite(raw: string): string {
 }
 
 const setupSchema = z.object({
-  contactPhone: z
-    .string()
-    .min(1, "Phone number is required")
-    .regex(
-      PHONE_E164_IN_REGEX,
-      "Enter a valid 10-digit Indian mobile number",
-    ),
   website: z
     .string()
     .optional()
@@ -95,11 +88,15 @@ export function BrandGoogleSetupDialog({
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Phone is entered + OTP-verified via PhoneVerificationField, which saves the
+  // number + phoneVerified on the user server-side; we keep the verified value
+  // here to submit as the brand contact phone.
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   const form = useForm<SetupData>({
     resolver: zodResolver(setupSchema),
     defaultValues: {
-      contactPhone: "",
       website: "",
       guidelinesAccepted: false,
     },
@@ -163,6 +160,10 @@ export function BrandGoogleSetupDialog({
   }, []);
 
   const onSubmit = form.handleSubmit(async (data) => {
+    if (!phoneVerified || !verifiedPhone) {
+      toast.error("Please verify your mobile number first.");
+      return;
+    }
     setUploading(true);
     try {
       let logoKey: string | undefined;
@@ -177,7 +178,7 @@ export function BrandGoogleSetupDialog({
 
       mutation.mutate({
         contactFullName: user.name?.trim() || user.email.split("@")[0] || "Brand",
-        contactPhone: data.contactPhone.trim(),
+        contactPhone: verifiedPhone,
         ...(data.website?.trim()
           ? { website: normalizeWebsite(data.website) }
           : {}),
@@ -190,7 +191,7 @@ export function BrandGoogleSetupDialog({
     }
   });
 
-  const ready = setupSchema.safeParse(form.watch()).success;
+  const ready = setupSchema.safeParse(form.watch()).success && phoneVerified;
 
   return (
     <Dialog open={open}>
@@ -211,47 +212,19 @@ export function BrandGoogleSetupDialog({
 
         <form onSubmit={onSubmit} className="space-y-4 pt-2">
           <div className="space-y-1.5">
-            <Label htmlFor="setup-phone">
+            <Label>
               Phone number <span className="text-red-500">*</span>
             </Label>
-            <div className="flex h-10 items-stretch overflow-hidden rounded-md border border-input bg-background">
-              <div className="flex items-center border-r border-input bg-muted/50 px-3 text-sm font-semibold text-muted-foreground">
-                +91
-              </div>
-              <Input
-                id="setup-phone"
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel-national"
-                disabled={pending}
-                placeholder="9876543210"
-                className="h-full border-0 shadow-none focus-visible:ring-0"
-                value={
-                  form.watch("contactPhone").startsWith("+91")
-                    ? form.watch("contactPhone").slice(3)
-                    : form.watch("contactPhone")
-                }
-                onChange={(e) => {
-                  let val = e.target.value;
-                  if (val.startsWith("+91")) val = val.slice(3);
-                  const digits = val.replace(/\D/g, "").slice(0, 10);
-                  form.setValue(
-                    "contactPhone",
-                    digits ? `+91${digits}` : "",
-                    { shouldValidate: true },
-                  );
-                }}
-              />
-            </div>
+            <PhoneVerificationField
+              idPrefix="brand-setup"
+              disabled={pending}
+              onVerifiedChange={setPhoneVerified}
+              onVerifiedPhone={setVerifiedPhone}
+            />
             <p className="text-[12px] leading-snug text-muted-foreground">
               So we can reach you quickly with support, order updates, and
-              help along your creator collaborations.
+              help along your creator collaborations. Verify it to continue.
             </p>
-            {form.formState.errors.contactPhone ? (
-              <p className="text-xs text-red-500">
-                {form.formState.errors.contactPhone.message}
-              </p>
-            ) : null}
           </div>
 
           <div className="space-y-1.5">

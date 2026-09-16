@@ -54,7 +54,7 @@ export function CouponInput({
     }
     const match = coupons.find((c) => c.code === code);
     if (!match) {
-      setError("Oops! We don't have a coupon like that 🙈");
+      setError("Oops! We don't have a coupon like that");
       return;
     }
     if (match.alreadyUsed) {

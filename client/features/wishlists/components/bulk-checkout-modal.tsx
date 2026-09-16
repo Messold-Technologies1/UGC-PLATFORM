@@ -329,6 +329,7 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
               isLoading={couponsLoading}
               appliedCode={selectedCouponCode}
               discountRupees={discountRupees}
+              grossPaise={Math.round(grandTotal * 100)}
               onApply={setSelectedCouponCode}
               onRemove={() => setSelectedCouponCode(null)}
               disabled={isProcessing}

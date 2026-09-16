@@ -13,7 +13,7 @@
   pointer-events: auto;
 }
 .ordermodal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -48%) scale(.98); z-index: 82;
-  width: min(940px, 94vw); max-height: 92vh; background: var(--card); border-radius: var(--radius-xl);
+  width: min(1040px, 95vw); max-height: 92vh; background: var(--card); border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; opacity: 0;
   transition: opacity .26s ease, transform .26s cubic-bezier(.2,.7,.3,1); pointer-events: none; }
 .ordermodal.show { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
@@ -28,7 +28,7 @@
 .om-x:hover:not(:disabled) { background: var(--muted); transform: rotate(90deg); transition: transform .2s; }
 .om-x:disabled { opacity: .4; cursor: not-allowed; }
 
-.om-body { display: grid; grid-template-columns: minmax(0,1fr) 312px; gap: 0; overflow-y: auto; }
+.om-body { display: grid; grid-template-columns: minmax(0,1fr) 384px; gap: 0; overflow-y: auto; }
 @media (max-width: 760px) { .om-body { grid-template-columns: 1fr; } }
 .om-main { padding: 22px; display: flex; flex-direction: column; gap: 26px; }
 .om-step { font-family: var(--font-heading); font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }

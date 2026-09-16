@@ -8,7 +8,7 @@ import type { WishlistCreator } from "@/features/wishlists/api/types";
 import type { BulkCheckoutItem } from "@/features/payments/api/create-bulk-checkout";
 import { useWishlistBulkCheckout } from "@/features/payments/hooks/use-wishlist-bulk-checkout";
 import { useAvailableCoupons } from "@/features/payments/hooks/use-available-coupons";
-import { CouponSelector } from "@/features/payments/components/coupon-selector";
+import { CouponInput } from "@/features/payments/components/coupon-input";
 import { computeCouponDiscountPaise } from "@/features/payments/lib/coupon-discount";
 import { cn, getInitials } from "@/lib/utils";
 
@@ -324,11 +324,13 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
 
         {includedCreators.length > 0 && (
           <div className="border-t border-border px-5 pt-4">
-            <CouponSelector
+            <CouponInput
               coupons={coupons}
               isLoading={couponsLoading}
-              selectedCode={selectedCouponCode}
-              onSelect={setSelectedCouponCode}
+              appliedCode={selectedCouponCode}
+              discountRupees={discountRupees}
+              onApply={setSelectedCouponCode}
+              onRemove={() => setSelectedCouponCode(null)}
               disabled={isProcessing}
             />
           </div>

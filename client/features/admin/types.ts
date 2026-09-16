@@ -410,7 +410,19 @@ export interface OrderUsageRightsSettlementDto {
   daysPurchased: number;
 }
 
+/** Coupon applied at checkout (for the admin pricing breakdown). */
+export interface OrderCouponDto {
+  code: string;
+  name: string;
+  discountType?: string | null;
+  /** Discount applied to the charge, in paise. */
+  discountAmountPaise: number;
+  /** Pre-discount order total (package + add-ons), in paise. */
+  grossAmountPaise: number;
+}
+
 export interface AdminOrderDetailsDto extends OrderDetailsPublic {
+  coupon?: OrderCouponDto | null;
   razorpayOrderId?: string | null;
   razorpayPaymentId?: string | null;
   razorpayRefundId?: string | null;

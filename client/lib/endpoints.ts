@@ -286,6 +286,16 @@ export const ENDPOINTS = {
       BY_ID: (id: string) =>
         `/api/admin/demo-intro-videos/${encodeURIComponent(id)}`,
     },
+    COUPONS: {
+      LIST: "/api/admin/coupons",
+      CREATE: "/api/admin/coupons",
+      DETAIL: (id: string) => `/api/admin/coupons/${encodeURIComponent(id)}`,
+      UPDATE: (id: string) => `/api/admin/coupons/${encodeURIComponent(id)}`,
+      DELETE: (id: string) => `/api/admin/coupons/${encodeURIComponent(id)}`,
+    },
+  },
+  COUPONS: {
+    AVAILABLE: "/api/coupons/available",
   },
   CONTACT_US: "/api/contact-us",
 } as const;

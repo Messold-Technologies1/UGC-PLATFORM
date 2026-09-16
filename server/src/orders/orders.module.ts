@@ -10,6 +10,7 @@ import { OrderChatModule } from '../order-chat/order-chat.module';
 import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module';
 import { JobsModule } from '../jobs/jobs.module';
 import { CreatorPortfolioModule } from '../creator-portfolio/creator-portfolio.module';
+import { CouponsModule } from '../coupons/coupons.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CreatorPortfolioModule } from '../creator-portfolio/creator-portfolio.m
     CreatorReviewsModule,
     JobsModule,
     CreatorPortfolioModule,
+    CouponsModule,
   ],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],

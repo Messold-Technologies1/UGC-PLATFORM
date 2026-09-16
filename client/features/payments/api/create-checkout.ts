@@ -5,6 +5,8 @@ export type CreateCheckoutPayload = {
   creatorId: string;
   packageId: string;
   addOnIds?: string[];
+  /** Optional discount coupon code applied to this checkout. */
+  couponCode?: string;
 };
 
 export type CheckoutSession = {
@@ -16,6 +18,12 @@ export type CheckoutSession = {
   packageAmountPaise?: number;
   addOnsAmountPaise?: number;
   addOnsCount?: number;
+  /** Pre-discount total (package + add-ons) in paise. */
+  grossAmountPaise?: number;
+  /** Coupon discount applied to the charge, in paise (0 when no coupon). */
+  discountAmountPaise?: number;
+  /** Applied coupon code, when a coupon reduced the charge. */
+  couponCode?: string;
 };
 
 export async function createCheckout(

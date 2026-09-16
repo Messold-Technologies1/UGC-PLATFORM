@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import type { WishlistCreator } from "@/features/wishlists/api/types";
 import type { BulkCheckoutItem } from "@/features/payments/api/create-bulk-checkout";
 import { useWishlistBulkCheckout } from "@/features/payments/hooks/use-wishlist-bulk-checkout";
+import { useAvailableCoupons } from "@/features/payments/hooks/use-available-coupons";
+import { CouponSelector } from "@/features/payments/components/coupon-selector";
+import { computeCouponDiscountPaise } from "@/features/payments/lib/coupon-discount";
 import { cn, getInitials } from "@/lib/utils";
 
 interface BulkCheckoutModalProps {
@@ -112,6 +115,26 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
   const includedCreators = orderable.filter((c) => selection[c.id]?.included);
   const grandTotal = includedCreators.reduce((sum, c) => sum + subtotalFor(c), 0);
 
+  const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(
+    null,
+  );
+  const { data: coupons = [], isLoading: couponsLoading } =
+    useAvailableCoupons(true);
+  const selectedCoupon = useMemo(
+    () => coupons.find((c) => c.code === selectedCouponCode) ?? null,
+    [coupons, selectedCouponCode],
+  );
+  const discountRupees = selectedCoupon
+    ? Math.round(
+        computeCouponDiscountPaise(
+          selectedCoupon.discountType,
+          selectedCoupon.discountValue,
+          Math.round(grandTotal * 100),
+        ) / 100,
+      )
+    : 0;
+  const netTotal = Math.max(0, grandTotal - discountRupees);
+
   const handlePay = async () => {
     const items: BulkCheckoutItem[] = includedCreators
       .map((c): BulkCheckoutItem | null => {
@@ -127,7 +150,7 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
       })
       .filter((x): x is BulkCheckoutItem => x !== null);
     if (items.length === 0) return;
-    await startBulkCheckout(items);
+    await startBulkCheckout(items, selectedCouponCode);
   };
 
   return (
@@ -299,13 +322,30 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
           )}
         </div>
 
+        {includedCreators.length > 0 && (
+          <div className="border-t border-border px-5 pt-4">
+            <CouponSelector
+              coupons={coupons}
+              isLoading={couponsLoading}
+              selectedCode={selectedCouponCode}
+              onSelect={setSelectedCouponCode}
+              disabled={isProcessing}
+            />
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-4 border-t border-border p-5">
           <div>
             <p className="text-xs text-muted-foreground">
               {includedCreators.length} order
               {includedCreators.length === 1 ? "" : "s"}
             </p>
-            <p className="text-lg font-bold text-foreground">{inr(grandTotal)}</p>
+            {discountRupees > 0 && selectedCoupon ? (
+              <p className="text-xs font-medium text-primary">
+                {selectedCoupon.code}: −{inr(discountRupees)}
+              </p>
+            ) : null}
+            <p className="text-lg font-bold text-foreground">{inr(netTotal)}</p>
           </div>
           <Button
             onClick={handlePay}
@@ -317,7 +357,7 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
             ) : (
               <ShoppingBag className="size-4" />
             )}
-            {isProcessing ? "Processing..." : `Pay ${inr(grandTotal)}`}
+            {isProcessing ? "Processing..." : `Pay ${inr(netTotal)}`}
           </Button>
         </div>
       </div>

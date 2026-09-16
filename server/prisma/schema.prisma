@@ -53,6 +53,16 @@ enum RoleName {
   AGENCY
 }
 
+enum DiscountType {
+  /// discountValue is a whole percentage (e.g. 20 = 20% off the order value).
+  PERCENTAGE
+  /// discountValue is a flat amount in paise (e.g. 50000 = ₹500 off).
+  FIXED
+  /// "No platform fee": brand pays the order value minus the platform's cut
+  /// (PLATFORM_FEE_RATE). discountValue is ignored — the rate drives the amount.
+  PLATFORM_FEE_WAIVER
+}
+
 enum PortfolioVideoSource {
   UPLOAD
   INSTAGRAM
@@ -201,27 +211,27 @@ model User {
   brandAccessRevokedById      String?    @db.Uuid
   brandAccessRevocationReason String?
 
-  primaryRole            Role?                @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
-  authAccounts           AuthAccount[]
-  sessions               Session[]
-  userRoles              UserRole[]
-  creatorProfile         CreatorProfile?
-  brandProfile           BrandProfile?
-  ownedAgency            Agency?
-  approvedCreatorRecords CreatorApproval[]    @relation("CreatorApprovedBy")
-  shortlistedCreatorRecords CreatorApproval[] @relation("CreatorShortlistedBy")
-  sentForReviewCreatorRecords CreatorApproval[] @relation("CreatorSentForReviewBy")
-  featuredCreatorRecords CreatorFeature[]     @relation("CreatorFeaturedBy")
-  cancelledOrders        Order[]              @relation("OrderCancelledBy")
-  briefAcceptedOrders    Order[]              @relation("OrderBriefAcceptedBy")
-  resolvedDisputes       OrderDispute[]       @relation("OrderDisputeResolvedBy")
-  requestedRevisions     OrderRevision[]      @relation("OrderRevisionRequester")
-  revisionPurchases      OrderRevisionPurchase[] @relation("RevisionPurchaseCreator")
-  usageRightsPurchases   OrderUsageRightsPurchase[] @relation("UsageRightsPurchaseCreator")
-  sentChatMessages       OrderChatMessage[]
-  orderChatReadStates    OrderChatReadState[]
-  passwordResetTokens    PasswordResetToken[]
-  contactMessagesRead    ContactMessage[]     @relation("ContactMessageReadBy")
+  primaryRole                 Role?                      @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
+  authAccounts                AuthAccount[]
+  sessions                    Session[]
+  userRoles                   UserRole[]
+  creatorProfile              CreatorProfile?
+  brandProfile                BrandProfile?
+  ownedAgency                 Agency?
+  approvedCreatorRecords      CreatorApproval[]          @relation("CreatorApprovedBy")
+  shortlistedCreatorRecords   CreatorApproval[]          @relation("CreatorShortlistedBy")
+  sentForReviewCreatorRecords CreatorApproval[]          @relation("CreatorSentForReviewBy")
+  featuredCreatorRecords      CreatorFeature[]           @relation("CreatorFeaturedBy")
+  cancelledOrders             Order[]                    @relation("OrderCancelledBy")
+  briefAcceptedOrders         Order[]                    @relation("OrderBriefAcceptedBy")
+  resolvedDisputes            OrderDispute[]             @relation("OrderDisputeResolvedBy")
+  requestedRevisions          OrderRevision[]            @relation("OrderRevisionRequester")
+  revisionPurchases           OrderRevisionPurchase[]    @relation("RevisionPurchaseCreator")
+  usageRightsPurchases        OrderUsageRightsPurchase[] @relation("UsageRightsPurchaseCreator")
+  sentChatMessages            OrderChatMessage[]
+  orderChatReadStates         OrderChatReadState[]
+  passwordResetTokens         PasswordResetToken[]
+  contactMessagesRead         ContactMessage[]           @relation("ContactMessageReadBy")
 
   @@index([status])
   @@index([deletedAt])
@@ -506,19 +516,19 @@ model City {
 }
 
 model CreatorFacetOption {
-  id        String                @id @default(uuid()) @db.Uuid
-  dimension CreatorFacetDimension
-  slug      String
-  label     String
-  sortOrder Int                   @default(0)
+  id                  String                @id @default(uuid()) @db.Uuid
+  dimension           CreatorFacetDimension
+  slug                String
+  label               String
+  sortOrder           Int                   @default(0)
   // "active" options show in the pick lists. Creator-proposed options added via
   // the AI "Other" resolver are created active; "rejected" hides an option
   // (soft-delete) without breaking existing selections that reference it.
-  status    String                @default("active")
+  status              String                @default("active")
   // Creator who first proposed this option through the "Other" flow (audit;
   // null for seeded catalog options).
-  proposedByCreatorId String?     @db.Uuid
-  createdAt DateTime              @default(now())
+  proposedByCreatorId String?               @db.Uuid
+  createdAt           DateTime              @default(now())
 
   selections       CreatorProfileFacetSelection[]
   profileLanguages CreatorProfileLanguage[]       @relation("LanguageOption")
@@ -622,14 +632,14 @@ model Order {
   expectedAmountPaise Int      @default(0)
 
   // Timeline
-  paidAt           DateTime?
-  briefId          String?   @db.Uuid
-  briefSubmittedAt DateTime?
-  briefAcceptedAt  DateTime?
+  paidAt                DateTime?
+  briefId               String?   @db.Uuid
+  briefSubmittedAt      DateTime?
+  briefAcceptedAt       DateTime?
   /// The user who accepted the brief — the creator user, or (when support acts
   /// on their behalf) the admin user. Resolve their role to tell which. Null
   /// until the brief is accepted.
-  briefAcceptedByUserId String?  @db.Uuid
+  briefAcceptedByUserId String?   @db.Uuid
 
   /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
   requiresPhysicalProductShipment Boolean   @default(false)
@@ -653,13 +663,13 @@ model Order {
   /// Reason captured when a creator rejects the submitted brief or a brand
   /// cancels the order before the creator accepts. Both paths set status =
   /// REJECTED; the note is shown to both parties and included in their emails.
-  cancellationReason String?
-  cancelledAt        DateTime?
+  cancellationReason  String?
+  cancelledAt         DateTime?
   /// The user who ended the order early — the brand user, the creator user, or
   /// (when support acts on their behalf) the admin user. Resolve their role to
   /// tell which. Null for the admin refund path, which sets REJECTED without a
   /// brief-stage actor.
-  cancelledByUserId   String?  @db.Uuid
+  cancelledByUserId   String?   @db.Uuid
   /// Which side the termination is attributed to: 'BRAND' (order cancelled) or
   /// 'CREATOR' (brief rejected). For a self-serve action this is the actor's own
   /// role; for a support action it is the side the admin acted for.
@@ -670,6 +680,18 @@ model Order {
   razorpayPaymentId String?
   razorpayRefundId  String?
   refundedAt        DateTime?
+
+  // Coupon / discount snapshot at checkout. The coupon reduces what the brand
+  // pays: expectedAmountPaise stays the NET (charged) amount, grossAmountPaise
+  // is the pre-discount total, and discountAmountPaise is the reduction. All
+  // snapshotted so admin (who settles payouts/refunds manually) can always see
+  // which coupon was used and by how much, even if the Coupon is later edited.
+  couponId             String?       @db.Uuid
+  couponCodeSnapshot   String?
+  couponNameSnapshot   String?
+  discountTypeSnapshot DiscountType?
+  discountAmountPaise  Int           @default(0)
+  grossAmountPaise     Int           @default(0)
 
   /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
   lastChatActivityAt          DateTime              @default(now())
@@ -686,23 +708,24 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  brand          BrandProfile         @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  creator        CreatorProfile       @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  package        CreatorPackage?      @relation(fields: [creatorPackageId], references: [id], onDelete: SetNull)
-  briefRef       Brief?               @relation(fields: [briefId], references: [id], onDelete: SetNull)
-  cancelledByUser     User?           @relation("OrderCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
-  briefAcceptedByUser User?           @relation("OrderBriefAcceptedBy", fields: [briefAcceptedByUserId], references: [id], onDelete: SetNull)
-  checkoutBatch  OrderCheckoutBatch?  @relation(fields: [checkoutBatchId], references: [id], onDelete: SetNull)
-  disputes       OrderDispute[]
-  revisions      OrderRevision[]
-  revisionPurchases OrderRevisionPurchase[]
+  brand                BrandProfile               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  creator              CreatorProfile             @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  package              CreatorPackage?            @relation(fields: [creatorPackageId], references: [id], onDelete: SetNull)
+  briefRef             Brief?                     @relation(fields: [briefId], references: [id], onDelete: SetNull)
+  cancelledByUser      User?                      @relation("OrderCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  briefAcceptedByUser  User?                      @relation("OrderBriefAcceptedBy", fields: [briefAcceptedByUserId], references: [id], onDelete: SetNull)
+  checkoutBatch        OrderCheckoutBatch?        @relation(fields: [checkoutBatchId], references: [id], onDelete: SetNull)
+  coupon               Coupon?                    @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  disputes             OrderDispute[]
+  revisions            OrderRevision[]
+  revisionPurchases    OrderRevisionPurchase[]
   usageRightsPurchases OrderUsageRightsPurchase[]
-  deliveries     OrderDelivery[]
-  chatMessages   OrderChatMessage[]
-  chatReadStates OrderChatReadState[]
-  ratingReview   CreatorRatingReview?
+  deliveries           OrderDelivery[]
+  chatMessages         OrderChatMessage[]
+  chatReadStates       OrderChatReadState[]
+  ratingReview         CreatorRatingReview?
   /// Collab portfolio tiles auto-published from this order's approved final.
-  portfolioVideos CreatorPortfolioVideo[] @relation("OrderPortfolioVideos")
+  portfolioVideos      CreatorPortfolioVideo[]    @relation("OrderPortfolioVideos")
 
   @@index([brandId, createdAt])
   @@index([creatorId, createdAt])
@@ -739,7 +762,17 @@ model OrderCheckoutBatch {
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 
+  // Cart-level coupon for the whole bulk checkout (one coupon per payment). The
+  // discount is allocated proportionally across the child orders; these fields
+  // capture the cart-level totals. grossAmountPaise is the pre-discount sum.
+  couponId            String? @db.Uuid
+  couponCodeSnapshot  String?
+  couponNameSnapshot  String?
+  discountAmountPaise Int     @default(0)
+  grossAmountPaise    Int     @default(0)
+
   brand  BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  coupon Coupon?      @relation(fields: [couponId], references: [id], onDelete: SetNull)
   orders Order[]
 
   @@index([brandId, createdAt])
@@ -946,12 +979,12 @@ model OrderChatReadState {
 }
 
 model OrderDelivery {
-  id             String   @id @default(uuid()) @db.Uuid
-  orderId        String   @db.Uuid
-  creatorId      String   @db.Uuid
-  revisionNumber Int      @default(0)
-  assets         Json
-  note           String?
+  id               String   @id @default(uuid()) @db.Uuid
+  orderId          String   @db.Uuid
+  creatorId        String   @db.Uuid
+  revisionNumber   Int      @default(0)
+  assets           Json
+  note             String?
   // Watermark pipeline status for the brand-facing preview copies.
   // "ready" is the default so historical rows are never reprocessed; new
   // deliveries are explicitly created as "pending".
@@ -1049,13 +1082,13 @@ model CreatorPortfolioVideo {
   /// worker replica and an API replica's inline fallback could both stream the
   /// same reel. A claim older than the stale window is treated as abandoned,
   /// which is also the only way a process that died mid-mirror gets recovered.
-  mirrorAttempts  Int       @default(0)
-  mirrorClaimedAt DateTime?
+  mirrorAttempts          Int       @default(0)
+  mirrorClaimedAt         DateTime?
   /// SHA-256 hex of the uploaded bytes, supplied by the client. Used only to
   /// stop the same file being added to one portfolio twice; null for rows
   /// created before the guard existed, or for files too large to hash in the
   /// browser. NULLs do not collide under the unique index below.
-  contentHash      String?
+  contentHash             String?
   /// Media-normalization state: the uploaded/mirrored file is transcoded to a
   /// web-safe H.264/AAC MP4 (downscaled + faststart, audio kept) off-request and
   /// swapped in place, so every browser can play it in the drawer/profile. A raw
@@ -1065,8 +1098,8 @@ model CreatorPortfolioVideo {
   videoNormalizeStatus    String?
   videoNormalizeAttempts  Int       @default(0)
   videoNormalizeUpdatedAt DateTime?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   creator       CreatorProfile                 @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   sourceOrder   Order?                         @relation("OrderPortfolioVideos", fields: [sourceOrderId], references: [id], onDelete: SetNull)
@@ -1132,21 +1165,21 @@ model CreatorDemoVideo {
 }
 
 model CreatorApproval {
-  id              String         @id @default(uuid()) @db.Uuid
-  creatorId       String         @unique @db.Uuid
-  status          ApprovalStatus @default(PENDING)
-  approvedById    String?        @db.Uuid
-  approvedAt      DateTime?
+  id                String         @id @default(uuid()) @db.Uuid
+  creatorId         String         @unique @db.Uuid
+  status            ApprovalStatus @default(PENDING)
+  approvedById      String?        @db.Uuid
+  approvedAt        DateTime?
   /// Admin who last shortlisted this creator. Kept after they leave the list.
-  shortlistedById String?        @db.Uuid
+  shortlistedById   String?        @db.Uuid
   /// Admin who sent a self-complete profile into Awaiting review.
-  sentForReviewById String?      @db.Uuid
-  rejectionReason String?
+  sentForReviewById String?        @db.Uuid
+  rejectionReason   String?
   // True while Sakshi has this creator on the shortlist. Cleared on unshortlist
   // so a later go-live lands in Self complete instead of skipping the queue.
-  wasShortlisted  Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  wasShortlisted    Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   creator         CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   approvedBy      User?          @relation("CreatorApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
@@ -1411,7 +1444,6 @@ model CreatorAddOnOption {
   @@index([sortOrder])
 }
 
-
 /// Outbound mail must not be sent to suppressed addresses (SES bounce/complaint).
 model EmailSuppression {
   id        String                 @id @default(uuid()) @db.Uuid
@@ -1492,7 +1524,7 @@ model InstagramMediaSyncState {
   /// of the account, and `hasMore` already says whether more remains to page
   /// in. Stamping this only on a complete walk left a 1000-reel account
   /// permanently "stale", which made the gallery re-sync on every open.
-  lastSyncedAt DateTime?
+  lastSyncedAt  DateTime?
   /// Rate-limits the manual Refresh button server-side.
   lastRefreshAt DateTime?
   lastError     String?
@@ -1541,9 +1573,9 @@ model SocialConnection {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  creator       CreatorProfile           @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  audience      SocialAudienceSnapshot?
-  mediaItems    InstagramMediaItem[]
+  creator        CreatorProfile           @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  audience       SocialAudienceSnapshot?
+  mediaItems     InstagramMediaItem[]
   mediaSyncState InstagramMediaSyncState?
 
   /// One platform account maps to a single creator.
@@ -1639,4 +1671,50 @@ model LegalPageVersion {
   page LegalPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([pageId, createdAt])
+}
+
+/// A discount coupon an admin creates. Applied at checkout to reduce what the
+/// brand pays (the Razorpay charge is the discounted amount). Payouts/refunds
+/// are settled manually by an admin, who reads the coupon name on the order.
+model Coupon {
+  id              String       @id @default(uuid()) @db.Uuid
+  /// Case-insensitive code the brand applies; stored normalized (uppercase).
+  code            String       @unique
+  /// Human-readable label shown to brands at checkout and to admins.
+  name            String
+  description     String?
+  discountType    DiscountType
+  /// PERCENTAGE: whole percent (0–100). FIXED: paise. PLATFORM_FEE_WAIVER: unused.
+  discountValue   Int          @default(0)
+  active          Boolean      @default(true)
+  createdByUserId String?      @db.Uuid
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  redemptions CouponRedemption[]
+  orders      Order[]
+  batches     OrderCheckoutBatch[]
+
+  @@index([active])
+}
+
+/// One row per (coupon, brand) once the brand has consumed the coupon on a PAID
+/// order/batch. The unique constraint enforces "each brand can use a coupon only
+/// once". Created at payment capture, not at checkout, so abandoned checkouts do
+/// not burn a redemption.
+model CouponRedemption {
+  id                  String   @id @default(uuid()) @db.Uuid
+  couponId            String   @db.Uuid
+  brandId             String   @db.Uuid
+  /// The paid order that consumed the coupon (single checkout), if applicable.
+  orderId             String?  @db.Uuid
+  /// The paid bulk batch that consumed the coupon (bulk checkout), if applicable.
+  checkoutBatchId     String?  @db.Uuid
+  discountAmountPaise Int      @default(0)
+  redeemedAt          DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, brandId])
+  @@index([brandId])
 }

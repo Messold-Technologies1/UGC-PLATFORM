@@ -10,6 +10,8 @@ export type BulkCheckoutItem = {
 
 export type CreateBulkCheckoutPayload = {
   items: BulkCheckoutItem[];
+  /** Optional coupon applied once to the whole cart (one payment). */
+  couponCode?: string;
 };
 
 export type BulkCheckoutSkippedItem = {
@@ -27,6 +29,12 @@ export type BulkCheckoutSession = {
   orderCount: number;
   orderIds: string[];
   skipped: BulkCheckoutSkippedItem[];
+  /** Pre-discount cart total in paise. */
+  grossAmountPaise?: number;
+  /** Cart-level coupon discount applied to the charge, in paise. */
+  discountAmountPaise?: number;
+  /** Applied coupon code, when a coupon reduced the cart charge. */
+  couponCode?: string;
 };
 
 export async function createBulkCheckout(

@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class BulkCheckoutSkippedItemDto {
   @ApiProperty({ format: 'uuid' })
@@ -39,4 +39,15 @@ export class BulkCheckoutResponseDto {
       'Items that could not be ordered (invalid/unavailable creator or stale add-on) and were skipped.',
   })
   skipped!: BulkCheckoutSkippedItemDto[];
+
+  @ApiPropertyOptional({ description: 'Pre-discount cart total (paise).' })
+  grossAmountPaise?: number;
+
+  @ApiPropertyOptional({
+    description: 'Cart-level coupon discount applied to the charge (paise).',
+  })
+  discountAmountPaise?: number;
+
+  @ApiPropertyOptional({ description: 'Applied coupon code, when a coupon was used.' })
+  couponCode?: string;
 }

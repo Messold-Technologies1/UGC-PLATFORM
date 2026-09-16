@@ -67,6 +67,10 @@ describe('OrdersService bulk checkout', () => {
         Promise.resolve({ brand: { id: 'brand-1' } }),
       ),
     };
+    const coupons = {
+      resolveForCheckout: jest.fn(() => Promise.resolve(null)),
+      recordRedemption: jest.fn(() => Promise.resolve()),
+    };
 
     const service = new OrdersService(
       prisma as any,
@@ -76,8 +80,10 @@ describe('OrdersService bulk checkout', () => {
       {} as any,
       brandAccess as any,
       {} as any,
+      {} as any,
+      coupons as any,
     );
-    return { service, prisma, razorpay, created };
+    return { service, prisma, razorpay, created, coupons };
   }
 
   it('creates one order per valid item and a single Razorpay order for the summed total', async () => {
@@ -108,6 +114,50 @@ describe('OrdersService bulk checkout', () => {
       expect(data.razorpayOrderId).toBeUndefined();
       // No Revision add-on selected → the fixed base of 2 revisions.
       expect(data.maxRevisionsSnapshot).toBe(2);
+    }
+  });
+
+  it('applies a cart-level coupon and splits the discount across child orders', async () => {
+    const { service, razorpay, created, coupons } = makeService({
+      packages: { c1: pkgFor('c1', 1000), c2: pkgFor('c2', 2500) },
+    });
+    // 20% off the 350000 grand total = 70000 discount.
+    coupons.resolveForCheckout.mockResolvedValue({
+      couponId: 'coupon-1',
+      code: 'SAVE20',
+      name: '20% off',
+      discountType: 'PERCENTAGE',
+      discountAmountPaise: 70000,
+    } as never);
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [
+        { creatorId: 'c1', packageId: 'pkg-c1' },
+        { creatorId: 'c2', packageId: 'pkg-c2' },
+      ],
+      couponCode: 'SAVE20',
+    });
+
+    expect(result.grossAmountPaise).toBe(350000);
+    expect(result.discountAmountPaise).toBe(70000);
+    expect(result.amountPaise).toBe(280000); // net charged
+    expect(result.couponCode).toBe('SAVE20');
+    // Razorpay is charged the NET total.
+    expect(razorpay.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ amountPaise: 280000 }),
+    );
+    // Discount split in proportion to gross: 100000/350000 and 250000/350000.
+    const discounts = created.map((d) => d.discountAmountPaise);
+    const nets = created.map((d) => d.expectedAmountPaise);
+    expect(discounts).toEqual([20000, 50000]);
+    expect(nets).toEqual([80000, 200000]);
+    // Shares sum exactly to the cart discount (no rounding drift).
+    expect((discounts as number[]).reduce((a, b) => a + b, 0)).toBe(70000);
+    // Each child carries the coupon snapshot for manual admin settlement.
+    for (const data of created) {
+      expect(data.couponCodeSnapshot).toBe('SAVE20');
+      expect(data.couponId).toBe('coupon-1');
     }
   });
 
@@ -244,6 +294,8 @@ describe('OrdersService bulk checkout', () => {
       };
       const service = new OrdersService(
         prisma as any,
+        {} as any,
+        {} as any,
         {} as any,
         {} as any,
         {} as any,

@@ -50,6 +50,7 @@ describe('OrdersService admin brief actions on behalf', () => {
       brandAccess as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     return { service, orderUpdate, orderRealtime, orderMail };
   }

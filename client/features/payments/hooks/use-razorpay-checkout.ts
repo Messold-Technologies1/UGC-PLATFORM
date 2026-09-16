@@ -42,12 +42,15 @@ interface UseRazorpayCheckoutArgs {
   creator: CreatorProfile;
   selectedPackage: Package | null;
   selectedAddOns?: AddOn[];
+  /** Applied coupon code, if the brand selected one. */
+  couponCode?: string | null;
 }
 
 export function useRazorpayCheckout({
   creator,
   selectedPackage,
   selectedAddOns = [],
+  couponCode = null,
 }: UseRazorpayCheckoutArgs) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -66,8 +69,9 @@ export function useRazorpayCheckout({
         creator.id,
         selectedPackage?.id ?? "",
         selectedAddOns.map((addOn) => addOn.id).join(","),
+        couponCode ?? "",
       ].join("|"),
-    [creator.id, selectedAddOns, selectedPackage?.id],
+    [creator.id, selectedAddOns, selectedPackage?.id, couponCode],
   );
 
   const localTotal = useMemo(
@@ -171,6 +175,7 @@ export function useRazorpayCheckout({
           ...(selectedAddOns.length > 0
             ? { addOnIds: selectedAddOns.map((addOn) => addOn.id) }
             : {}),
+          ...(couponCode ? { couponCode } : {}),
         }));
 
       setCachedSession({
@@ -197,6 +202,7 @@ export function useRazorpayCheckout({
     selectionSignature,
     selectedAddOns,
     selectedPackage,
+    couponCode,
   ]);
 
   return {

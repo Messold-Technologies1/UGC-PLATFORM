@@ -61,6 +61,7 @@ import { StorageService } from '../storage/storage.service';
 import { WatermarkQueueService } from '../jobs/watermark-queue.service';
 import { OrderPortfolioSyncService } from '../creator-portfolio/order-portfolio-sync.service';
 import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
+import { CouponsService } from '../coupons/coupons.service';
 
 /**
  * Nested `BrandProfile` fields for order API brand snapshots.
@@ -375,6 +376,12 @@ type CheckoutSessionResult = {
   packageAmountPaise: number;
   addOnsAmountPaise: number;
   addOnsCount: number;
+  /** Pre-discount total (package + add-ons) in paise. */
+  grossAmountPaise: number;
+  /** Coupon discount applied to the charge, in paise (0 when no coupon). */
+  discountAmountPaise: number;
+  /** Applied coupon code, when a coupon reduced the charge. */
+  couponCode?: string;
 };
 
 type BulkCheckoutSkippedItem = {
@@ -392,7 +399,39 @@ type BulkCheckoutSessionResult = {
   orderCount: number;
   orderIds: string[];
   skipped: BulkCheckoutSkippedItem[];
+  /** Pre-discount cart total in paise. */
+  grossAmountPaise: number;
+  /** Cart-level coupon discount applied to the charge, in paise. */
+  discountAmountPaise: number;
+  /** Applied coupon code, when a coupon reduced the cart charge. */
+  couponCode?: string;
 };
+
+/**
+ * Split a cart-level discount across child orders in proportion to each order's
+ * gross, using the largest-remainder method so the shares sum EXACTLY to the
+ * total discount (no rounding drift). Each share is clamped to its order's gross.
+ */
+function allocateDiscountAcrossOrders(
+  grossPaises: number[],
+  totalDiscountPaise: number,
+): number[] {
+  const grossTotal = grossPaises.reduce((a, b) => a + b, 0);
+  if (totalDiscountPaise <= 0 || grossTotal <= 0) {
+    return grossPaises.map(() => 0);
+  }
+  const raw = grossPaises.map((g) => (g * totalDiscountPaise) / grossTotal);
+  const shares = raw.map((r) => Math.floor(r));
+  let remainder = totalDiscountPaise - shares.reduce((a, b) => a + b, 0);
+  const byFraction = raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < byFraction.length && remainder > 0; k++) {
+    shares[byFraction[k].i] += 1;
+    remainder -= 1;
+  }
+  return shares.map((s, i) => Math.min(grossPaises[i], Math.max(0, s)));
+}
 
 @Injectable()
 export class OrdersService {
@@ -407,6 +446,7 @@ export class OrdersService {
     private readonly brandAccess: BrandAccessService,
     private readonly watermarkQueue: WatermarkQueueService,
     private readonly orderPortfolioSync: OrderPortfolioSyncService,
+    private readonly coupons: CouponsService,
   ) {}
 
   private async resolveBrandActor(params: {
@@ -427,7 +467,11 @@ export class OrdersService {
     packageAmountPaise: number;
     addOnsAmountPaise: number;
     addOnsCount: number;
+    grossAmountPaise?: number;
+    discountAmountPaise?: number;
+    couponCode?: string;
   }): CheckoutSessionResult {
+    const discountAmountPaise = params.discountAmountPaise ?? 0;
     return {
       orderId: params.orderId,
       razorpayOrderId: params.razorpayOrderId,
@@ -437,6 +481,10 @@ export class OrdersService {
       packageAmountPaise: params.packageAmountPaise,
       addOnsAmountPaise: params.addOnsAmountPaise,
       addOnsCount: params.addOnsCount,
+      grossAmountPaise:
+        params.grossAmountPaise ?? params.amountPaise + discountAmountPaise,
+      discountAmountPaise,
+      ...(params.couponCode ? { couponCode: params.couponCode } : {}),
     };
   }
 
@@ -608,6 +656,7 @@ export class OrdersService {
     creatorId: string;
     packageId: string;
     addOnIds?: string[];
+    couponCode?: string | null;
   }): Promise<CheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -621,7 +670,7 @@ export class OrdersService {
       packageAmountPaise,
       addOnsAmountPaise,
       addOnsTotalDecimal,
-      amountPaise,
+      amountPaise: grossAmountPaise,
       addOnsSnapshot,
       maxRevisionsSnapshot,
     } = await this.computeOrderDraftForItem({
@@ -629,6 +678,30 @@ export class OrdersService {
       packageId: params.packageId,
       addOnIds: params.addOnIds,
     });
+
+    // Apply a coupon (if supplied). The discount reduces the amount charged;
+    // expectedAmountPaise (verified on capture) becomes the net. gross + coupon
+    // are snapshotted on the order so the admin can settle payout/refund manually.
+    const resolvedCoupon = await this.coupons.resolveForCheckout({
+      code: params.couponCode,
+      brandId: brand.id,
+      grossPaise: grossAmountPaise,
+    });
+    const discountAmountPaise = resolvedCoupon?.discountAmountPaise ?? 0;
+    const netAmountPaise = grossAmountPaise - discountAmountPaise;
+    const couponWriteData = {
+      couponId: resolvedCoupon?.couponId ?? null,
+      couponCodeSnapshot: resolvedCoupon?.code ?? null,
+      couponNameSnapshot: resolvedCoupon?.name ?? null,
+      discountTypeSnapshot: resolvedCoupon?.discountType ?? null,
+      discountAmountPaise,
+      grossAmountPaise,
+    };
+    const couponResultData = {
+      grossAmountPaise,
+      discountAmountPaise,
+      ...(resolvedCoupon ? { couponCode: resolvedCoupon.code } : {}),
+    };
 
     const sortedAddOnIds = [...addOnRows.map((a) => a.id)].sort();
 
@@ -646,6 +719,7 @@ export class OrdersService {
         expectedAmountPaise: true,
         currency: true,
         razorpayOrderId: true,
+        couponId: true,
       },
     });
 
@@ -659,14 +733,16 @@ export class OrdersService {
       );
       const sameCart =
         sortedAddOnIdsEqual(existingAddOnIds, sortedAddOnIds) &&
-        matchingPackageOrder.expectedAmountPaise === amountPaise;
+        matchingPackageOrder.expectedAmountPaise === netAmountPaise &&
+        (matchingPackageOrder.couponId ?? null) ===
+          (resolvedCoupon?.couponId ?? null);
 
       if (sameCart) {
         let razorpayOrderId = matchingPackageOrder.razorpayOrderId;
         if (!razorpayOrderId) {
           razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
             orderId: matchingPackageOrder.id,
-            amountPaise,
+            amountPaise: netAmountPaise,
             currency: matchingPackageOrder.currency,
             brandProfileId: brand.id,
             creatorProfileId: pkg.creatorId,
@@ -696,12 +772,13 @@ export class OrdersService {
           packageAmountPaise,
           addOnsAmountPaise,
           addOnsCount: addOnRows.length,
+          ...couponResultData,
         });
       }
 
       const razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
         orderId: matchingPackageOrder.id,
-        amountPaise,
+        amountPaise: netAmountPaise,
         currency: matchingPackageOrder.currency,
         brandProfileId: brand.id,
         creatorProfileId: pkg.creatorId,
@@ -719,7 +796,8 @@ export class OrdersService {
           maxRevisionsSnapshot,
           addOnsSnapshot: addOnsSnapshot,
           addOnsTotalSnapshot: addOnsTotalDecimal,
-          expectedAmountPaise: amountPaise,
+          expectedAmountPaise: netAmountPaise,
+          ...couponWriteData,
           razorpayOrderId,
         },
       });
@@ -737,11 +815,12 @@ export class OrdersService {
       return this.buildCheckoutSessionResult({
         orderId: matchingPackageOrder.id,
         razorpayOrderId,
-        amountPaise,
+        amountPaise: netAmountPaise,
         currency: matchingPackageOrder.currency,
         packageAmountPaise,
         addOnsAmountPaise,
         addOnsCount: addOnRows.length,
+        ...couponResultData,
       });
     }
 
@@ -760,14 +839,15 @@ export class OrdersService {
         maxRevisionsSnapshot,
         addOnsSnapshot: addOnsSnapshot,
         addOnsTotalSnapshot: addOnsTotalDecimal,
-        expectedAmountPaise: amountPaise,
+        expectedAmountPaise: netAmountPaise,
+        ...couponWriteData,
       },
       select: { id: true, currency: true },
     });
 
     const razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
       orderId: created.id,
-      amountPaise,
+      amountPaise: netAmountPaise,
       currency: created.currency,
       brandProfileId: brand.id,
       creatorProfileId: pkg.creatorId,
@@ -788,11 +868,12 @@ export class OrdersService {
     return this.buildCheckoutSessionResult({
       orderId: created.id,
       razorpayOrderId,
-      amountPaise,
+      amountPaise: netAmountPaise,
       currency: created.currency,
       packageAmountPaise,
       addOnsAmountPaise,
       addOnsCount: addOnRows.length,
+      ...couponResultData,
     });
   }
 
@@ -812,6 +893,7 @@ export class OrdersService {
       packageId?: string;
       addOnIds?: string[];
     }>;
+    couponCode?: string | null;
   }): Promise<BulkCheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -856,21 +938,48 @@ export class OrdersService {
     }
 
     const currency = 'INR';
-    const totalPaise = drafts.reduce((sum, d) => sum + d.draft.amountPaise, 0);
+    const grossTotalPaise = drafts.reduce(
+      (sum, d) => sum + d.draft.amountPaise,
+      0,
+    );
+
+    // Cart-level coupon: one coupon for the whole payment. The discount is
+    // computed on the grand total, then split across the child orders in
+    // proportion to their gross so each order records its own share (and the
+    // sum of child nets equals the batch net that Razorpay charges).
+    const resolvedCoupon = await this.coupons.resolveForCheckout({
+      code: params.couponCode,
+      brandId: brand.id,
+      grossPaise: grossTotalPaise,
+    });
+    const totalDiscountPaise = resolvedCoupon?.discountAmountPaise ?? 0;
+    const netTotalPaise = grossTotalPaise - totalDiscountPaise;
+    const perOrderDiscount = allocateDiscountAcrossOrders(
+      drafts.map((d) => d.draft.amountPaise),
+      totalDiscountPaise,
+    );
 
     const { batchId, orderIds } = await this.prisma.$transaction(async (tx) => {
       const batch = await tx.orderCheckoutBatch.create({
         data: {
           brandId: brand.id,
           currency,
-          expectedAmountPaise: totalPaise,
+          expectedAmountPaise: netTotalPaise,
           status: 'PENDING_PAYMENT',
+          couponId: resolvedCoupon?.couponId ?? null,
+          couponCodeSnapshot: resolvedCoupon?.code ?? null,
+          couponNameSnapshot: resolvedCoupon?.name ?? null,
+          discountAmountPaise: totalDiscountPaise,
+          grossAmountPaise: grossTotalPaise,
         },
         select: { id: true },
       });
 
       const ids: string[] = [];
-      for (const { draft } of drafts) {
+      for (let i = 0; i < drafts.length; i++) {
+        const { draft } = drafts[i];
+        const childGross = draft.amountPaise;
+        const childDiscount = perOrderDiscount[i];
         const order = await tx.order.create({
           data: {
             brandId: brand.id,
@@ -886,8 +995,14 @@ export class OrdersService {
             maxRevisionsSnapshot: draft.maxRevisionsSnapshot,
             addOnsSnapshot: draft.addOnsSnapshot,
             addOnsTotalSnapshot: draft.addOnsTotalDecimal,
-            expectedAmountPaise: draft.amountPaise,
+            expectedAmountPaise: childGross - childDiscount,
             checkoutBatchId: batch.id,
+            couponId: resolvedCoupon?.couponId ?? null,
+            couponCodeSnapshot: resolvedCoupon?.code ?? null,
+            couponNameSnapshot: resolvedCoupon?.name ?? null,
+            discountTypeSnapshot: resolvedCoupon?.discountType ?? null,
+            discountAmountPaise: childDiscount,
+            grossAmountPaise: childGross,
           },
           select: { id: true },
         });
@@ -901,7 +1016,7 @@ export class OrdersService {
     // the DB transaction (external call) — mirrors the single-order flow, where
     // an order exists briefly before its Razorpay order is attached.
     const rzpOrder = await this.razorpay.createOrder({
-      amountPaise: totalPaise,
+      amountPaise: netTotalPaise,
       currency,
       receipt: batchId,
       notes: {
@@ -916,18 +1031,21 @@ export class OrdersService {
     });
 
     this.logger.log(
-      `bulk checkout batch=${batchId} orders=${orderIds.length} skipped=${skipped.length} totalPaise=${totalPaise}`,
+      `bulk checkout batch=${batchId} orders=${orderIds.length} skipped=${skipped.length} grossPaise=${grossTotalPaise} discountPaise=${totalDiscountPaise} netPaise=${netTotalPaise}`,
     );
 
     return {
       batchId,
       razorpayOrderId: rzpOrder.id,
-      amountPaise: totalPaise,
+      amountPaise: netTotalPaise,
       currency,
       razorpayKeyId: this.razorpay.getPublicKeyId(),
       orderCount: orderIds.length,
       orderIds,
       skipped,
+      grossAmountPaise: grossTotalPaise,
+      discountAmountPaise: totalDiscountPaise,
+      ...(resolvedCoupon ? { couponCode: resolvedCoupon.code } : {}),
     };
   }
 
@@ -1018,7 +1136,14 @@ export class OrdersService {
   }): Promise<string | null> {
     const order = await this.prisma.order.findUnique({
       where: { razorpayOrderId: params.razorpayOrderId },
-      select: { id: true, status: true, expectedAmountPaise: true },
+      select: {
+        id: true,
+        status: true,
+        expectedAmountPaise: true,
+        brandId: true,
+        couponId: true,
+        discountAmountPaise: true,
+      },
     });
     if (!order) return null;
 
@@ -1044,6 +1169,17 @@ export class OrdersService {
         razorpayPaymentId: params.razorpayPaymentId,
       },
     });
+
+    // Consume the coupon now that payment succeeded (one use per brand).
+    if (order.couponId) {
+      await this.coupons.recordRedemption({
+        couponId: order.couponId,
+        brandId: order.brandId,
+        orderId: order.id,
+        discountAmountPaise: order.discountAmountPaise,
+      });
+    }
+
     this.logger.log(
       `[payment] captured order marked PAID order=${order.id} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
     );
@@ -1066,7 +1202,14 @@ export class OrdersService {
   }): Promise<string[] | null> {
     const batch = await this.prisma.orderCheckoutBatch.findUnique({
       where: { razorpayOrderId: params.razorpayOrderId },
-      select: { id: true, status: true, expectedAmountPaise: true },
+      select: {
+        id: true,
+        status: true,
+        expectedAmountPaise: true,
+        brandId: true,
+        couponId: true,
+        discountAmountPaise: true,
+      },
     });
     if (!batch) return null;
 
@@ -1113,6 +1256,19 @@ export class OrdersService {
           razorpayPaymentId: params.razorpayPaymentId,
         },
       });
+
+      // Consume the cart-level coupon once for the whole batch (one use / brand).
+      if (batch.couponId) {
+        await this.coupons.recordRedemption(
+          {
+            couponId: batch.couponId,
+            brandId: batch.brandId,
+            checkoutBatchId: batch.id,
+            discountAmountPaise: batch.discountAmountPaise,
+          },
+          tx,
+        );
+      }
     });
 
     this.logger.log(
@@ -2720,6 +2876,11 @@ export class OrdersService {
       razorpayOrderId: string | null;
       razorpayPaymentId: string | null;
       razorpayRefundId: string | null;
+      couponCodeSnapshot?: string | null;
+      couponNameSnapshot?: string | null;
+      discountTypeSnapshot?: string | null;
+      discountAmountPaise?: number;
+      grossAmountPaise?: number;
     } & Parameters<OrdersService['mapOrderDetails']>[0],
   ): OrderDetailsAdminDto {
     return {
@@ -2727,6 +2888,15 @@ export class OrdersService {
       razorpayOrderId: order.razorpayOrderId,
       razorpayPaymentId: order.razorpayPaymentId,
       razorpayRefundId: order.razorpayRefundId,
+      coupon: order.couponCodeSnapshot
+        ? {
+            code: order.couponCodeSnapshot,
+            name: order.couponNameSnapshot ?? order.couponCodeSnapshot,
+            discountType: order.discountTypeSnapshot ?? null,
+            discountAmountPaise: order.discountAmountPaise ?? 0,
+            grossAmountPaise: order.grossAmountPaise ?? 0,
+          }
+        : null,
     };
   }
 
@@ -3253,6 +3423,11 @@ export class OrdersService {
         razorpayPaymentId: true,
         razorpayRefundId: true,
         refundedAt: true,
+        couponCodeSnapshot: true,
+        couponNameSnapshot: true,
+        discountTypeSnapshot: true,
+        discountAmountPaise: true,
+        grossAmountPaise: true,
         cancellationReason: true,
         cancelledAt: true,
         cancelledByUserId: true,

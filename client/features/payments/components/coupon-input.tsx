@@ -8,6 +8,7 @@ import {
 } from "@/features/payments/lib/coupon-discount";
 
 interface CouponInputProps {
+  /** Active coupons for this brand — used only to validate the typed code. */
   coupons: AvailableCoupon[];
   isLoading?: boolean;
   /** Currently applied coupon code, or null. */
@@ -24,10 +25,9 @@ function inr(n: number): string {
 }
 
 /**
- * Shopify-style coupon entry: type or paste a code and hit Apply. On success it
- * collapses into a removable "applied" row. Available codes are offered as
- * quick-fill hints. Validation is client-side against the brand's available
- * coupons (the server re-validates authoritatively at checkout).
+ * Minimal coupon entry: paste a code and hit Apply. If it matches one of the
+ * brand's active coupons it's applied; otherwise a friendly error shows. No
+ * coupon list is displayed. The server re-validates authoritatively at checkout.
  */
 export function CouponInput({
   coupons,
@@ -46,35 +46,24 @@ export function CouponInput({
     [coupons, appliedCode],
   );
 
-  const usableCoupons = useMemo(
-    () => coupons.filter((c) => !c.alreadyUsed),
-    [coupons],
-  );
-
   const handleApply = () => {
     const code = value.trim().toUpperCase();
     if (!code) {
-      setError("Enter a coupon code");
+      setError("Enter a coupon code first");
       return;
     }
     const match = coupons.find((c) => c.code === code);
     if (!match) {
-      setError("This code isn't valid or has expired");
+      setError("Oops! We don't have a coupon like that 🙈");
       return;
     }
     if (match.alreadyUsed) {
-      setError("You've already used this coupon");
+      setError("Looks like you've already used this one");
       return;
     }
     setError(null);
     setValue("");
     onApply(match.code);
-  };
-
-  const applyHint = (code: string) => {
-    setError(null);
-    setValue("");
-    onApply(code);
   };
 
   const handleRemove = () => {
@@ -118,9 +107,9 @@ export function CouponInput({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-        <Tag className="size-3.5" /> Have a coupon?
+        <Tag className="size-3.5" /> Have a coupon code?
       </label>
       <div className="flex items-stretch gap-2">
         <input
@@ -137,7 +126,7 @@ export function CouponInput({
             }
           }}
           disabled={disabled}
-          placeholder="Enter code"
+          placeholder="Paste your code here"
           autoCapitalize="characters"
           spellCheck={false}
           className={[
@@ -148,35 +137,14 @@ export function CouponInput({
         <button
           type="button"
           onClick={handleApply}
-          disabled={disabled || value.trim().length === 0}
+          disabled={disabled || isLoading || value.trim().length === 0}
           className="shrink-0 rounded-lg border border-foreground bg-foreground px-4 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Apply
         </button>
       </div>
-
       {error ? (
         <p className="text-xs font-medium text-red-500">{error}</p>
-      ) : isLoading ? (
-        <p className="text-xs text-muted-foreground">Loading offers…</p>
-      ) : usableCoupons.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-          <span className="text-[11px] font-medium text-muted-foreground">
-            Available:
-          </span>
-          {usableCoupons.map((coupon) => (
-            <button
-              key={coupon.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => applyHint(coupon.code)}
-              title={coupon.description ?? coupon.name}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-primary/50 bg-primary/5 px-2 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-            >
-              {coupon.code}
-            </button>
-          ))}
-        </div>
       ) : null}
     </div>
   );

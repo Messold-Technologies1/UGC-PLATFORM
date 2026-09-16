@@ -17,7 +17,7 @@ import {
 import type { CreatorProfile, Package, AddOn } from "../../types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
 import { useAvailableCoupons } from "@/features/payments/hooks/use-available-coupons";
-import { CouponSelector } from "@/features/payments/components/coupon-selector";
+import { CouponInput } from "@/features/payments/components/coupon-input";
 import { computeCouponDiscountPaise } from "@/features/payments/lib/coupon-discount";
 import { getInitials, posterColor } from "@/lib/utils";
 
@@ -441,11 +441,13 @@ const OrderModalContent = React.memo(function OrderModalContent({
               </div>
 
               <div style={{ margin: "12px 0" }}>
-                <CouponSelector
+                <CouponInput
                   coupons={coupons}
                   isLoading={couponsLoading}
-                  selectedCode={selectedCouponCode}
-                  onSelect={setSelectedCouponCode}
+                  appliedCode={selectedCouponCode}
+                  discountRupees={discountRupees}
+                  onApply={setSelectedCouponCode}
+                  onRemove={() => setSelectedCouponCode(null)}
                   disabled={isProcessing}
                 />
               </div>

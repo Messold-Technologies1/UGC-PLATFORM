@@ -446,7 +446,6 @@ const OrderModalContent = React.memo(function OrderModalContent({
                   isLoading={couponsLoading}
                   appliedCode={selectedCouponCode}
                   discountRupees={discountRupees}
-                  grossPaise={grossPaise}
                   onApply={setSelectedCouponCode}
                   onRemove={() => setSelectedCouponCode(null)}
                   disabled={isProcessing}

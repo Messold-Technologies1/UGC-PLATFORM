@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Tag, X } from "lucide-react";
+import { Check, Lock, TicketPercent, X } from "lucide-react";
 import {
+  computeCouponDiscountPaise,
   couponShortLabel,
   type AvailableCoupon,
 } from "@/features/payments/lib/coupon-discount";
@@ -13,8 +14,10 @@ interface CouponInputProps {
   isLoading?: boolean;
   /** Currently applied coupon code, or null. */
   appliedCode: string | null;
-  /** Rupee value of the applied discount (for the success row). */
+  /** Rupee value of the applied discount. */
   discountRupees: number;
+  /** Pre-discount order total in paise, for per-coupon savings previews. */
+  grossPaise: number;
   onApply: (code: string) => void;
   onRemove: () => void;
   disabled?: boolean;
@@ -34,6 +37,7 @@ export function CouponInput({
   isLoading = false,
   appliedCode,
   discountRupees,
+  grossPaise,
   onApply,
   onRemove,
   disabled = false,
@@ -94,12 +98,11 @@ export function CouponInput({
           </div>
           <button
             type="button"
-            onClick={handleRemove}
-            disabled={disabled}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 disabled:opacity-50 dark:text-emerald-300"
-            aria-label="Remove coupon"
+            onClick={handleApplyTyped}
+            disabled={disabled || value.trim().length === 0}
+            className="shrink-0 px-4 text-sm font-bold text-primary transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-60"
           >
-            <X className="size-3.5" /> Remove
+            Apply
           </button>
         </div>
       </div>

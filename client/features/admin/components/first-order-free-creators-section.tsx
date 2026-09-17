@@ -9,7 +9,7 @@ import { useFirstOrderFreeCreatorsQuery } from "../hooks/use-first-order-free-cr
 import { useFirstOrderFreeMutation } from "../hooks/use-first-order-free-mutation";
 
 /** Cards per page when browsing (a multiple of 4 so the grid stays even). */
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 24;
 /** Search is not paginated — pull a generous single page of matches. */
 const SEARCH_SIZE = 50;
 

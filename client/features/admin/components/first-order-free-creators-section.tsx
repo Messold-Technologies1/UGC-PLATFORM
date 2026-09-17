@@ -39,12 +39,16 @@ export function FirstOrderFreeCreatorsSection() {
     setPage(1);
   }, [search]);
 
-  const { data, isLoading, isError, isFetching } = useAdminCreatorsQuery({
-    segment: "listed",
-    page: isSearching ? 1 : page,
-    limit: isSearching ? SEARCH_SIZE : PAGE_SIZE,
-    ...(isSearching ? { search } : {}),
-  });
+  const { data, isLoading, isError, isFetching } = useAdminCreatorsQuery(
+    {
+      segment: "listed",
+      page: isSearching ? 1 : page,
+      limit: isSearching ? SEARCH_SIZE : PAGE_SIZE,
+      ...(isSearching ? { search } : {}),
+    },
+    // Always reflect the server's stored toggle state on open — no stale cache.
+    { alwaysFresh: true },
+  );
   const mutation = useFirstOrderFreeMutation();
   const [pendingId, setPendingId] = useState<string | null>(null);
 

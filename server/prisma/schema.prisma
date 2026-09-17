@@ -403,6 +403,10 @@ model CreatorProfile {
   /// Derived discovery gate = (approval APPROVED) AND completeProfile.
   /// Brands only ever see creators where this is true.
   isListed                     Boolean                     @default(false)
+  /// Admin "first order free" promo: when true, each brand's FIRST order with
+  /// this creator is placed free (₹0, no payment). Consumed per brand once they
+  /// have any prior placed order with this creator.
+  firstOrderFreeEnabled        Boolean                     @default(false)
   /// When the creator accepted the Go-Live policies (AI Content, Usage Rights,
   /// Payout, Creator Guidelines). Set once on the first Go Live that carries
   /// acceptedGoLivePolicies; null means never accepted. Read by the profile
@@ -692,6 +696,10 @@ model Order {
   discountTypeSnapshot DiscountType?
   discountAmountPaise  Int           @default(0)
   grossAmountPaise     Int           @default(0)
+  /// True when this order was placed under the creator's "first order free"
+  /// promo: brand paid ₹0, no Razorpay, and the creator is paid ₹0. Shown as a
+  /// "Free order" line in the admin pricing ledger.
+  isFreeOrder          Boolean       @default(false)
 
   /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
   lastChatActivityAt          DateTime              @default(now())

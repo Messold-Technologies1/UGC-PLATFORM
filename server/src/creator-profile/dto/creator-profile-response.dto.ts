@@ -287,6 +287,19 @@ export class CreatorProfileResponseDto {
   })
   isListed!: boolean;
 
+  @ApiPropertyOptional({
+    description: "The creator's 'first order free' promo is enabled.",
+    example: false,
+  })
+  firstOrderFree?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      "Promo enabled AND the viewing brand hasn't ordered from this creator yet (their next order would be free). Only set for a brand viewer.",
+    example: false,
+  })
+  firstOrderFreeEligible?: boolean;
+
   @ApiProperty({
     description:
       'Whether the creator has accepted the Go-Live policies (AI Content, Usage Rights, Payout, Creator Guidelines).',

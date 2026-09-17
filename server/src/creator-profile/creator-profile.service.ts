@@ -18,6 +18,7 @@ import {
   SocialPlatform,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { BrandAccessService } from '../brand-access/brand-access.service';
 import type { CreateCreatorProfileAtSignupInput } from './dto/create-creator-profile-at-signup.input';
 import { CreatorPackageService } from '../creator-package/creator-package.service';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
@@ -137,6 +138,7 @@ const CREATOR_LIST_BASE_SELECT = {
   contentVolume: true,
   collaborationCount: true,
   onLocationAvailable: true,
+  firstOrderFreeEnabled: true,
 } as const;
 
 const creatorProfileWithRelationsInclude = {
@@ -292,6 +294,7 @@ export class CreatorProfileService {
     private readonly facetOtherResolver: FacetOtherResolverService,
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
+    private readonly brandAccess: BrandAccessService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -443,6 +446,7 @@ export class CreatorProfileService {
     profile: CreatorProfileWithRelations,
     orderCounts?: CreatorOrderCounts,
     topReviews: CreatorTopReviewDto[] = [],
+    firstOrderFreeEligible?: boolean,
   ): CreatorProfileResponseDto {
     const mapped = this.mapCreatorProfile(profile);
 
@@ -487,6 +491,8 @@ export class CreatorProfileService {
       approvalStatus: mapped.creatorApproval?.status,
       completeProfile: mapped.completeProfile ?? false,
       isListed: mapped.isListed ?? false,
+      firstOrderFree: !!mapped.firstOrderFreeEnabled,
+      firstOrderFreeEligible,
       acceptedGoLivePolicies: Boolean(mapped.goLivePoliciesAcceptedAt),
       rejectionReason: mapped.creatorApproval?.rejectionReason ?? null,
       profileLanguages: (mapped.profileLanguages ?? []).map((row: any) => ({
@@ -559,6 +565,58 @@ export class CreatorProfileService {
       0,
     );
     return existing;
+  }
+
+  /**
+   * Best-effort brand the request is acting as, for per-brand "first order
+   * free" eligibility. Returns null for guests / non-brand viewers and never
+   * throws — a missing or inaccessible brand just means no eligibility flag.
+   */
+  private async resolveViewerBrandId(
+    actorUserId?: string | null,
+    brandProfileId?: string | null,
+  ): Promise<string | null> {
+    if (!actorUserId) return null;
+    try {
+      const ctx = await this.brandAccess.resolveBrandContext({
+        actorUserId,
+        brandProfileId: brandProfileId ?? null,
+      });
+      return ctx.brand.id;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Among the given creators, which are "first order free" AND the viewing
+   * brand has not yet placed an order with (any order that reached paidAt —
+   * free or paid — consumes the promo). Empty set when no brand viewer.
+   */
+  private async firstOrderFreeEligibleForBrand(
+    brandId: string | null,
+    creatorIds: string[],
+  ): Promise<Set<string>> {
+    if (!brandId) return new Set();
+    const ids = [...new Set(creatorIds.filter(Boolean))];
+    if (ids.length === 0) return new Set();
+    const enabled = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: ids }, firstOrderFreeEnabled: true },
+      select: { id: true },
+    });
+    const enabledIds = enabled.map((c) => c.id);
+    if (enabledIds.length === 0) return new Set();
+    const priorOrders = await this.prisma.order.findMany({
+      where: {
+        brandId,
+        creatorId: { in: enabledIds },
+        paidAt: { not: null },
+      },
+      select: { creatorId: true },
+      distinct: ['creatorId'],
+    });
+    const usedIds = new Set(priorOrders.map((o) => o.creatorId));
+    return new Set(enabledIds.filter((id) => !usedIds.has(id)));
   }
 
   private async countCreatorOrdersBatch(
@@ -1127,6 +1185,7 @@ export class CreatorProfileService {
 
   async listCreators(
     query: ListCreatorsQueryDto,
+    viewer?: { actorUserId?: string | null; brandProfileId?: string | null },
   ): Promise<CreatorsPublicListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 4;
@@ -1202,9 +1261,22 @@ export class CreatorProfileService {
       items.map((profile) => profile.id),
     );
 
+    const viewerBrandId = await this.resolveViewerBrandId(
+      viewer?.actorUserId,
+      viewer?.brandProfileId,
+    );
+    const eligibleFreeCreatorIds = await this.firstOrderFreeEligibleForBrand(
+      viewerBrandId,
+      items.map((profile) => profile.id),
+    );
+
     const response: CreatorsPublicListResponseDto = {
       items: items.map((p) =>
-        this.mapCreatorPublicListItemDto(p, orderCountsByCreatorId.get(p.id)),
+        this.mapCreatorPublicListItemDto(
+          p,
+          orderCountsByCreatorId.get(p.id),
+          viewerBrandId ? eligibleFreeCreatorIds : undefined,
+        ),
       ),
       total,
       page,
@@ -1387,6 +1459,7 @@ export class CreatorProfileService {
   private mapCreatorPublicListItemDto(
     profile: any,
     orderCounts?: CreatorOrderCounts,
+    eligibleFreeCreatorIds?: Set<string>,
   ): CreatorPublicListItemDto {
     const portfolioVideos: CreatorPublicListPortfolioVideoDto[] = Array.isArray(
       profile.portfolioVideos,
@@ -1445,6 +1518,10 @@ export class CreatorProfileService {
       contentVolume: profile.contentVolume ?? null,
       collaborationCount: profile.collaborationCount ?? 0,
       onLocationAvailable: !!profile.onLocationAvailable,
+      firstOrderFree: !!profile.firstOrderFreeEnabled,
+      firstOrderFreeEligible: eligibleFreeCreatorIds
+        ? eligibleFreeCreatorIds.has(profile.id)
+        : undefined,
       languages: profileLanguages.map((l) => l.label),
       profileLanguages,
       facetSelections,
@@ -1486,6 +1563,7 @@ export class CreatorProfileService {
   async getCreatorById(
     viewerUserId: string | null,
     id: string,
+    brandProfileId?: string | null,
   ): Promise<CreatorProfileResponseDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id },
@@ -1515,10 +1593,20 @@ export class CreatorProfileService {
       this.countCreatorOrders(profile.id),
       this.creatorReviews.listTopForCreator({ creatorId: profile.id }),
     ]);
+    const viewerBrandId = await this.resolveViewerBrandId(
+      viewerUserId,
+      brandProfileId,
+    );
+    const firstOrderFreeEligible = viewerBrandId
+      ? (
+          await this.firstOrderFreeEligibleForBrand(viewerBrandId, [profile.id])
+        ).has(profile.id)
+      : undefined;
     const dto = this.mapCreatorProfileResponseDto(
       profile,
       orderCounts,
       topReviews,
+      firstOrderFreeEligible,
     );
     if (isOwner || admin) {
       return dto;
@@ -1529,6 +1617,7 @@ export class CreatorProfileService {
   async getCreatorByPublicSlug(
     viewerUserId: string | null,
     slug: string,
+    brandProfileId?: string | null,
   ): Promise<CreatorProfileResponseDto> {
     const normalized = normalizeCreatorPublicProfileSlug(slug);
     if (!normalized) {
@@ -1543,7 +1632,7 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator not found');
     }
 
-    return this.getCreatorById(viewerUserId, profile.id);
+    return this.getCreatorById(viewerUserId, profile.id, brandProfileId);
   }
 
   private mapPendingCreatorApprovalListItem(
@@ -1621,6 +1710,7 @@ export class CreatorProfileService {
       completeProfile: profile.completeProfile ?? false,
       isListed: profile.isListed ?? false,
       isFeatured,
+      firstOrderFreeEnabled: profile.firstOrderFreeEnabled ?? false,
       featureRank: profile.feature?.rank ?? null,
       featuredUntil: profile.feature?.featuredUntil ?? null,
       rejectionReason: profile.creatorApproval?.rejectionReason ?? null,
@@ -1940,6 +2030,29 @@ export class CreatorProfileService {
     await this.prisma.creatorFeature.deleteMany({
       where: { creatorId: creatorProfileId },
     });
+  }
+
+  /**
+   * Toggle "first order free" for a creator. When enabled, each brand's first
+   * order with this creator is placed for ₹0 (no Razorpay, creator paid ₹0);
+   * subsequent orders are normal paid checkouts.
+   */
+  async setFirstOrderFree(
+    creatorProfileId: string,
+    enabled: boolean,
+  ): Promise<AdminCreatorListItemDto> {
+    const creator = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: { id: true },
+    });
+    if (!creator) {
+      throw new NotFoundException('Creator not found');
+    }
+    await this.prisma.creatorProfile.update({
+      where: { id: creatorProfileId },
+      data: { firstOrderFreeEnabled: enabled },
+    });
+    return this.getAdminCreatorListItemById(creatorProfileId);
   }
 
   private async listFeaturedCreators(query: {

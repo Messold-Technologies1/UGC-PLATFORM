@@ -261,7 +261,12 @@ const OrderModalContent = React.memo(function OrderModalContent({
       )
     : 0;
   const discountRupees = Math.round(discountPaise / 100);
-  const netTotal = Math.max(0, total - discountRupees);
+  // "First order free": this brand's first order with the creator is free, so
+  // the checkout is ₹0, no coupon, and no payment step (the hook skips Razorpay).
+  const isFirstOrderFree = Boolean(creator.firstOrderFreeEligible);
+  const netTotal = isFirstOrderFree
+    ? 0
+    : Math.max(0, total - discountRupees);
 
   const { isProcessing, startCheckout } = useRazorpayCheckout({
     creator,
@@ -428,29 +433,59 @@ const OrderModalContent = React.memo(function OrderModalContent({
                     <span>{inr(a.price)}</span>
                   </div>
                 ))}
-                {discountRupees > 0 && selectedCoupon && (
+                {!isFirstOrderFree && discountRupees > 0 && selectedCoupon && (
                   <div className="om-line muted" style={{ color: "var(--primary)" }}>
                     <span>Coupon · {selectedCoupon.code}</span>
                     <span>−{inr(discountRupees)}</span>
                   </div>
                 )}
+                {isFirstOrderFree && (
+                  <div
+                    className="om-line muted"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    <span>First order free</span>
+                    <span>−{inr(total)}</span>
+                  </div>
+                )}
                 <div className="om-line total">
                   <span>Total</span>
-                  <span>{inr(netTotal)}</span>
+                  <span>{isFirstOrderFree ? "Free" : inr(netTotal)}</span>
                 </div>
               </div>
 
-              <div style={{ margin: "12px 0" }}>
-                <CouponInput
-                  coupons={coupons}
-                  isLoading={couponsLoading}
-                  appliedCode={selectedCouponCode}
-                  discountRupees={discountRupees}
-                  onApply={setSelectedCouponCode}
-                  onRemove={() => setSelectedCouponCode(null)}
-                  disabled={isProcessing}
-                />
-              </div>
+              {isFirstOrderFree ? (
+                <div
+                  style={{
+                    margin: "12px 0",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: 12,
+                    border: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
+                    background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+                    padding: "10px 12px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--primary)",
+                  }}
+                >
+                  🎁 Your first order with this creator is on us — no payment
+                  needed.
+                </div>
+              ) : (
+                <div style={{ margin: "12px 0" }}>
+                  <CouponInput
+                    coupons={coupons}
+                    isLoading={couponsLoading}
+                    appliedCode={selectedCouponCode}
+                    discountRupees={discountRupees}
+                    onApply={setSelectedCouponCode}
+                    onRemove={() => setSelectedCouponCode(null)}
+                    disabled={isProcessing}
+                  />
+                </div>
+              )}
 
               <button
                 type="button"
@@ -462,6 +497,10 @@ const OrderModalContent = React.memo(function OrderModalContent({
                 {isProcessing ? (
                   <>
                     <span className="om-spin" /> Creating checkout…
+                  </>
+                ) : isFirstOrderFree ? (
+                  <>
+                    <Zap size={16} /> Place free order
                   </>
                 ) : (
                   <>

@@ -221,6 +221,7 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   completeProfile: boolean;
   isListed: boolean;
   isFeatured: boolean;
+  firstOrderFreeEnabled: boolean;
   featureRank?: number | null;
   featuredUntil?: string | null;
   rejectionReason?: string | null;
@@ -425,6 +426,8 @@ export interface OrderCouponDto {
 
 export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   coupon?: OrderCouponDto | null;
+  /** Placed under "first order free": brand paid ₹0 and the creator is paid ₹0. */
+  isFreeOrder?: boolean;
   razorpayOrderId?: string | null;
   razorpayPaymentId?: string | null;
   razorpayRefundId?: string | null;

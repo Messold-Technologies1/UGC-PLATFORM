@@ -260,6 +260,11 @@ describe('CreatorProfileService', () => {
       } as any,
       { enqueue: jest.fn(), enqueueDirty: jest.fn() } as any,
       { enqueueIntro: jest.fn(), enqueuePortfolio: jest.fn() } as any,
+      {
+        resolveBrandContext: jest
+          .fn()
+          .mockRejectedValue(new Error('no brand')),
+      } as any,
     );
   });
 

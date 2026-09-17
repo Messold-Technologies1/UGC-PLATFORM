@@ -158,6 +158,8 @@ export function mapProfileToListingCreator(
     available: profile.available !== false,
     unavailableFrom: profile.unavailableFrom ?? null,
     unavailableTo: profile.unavailableTo ?? null,
+    firstOrderFree: profile.firstOrderFree ?? false,
+    firstOrderFreeEligible: profile.firstOrderFreeEligible ?? false,
     storeVisit: profile.onLocationAvailable ?? false,
     travelAvailable:
       (travelRadius != null && travelRadius > 0) ||

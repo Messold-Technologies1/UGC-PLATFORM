@@ -41,6 +41,10 @@ import {
   AdminCreatorsListResponseDto,
   AdminCreatorSegmentCountsDto,
 } from './dto/admin-creator-list.dto';
+import {
+  FirstOrderFreeCreatorsQueryDto,
+  FirstOrderFreeCreatorsListResponseDto,
+} from './dto/first-order-free-creators.dto';
 import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { AdminCreatorPayoutDetailsDto } from './dto/admin-creator-payout-details.dto';
@@ -135,6 +139,19 @@ export class AdminCreatorController {
     @Query() query: AdminCreatorsListQueryDto,
   ): Promise<AdminCreatorsListResponseDto> {
     return this.creatorProfileService.listAdminCreators(query);
+  }
+
+  @Get('first-order-free')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary:
+      "Lightweight listed-creator picker for the 'first order free' grid (super-admin)",
+  })
+  @ApiOkResponse({ type: FirstOrderFreeCreatorsListResponseDto })
+  async listFirstOrderFreeCreators(
+    @Query() query: FirstOrderFreeCreatorsQueryDto,
+  ): Promise<FirstOrderFreeCreatorsListResponseDto> {
+    return this.creatorProfileService.listFirstOrderFreeCreators(query);
   }
 
   @Get('pending-approvals')

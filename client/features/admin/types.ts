@@ -243,6 +243,29 @@ export interface AdminCreatorsListResponseDto {
   limit: number;
 }
 
+/** Slim row for the "first order free" picker grid (only what the card shows). */
+export interface FirstOrderFreeCreatorListItemDto {
+  id: string;
+  displayName: string;
+  city?: string | null;
+  profileImageUrl?: string | null;
+  primaryCategory?: string | null;
+  firstOrderFreeEnabled: boolean;
+}
+
+export interface FirstOrderFreeCreatorsListResponseDto {
+  items: FirstOrderFreeCreatorListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface FirstOrderFreeCreatorsQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
 export interface AdminFeatureCreatorDto {
   rank?: number;
   featuredUntil?: string | null;

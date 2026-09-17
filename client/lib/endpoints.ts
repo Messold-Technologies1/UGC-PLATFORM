@@ -221,6 +221,7 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/feature`,
       FIRST_ORDER_FREE: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/first-order-free`,
+      FIRST_ORDER_FREE_LIST: "/api/admin/creators/first-order-free",
       PAYOUT_DETAILS: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/payout-details`,
     },

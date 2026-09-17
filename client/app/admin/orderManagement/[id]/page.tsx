@@ -661,7 +661,8 @@ export default function AdminOrderDetailsPage() {
                           </p>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">
-                              Platform fee (20%)
+                              Platform fee (20% of{" "}
+                              {inr(led.platformFeeBasePaise)})
                             </span>
                             <span className="font-semibold">
                               {inr(led.platformFeePaise)}

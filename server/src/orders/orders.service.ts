@@ -3509,6 +3509,10 @@ export class OrdersService {
         order.status === 'REJECTED' || order.status === 'REFUNDED',
       // "No platform fee" coupon: creator is paid in full, platform fee is 0.
       waivePlatformFee: order.discountTypeSnapshot === 'PLATFORM_FEE_WAIVER',
+      // Charge the platform fee on the pre-coupon (gross) base when a coupon
+      // was applied; grossAmountPaise is 0 for old/non-coupon orders → the
+      // util falls back to the net base.
+      grossBasePlusAddOnsPaise: order.grossAmountPaise,
     });
     mappedOrder.revisionPurchases = paidPurchases.map((p) => ({
       revisionsAdded: p.revisionsAdded,

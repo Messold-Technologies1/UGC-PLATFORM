@@ -81,7 +81,13 @@ export class OrderPricingLedgerDto {
   @ApiProperty({ description: 'Base + add-ons + used extras' })
   earnedPaise!: number;
 
-  @ApiProperty({ description: '20% platform fee on earned' })
+  @ApiProperty({
+    description:
+      'Amount the platform fee is charged on: pre-coupon (gross) base + add-ons + used extras',
+  })
+  platformFeeBasePaise!: number;
+
+  @ApiProperty({ description: '20% of platformFeeBasePaise (the gross base)' })
   platformFeePaise!: number;
 
   @ApiProperty({ description: 'earned − platform fee' })

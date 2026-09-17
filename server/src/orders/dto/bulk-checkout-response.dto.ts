@@ -50,4 +50,10 @@ export class BulkCheckoutResponseDto {
 
   @ApiPropertyOptional({ description: 'Applied coupon code, when a coupon was used.' })
   couponCode?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'True when the cart net is ₹0: all orders are already placed and no payment is needed.',
+  })
+  free?: boolean;
 }

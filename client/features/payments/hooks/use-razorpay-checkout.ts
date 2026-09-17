@@ -178,6 +178,21 @@ export function useRazorpayCheckout({
           ...(couponCode ? { couponCode } : {}),
         }));
 
+      // Zero-rupee order (e.g. a 100% coupon): nothing to pay — the server has
+      // already placed the order. Skip Razorpay and go straight to the order.
+      if (session.free) {
+        clearStoredCheckoutSession(selectionSignature);
+        void queryClient.prefetchQuery(
+          brandOrderDetailsQueryOptions(session.orderId),
+        );
+        toast.success("Order placed", {
+          description: "No payment needed — redirecting to your order...",
+        });
+        redirectToOrderDetails(session.orderId);
+        setIsProcessing(false);
+        return true;
+      }
+
       setCachedSession({
         selectionSignature,
         session,
@@ -203,6 +218,8 @@ export function useRazorpayCheckout({
     selectedAddOns,
     selectedPackage,
     couponCode,
+    queryClient,
+    redirectToOrderDetails,
   ]);
 
   return {

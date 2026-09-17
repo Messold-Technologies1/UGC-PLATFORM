@@ -37,5 +37,11 @@ export class CheckoutResponseDto {
 
   @ApiPropertyOptional({ description: 'Applied coupon code, when a coupon was used' })
   couponCode?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'True when the net is ₹0 (e.g. a 100% coupon): the order is already placed and no payment is needed.',
+  })
+  free?: boolean;
 }
 

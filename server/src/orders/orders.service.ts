@@ -382,6 +382,11 @@ type CheckoutSessionResult = {
   discountAmountPaise: number;
   /** Applied coupon code, when a coupon reduced the charge. */
   couponCode?: string;
+  /**
+   * True when the net is ₹0 (e.g. a 100% coupon): the order is already placed,
+   * no Razorpay payment is needed. The client skips the gateway and redirects.
+   */
+  free?: boolean;
 };
 
 type BulkCheckoutSkippedItem = {
@@ -405,6 +410,8 @@ type BulkCheckoutSessionResult = {
   discountAmountPaise: number;
   /** Applied coupon code, when a coupon reduced the cart charge. */
   couponCode?: string;
+  /** True when the cart net is ₹0: orders are already placed, no Razorpay. */
+  free?: boolean;
 };
 
 /**
@@ -470,6 +477,7 @@ export class OrdersService {
     grossAmountPaise?: number;
     discountAmountPaise?: number;
     couponCode?: string;
+    free?: boolean;
   }): CheckoutSessionResult {
     const discountAmountPaise = params.discountAmountPaise ?? 0;
     return {
@@ -485,7 +493,43 @@ export class OrdersService {
         params.grossAmountPaise ?? params.amountPaise + discountAmountPaise,
       discountAmountPaise,
       ...(params.couponCode ? { couponCode: params.couponCode } : {}),
+      ...(params.free ? { free: true } : {}),
     };
+  }
+
+  /**
+   * Place an already-created order as a zero-rupee (fully discounted) order:
+   * mark it paid without Razorpay, consume the coupon, and fan out the same
+   * realtime "order placed" event a captured payment would. Used when a 100%
+   * coupon drives the net to ₹0.
+   */
+  private async placeZeroRupeeOrder(params: {
+    orderId: string;
+    brandId: string;
+    couponId: string | null;
+    discountAmountPaise: number;
+  }): Promise<void> {
+    await this.updateOrder({
+      where: { id: params.orderId },
+      data: { status: 'BRIEF_SUBMISSION_PENDING', paidAt: new Date() },
+    });
+    if (params.couponId) {
+      await this.coupons.recordRedemption({
+        couponId: params.couponId,
+        brandId: params.brandId,
+        orderId: params.orderId,
+        discountAmountPaise: params.discountAmountPaise,
+      });
+    }
+    await this.orderRealtime.emitOrderPayment({
+      orderId: params.orderId,
+      kind: 'captured',
+      audience: 'brand_and_creator',
+      meta: { zeroRupee: true },
+    });
+    this.logger.log(
+      `[checkout] zero-rupee order placed order=${params.orderId} (no Razorpay)`,
+    );
   }
 
   /** Reject other awaiting-payment orders for the same brand+creator pair. */
@@ -702,6 +746,55 @@ export class OrdersService {
       discountAmountPaise,
       ...(resolvedCoupon ? { couponCode: resolvedCoupon.code } : {}),
     };
+
+    // Zero-rupee checkout: a full-value (e.g. 100%) coupon drives the net to ₹0.
+    // There is nothing to charge, so skip Razorpay and place the order directly.
+    // The admin ledger still shows the gross + coupon so the creator is paid out.
+    if (netAmountPaise === 0) {
+      const created = await this.prisma.order.create({
+        data: {
+          brandId: brand.id,
+          creatorId: pkg.creatorId,
+          creatorPackageId: pkg.id,
+          status: 'BRIEF_SUBMISSION_PENDING',
+          paidAt: new Date(),
+          packageNameSnapshot: pkg.name,
+          deliverablesSnapshot:
+            pkg.deliverables as unknown as Prisma.InputJsonValue,
+          priceAmountSnapshot: pkg.priceAmount,
+          currency: 'INR',
+          deliveryDaysSnapshot: effectiveDeliveryDays,
+          maxRevisionsSnapshot,
+          addOnsSnapshot: addOnsSnapshot,
+          addOnsTotalSnapshot: addOnsTotalDecimal,
+          expectedAmountPaise: 0,
+          ...couponWriteData,
+        },
+        select: { id: true, currency: true },
+      });
+      await this.rejectOtherPendingOrdersForBrandCreator(
+        brand.id,
+        pkg.creatorId,
+        created.id,
+      );
+      await this.placeZeroRupeeOrder({
+        orderId: created.id,
+        brandId: brand.id,
+        couponId: resolvedCoupon?.couponId ?? null,
+        discountAmountPaise,
+      });
+      return this.buildCheckoutSessionResult({
+        orderId: created.id,
+        razorpayOrderId: '',
+        amountPaise: 0,
+        currency: created.currency,
+        packageAmountPaise,
+        addOnsAmountPaise,
+        addOnsCount: addOnRows.length,
+        ...couponResultData,
+        free: true,
+      });
+    }
 
     const sortedAddOnIds = [...addOnRows.map((a) => a.id)].sort();
 
@@ -958,6 +1051,101 @@ export class OrdersService {
       drafts.map((d) => d.draft.amountPaise),
       totalDiscountPaise,
     );
+
+    // Zero-rupee cart: a full-value (e.g. 100%) coupon covers the whole cart, so
+    // there is nothing to charge. Place every order directly and skip Razorpay.
+    if (netTotalPaise === 0) {
+      const { batchId, orderIds } = await this.prisma.$transaction(
+        async (tx) => {
+          const batch = await tx.orderCheckoutBatch.create({
+            data: {
+              brandId: brand.id,
+              currency,
+              expectedAmountPaise: 0,
+              status: 'PAID',
+              paidAt: new Date(),
+              couponId: resolvedCoupon?.couponId ?? null,
+              couponCodeSnapshot: resolvedCoupon?.code ?? null,
+              couponNameSnapshot: resolvedCoupon?.name ?? null,
+              discountAmountPaise: totalDiscountPaise,
+              grossAmountPaise: grossTotalPaise,
+            },
+            select: { id: true },
+          });
+          const ids: string[] = [];
+          for (let i = 0; i < drafts.length; i++) {
+            const { draft } = drafts[i];
+            const childGross = draft.amountPaise;
+            const childDiscount = perOrderDiscount[i];
+            const order = await tx.order.create({
+              data: {
+                brandId: brand.id,
+                creatorId: draft.pkg.creatorId,
+                creatorPackageId: draft.pkg.id,
+                status: 'BRIEF_SUBMISSION_PENDING',
+                paidAt: new Date(),
+                packageNameSnapshot: draft.pkg.name,
+                deliverablesSnapshot: draft.pkg
+                  .deliverables as unknown as Prisma.InputJsonValue,
+                priceAmountSnapshot: draft.pkg.priceAmount,
+                currency,
+                deliveryDaysSnapshot: draft.effectiveDeliveryDays,
+                maxRevisionsSnapshot: draft.maxRevisionsSnapshot,
+                addOnsSnapshot: draft.addOnsSnapshot,
+                addOnsTotalSnapshot: draft.addOnsTotalDecimal,
+                expectedAmountPaise: childGross - childDiscount,
+                checkoutBatchId: batch.id,
+                couponId: resolvedCoupon?.couponId ?? null,
+                couponCodeSnapshot: resolvedCoupon?.code ?? null,
+                couponNameSnapshot: resolvedCoupon?.name ?? null,
+                discountTypeSnapshot: resolvedCoupon?.discountType ?? null,
+                discountAmountPaise: childDiscount,
+                grossAmountPaise: childGross,
+              },
+              select: { id: true },
+            });
+            ids.push(order.id);
+          }
+          if (resolvedCoupon) {
+            await this.coupons.recordRedemption(
+              {
+                couponId: resolvedCoupon.couponId,
+                brandId: brand.id,
+                checkoutBatchId: batch.id,
+                discountAmountPaise: totalDiscountPaise,
+              },
+              tx,
+            );
+          }
+          return { batchId: batch.id, orderIds: ids };
+        },
+      );
+      for (const orderId of orderIds) {
+        await this.orderRealtime.emitOrderPayment({
+          orderId,
+          kind: 'captured',
+          audience: 'brand_and_creator',
+          meta: { zeroRupee: true },
+        });
+      }
+      this.logger.log(
+        `bulk zero-rupee batch=${batchId} orders=${orderIds.length} grossPaise=${grossTotalPaise} (no Razorpay)`,
+      );
+      return {
+        batchId,
+        razorpayOrderId: '',
+        amountPaise: 0,
+        currency,
+        razorpayKeyId: this.razorpay.getPublicKeyId(),
+        orderCount: orderIds.length,
+        orderIds,
+        skipped,
+        grossAmountPaise: grossTotalPaise,
+        discountAmountPaise: totalDiscountPaise,
+        ...(resolvedCoupon ? { couponCode: resolvedCoupon.code } : {}),
+        free: true,
+      };
+    }
 
     const { batchId, orderIds } = await this.prisma.$transaction(async (tx) => {
       const batch = await tx.orderCheckoutBatch.create({

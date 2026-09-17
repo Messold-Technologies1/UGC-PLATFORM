@@ -68,6 +68,18 @@ export function useWishlistBulkCheckout() {
           );
         }
 
+        // Zero-rupee cart (e.g. a 100% coupon): the orders are already placed —
+        // skip Razorpay and go straight to the orders list.
+        if (session.free) {
+          setIsProcessing(false);
+          toast.success("Orders placed", {
+            description: "No payment needed — redirecting to your orders...",
+          });
+          router.replace("/brand/orders");
+          router.refresh();
+          return true;
+        }
+
         await openRazorpayCheckout({
           session: {
             orderId: session.batchId,

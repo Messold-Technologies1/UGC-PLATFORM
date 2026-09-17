@@ -24,6 +24,11 @@ export type CheckoutSession = {
   discountAmountPaise?: number;
   /** Applied coupon code, when a coupon reduced the charge. */
   couponCode?: string;
+  /**
+   * True when the net is ₹0 (e.g. a 100% coupon): the order is already placed
+   * and no Razorpay payment is needed. The client skips the gateway.
+   */
+  free?: boolean;
 };
 
 export async function createCheckout(

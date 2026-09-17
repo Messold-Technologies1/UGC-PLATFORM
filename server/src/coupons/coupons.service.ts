@@ -246,20 +246,11 @@ export class CouponsService {
   }
 
   async remove(id: string): Promise<void> {
-    const existing = await this.prisma.coupon.findUnique({
-      where: { id },
-      include: { _count: { select: { redemptions: true } } },
-    });
+    const existing = await this.prisma.coupon.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Coupon not found');
-    // Preserve history: if brands have redeemed it, deactivate instead of delete
-    // (the FK from Order/redemptions would otherwise block or null out records).
-    if (existing._count.redemptions > 0) {
-      await this.prisma.coupon.update({
-        where: { id },
-        data: { active: false },
-      });
-      return;
-    }
+    // Hard delete — the coupon is removed from the DB. Orders and checkout
+    // batches keep their coupon snapshot fields (couponId is SET NULL, so the
+    // admin ledger still shows the code), and redemption rows cascade away.
     await this.prisma.coupon.delete({ where: { id } });
   }
 

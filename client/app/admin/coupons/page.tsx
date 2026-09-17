@@ -23,6 +23,7 @@ import type {
   CreateCouponInput,
   DiscountType,
 } from "@/features/coupons/types";
+import { FirstOrderFreeCreatorsSection } from "@/features/admin/components/first-order-free-creators-section";
 
 const DISCOUNT_TYPE_OPTIONS: { value: DiscountType; label: string }[] = [
   { value: "PERCENTAGE", label: "Percentage off" },
@@ -395,6 +396,10 @@ function AdminCouponsPageInner() {
           </div>
         </div>
       )}
+
+      <div className="border-t border-border/40 pt-8">
+        <FirstOrderFreeCreatorsSection />
+      </div>
 
       {isFormOpen && (
         <div

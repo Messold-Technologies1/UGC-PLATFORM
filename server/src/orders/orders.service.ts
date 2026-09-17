@@ -532,6 +532,38 @@ export class OrdersService {
     );
   }
 
+  /**
+   * "First order free" eligibility for a brand + creator: the creator has the
+   * promo enabled AND the brand has no prior placed order with them (any order
+   * that reached paidAt — free or paid — consumes the promo). Returns the set of
+   * eligible creator ids for the given candidates in one batched pair of queries.
+   */
+  private async firstOrderFreeEligibleCreatorIds(
+    brandId: string,
+    creatorIds: string[],
+  ): Promise<Set<string>> {
+    const ids = [...new Set(creatorIds)];
+    if (ids.length === 0) return new Set();
+    const enabled = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: ids }, firstOrderFreeEnabled: true },
+      select: { id: true },
+    });
+    const enabledIds = enabled.map((c) => c.id);
+    if (enabledIds.length === 0) return new Set();
+    // Which of the enabled creators has this brand already placed an order with?
+    const priorOrders = await this.prisma.order.findMany({
+      where: {
+        brandId,
+        creatorId: { in: enabledIds },
+        paidAt: { not: null },
+      },
+      select: { creatorId: true },
+      distinct: ['creatorId'],
+    });
+    const usedIds = new Set(priorOrders.map((o) => o.creatorId));
+    return new Set(enabledIds.filter((id) => !usedIds.has(id)));
+  }
+
   /** Reject other awaiting-payment orders for the same brand+creator pair. */
   private async rejectOtherPendingOrdersForBrandCreator(
     brandId: string,
@@ -747,10 +779,29 @@ export class OrdersService {
       ...(resolvedCoupon ? { couponCode: resolvedCoupon.code } : {}),
     };
 
-    // Zero-rupee checkout: a full-value (e.g. 100%) coupon drives the net to ₹0.
-    // There is nothing to charge, so skip Razorpay and place the order directly.
-    // The admin ledger still shows the gross + coupon so the creator is paid out.
-    if (netAmountPaise === 0) {
+    // "First order free": this brand's first order with a promo creator is free
+    // (₹0, creator paid ₹0) — independent of any coupon.
+    const firstOrderFree = (
+      await this.firstOrderFreeEligibleCreatorIds(brand.id, [pkg.creatorId])
+    ).has(pkg.creatorId);
+
+    // Zero-rupee checkout: either a first-order-free creator, or a full-value
+    // (e.g. 100%) coupon drove the net to ₹0. Nothing to charge → skip Razorpay
+    // and place the order directly.
+    if (firstOrderFree || netAmountPaise === 0) {
+      // First-order-free: no coupon, no payout (creator does it free) → gross 0.
+      // 100% coupon: keep the coupon snapshot + gross (platform funds the payout).
+      const zeroWriteData = firstOrderFree
+        ? {
+            couponId: null,
+            couponCodeSnapshot: null,
+            couponNameSnapshot: null,
+            discountTypeSnapshot: null,
+            discountAmountPaise: 0,
+            grossAmountPaise: 0,
+            isFreeOrder: true,
+          }
+        : { ...couponWriteData, isFreeOrder: false };
       const created = await this.prisma.order.create({
         data: {
           brandId: brand.id,
@@ -768,7 +819,7 @@ export class OrdersService {
           addOnsSnapshot: addOnsSnapshot,
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: 0,
-          ...couponWriteData,
+          ...zeroWriteData,
         },
         select: { id: true, currency: true },
       });
@@ -780,8 +831,8 @@ export class OrdersService {
       await this.placeZeroRupeeOrder({
         orderId: created.id,
         brandId: brand.id,
-        couponId: resolvedCoupon?.couponId ?? null,
-        discountAmountPaise,
+        couponId: firstOrderFree ? null : (resolvedCoupon?.couponId ?? null),
+        discountAmountPaise: firstOrderFree ? 0 : discountAmountPaise,
       });
       return this.buildCheckoutSessionResult({
         orderId: created.id,
@@ -791,7 +842,9 @@ export class OrdersService {
         packageAmountPaise,
         addOnsAmountPaise,
         addOnsCount: addOnRows.length,
-        ...couponResultData,
+        ...(firstOrderFree
+          ? { grossAmountPaise: 0, discountAmountPaise: 0 }
+          : couponResultData),
         free: true,
       });
     }
@@ -1031,26 +1084,84 @@ export class OrdersService {
     }
 
     const currency = 'INR';
-    const grossTotalPaise = drafts.reduce(
-      (sum, d) => sum + d.draft.amountPaise,
+    type DraftForBulk = (typeof drafts)[number]['draft'];
+
+    // "First order free": each promo creator's first order for this brand is
+    // free (₹0). Only the first occurrence per creator in this cart is free.
+    const freeSet = await this.firstOrderFreeEligibleCreatorIds(
+      brand.id,
+      drafts.map((d) => d.draft.pkg.creatorId),
+    );
+    const consumedFree = new Set<string>();
+    const enriched = drafts.map(({ draft }) => {
+      const creatorId = draft.pkg.creatorId;
+      const free = freeSet.has(creatorId) && !consumedFree.has(creatorId);
+      if (free) consumedFree.add(creatorId);
+      return { draft, free, childGross: draft.amountPaise };
+    });
+
+    // A cart-level coupon applies only to the PAID (non-free) items. Its discount
+    // is split across those in proportion to their gross.
+    const paidIndexes = enriched
+      .map((e, i) => (e.free ? -1 : i))
+      .filter((i) => i >= 0);
+    const couponGrossTotalPaise = paidIndexes.reduce(
+      (sum, i) => sum + enriched[i].childGross,
       0,
     );
-
-    // Cart-level coupon: one coupon for the whole payment. The discount is
-    // computed on the grand total, then split across the child orders in
-    // proportion to their gross so each order records its own share (and the
-    // sum of child nets equals the batch net that Razorpay charges).
-    const resolvedCoupon = await this.coupons.resolveForCheckout({
-      code: params.couponCode,
-      brandId: brand.id,
-      grossPaise: grossTotalPaise,
-    });
+    const resolvedCoupon =
+      couponGrossTotalPaise > 0
+        ? await this.coupons.resolveForCheckout({
+            code: params.couponCode,
+            brandId: brand.id,
+            grossPaise: couponGrossTotalPaise,
+          })
+        : null;
     const totalDiscountPaise = resolvedCoupon?.discountAmountPaise ?? 0;
-    const netTotalPaise = grossTotalPaise - totalDiscountPaise;
-    const perOrderDiscount = allocateDiscountAcrossOrders(
-      drafts.map((d) => d.draft.amountPaise),
+    const paidDiscounts = allocateDiscountAcrossOrders(
+      paidIndexes.map((i) => enriched[i].childGross),
       totalDiscountPaise,
     );
+    const discountByIndex = new Map<number, number>();
+    paidIndexes.forEach((i, k) => discountByIndex.set(i, paidDiscounts[k]));
+
+    type PlanItem = {
+      draft: DraftForBulk;
+      free: boolean;
+      childGross: number;
+      childDiscount: number;
+      childNet: number;
+    };
+    const plan: PlanItem[] = enriched.map((e, i) => {
+      const childDiscount = e.free ? 0 : (discountByIndex.get(i) ?? 0);
+      const childNet = e.free ? 0 : e.childGross - childDiscount;
+      return { ...e, childDiscount, childNet };
+    });
+    const netTotalPaise = plan.reduce((sum, p) => sum + p.childNet, 0);
+
+    // Per-child order fields (status/paidAt/checkoutBatchId are added per branch).
+    const buildChildData = (p: PlanItem) => ({
+      brandId: brand.id,
+      creatorId: p.draft.pkg.creatorId,
+      creatorPackageId: p.draft.pkg.id,
+      packageNameSnapshot: p.draft.pkg.name,
+      deliverablesSnapshot: p.draft.pkg
+        .deliverables as unknown as Prisma.InputJsonValue,
+      priceAmountSnapshot: p.draft.pkg.priceAmount,
+      currency,
+      deliveryDaysSnapshot: p.draft.effectiveDeliveryDays,
+      maxRevisionsSnapshot: p.draft.maxRevisionsSnapshot,
+      addOnsSnapshot: p.draft.addOnsSnapshot,
+      addOnsTotalSnapshot: p.draft.addOnsTotalDecimal,
+      expectedAmountPaise: p.childNet,
+      isFreeOrder: p.free,
+      couponId: p.free ? null : (resolvedCoupon?.couponId ?? null),
+      couponCodeSnapshot: p.free ? null : (resolvedCoupon?.code ?? null),
+      couponNameSnapshot: p.free ? null : (resolvedCoupon?.name ?? null),
+      discountTypeSnapshot: p.free ? null : (resolvedCoupon?.discountType ?? null),
+      discountAmountPaise: p.childDiscount,
+      grossAmountPaise: p.free ? 0 : p.childGross,
+    });
 
     // Zero-rupee cart: a full-value (e.g. 100%) coupon covers the whole cart, so
     // there is nothing to charge. Place every order directly and skip Razorpay.
@@ -1068,39 +1179,18 @@ export class OrdersService {
               couponCodeSnapshot: resolvedCoupon?.code ?? null,
               couponNameSnapshot: resolvedCoupon?.name ?? null,
               discountAmountPaise: totalDiscountPaise,
-              grossAmountPaise: grossTotalPaise,
+              grossAmountPaise: couponGrossTotalPaise,
             },
             select: { id: true },
           });
           const ids: string[] = [];
-          for (let i = 0; i < drafts.length; i++) {
-            const { draft } = drafts[i];
-            const childGross = draft.amountPaise;
-            const childDiscount = perOrderDiscount[i];
+          for (const p of plan) {
             const order = await tx.order.create({
               data: {
-                brandId: brand.id,
-                creatorId: draft.pkg.creatorId,
-                creatorPackageId: draft.pkg.id,
+                ...buildChildData(p),
                 status: 'BRIEF_SUBMISSION_PENDING',
                 paidAt: new Date(),
-                packageNameSnapshot: draft.pkg.name,
-                deliverablesSnapshot: draft.pkg
-                  .deliverables as unknown as Prisma.InputJsonValue,
-                priceAmountSnapshot: draft.pkg.priceAmount,
-                currency,
-                deliveryDaysSnapshot: draft.effectiveDeliveryDays,
-                maxRevisionsSnapshot: draft.maxRevisionsSnapshot,
-                addOnsSnapshot: draft.addOnsSnapshot,
-                addOnsTotalSnapshot: draft.addOnsTotalDecimal,
-                expectedAmountPaise: childGross - childDiscount,
                 checkoutBatchId: batch.id,
-                couponId: resolvedCoupon?.couponId ?? null,
-                couponCodeSnapshot: resolvedCoupon?.code ?? null,
-                couponNameSnapshot: resolvedCoupon?.name ?? null,
-                discountTypeSnapshot: resolvedCoupon?.discountType ?? null,
-                discountAmountPaise: childDiscount,
-                grossAmountPaise: childGross,
               },
               select: { id: true },
             });
@@ -1129,7 +1219,7 @@ export class OrdersService {
         });
       }
       this.logger.log(
-        `bulk zero-rupee batch=${batchId} orders=${orderIds.length} grossPaise=${grossTotalPaise} (no Razorpay)`,
+        `bulk zero-rupee batch=${batchId} orders=${orderIds.length} grossPaise=${couponGrossTotalPaise} free=${consumedFree.size} (no Razorpay)`,
       );
       return {
         batchId,
@@ -1140,7 +1230,7 @@ export class OrdersService {
         orderCount: orderIds.length,
         orderIds,
         skipped,
-        grossAmountPaise: grossTotalPaise,
+        grossAmountPaise: couponGrossTotalPaise,
         discountAmountPaise: totalDiscountPaise,
         ...(resolvedCoupon ? { couponCode: resolvedCoupon.code } : {}),
         free: true,
@@ -1158,39 +1248,18 @@ export class OrdersService {
           couponCodeSnapshot: resolvedCoupon?.code ?? null,
           couponNameSnapshot: resolvedCoupon?.name ?? null,
           discountAmountPaise: totalDiscountPaise,
-          grossAmountPaise: grossTotalPaise,
+          grossAmountPaise: couponGrossTotalPaise,
         },
         select: { id: true },
       });
 
       const ids: string[] = [];
-      for (let i = 0; i < drafts.length; i++) {
-        const { draft } = drafts[i];
-        const childGross = draft.amountPaise;
-        const childDiscount = perOrderDiscount[i];
+      for (const p of plan) {
         const order = await tx.order.create({
           data: {
-            brandId: brand.id,
-            creatorId: draft.pkg.creatorId,
-            creatorPackageId: draft.pkg.id,
+            ...buildChildData(p),
             status: 'PENDING_PAYMENT',
-            packageNameSnapshot: draft.pkg.name,
-            deliverablesSnapshot: draft.pkg
-              .deliverables as unknown as Prisma.InputJsonValue,
-            priceAmountSnapshot: draft.pkg.priceAmount,
-            currency,
-            deliveryDaysSnapshot: draft.effectiveDeliveryDays,
-            maxRevisionsSnapshot: draft.maxRevisionsSnapshot,
-            addOnsSnapshot: draft.addOnsSnapshot,
-            addOnsTotalSnapshot: draft.addOnsTotalDecimal,
-            expectedAmountPaise: childGross - childDiscount,
             checkoutBatchId: batch.id,
-            couponId: resolvedCoupon?.couponId ?? null,
-            couponCodeSnapshot: resolvedCoupon?.code ?? null,
-            couponNameSnapshot: resolvedCoupon?.name ?? null,
-            discountTypeSnapshot: resolvedCoupon?.discountType ?? null,
-            discountAmountPaise: childDiscount,
-            grossAmountPaise: childGross,
           },
           select: { id: true },
         });
@@ -1219,7 +1288,7 @@ export class OrdersService {
     });
 
     this.logger.log(
-      `bulk checkout batch=${batchId} orders=${orderIds.length} skipped=${skipped.length} grossPaise=${grossTotalPaise} discountPaise=${totalDiscountPaise} netPaise=${netTotalPaise}`,
+      `bulk checkout batch=${batchId} orders=${orderIds.length} skipped=${skipped.length} free=${consumedFree.size} grossPaise=${couponGrossTotalPaise} discountPaise=${totalDiscountPaise} netPaise=${netTotalPaise}`,
     );
 
     return {
@@ -1231,7 +1300,7 @@ export class OrdersService {
       orderCount: orderIds.length,
       orderIds,
       skipped,
-      grossAmountPaise: grossTotalPaise,
+      grossAmountPaise: couponGrossTotalPaise,
       discountAmountPaise: totalDiscountPaise,
       ...(resolvedCoupon ? { couponCode: resolvedCoupon.code } : {}),
     };
@@ -3069,6 +3138,7 @@ export class OrdersService {
       discountTypeSnapshot?: string | null;
       discountAmountPaise?: number;
       grossAmountPaise?: number;
+      isFreeOrder?: boolean;
     } & Parameters<OrdersService['mapOrderDetails']>[0],
   ): OrderDetailsAdminDto {
     return {
@@ -3076,6 +3146,7 @@ export class OrdersService {
       razorpayOrderId: order.razorpayOrderId,
       razorpayPaymentId: order.razorpayPaymentId,
       razorpayRefundId: order.razorpayRefundId,
+      isFreeOrder: !!order.isFreeOrder,
       coupon: order.couponCodeSnapshot
         ? {
             code: order.couponCodeSnapshot,
@@ -3616,6 +3687,7 @@ export class OrdersService {
         discountTypeSnapshot: true,
         discountAmountPaise: true,
         grossAmountPaise: true,
+        isFreeOrder: true,
         cancellationReason: true,
         cancelledAt: true,
         cancelledByUserId: true,

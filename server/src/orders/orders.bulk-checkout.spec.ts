@@ -43,6 +43,14 @@ describe('OrdersService bulk checkout', () => {
       creatorAddOnOption: {
         findUnique: jest.fn(() => Promise.resolve({ name: 'Revision' })),
       },
+      // No "first order free" creators by default; the eligibility helper reads
+      // enabled profiles and the brand's prior paid orders.
+      creatorProfile: {
+        findMany: jest.fn(() => Promise.resolve([])),
+      },
+      order: {
+        findMany: jest.fn(() => Promise.resolve([])),
+      },
       $transaction: jest.fn((cb: any) =>
         cb({
           orderCheckoutBatch: {
@@ -72,10 +80,13 @@ describe('OrdersService bulk checkout', () => {
       recordRedemption: jest.fn(() => Promise.resolve()),
     };
 
+    const orderRealtime = {
+      emitOrderPayment: jest.fn(() => Promise.resolve()),
+    };
     const service = new OrdersService(
       prisma as any,
       razorpay as any,
-      {} as any,
+      orderRealtime as any,
       {} as any,
       {} as any,
       brandAccess as any,
@@ -83,7 +94,7 @@ describe('OrdersService bulk checkout', () => {
       {} as any,
       coupons as any,
     );
-    return { service, prisma, razorpay, created, coupons };
+    return { service, prisma, razorpay, created, coupons, orderRealtime };
   }
 
   it('creates one order per valid item and a single Razorpay order for the summed total', async () => {
@@ -115,6 +126,91 @@ describe('OrdersService bulk checkout', () => {
       // No Revision add-on selected → the fixed base of 2 revisions.
       expect(data.maxRevisionsSnapshot).toBe(2);
     }
+  });
+
+  it('places an all-free cart as a zero-rupee batch with no Razorpay call', async () => {
+    const { service, prisma, razorpay, created, orderRealtime } = makeService({
+      packages: { c1: pkgFor('c1', 1000), c2: pkgFor('c2', 2500) },
+    });
+    // Both creators have "first order free" enabled and no prior orders.
+    prisma.creatorProfile.findMany.mockResolvedValue([
+      { id: 'c1' },
+      { id: 'c2' },
+    ] as never);
+    prisma.order.findMany.mockResolvedValue([] as never);
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [
+        { creatorId: 'c1', packageId: 'pkg-c1' },
+        { creatorId: 'c2', packageId: 'pkg-c2' },
+      ],
+    });
+
+    expect(result.free).toBe(true);
+    expect(result.amountPaise).toBe(0);
+    expect(result.orderCount).toBe(2);
+    // No payment gateway for a fully-free cart.
+    expect(razorpay.createOrder).not.toHaveBeenCalled();
+    // Both child orders are free, already placed (creator paid ₹0).
+    for (const data of created) {
+      expect(data.isFreeOrder).toBe(true);
+      expect(data.expectedAmountPaise).toBe(0);
+      expect(data.grossAmountPaise).toBe(0);
+      expect(data.status).toBe('BRIEF_SUBMISSION_PENDING');
+      expect(data.couponId).toBeNull();
+    }
+    expect(orderRealtime.emitOrderPayment).toHaveBeenCalledTimes(2);
+  });
+
+  it('charges only the paid creator when one item is first-order-free', async () => {
+    const { service, prisma, razorpay, created } = makeService({
+      packages: { c1: pkgFor('c1', 1000), c2: pkgFor('c2', 2500) },
+    });
+    // Only c1 is first-order-free; c2 is a normal paid order.
+    prisma.creatorProfile.findMany.mockResolvedValue([{ id: 'c1' }] as never);
+    prisma.order.findMany.mockResolvedValue([] as never);
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [
+        { creatorId: 'c1', packageId: 'pkg-c1' },
+        { creatorId: 'c2', packageId: 'pkg-c2' },
+      ],
+    });
+
+    // Only c2's 2500 rupees are charged; c1 rides along free.
+    expect(result.free).toBeUndefined();
+    expect(result.amountPaise).toBe(250000);
+    expect(razorpay.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ amountPaise: 250000 }),
+    );
+    const free = created.find((d) => d.creatorId === 'c1')!;
+    const paid = created.find((d) => d.creatorId === 'c2')!;
+    expect(free.isFreeOrder).toBe(true);
+    expect(free.expectedAmountPaise).toBe(0);
+    expect(paid.isFreeOrder).toBe(false);
+    expect(paid.expectedAmountPaise).toBe(250000);
+  });
+
+  it('does not offer a free order once the brand has ordered from the creator', async () => {
+    const { service, prisma, razorpay } = makeService({
+      packages: { c1: pkgFor('c1', 1000) },
+    });
+    // c1 is enabled, but this brand already has a prior paid order with them.
+    prisma.creatorProfile.findMany.mockResolvedValue([{ id: 'c1' }] as never);
+    prisma.order.findMany.mockResolvedValue([{ creatorId: 'c1' }] as never);
+
+    const result = await service.createBulkCheckout({
+      actorUserId: 'u1',
+      items: [{ creatorId: 'c1', packageId: 'pkg-c1' }],
+    });
+
+    expect(result.free).toBeUndefined();
+    expect(result.amountPaise).toBe(100000);
+    expect(razorpay.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ amountPaise: 100000 }),
+    );
   });
 
   it('applies a cart-level coupon and splits the discount across child orders', async () => {

@@ -141,6 +141,19 @@ export class CreatorPublicListItemDto {
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
 
+  @ApiPropertyOptional({
+    example: true,
+    description: "Creator's 'first order free' promo is enabled.",
+  })
+  firstOrderFree?: boolean;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      "True when the promo is enabled AND the viewing brand hasn't yet ordered from this creator (their next order would be free). Only meaningful with a brand viewer.",
+  })
+  firstOrderFreeEligible?: boolean;
+
   @ApiProperty({
     type: [String],
     description: 'Language labels (legacy-friendly)',

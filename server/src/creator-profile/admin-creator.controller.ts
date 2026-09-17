@@ -24,6 +24,7 @@ import {
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
@@ -35,6 +36,7 @@ import {
 import {
   AdminCreatorListItemDto,
   AdminFeatureCreatorDto,
+  AdminFirstOrderFreeDto,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
   AdminCreatorSegmentCountsDto,
@@ -268,6 +270,21 @@ export class AdminCreatorController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     await this.creatorProfileService.unfeatureCreatorProfile(id);
+  }
+
+  @Patch(':id/first-order-free')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary:
+      "Enable/disable 'first order free' for a creator (super-admin only)",
+  })
+  @ApiOkResponse({ type: AdminCreatorListItemDto })
+  async setFirstOrderFree(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminFirstOrderFreeDto,
+  ): Promise<AdminCreatorListItemDto> {
+    return this.creatorProfileService.setFirstOrderFree(id, dto.enabled);
   }
 
   @Patch(':id')

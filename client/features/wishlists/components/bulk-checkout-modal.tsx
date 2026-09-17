@@ -112,8 +112,17 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
     return base + addOnTotal;
   };
 
+  // "First order free": this brand's first order with the creator is free, so
+  // that row contributes ₹0 and rides the batch without a payment step.
+  const isFreeCreator = (creator: WishlistCreator): boolean =>
+    Boolean(creator.firstOrderFreeEligible);
+
   const includedCreators = orderable.filter((c) => selection[c.id]?.included);
-  const grandTotal = includedCreators.reduce((sum, c) => sum + subtotalFor(c), 0);
+  const grandTotal = includedCreators.reduce(
+    (sum, c) => sum + (isFreeCreator(c) ? 0 : subtotalFor(c)),
+    0,
+  );
+  const freeIncludedCount = includedCreators.filter(isFreeCreator).length;
 
   const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(
     null,
@@ -236,7 +245,18 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
                     </div>
                   </label>
                   <div className="whitespace-nowrap text-right text-sm font-semibold">
-                    {inr(subtotalFor(creator))}
+                    {isFreeCreator(creator) ? (
+                      <span className="flex flex-col items-end">
+                        <span className="text-xs font-normal text-muted-foreground line-through">
+                          {inr(subtotalFor(creator))}
+                        </span>
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          Free
+                        </span>
+                      </span>
+                    ) : (
+                      inr(subtotalFor(creator))
+                    )}
                   </div>
                 </div>
 
@@ -322,7 +342,7 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
           )}
         </div>
 
-        {includedCreators.length > 0 && (
+        {includedCreators.length > 0 && grandTotal > 0 && (
           <div className="border-t border-border px-5 pt-4">
             <CouponInput
               coupons={coupons}
@@ -341,13 +361,18 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
             <p className="text-xs text-muted-foreground">
               {includedCreators.length} order
               {includedCreators.length === 1 ? "" : "s"}
+              {freeIncludedCount > 0
+                ? ` · ${freeIncludedCount} free`
+                : ""}
             </p>
             {discountRupees > 0 && selectedCoupon ? (
               <p className="text-xs font-medium text-primary">
                 {selectedCoupon.code}: −{inr(discountRupees)}
               </p>
             ) : null}
-            <p className="text-lg font-bold text-foreground">{inr(netTotal)}</p>
+            <p className="text-lg font-bold text-foreground">
+              {netTotal === 0 ? "Free" : inr(netTotal)}
+            </p>
           </div>
           <Button
             onClick={handlePay}
@@ -359,7 +384,11 @@ export function BulkCheckoutModal({ onClose, creators }: BulkCheckoutModalProps)
             ) : (
               <ShoppingBag className="size-4" />
             )}
-            {isProcessing ? "Processing..." : `Pay ${inr(netTotal)}`}
+            {isProcessing
+              ? "Processing..."
+              : netTotal === 0
+                ? `Place free order${includedCreators.length === 1 ? "" : "s"}`
+                : `Pay ${inr(netTotal)}`}
           </Button>
         </div>
       </div>

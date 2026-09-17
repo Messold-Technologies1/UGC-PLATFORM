@@ -595,6 +595,12 @@ export default function AdminOrderDetailsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">
+                  {order.isFreeOrder ? (
+                    <div className="mb-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-400">
+                      🎁 Free order — the creator&apos;s first order for this
+                      brand. Brand paid ₹0 and the creator is paid ₹0.
+                    </div>
+                  ) : null}
                   {(() => {
                     const led = order.pricingLedger!;
                     const inr = (paise: number) =>

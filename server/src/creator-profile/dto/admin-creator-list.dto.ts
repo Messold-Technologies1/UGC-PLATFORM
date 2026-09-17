@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -122,6 +123,12 @@ export class AdminCreatorListItemDto {
   @ApiProperty({ example: false })
   isFeatured!: boolean;
 
+  @ApiProperty({
+    example: false,
+    description: "This brand's first order with the creator is free (₹0)",
+  })
+  firstOrderFreeEnabled!: boolean;
+
   @ApiPropertyOptional({ example: 1, nullable: true })
   featureRank?: number | null;
 
@@ -204,6 +211,15 @@ export class AdminFeatureCreatorDto {
   @IsOptional()
   @IsDateString()
   featuredUntil?: string | null;
+}
+
+export class AdminFirstOrderFreeDto {
+  @ApiProperty({
+    example: true,
+    description: 'Enable or disable "first order free" for this creator',
+  })
+  @IsBoolean()
+  enabled!: boolean;
 }
 
 export class AdminCreatorSegmentCountsDto {

@@ -63,7 +63,10 @@ function mapCreatorAddOns(addOns: any): Array<{
     : [];
 }
 
-function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
+function mapCreatorToPublicListItem(
+  profile: any,
+  eligibleFreeCreatorIds?: Set<string>,
+): CreatorPublicListItemDto {
   const portfolioVideos = Array.isArray(profile.portfolioVideos)
     ? profile.portfolioVideos.map((v: any) => ({
         id: v.id,
@@ -113,6 +116,10 @@ function mapCreatorToPublicListItem(profile: any): CreatorPublicListItemDto {
     contentVolume: profile.contentVolume ?? null,
     collaborationCount: profile.collaborationCount ?? 0,
     onLocationAvailable: !!profile.onLocationAvailable,
+    firstOrderFree: !!profile.firstOrderFreeEnabled,
+    firstOrderFreeEligible: eligibleFreeCreatorIds
+      ? eligibleFreeCreatorIds.has(profile.id)
+      : undefined,
     languages: profileLanguages.map((l: any) => l.label),
     profileLanguages,
     facetSelections,
@@ -158,6 +165,36 @@ export class WishlistsService {
     private readonly prisma: PrismaService,
     private readonly brandAccess: BrandAccessService,
   ) {}
+
+  /**
+   * Among the given creators, which are "first order free" AND this brand has
+   * not yet placed an order with (any order that reached paidAt consumes the
+   * promo). Drives the per-brand card badge / ₹0 checkout in the wishlist.
+   */
+  private async firstOrderFreeEligibleForBrand(
+    brandId: string,
+    creatorIds: string[],
+  ): Promise<Set<string>> {
+    const ids = [...new Set(creatorIds.filter(Boolean))];
+    if (ids.length === 0) return new Set();
+    const enabled = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: ids }, firstOrderFreeEnabled: true },
+      select: { id: true },
+    });
+    const enabledIds = enabled.map((c) => c.id);
+    if (enabledIds.length === 0) return new Set();
+    const priorOrders = await this.prisma.order.findMany({
+      where: {
+        brandId,
+        creatorId: { in: enabledIds },
+        paidAt: { not: null },
+      },
+      select: { creatorId: true },
+      distinct: ['creatorId'],
+    });
+    const usedIds = new Set(priorOrders.map((o) => o.creatorId));
+    return new Set(enabledIds.filter((id) => !usedIds.has(id)));
+  }
 
   async listWishlists(params: {
     actorUserId: string;
@@ -256,8 +293,13 @@ export class WishlistsService {
     if (wishlist.brandId !== brand.id)
       throw new ForbiddenException('Not your wishlist');
 
+    const eligibleFreeCreatorIds = await this.firstOrderFreeEligibleForBrand(
+      brand.id,
+      wishlist.creators.map((wc: { creatorId: string }) => wc.creatorId),
+    );
+
     const creators = wishlist.creators.map((wc: any) => ({
-      ...mapCreatorToPublicListItem(wc.creator),
+      ...mapCreatorToPublicListItem(wc.creator, eligibleFreeCreatorIds),
       addOns: mapCreatorAddOns(wc.creator?.addOns),
       selectedAddOnIds: Array.isArray(wc.selectedAddOnIds)
         ? wc.selectedAddOnIds

@@ -324,7 +324,11 @@ export class CouponsService {
       coupon.discountValue,
       params.grossPaise,
     );
-    if (params.grossPaise - discountAmountPaise < MIN_NET_PAISE) {
+    // A net of exactly ₹0 (e.g. a 100% coupon) is allowed — checkout places it
+    // as a zero-rupee order without Razorpay. Only the tiny-but-nonzero range
+    // below ₹1 is rejected, since Razorpay cannot charge less than ₹1.
+    const netPaise = params.grossPaise - discountAmountPaise;
+    if (netPaise > 0 && netPaise < MIN_NET_PAISE) {
       throw new BadRequestException(
         'This coupon cannot be applied to an order this small',
       );

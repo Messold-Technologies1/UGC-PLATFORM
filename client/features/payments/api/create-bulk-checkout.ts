@@ -35,6 +35,8 @@ export type BulkCheckoutSession = {
   discountAmountPaise?: number;
   /** Applied coupon code, when a coupon reduced the cart charge. */
   couponCode?: string;
+  /** True when the cart net is ₹0: orders are already placed, no Razorpay. */
+  free?: boolean;
 };
 
 export async function createBulkCheckout(

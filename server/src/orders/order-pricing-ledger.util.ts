@@ -35,7 +35,13 @@ export type OrderPricingLedger = {
   refundToBrandPaise: number;
   /** Base + add-ons + used extras (what the order actually earned). */
   earnedPaise: number;
-  /** 20% of earned. */
+  /**
+   * The amount the platform fee is charged on: the PRE-coupon base + add-ons
+   * (gross) plus used extras. A coupon discount does not shrink the platform's
+   * fee — it comes out of the creator's payout.
+   */
+  platformFeeBasePaise: number;
+  /** 20% of platformFeeBasePaise (the gross base), not of the discounted net. */
   platformFeePaise: number;
   /** earned − platform fee — owed to the creator. */
   payToCreatorPaise: number;
@@ -60,8 +66,20 @@ export function computeOrderPricingLedger(input: {
   paidPurchases: PaidRevisionPurchase[];
   /** Rejected/refunded orders: brand gets everything back; creator/platform get 0. */
   fullRefundToBrand?: boolean;
+  /**
+   * Pre-coupon base + add-ons (the order's grossAmountPaise). The platform fee
+   * is charged on THIS, not on the discounted net. Defaults to the net base
+   * when omitted or 0 (non-coupon orders: gross === net).
+   */
+  grossBasePlusAddOnsPaise?: number;
 }): OrderPricingLedger {
   const basePlusAddOnsPaise = Math.max(0, Math.round(input.expectedAmountPaise));
+  // The fee base is the gross (pre-coupon) base when a coupon was applied; for
+  // non-coupon orders gross === net, so fall back to the net base.
+  const grossBasePlusAddOnsPaise = Math.max(
+    basePlusAddOnsPaise,
+    Math.round(input.grossBasePlusAddOnsPaise ?? 0),
+  );
 
   const purchases = [...input.paidPurchases].sort((a, b) => {
     const ta = a.paidAt ? a.paidAt.getTime() : 0;
@@ -114,13 +132,21 @@ export function computeOrderPricingLedger(input: {
       extraRevisionsUnused,
       refundToBrandPaise: brandPaidPaise,
       earnedPaise: 0,
+      platformFeeBasePaise: 0,
       platformFeePaise: 0,
       payToCreatorPaise: 0,
     };
   }
 
   const earnedPaise = basePlusAddOnsPaise + usedExtrasPaise;
-  const platformFeePaise = Math.round(earnedPaise * PLATFORM_FEE_RATE);
+  // Fee is 20% of the GROSS base (+ used extras), not of the discounted net.
+  const platformFeeBasePaise = grossBasePlusAddOnsPaise + usedExtrasPaise;
+  // Never charge more than what was earned (guards against very large coupons
+  // driving the fee above the net payable), so the creator payout stays ≥ 0.
+  const platformFeePaise = Math.min(
+    earnedPaise,
+    Math.round(platformFeeBasePaise * PLATFORM_FEE_RATE),
+  );
   const payToCreatorPaise = earnedPaise - platformFeePaise;
 
   return {
@@ -132,6 +158,7 @@ export function computeOrderPricingLedger(input: {
     extraRevisionsUnused,
     refundToBrandPaise,
     earnedPaise,
+    platformFeeBasePaise,
     platformFeePaise,
     payToCreatorPaise,
   };

@@ -391,6 +391,8 @@ export interface OrderPricingLedgerDto {
   extraRevisionsUnused: number;
   refundToBrandPaise: number;
   earnedPaise: number;
+  /** Amount the platform fee is charged on (pre-coupon gross base + used extras). */
+  platformFeeBasePaise: number;
   platformFeePaise: number;
   payToCreatorPaise: number;
 }

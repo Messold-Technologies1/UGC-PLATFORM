@@ -3507,6 +3507,10 @@ export class OrdersService {
       })),
       fullRefundToBrand:
         order.status === 'REJECTED' || order.status === 'REFUNDED',
+      // Charge the platform fee on the pre-coupon (gross) base when a coupon
+      // was applied; grossAmountPaise is 0 for old/non-coupon orders → the
+      // util falls back to the net base.
+      grossBasePlusAddOnsPaise: order.grossAmountPaise,
     });
     mappedOrder.revisionPurchases = paidPurchases.map((p) => ({
       revisionsAdded: p.revisionsAdded,

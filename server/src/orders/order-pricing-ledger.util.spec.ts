@@ -22,6 +22,36 @@ describe('computeOrderPricingLedger', () => {
     );
   });
 
+  it('coupon order: platform fee is 20% of the GROSS base, not the net', () => {
+    // ₹4900 gross, ₹500 coupon → ₹4400 net (brand paid). Fee = 20% of 4900.
+    const l = computeOrderPricingLedger({
+      expectedAmountPaise: 440000, // net
+      grossBasePlusAddOnsPaise: 490000, // gross (pre-coupon)
+      maxRevisionsSnapshot: 1,
+      revisionCount: 1,
+      paidPurchases: [],
+    });
+    expect(l.brandPaidPaise).toBe(440000);
+    expect(l.platformFeeBasePaise).toBe(490000);
+    expect(l.platformFeePaise).toBe(98000); // 20% of 4900, not of 4400
+    expect(l.payToCreatorPaise).toBe(342000); // 4400 − 980
+    // Still balances.
+    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
+      l.brandPaidPaise,
+    );
+  });
+
+  it('non-coupon order: fee base falls back to the net base', () => {
+    const l = computeOrderPricingLedger({
+      expectedAmountPaise: 100000,
+      maxRevisionsSnapshot: 1,
+      revisionCount: 1,
+      paidPurchases: [],
+    });
+    expect(l.platformFeeBasePaise).toBe(100000);
+    expect(l.platformFeePaise).toBe(20000);
+  });
+
   it('all purchased extras used: full value earned, refund 0', () => {
     // base cap 1, bought 1 pack (+2), used all 3 (revisionCount 3).
     const l = computeOrderPricingLedger({

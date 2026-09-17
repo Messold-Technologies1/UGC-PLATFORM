@@ -3507,6 +3507,8 @@ export class OrdersService {
       })),
       fullRefundToBrand:
         order.status === 'REJECTED' || order.status === 'REFUNDED',
+      // "No platform fee" coupon: creator is paid in full, platform fee is 0.
+      waivePlatformFee: order.discountTypeSnapshot === 'PLATFORM_FEE_WAIVER',
     });
     mappedOrder.revisionPurchases = paidPurchases.map((p) => ({
       revisionsAdded: p.revisionsAdded,

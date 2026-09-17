@@ -228,20 +228,13 @@ function AdminCouponsPageInner() {
 
   return (
     <div className="space-y-8 p-8">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
-          Coupons &amp; offers
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Discount codes and free-order perks brands get at checkout.
-        </p>
-      </div>
-
       <Tabs defaultValue="coupons" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="coupons">Coupons</TabsTrigger>
-          <TabsTrigger value="free-creators">Free creators</TabsTrigger>
-        </TabsList>
+        <div className="flex justify-center">
+          <TabsList>
+            <TabsTrigger value="coupons">Coupons</TabsTrigger>
+            <TabsTrigger value="free-creators">Free creators</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="coupons" className="space-y-6">
           <div className="flex items-center justify-between gap-4">

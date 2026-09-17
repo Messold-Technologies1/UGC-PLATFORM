@@ -36,6 +36,7 @@ import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-face
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
 import { useCreatorAddOnsForm } from "@/features/creators/hooks/use-creator-add-ons-form";
 import { useSocialConnectionsQuery } from "@/features/creators/hooks/use-social-connections";
+import { usePublicInstagramInsightsQuery } from "@/features/creators/hooks/use-public-instagram-insights";
 import {
   useSubmitCreatorProfileMutation,
   useWithdrawCreatorProfileMutation,
@@ -239,12 +240,22 @@ export function CreatorProfileWizard({
   const socialConnectionsQuery = useSocialConnectionsQuery({
     enabled: !adminMode && Boolean(user),
   });
-  const instagramConnected =
-    adminMode ||
-    (socialConnectionsQuery.data ?? []).some(
-      (connection) =>
-        connection.platform === "INSTAGRAM" && connection.status === "ACTIVE",
-    );
+  // Admins can't read a creator's own /social/connections (that endpoint returns
+  // the signed-in user's accounts), so read the creator's REAL Instagram state
+  // from the public insights endpoint instead. Previously admin mode hardcoded
+  // `instagramConnected = true`, which wrongly counted the Instagram weight in
+  // Profile Strength (showing 100% for a creator with no Instagram).
+  const adminInstagramInsightsQuery = usePublicInstagramInsightsQuery(
+    profileId,
+    { enabled: adminMode },
+  );
+  const instagramConnected = adminMode
+    ? Boolean(adminInstagramInsightsQuery.data?.connected)
+    : (socialConnectionsQuery.data ?? []).some(
+        (connection) =>
+          connection.platform === "INSTAGRAM" &&
+          connection.status === "ACTIVE",
+      );
 
   /**
    * Drives the Instagram option in the add-reel chooser. Admin mode always

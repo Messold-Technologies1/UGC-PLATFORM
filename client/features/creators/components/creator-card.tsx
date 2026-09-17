@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, MapPin, ArrowRight } from "lucide-react";
+import { Play, MapPin, ArrowRight, Gift } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
@@ -264,6 +264,29 @@ export const CreatorCard = memo(function CreatorCard({
             <Play size={18} />
           </div>
         </div>
+
+        {creator.firstOrderFreeEligible ? (
+          <div
+            style={{
+              position: "absolute",
+              left: 10,
+              bottom: 62,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "3px 8px",
+              borderRadius: 999,
+              background: "linear-gradient(90deg,#16a34a,#22c55e)",
+              color: "#fff",
+              fontSize: 11,
+              fontWeight: 700,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+              zIndex: 2,
+            }}
+          >
+            <Gift size={12} /> First order free
+          </div>
+        ) : null}
 
         <div className="who">
           <div className="nm">{priceLabel}</div>

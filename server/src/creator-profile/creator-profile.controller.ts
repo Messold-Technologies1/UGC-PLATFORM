@@ -24,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
+import { readBrandProfileIdFromRequest } from '../brand-access/brand-context.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
@@ -154,16 +155,21 @@ export class CreatorProfileController {
   }
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
     summary: 'List creators (paginated)',
     description:
-      'Discovery list for brands and guests: does not include phone numbers or Instagram URLs. Use admin pending-approvals or creator detail as admin/owner for those fields.',
+      'Discovery list for brands and guests: does not include phone numbers or Instagram URLs. Use admin pending-approvals or creator detail as admin/owner for those fields. When a brand is signed in, each card carries a per-brand "first order free" eligibility flag.',
   })
   @ApiOkResponse({ type: CreatorsPublicListResponseDto })
   async listCreators(
     @Query() query: ListCreatorsQueryDto,
+    @Req() req: Request & { user?: { id: string } },
   ): Promise<CreatorsPublicListResponseDto> {
-    return this.creatorProfileService.listCreators(query);
+    return this.creatorProfileService.listCreators(query, {
+      actorUserId: req.user?.id ?? null,
+      brandProfileId: readBrandProfileIdFromRequest(req),
+    });
   }
 
   @Get('facet-options')
@@ -352,6 +358,7 @@ export class CreatorProfileController {
     return this.creatorProfileService.getCreatorByPublicSlug(
       req.user?.id ?? null,
       slug,
+      readBrandProfileIdFromRequest(req),
     );
   }
 
@@ -380,7 +387,11 @@ export class CreatorProfileController {
     @Req()
     req: Request & { user?: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.getCreatorById(req.user?.id ?? null, id);
+    return this.creatorProfileService.getCreatorById(
+      req.user?.id ?? null,
+      id,
+      readBrandProfileIdFromRequest(req),
+    );
   }
 
   @Patch(':id')

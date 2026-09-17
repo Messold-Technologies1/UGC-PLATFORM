@@ -219,6 +219,8 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/send-for-review`,
       FEATURE: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/feature`,
+      FIRST_ORDER_FREE: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/first-order-free`,
       PAYOUT_DETAILS: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/payout-details`,
     },

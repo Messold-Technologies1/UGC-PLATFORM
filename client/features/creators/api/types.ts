@@ -89,6 +89,8 @@ export type CreatorPublicListItemApi = {
   completedOrders?: number;
   totalOrders?: number;
   onLocationAvailable: boolean;
+  firstOrderFree?: boolean;
+  firstOrderFreeEligible?: boolean;
   languages: string[];
   profileLanguages?: CreatorProfileStructuredLanguageApi[];
   facetSelections?: CreatorProfileFacetSelectionApi[];
@@ -162,6 +164,8 @@ export type CreatorProfileItemApi = {
   completeProfile?: boolean;
   /** Discovery gate = approved AND completeProfile. */
   isListed?: boolean;
+  firstOrderFree?: boolean;
+  firstOrderFreeEligible?: boolean;
   /** Whether the creator has accepted the Go-Live policies. */
   acceptedGoLivePolicies?: boolean;
   available?: boolean;

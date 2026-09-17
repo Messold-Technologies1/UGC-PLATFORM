@@ -26,6 +26,13 @@ export interface Creator {
   /** Present when unavailable now — ISO date YYYY-MM-DD */
   unavailableFrom?: string | null;
   unavailableTo?: string | null;
+  /** "First order free" promo is enabled for this creator. */
+  firstOrderFree?: boolean;
+  /**
+   * The signed-in brand hasn't ordered from this creator yet, so their next
+   * order would be free (₹0, no payment). Only meaningful for a brand viewer.
+   */
+  firstOrderFreeEligible?: boolean;
 }
 
 export interface CreatorProfile extends Creator {

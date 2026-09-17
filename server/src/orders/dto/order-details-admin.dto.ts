@@ -123,6 +123,13 @@ export class OrderDetailsAdminDto extends OrderDetailsPublicDto {
   })
   coupon?: OrderCouponDto | null;
 
+  @ApiProperty({
+    description:
+      "Placed under the creator's 'first order free' promo: brand paid ₹0 and the creator is paid ₹0.",
+    example: false,
+  })
+  isFreeOrder!: boolean;
+
   @ApiPropertyOptional()
   razorpayOrderId?: string | null;
 

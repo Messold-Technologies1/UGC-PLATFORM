@@ -267,6 +267,7 @@ export class AdminOrdersController {
       orderId: state.orderId,
       brandUserId: state.brandUserId,
       creatorUserId: state.creatorUserId,
+      isChatWritable: true,
       brandLastReadMessageId: state.brandLastReadMessageId,
       brandLastReadAt: state.brandLastReadAt?.toISOString(),
       creatorLastReadMessageId: state.creatorLastReadMessageId,

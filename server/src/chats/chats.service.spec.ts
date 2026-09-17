@@ -68,6 +68,15 @@ describe('ChatsService', () => {
       expect(result.items[1].lastMessage).toBeUndefined();
       expect(prisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({
+            status: {
+              notIn: expect.arrayContaining([
+                OrderStatus.PENDING_PAYMENT,
+                OrderStatus.BRIEF_SUBMISSION_PENDING,
+                OrderStatus.BRIEF_SUBMITTED,
+              ]),
+            },
+          }),
           orderBy: { lastChatActivityAt: 'desc' },
           skip: 0,
           take: 20,
@@ -117,7 +126,20 @@ describe('ChatsService', () => {
 
       expect(result.items).toHaveLength(1);
       expect(result.items[0].isChatLocked).toBe(true);
-      expect(result.items[0].creator.displayName).toBe('Riya');
+      expect(result.items[0].creator.displayName).toBe('Creator');
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: {
+              notIn: expect.arrayContaining([
+                OrderStatus.PENDING_PAYMENT,
+                OrderStatus.BRIEF_SUBMISSION_PENDING,
+                OrderStatus.BRIEF_SUBMITTED,
+              ]),
+            },
+          }),
+        }),
+      );
     });
   });
 });

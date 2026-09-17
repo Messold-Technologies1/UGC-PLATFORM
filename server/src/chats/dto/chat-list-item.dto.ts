@@ -14,7 +14,10 @@ export class CreatorChatListItemDto {
   @ApiProperty()
   packageName!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'True when the creator has not accepted yet, or the order is completed/cancelled.',
+  })
   isChatLocked!: boolean;
 
   @ApiProperty({ type: ChatBrandCounterpartyDto })
@@ -40,7 +43,10 @@ export class BrandChatListItemDto {
   @ApiProperty()
   packageName!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'True when the creator has not accepted yet, or the order is completed/cancelled.',
+  })
   isChatLocked!: boolean;
 
   @ApiProperty({ type: ChatCreatorCounterpartyDto })

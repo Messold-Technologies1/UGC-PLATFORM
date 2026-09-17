@@ -29,6 +29,8 @@ export interface OrderChatStateDto {
   orderId: string;
   brandUserId: string;
   creatorUserId: string;
+  /** False until the creator accepts the brief. */
+  isChatWritable?: boolean;
   brandLastReadMessageId?: string;
   brandLastReadAt?: string;
   creatorLastReadMessageId?: string;

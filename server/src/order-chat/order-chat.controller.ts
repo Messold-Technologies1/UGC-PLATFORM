@@ -65,7 +65,10 @@ export class OrderChatController {
 
   @Post(':id/chat/messages/voice')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Send a voice message in an order chat (order participant only)' })
+  @ApiOperation({
+    summary:
+      'Send a voice message in an order chat (order participant only; blocked until the creator accepts)',
+  })
   @ApiCreatedResponse({ type: OrderChatMessageDto })
   async sendVoiceMessage(
     @Param('id', ParseUUIDPipe) orderId: string,
@@ -84,7 +87,10 @@ export class OrderChatController {
 
   @Post(':id/chat/messages')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Send a text message in an order chat (order participant only)' })
+  @ApiOperation({
+    summary:
+      'Send a text message in an order chat (order participant only; blocked until the creator accepts)',
+  })
   @ApiCreatedResponse({ type: OrderChatMessageDto })
   async sendMessage(
     @Param('id', ParseUUIDPipe) orderId: string,
@@ -134,6 +140,7 @@ export class OrderChatController {
       orderId: state.orderId,
       brandUserId: state.brandUserId,
       creatorUserId: state.creatorUserId,
+      isChatWritable: state.isChatWritable,
       brandLastReadMessageId: state.brandLastReadMessageId,
       brandLastReadAt: state.brandLastReadAt?.toISOString(),
       creatorLastReadMessageId: state.creatorLastReadMessageId,

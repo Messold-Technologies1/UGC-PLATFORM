@@ -21,6 +21,8 @@ import {
 } from "./conversation-list";
 import {
   formatChatInboxPreview,
+  isOrderChatNotYetOpen,
+  orderChatReadOnlyMessage,
   type BrandChatListItemDto,
   type CreatorChatListItemDto,
 } from "@/features/chats/api/order-chats";
@@ -160,6 +162,7 @@ function mapBrandChat(
     },
     isChatLocked:
       item.isChatLocked ||
+      isOrderChatNotYetOpen(item.status) ||
       ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(
         item.status.toUpperCase(),
       ),
@@ -194,6 +197,7 @@ function mapCreatorChat(
     brand: item.brand,
     isChatLocked:
       item.isChatLocked ||
+      isOrderChatNotYetOpen(item.status) ||
       ["COMPLETED", "CANCELLED", "EXPIRED", "REFUNDED"].includes(
         item.status.toUpperCase(),
       ),
@@ -443,7 +447,14 @@ function ActiveOrderConversation({
       onSendMessage={handleSendMessage}
       onSendVoiceMessage={handleSendVoiceMessage}
       participants={participants}
-      readOnly={conversation.isChatLocked}
+      readOnly={
+        conversation.isChatLocked || state.isChatWritable === false
+      }
+      readOnlyMessage={orderChatReadOnlyMessage({
+        role,
+        status: conversation.order.status,
+        isChatWritable: state.isChatWritable,
+      })}
       sendError={
         sendMessageMutation.error?.message ||
         sendVoiceMessageMutation.error?.message

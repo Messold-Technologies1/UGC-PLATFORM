@@ -10,6 +10,12 @@ export class OrderChatStateDto {
   @ApiProperty()
   creatorUserId!: string;
 
+  @ApiProperty({
+    description:
+      'False until the creator accepts the brief. Participants cannot send messages until then.',
+  })
+  isChatWritable!: boolean;
+
   @ApiPropertyOptional()
   brandLastReadMessageId?: string;
 

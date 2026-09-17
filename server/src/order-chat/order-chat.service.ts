@@ -20,7 +20,11 @@ import { OrderChatRealtimeNotifier } from './order-chat-realtime.notifier';
 type OrderChatParticipants = {
   brandUserId: string;
   creatorUserId: string;
+  briefAcceptedAt: Date | null;
 };
+
+const CHAT_OPENS_AFTER_ACCEPT_MESSAGE =
+  'Chat opens after the creator accepts this order';
 
 const MESSAGE_SELECT = {
   id: true,
@@ -73,6 +77,7 @@ export class OrderChatService {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
+        briefAcceptedAt: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
@@ -81,7 +86,11 @@ export class OrderChatService {
     const brandUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
       order.brand.id,
     );
-    return { brandUserId, creatorUserId: order.creator.userId };
+    return {
+      brandUserId,
+      creatorUserId: order.creator.userId,
+      briefAcceptedAt: order.briefAcceptedAt,
+    };
   }
 
   async getOrderChatParticipantsForAdmin(orderId: string): Promise<OrderChatParticipants> {
@@ -97,6 +106,20 @@ export class OrderChatService {
       params.viewerUserId === participants.brandUserId ||
       params.viewerUserId === participants.creatorUserId;
     if (!ok) throw new ForbiddenException('Not allowed to access this order chat');
+    return participants;
+  }
+
+  private async assertOrderChatWritable(params: {
+    orderId: string;
+    senderUserId: string;
+  }): Promise<OrderChatParticipants> {
+    const participants = await this.assertOrderChatAccess({
+      orderId: params.orderId,
+      viewerUserId: params.senderUserId,
+    });
+    if (!participants.briefAcceptedAt) {
+      throw new BadRequestException(CHAT_OPENS_AFTER_ACCEPT_MESSAGE);
+    }
     return participants;
   }
 
@@ -238,9 +261,9 @@ export class OrderChatService {
     contentType: string;
     contentLength?: number;
   }): Promise<PresignedUploadResult> {
-    await this.assertOrderChatAccess({
+    await this.assertOrderChatWritable({
       orderId: params.orderId,
-      viewerUserId: params.senderUserId,
+      senderUserId: params.senderUserId,
     });
 
     let key: string;
@@ -268,9 +291,9 @@ export class OrderChatService {
     text: string;
     clientMessageId?: string;
   }): Promise<FormattedOrderChatMessage> {
-    await this.assertOrderChatAccess({
+    await this.assertOrderChatWritable({
       orderId: params.orderId,
-      viewerUserId: params.senderUserId,
+      senderUserId: params.senderUserId,
     });
 
     const text = params.text.trim();
@@ -302,9 +325,9 @@ export class OrderChatService {
     audioDurationMs: number;
     clientMessageId?: string;
   }): Promise<FormattedOrderChatMessage> {
-    await this.assertOrderChatAccess({
+    await this.assertOrderChatWritable({
       orderId: params.orderId,
-      viewerUserId: params.senderUserId,
+      senderUserId: params.senderUserId,
     });
 
     if (
@@ -446,6 +469,7 @@ export class OrderChatService {
     viewerUserId: string;
     brandUserId: string;
     creatorUserId: string;
+    isChatWritable: boolean;
     brandLastReadMessageId?: string;
     brandLastReadAt?: Date;
     creatorLastReadMessageId?: string;
@@ -469,6 +493,7 @@ export class OrderChatService {
       viewerUserId: params.viewerUserId,
       brandUserId: participants.brandUserId,
       creatorUserId: participants.creatorUserId,
+      isChatWritable: participants.briefAcceptedAt != null,
       brandLastReadMessageId: brand?.lastReadMessageId ?? undefined,
       brandLastReadAt: brand?.lastReadAt ?? undefined,
       creatorLastReadMessageId: creator?.lastReadMessageId ?? undefined,

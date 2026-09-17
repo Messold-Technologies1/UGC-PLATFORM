@@ -21,6 +21,7 @@ import {
   useSendOrderChatVoiceMessageMutation,
 } from "@/features/orders/hooks/use-order-chat";
 import { useAuth } from "@/providers/auth-provider";
+import { orderChatReadOnlyMessage } from "@/features/chats/api/order-chats";
 import { cn } from "@/lib/utils";
 
 type OrderChatWidgetProps = {
@@ -304,6 +305,11 @@ export function OrderChatWidget({
       onSendMessage={handleSendMessage}
       onSendVoiceMessage={handleSendVoiceMessage}
       participants={participants}
+      readOnly={state.isChatWritable === false}
+      readOnlyMessage={orderChatReadOnlyMessage({
+        role,
+        isChatWritable: state.isChatWritable,
+      })}
       sendError={
         sendMessageMutation.error?.message ||
         sendVoiceMessageMutation.error?.message

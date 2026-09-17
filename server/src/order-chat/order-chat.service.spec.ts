@@ -42,6 +42,7 @@ describe('OrderChatService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.order.findUnique.mockResolvedValue({
+      briefAcceptedAt: new Date('2026-01-01T00:00:00.000Z'),
       brand: { id: 'brand-profile-1' },
       creator: { userId: creatorUserId },
     });
@@ -93,6 +94,22 @@ describe('OrderChatService', () => {
           contentType: 'audio/webm',
         }),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects uploads before the creator accepts the brief', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        briefAcceptedAt: null,
+        brand: { id: 'brand-profile-1' },
+        creator: { userId: creatorUserId },
+      });
+
+      await expect(
+        service.presignVoiceUpload({
+          orderId,
+          senderUserId: brandUserId,
+          contentType: 'audio/webm',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
@@ -156,6 +173,25 @@ describe('OrderChatService', () => {
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
+
+    it('rejects voice messages before the creator accepts the brief', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        briefAcceptedAt: null,
+        brand: { id: 'brand-profile-1' },
+        creator: { userId: creatorUserId },
+      });
+
+      await expect(
+        service.sendVoiceMessage({
+          orderId,
+          senderUserId: brandUserId,
+          audioKey: 'order-chat-voice/order-1/brand-user/a.webm',
+          audioDurationMs: 1000,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.orderChatMessage.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('sendMessage', () => {
@@ -200,6 +236,24 @@ describe('OrderChatService', () => {
           }),
         }),
       );
+    });
+
+    it('rejects sending before the creator accepts the brief', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        briefAcceptedAt: null,
+        brand: { id: 'brand-profile-1' },
+        creator: { userId: creatorUserId },
+      });
+
+      await expect(
+        service.sendMessage({
+          orderId,
+          senderUserId: brandUserId,
+          text: 'Hello',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.orderChatMessage.create).not.toHaveBeenCalled();
     });
   });
 

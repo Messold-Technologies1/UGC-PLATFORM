@@ -61,6 +61,33 @@ export interface BrandChatsListResponseDto {
   limit: number;
 }
 
+export const CHAT_NOT_YET_OPEN_STATUSES = [
+  "PENDING_PAYMENT",
+  "BRIEF_SUBMISSION_PENDING",
+  "BRIEF_SUBMITTED",
+] as const;
+
+export function isOrderChatNotYetOpen(status?: string | null): boolean {
+  if (!status) return false;
+  return (CHAT_NOT_YET_OPEN_STATUSES as readonly string[]).includes(
+    status.toUpperCase(),
+  );
+}
+
+export function orderChatReadOnlyMessage(params: {
+  role: "brand" | "creator";
+  status?: string | null;
+  isChatWritable?: boolean;
+}): string {
+  if (params.isChatWritable === false || isOrderChatNotYetOpen(params.status)) {
+    return params.role === "brand"
+      ? "You can message the creator after they accept this order."
+      : "Accept this order to start messaging the brand.";
+  }
+
+  return "This order is no longer active. The chat is read-only.";
+}
+
 export interface ListChatsParams {
   page?: number;
   limit?: number;

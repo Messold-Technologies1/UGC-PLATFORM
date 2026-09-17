@@ -464,6 +464,7 @@ export interface OrderChatStateDto {
   orderId: string;
   brandUserId: string;
   creatorUserId: string;
+  isChatWritable?: boolean;
   brandLastReadMessageId?: string;
   brandLastReadAt?: string;
   creatorLastReadMessageId?: string;

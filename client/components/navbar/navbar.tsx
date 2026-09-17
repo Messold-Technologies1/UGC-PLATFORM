@@ -123,7 +123,9 @@ function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
   const segment = pathname.split("/")[1];
   const items = roleConfigs[segment] ?? [];
   if (segment === "admin" && !user?.canManageAdmins) {
-    return items.filter((item) => item.href !== "/admin/settings");
+    // Settings (create admins) and Coupons are super-admin only.
+    const superAdminOnly = new Set(["/admin/settings", "/admin/coupons"]);
+    return items.filter((item) => !superAdminOnly.has(item.href ?? ""));
   }
   return items;
 }

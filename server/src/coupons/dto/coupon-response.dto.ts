@@ -28,6 +28,12 @@ export class CouponResponseDto {
   })
   redemptionCount?: number;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Name of the admin who created this coupon.',
+  })
+  createdByName?: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 

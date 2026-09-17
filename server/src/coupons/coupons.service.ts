@@ -83,6 +83,7 @@ export class CouponsService {
       updatedAt: Date;
     },
     redemptionCount?: number,
+    createdByName?: string | null,
   ): CouponResponseDto {
     return {
       id: coupon.id,
@@ -93,9 +94,26 @@ export class CouponsService {
       discountValue: coupon.discountValue,
       active: coupon.active,
       redemptionCount,
+      createdByName: createdByName ?? null,
       createdAt: coupon.createdAt,
       updatedAt: coupon.updatedAt,
     };
+  }
+
+  /**
+   * Resolve display names for the given creator user ids. Coupon.createdByUserId
+   * is a plain column (no relation), so we look the names up in one query.
+   */
+  private async resolveCreatorNames(
+    userIds: Array<string | null | undefined>,
+  ): Promise<Map<string, string | null>> {
+    const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
+    if (ids.length === 0) return new Map();
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+    return new Map(users.map((u) => [u.id, u.name]));
   }
 
   private validateValueForType(
@@ -125,7 +143,16 @@ export class CouponsService {
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { redemptions: true } } },
     });
-    return coupons.map((c) => this.toResponse(c, c._count.redemptions));
+    const names = await this.resolveCreatorNames(
+      coupons.map((c) => c.createdByUserId),
+    );
+    return coupons.map((c) =>
+      this.toResponse(
+        c,
+        c._count.redemptions,
+        c.createdByUserId ? (names.get(c.createdByUserId) ?? null) : null,
+      ),
+    );
   }
 
   async getByIdForAdmin(id: string): Promise<CouponResponseDto> {
@@ -134,7 +161,12 @@ export class CouponsService {
       include: { _count: { select: { redemptions: true } } },
     });
     if (!coupon) throw new NotFoundException('Coupon not found');
-    return this.toResponse(coupon, coupon._count.redemptions);
+    const names = await this.resolveCreatorNames([coupon.createdByUserId]);
+    return this.toResponse(
+      coupon,
+      coupon._count.redemptions,
+      coupon.createdByUserId ? (names.get(coupon.createdByUserId) ?? null) : null,
+    );
   }
 
   async create(
@@ -156,7 +188,8 @@ export class CouponsService {
           createdByUserId,
         },
       });
-      return this.toResponse(coupon, 0);
+      const names = await this.resolveCreatorNames([createdByUserId]);
+      return this.toResponse(coupon, 0, names.get(createdByUserId) ?? null);
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -193,7 +226,14 @@ export class CouponsService {
         data,
         include: { _count: { select: { redemptions: true } } },
       });
-      return this.toResponse(coupon, coupon._count.redemptions);
+      const names = await this.resolveCreatorNames([coupon.createdByUserId]);
+      return this.toResponse(
+        coupon,
+        coupon._count.redemptions,
+        coupon.createdByUserId
+          ? (names.get(coupon.createdByUserId) ?? null)
+          : null,
+      );
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&

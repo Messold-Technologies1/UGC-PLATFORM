@@ -24,15 +24,19 @@ import type { Request } from 'express';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { CouponsService } from './coupons.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { CouponResponseDto } from './dto/coupon-response.dto';
 
+// Coupons are managed by designated super-admins only (same allow-list that
+// gates admin creation): JwtAuthGuard populates req.user, AdminGuard requires
+// the ADMIN role, SuperAdminGuard requires the super-admin email allow-list.
 @ApiTags('Admin - Coupons')
 @ApiBearerAuth()
 @Controller('admin/coupons')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, AdminGuard, SuperAdminGuard)
 export class AdminCouponsController {
   constructor(private readonly coupons: CouponsService) {}
 

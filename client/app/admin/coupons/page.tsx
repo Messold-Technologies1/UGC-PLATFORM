@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/providers/auth-provider";
 import { useCouponsQuery } from "@/features/coupons/hooks/use-coupons-query";
 import { useCreateCouponMutation } from "@/features/coupons/hooks/use-create-coupon-mutation";
 import { useUpdateCouponMutation } from "@/features/coupons/hooks/use-update-coupon-mutation";
@@ -88,7 +89,9 @@ function formFromCoupon(coupon: Coupon): FormState {
 }
 
 function AdminCouponsPageInner() {
-  const { data, isLoading, isError } = useCouponsQuery();
+  const { user } = useAuth();
+  const isSuperAdmin = Boolean(user?.canManageAdmins);
+  const { data, isLoading, isError } = useCouponsQuery(isSuperAdmin);
   const createMutation = useCreateCouponMutation();
   const updateMutation = useUpdateCouponMutation();
   const deleteMutation = useDeleteCouponMutation();
@@ -102,6 +105,24 @@ function AdminCouponsPageInner() {
   const coupons = useMemo(() => data ?? [], [data]);
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const needsValue = form.discountType !== "PLATFORM_FEE_WAIVER";
+
+  // Coupons are managed by super-admins only. Non-super-admins never see the
+  // nav link, but guard direct navigation too (the API also enforces this).
+  if (!isSuperAdmin) {
+    return (
+      <div className="space-y-8 p-8">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+            Coupons
+          </h1>
+        </div>
+        <div className="rounded-2xl border border-border/40 bg-card/40 px-6 py-20 text-center text-sm text-muted-foreground">
+          You don&apos;t have access to coupon management. Only designated
+          super-admins can create and manage coupons.
+        </div>
+      </div>
+    );
+  }
 
   const openCreate = () => {
     setEditingCoupon(null);
@@ -258,6 +279,7 @@ function AdminCouponsPageInner() {
                   <th className="px-4 py-3">Code</th>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Discount</th>
+                  <th className="px-4 py-3">Created by</th>
                   <th className="px-4 py-3">Redemptions</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
@@ -294,6 +316,9 @@ function AdminCouponsPageInner() {
                       </td>
                       <td className="px-4 py-3 font-medium text-foreground">
                         {describeDiscount(coupon)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {coupon.createdByName?.trim() || "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {coupon.redemptionCount ?? 0}

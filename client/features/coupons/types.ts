@@ -15,6 +15,8 @@ export interface Coupon {
   discountValue: number;
   active: boolean;
   redemptionCount?: number;
+  /** Name of the admin who created this coupon. */
+  createdByName?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -59,6 +59,10 @@ import {
   AdminCreatorsListResponseDto,
   AdminCreatorSegmentCountsDto,
 } from './dto/admin-creator-list.dto';
+import type {
+  FirstOrderFreeCreatorsQueryDto,
+  FirstOrderFreeCreatorsListResponseDto,
+} from './dto/first-order-free-creators.dto';
 import type { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 import type {
   CreatorPublicListItemDto,
@@ -2053,6 +2057,69 @@ export class CreatorProfileService {
       data: { firstOrderFreeEnabled: enabled },
     });
     return this.getAdminCreatorListItemById(creatorProfileId);
+  }
+
+  /**
+   * Lightweight listing for the "first order free" picker grid. Returns only
+   * the fields the card renders (name, city, image, primary category, toggle)
+   * — a fraction of the payload/DB work of the full admin creator list.
+   */
+  async listFirstOrderFreeCreators(
+    query: FirstOrderFreeCreatorsQueryDto,
+  ): Promise<FirstOrderFreeCreatorsListResponseDto> {
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(query.limit ?? 12, 50);
+    const skip = (page - 1) * limit;
+
+    const where = buildAdminCreatorsListWhere(
+      AdminCreatorListSegment.LISTED,
+      query.search,
+    );
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.creatorProfile.count({ where }),
+      this.prisma.creatorProfile.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy: [
+          {
+            creatorApproval: { approvedAt: { sort: 'desc', nulls: 'last' } },
+          },
+          { updatedAt: 'desc' },
+        ],
+        select: {
+          id: true,
+          displayName: true,
+          city: true,
+          profileImageUrl: true,
+          firstOrderFreeEnabled: true,
+          // Only the primary content-category facet, for the card chip.
+          facetSelections: {
+            where: {
+              option: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
+            },
+            orderBy: { rank: 'asc' },
+            take: 1,
+            select: { option: { select: { label: true } } },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        displayName: r.displayName,
+        city: r.city ?? null,
+        profileImageUrl: r.profileImageUrl ?? null,
+        primaryCategory: r.facetSelections?.[0]?.option?.label ?? null,
+        firstOrderFreeEnabled: r.firstOrderFreeEnabled ?? false,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
   private async listFeaturedCreators(query: {

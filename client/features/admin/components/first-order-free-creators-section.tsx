@@ -5,18 +5,13 @@ import { ChevronLeft, ChevronRight, Gift, Search } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { useAdminCreatorsQuery } from "../hooks/use-admin-creators-query";
+import { useFirstOrderFreeCreatorsQuery } from "../hooks/use-first-order-free-creators-query";
 import { useFirstOrderFreeMutation } from "../hooks/use-first-order-free-mutation";
-import type { AdminCreatorListItemDto } from "../types";
 
 /** Cards per page when browsing (a multiple of 4 so the grid stays even). */
 const PAGE_SIZE = 12;
 /** Search is not paginated — pull a generous single page of matches. */
 const SEARCH_SIZE = 50;
-
-function primaryCategory(creator: AdminCreatorListItemDto): string | null {
-  return creator.contentCategories?.[0]?.label?.trim() || null;
-}
 
 /**
  * Super-admin control (a tab on the Coupons page): pick listed creators whose
@@ -39,16 +34,12 @@ export function FirstOrderFreeCreatorsSection() {
     setPage(1);
   }, [search]);
 
-  const { data, isLoading, isError, isFetching } = useAdminCreatorsQuery(
-    {
-      segment: "listed",
+  const { data, isLoading, isError, isFetching } =
+    useFirstOrderFreeCreatorsQuery({
       page: isSearching ? 1 : page,
       limit: isSearching ? SEARCH_SIZE : PAGE_SIZE,
       ...(isSearching ? { search } : {}),
-    },
-    // Always reflect the server's stored toggle state on open — no stale cache.
-    { alwaysFresh: true },
-  );
+    });
   const mutation = useFirstOrderFreeMutation();
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -127,7 +118,7 @@ export function FirstOrderFreeCreatorsSection() {
             {creators.map((creator) => {
               const enabled = creator.firstOrderFreeEnabled;
               const isPending = pendingId === creator.id && mutation.isPending;
-              const category = primaryCategory(creator);
+              const category = creator.primaryCategory?.trim() || null;
               return (
                 <div
                   key={creator.id}

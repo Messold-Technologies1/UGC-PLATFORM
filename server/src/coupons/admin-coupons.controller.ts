@@ -79,11 +79,8 @@ export class AdminCouponsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiNoContentResponse({
-    description:
-      'Deleted, or deactivated when the coupon already has redemptions.',
-  })
-  @ApiOperation({ summary: 'Delete (or deactivate if used) a coupon' })
+  @ApiNoContentResponse({ description: 'Deleted from the database.' })
+  @ApiOperation({ summary: 'Delete a coupon' })
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.coupons.remove(id);
   }

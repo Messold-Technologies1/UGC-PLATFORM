@@ -43,7 +43,11 @@ export type OrderPricingLedger = {
   platformFeeBasePaise: number;
   /** 20% of platformFeeBasePaise (the gross base); 0 when the fee is waived. */
   platformFeePaise: number;
-  /** earned − platform fee — owed to the creator. */
+  /**
+   * 80% of the gross base (+ used extras) — owed to the creator. The creator is
+   * made whole on the pre-coupon value; a coupon discount is funded by the
+   * platform, not deducted from this.
+   */
   payToCreatorPaise: number;
 };
 
@@ -144,14 +148,17 @@ export function computeOrderPricingLedger(input: {
   }
 
   const earnedPaise = basePlusAddOnsPaise + usedExtrasPaise;
-  // Fee is charged on the GROSS base (+ used extras), not the discounted net —
-  // a coupon discount comes out of the creator's payout. The "No platform fee"
-  // coupon waives it entirely. Clamp to earned so the payout never goes negative.
+  // The platform fee AND the creator payout are both computed on the GROSS base
+  // (+ used extras), i.e. the pre-coupon list value. The creator is made whole
+  // on that (80% of gross); the platform's fee is 20% of gross. A coupon
+  // discount comes out of the PLATFORM's cut, not the creator's payout — so the
+  // platform effectively funds the discount (its net = fee − discount). The
+  // "No platform fee" coupon waives the fee entirely.
   const platformFeeBasePaise = grossBasePlusAddOnsPaise + usedExtrasPaise;
-  const platformFeePaise = input.waivePlatformFee
-    ? 0
-    : Math.min(earnedPaise, Math.round(platformFeeBasePaise * PLATFORM_FEE_RATE));
-  const payToCreatorPaise = earnedPaise - platformFeePaise;
+  const grossFeePaise = Math.round(platformFeeBasePaise * PLATFORM_FEE_RATE);
+  const platformFeePaise = input.waivePlatformFee ? 0 : grossFeePaise;
+  // 80% of the gross — the creator is unaffected by the coupon.
+  const payToCreatorPaise = platformFeeBasePaise - grossFeePaise;
 
   return {
     brandPaidPaise,

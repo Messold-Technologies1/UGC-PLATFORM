@@ -22,9 +22,11 @@ describe('computeOrderPricingLedger', () => {
     );
   });
 
-  it('waivePlatformFee (No platform fee coupon): creator gets 100%, fee 0', () => {
+  it('waivePlatformFee (No platform fee coupon): fee 0, creator gets the full net', () => {
+    // ₹5000 gross, fee waived → brand pays ₹4000 net; creator gets it all.
     const l = computeOrderPricingLedger({
-      expectedAmountPaise: 400000, // ₹4000 net (already discounted at checkout)
+      expectedAmountPaise: 400000, // net (brand paid)
+      grossBasePlusAddOnsPaise: 500000, // gross (pre-waiver)
       maxRevisionsSnapshot: 1,
       revisionCount: 1,
       paidPurchases: [],
@@ -32,17 +34,17 @@ describe('computeOrderPricingLedger', () => {
     });
     expect(l.brandPaidPaise).toBe(400000);
     expect(l.platformFeePaise).toBe(0);
+    // 80% of gross (5000) = 4000 = the full net the brand paid.
     expect(l.payToCreatorPaise).toBe(400000);
-    // Still balances.
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      l.brandPaidPaise,
-    );
+    // Platform keeps nothing.
+    expect(l.brandPaidPaise - l.payToCreatorPaise).toBe(0);
   });
 
-  it('coupon order: platform fee is 20% of the GROSS base, not the net', () => {
-    // ₹4900 gross, ₹500 coupon → ₹4400 net (brand paid). Fee = 20% of 4900.
+  it('coupon order: fee is 20% of GROSS and creator gets 80% of GROSS (made whole)', () => {
+    // ₹4900 gross, ₹500 coupon → ₹4400 net (brand paid). The coupon comes out
+    // of the platform's cut, not the creator's payout.
     const l = computeOrderPricingLedger({
-      expectedAmountPaise: 440000, // net
+      expectedAmountPaise: 440000, // net (brand paid)
       grossBasePlusAddOnsPaise: 490000, // gross (pre-coupon)
       maxRevisionsSnapshot: 1,
       revisionCount: 1,
@@ -50,12 +52,12 @@ describe('computeOrderPricingLedger', () => {
     });
     expect(l.brandPaidPaise).toBe(440000);
     expect(l.platformFeeBasePaise).toBe(490000);
-    expect(l.platformFeePaise).toBe(98000); // 20% of 4900, not of 4400
-    expect(l.payToCreatorPaise).toBe(342000); // 4400 − 980
-    // Still balances.
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      l.brandPaidPaise,
-    );
+    expect(l.platformFeePaise).toBe(98000); // 20% of 4900
+    expect(l.payToCreatorPaise).toBe(392000); // 80% of 4900 (4900 − 980)
+    // Creator + fee reconcile to the GROSS value (the platform funds the coupon).
+    expect(l.payToCreatorPaise + l.platformFeePaise).toBe(l.platformFeeBasePaise);
+    // The platform's actual margin = brand paid − creator payout = ₹480.
+    expect(l.brandPaidPaise - l.payToCreatorPaise).toBe(48000);
   });
 
   it('non-coupon order: fee base falls back to the net base', () => {

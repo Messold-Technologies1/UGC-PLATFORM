@@ -22,6 +22,23 @@ describe('computeOrderPricingLedger', () => {
     );
   });
 
+  it('waivePlatformFee (No platform fee coupon): creator gets 100%, fee 0', () => {
+    const l = computeOrderPricingLedger({
+      expectedAmountPaise: 400000, // ₹4000 net (already discounted at checkout)
+      maxRevisionsSnapshot: 1,
+      revisionCount: 1,
+      paidPurchases: [],
+      waivePlatformFee: true,
+    });
+    expect(l.brandPaidPaise).toBe(400000);
+    expect(l.platformFeePaise).toBe(0);
+    expect(l.payToCreatorPaise).toBe(400000);
+    // Still balances.
+    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
+      l.brandPaidPaise,
+    );
+  });
+
   it('all purchased extras used: full value earned, refund 0', () => {
     // base cap 1, bought 1 pack (+2), used all 3 (revisionCount 3).
     const l = computeOrderPricingLedger({

@@ -60,6 +60,11 @@ export function computeOrderPricingLedger(input: {
   paidPurchases: PaidRevisionPurchase[];
   /** Rejected/refunded orders: brand gets everything back; creator/platform get 0. */
   fullRefundToBrand?: boolean;
+  /**
+   * "No platform fee" coupon (PLATFORM_FEE_WAIVER): the platform takes no cut,
+   * so the creator is paid the full earned amount and the platform fee is 0.
+   */
+  waivePlatformFee?: boolean;
 }): OrderPricingLedger {
   const basePlusAddOnsPaise = Math.max(0, Math.round(input.expectedAmountPaise));
 
@@ -120,7 +125,11 @@ export function computeOrderPricingLedger(input: {
   }
 
   const earnedPaise = basePlusAddOnsPaise + usedExtrasPaise;
-  const platformFeePaise = Math.round(earnedPaise * PLATFORM_FEE_RATE);
+  // A "No platform fee" coupon waives the platform's cut entirely — the creator
+  // is paid the full earned amount.
+  const platformFeePaise = input.waivePlatformFee
+    ? 0
+    : Math.round(earnedPaise * PLATFORM_FEE_RATE);
   const payToCreatorPaise = earnedPaise - platformFeePaise;
 
   return {

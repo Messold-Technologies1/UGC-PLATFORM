@@ -6,6 +6,7 @@ import { AlertTriangle, Pencil, Plus, Tag, Ticket, Trash2, X } from "lucide-reac
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -227,23 +228,34 @@ function AdminCouponsPageInner() {
 
   return (
     <div className="space-y-8 p-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
-            Coupons
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Discount codes brands can apply at checkout.
-          </p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:brightness-110 active:scale-95"
-        >
-          <Plus className="size-4" />
-          New coupon
-        </button>
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+          Coupons &amp; offers
+        </h1>
+        <p className="mt-1 text-muted-foreground">
+          Discount codes and free-order perks brands get at checkout.
+        </p>
       </div>
+
+      <Tabs defaultValue="coupons" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="coupons">Coupons</TabsTrigger>
+          <TabsTrigger value="free-creators">Free creators</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="coupons" className="space-y-6">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              Discount codes brands can apply at checkout.
+            </p>
+            <button
+              onClick={openCreate}
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:brightness-110 active:scale-95"
+            >
+              <Plus className="size-4" />
+              New coupon
+            </button>
+          </div>
 
       {isLoading && (
         <div className="space-y-3">
@@ -397,9 +409,12 @@ function AdminCouponsPageInner() {
         </div>
       )}
 
-      <div className="border-t border-border/40 pt-8">
-        <FirstOrderFreeCreatorsSection />
-      </div>
+        </TabsContent>
+
+        <TabsContent value="free-creators">
+          <FirstOrderFreeCreatorsSection />
+        </TabsContent>
+      </Tabs>
 
       {isFormOpen && (
         <div

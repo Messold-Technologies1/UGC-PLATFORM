@@ -1,33 +1,56 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Gift, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Gift, Search } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useAdminCreatorsQuery } from "../hooks/use-admin-creators-query";
 import { useFirstOrderFreeMutation } from "../hooks/use-first-order-free-mutation";
+import type { AdminCreatorListItemDto } from "../types";
+
+/** Cards per page when browsing (a multiple of 4 so the grid stays even). */
+const PAGE_SIZE = 12;
+/** Search is not paginated — pull a generous single page of matches. */
+const SEARCH_SIZE = 50;
+
+function primaryCategory(creator: AdminCreatorListItemDto): string | null {
+  return creator.contentCategories?.[0]?.label?.trim() || null;
+}
 
 /**
- * Super-admin control (lives on the Coupons page): pick listed creators whose
+ * Super-admin control (a tab on the Coupons page): pick listed creators whose
  * FIRST order for each brand is free. At checkout the brand pays ₹0, the order
  * is placed without Razorpay, and the creator is paid ₹0. Each brand gets one
  * free order per enabled creator; the next order with them is a normal paid one.
+ *
+ * The browse list is server-paginated (4-up card grid). Search queries across
+ * all listed creators independently of the page, so typing resets to a single
+ * un-paginated result set.
  */
 export function FirstOrderFreeCreatorsSection() {
   const [searchInput, setSearchInput] = useState("");
   const search = searchInput.trim();
+  const isSearching = search.length > 0;
+  const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError } = useAdminCreatorsQuery({
+  // A new search is its own view — drop back to the first (and only) result set.
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const { data, isLoading, isError, isFetching } = useAdminCreatorsQuery({
     segment: "listed",
-    page: 1,
-    limit: 20,
-    ...(search ? { search } : {}),
+    page: isSearching ? 1 : page,
+    limit: isSearching ? SEARCH_SIZE : PAGE_SIZE,
+    ...(isSearching ? { search } : {}),
   });
   const mutation = useFirstOrderFreeMutation();
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   const creators = useMemo(() => data?.items ?? [], [data]);
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const handleToggle = async (id: string, enabled: boolean) => {
     setPendingId(id);
@@ -66,11 +89,11 @@ export function FirstOrderFreeCreatorsSection() {
       </div>
 
       {isLoading && (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, index) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
             <Skeleton
               key={`fof-skeleton-${index}`}
-              className="h-14 w-full rounded-xl"
+              className="h-40 w-full rounded-2xl"
             />
           ))}
         </div>
@@ -84,25 +107,30 @@ export function FirstOrderFreeCreatorsSection() {
 
       {!isLoading && !isError && creators.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border/60 bg-card/20 px-6 py-12 text-center text-sm text-muted-foreground">
-          {search
+          {isSearching
             ? "No listed creators match your search."
             : "No listed creators yet."}
         </div>
       )}
 
       {!isLoading && !isError && creators.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-border/40 bg-card/40 shadow-sm">
-          <ul className="divide-y divide-border/20">
+        <>
+          <div
+            className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${
+              isFetching ? "opacity-60 transition-opacity" : ""
+            }`}
+          >
             {creators.map((creator) => {
               const enabled = creator.firstOrderFreeEnabled;
               const isPending = pendingId === creator.id && mutation.isPending;
+              const category = primaryCategory(creator);
               return (
-                <li
+                <div
                   key={creator.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
+                  className="flex flex-col gap-3 rounded-2xl border border-border/40 bg-card/40 p-4 shadow-sm transition-colors hover:bg-muted/20"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                       {creator.profileImageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -111,7 +139,7 @@ export function FirstOrderFreeCreatorsSection() {
                           className="size-full object-cover"
                         />
                       ) : (
-                        <span className="text-xs font-bold text-muted-foreground">
+                        <span className="text-sm font-bold text-muted-foreground">
                           {creator.displayName?.slice(0, 1).toUpperCase() || "?"}
                         </span>
                       )}
@@ -127,7 +155,20 @@ export function FirstOrderFreeCreatorsSection() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  <div className="min-h-[24px]">
+                    {category ? (
+                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                        {category}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/60">
+                        No category
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-between border-t border-border/30 pt-3">
                     <span
                       className={
                         enabled
@@ -150,11 +191,40 @@ export function FirstOrderFreeCreatorsSection() {
                       }
                     />
                   </div>
-                </li>
+                </div>
               );
             })}
-          </ul>
-        </div>
+          </div>
+
+          {!isSearching && totalPages > 1 && (
+            <div className="flex items-center justify-between gap-4 pt-2">
+              <p className="text-xs text-muted-foreground">
+                Page {page} of {totalPages} · {total} creator
+                {total === 1 ? "" : "s"}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || isFetching}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  <ChevronLeft className="size-3.5" />
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || isFetching}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  Next
+                  <ChevronRight className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

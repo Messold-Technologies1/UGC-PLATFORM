@@ -605,14 +605,35 @@ export default function AdminOrderDetailsPage() {
                           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                             Collected from brand
                           </p>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              Base package + add-ons
-                            </span>
-                            <span className="font-semibold">
-                              {inr(led.basePlusAddOnsPaise)}
-                            </span>
-                          </div>
+                          {order.coupon ? (
+                            <>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  Base package + add-ons
+                                </span>
+                                <span className="font-semibold">
+                                  {inr(order.coupon.grossAmountPaise)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-primary">
+                                  Coupon · {order.coupon.code}
+                                </span>
+                                <span className="font-semibold text-primary">
+                                  −{inr(order.coupon.discountAmountPaise)}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                Base package + add-ons
+                              </span>
+                              <span className="font-semibold">
+                                {inr(led.basePlusAddOnsPaise)}
+                              </span>
+                            </div>
+                          )}
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">
                               Extra revisions ({led.extraRevisionsPurchased})
@@ -640,7 +661,8 @@ export default function AdminOrderDetailsPage() {
                           </p>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">
-                              Platform fee (20%)
+                              Platform fee (20% of{" "}
+                              {inr(led.platformFeeBasePaise)})
                             </span>
                             <span className="font-semibold">
                               {inr(led.platformFeePaise)}

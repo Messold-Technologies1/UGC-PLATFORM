@@ -24,5 +24,18 @@ export class CheckoutResponseDto {
 
   @ApiPropertyOptional({ description: 'Number of add-on line items' })
   addOnsCount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Pre-discount total (package + add-ons) in paise',
+  })
+  grossAmountPaise?: number;
+
+  @ApiPropertyOptional({
+    description: 'Coupon discount applied to the charge, in paise (0 if none)',
+  })
+  discountAmountPaise?: number;
+
+  @ApiPropertyOptional({ description: 'Applied coupon code, when a coupon was used' })
+  couponCode?: string;
 }
 

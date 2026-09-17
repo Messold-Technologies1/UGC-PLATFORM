@@ -23,6 +23,7 @@ import {
   Building2,
   Heart,
   Video,
+  Ticket,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -113,6 +114,7 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/admin/orderManagement", label: "Orders", icon: Package },
     { href: "/admin/legal", label: "Legal", icon: FileText },
     { href: "/admin/demo-videos", label: "Demo Videos", icon: Video },
+    { href: "/admin/coupons", label: "Coupons", icon: Ticket },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
 };
@@ -121,7 +123,9 @@ function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
   const segment = pathname.split("/")[1];
   const items = roleConfigs[segment] ?? [];
   if (segment === "admin" && !user?.canManageAdmins) {
-    return items.filter((item) => item.href !== "/admin/settings");
+    // Settings (create admins) and Coupons are super-admin only.
+    const superAdminOnly = new Set(["/admin/settings", "/admin/coupons"]);
+    return items.filter((item) => !superAdminOnly.has(item.href ?? ""));
   }
   return items;
 }

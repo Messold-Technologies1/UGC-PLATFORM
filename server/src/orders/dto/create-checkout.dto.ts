@@ -4,7 +4,9 @@ import {
   ArrayUnique,
   IsArray,
   IsOptional,
+  IsString,
   IsUUID,
+  Length,
 } from 'class-validator';
 
 export class CreateCheckoutDto {
@@ -26,5 +28,14 @@ export class CreateCheckoutDto {
   @ArrayMaxSize(20)
   @IsUUID('4', { each: true })
   addOnIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Optional discount coupon code to apply to this checkout.',
+    example: 'WELCOME20',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(2, 40)
+  couponCode?: string;
 }
 

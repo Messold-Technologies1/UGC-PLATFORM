@@ -2,6 +2,7 @@
 export const SUPER_ADMIN_EMAILS = [
   'anuj@messold.com',
   'bipasha.roy@messold.com',
+  'sakshi@messold.com',
 ] as const;
 
 const SUPER_ADMIN_EMAIL_SET = new Set<string>(SUPER_ADMIN_EMAILS);

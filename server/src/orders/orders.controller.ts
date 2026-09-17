@@ -217,6 +217,7 @@ export class OrdersController {
       creatorId: dto.creatorId,
       packageId: dto.packageId,
       addOnIds: dto.addOnIds,
+      couponCode: dto.couponCode,
     });
   }
 
@@ -241,6 +242,7 @@ export class OrdersController {
         packageId: item.packageId,
         addOnIds: item.addOnIds,
       })),
+      couponCode: dto.couponCode,
     });
   }
 

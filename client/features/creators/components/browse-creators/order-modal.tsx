@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import type { CreatorProfile, Package, AddOn } from "../../types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
+import { useAvailableCoupons } from "@/features/payments/hooks/use-available-coupons";
+import { CouponInput } from "@/features/payments/components/coupon-input";
+import { computeCouponDiscountPaise } from "@/features/payments/lib/coupon-discount";
 import { getInitials, posterColor } from "@/lib/utils";
 
 function inr(n: number): string {
@@ -193,11 +196,15 @@ const OrderModalContent = React.memo(function OrderModalContent({
     defaultPackageId,
   );
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+  const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (open) {
       setSelectedPkgId(defaultPackageId);
       setSelectedAddOnIds([]);
+      setSelectedCouponCode(null);
     }
   }, [open, creator.id, defaultPackageId]);
 
@@ -237,10 +244,30 @@ const OrderModalContent = React.memo(function OrderModalContent({
 
   const total = (selectedPackage?.price ?? 0) + addOnTotal;
 
+  const { data: coupons = [], isLoading: couponsLoading } =
+    useAvailableCoupons(open);
+
+  const selectedCoupon = useMemo(
+    () => coupons.find((c) => c.code === selectedCouponCode) ?? null,
+    [coupons, selectedCouponCode],
+  );
+
+  const grossPaise = Math.round(total * 100);
+  const discountPaise = selectedCoupon
+    ? computeCouponDiscountPaise(
+        selectedCoupon.discountType,
+        selectedCoupon.discountValue,
+        grossPaise,
+      )
+    : 0;
+  const discountRupees = Math.round(discountPaise / 100);
+  const netTotal = Math.max(0, total - discountRupees);
+
   const { isProcessing, startCheckout } = useRazorpayCheckout({
     creator,
     selectedPackage,
     selectedAddOns,
+    couponCode: selectedCouponCode,
   });
 
   const toggleAddOn = useCallback((id: string) => {
@@ -401,10 +428,28 @@ const OrderModalContent = React.memo(function OrderModalContent({
                     <span>{inr(a.price)}</span>
                   </div>
                 ))}
+                {discountRupees > 0 && selectedCoupon && (
+                  <div className="om-line muted" style={{ color: "var(--primary)" }}>
+                    <span>Coupon · {selectedCoupon.code}</span>
+                    <span>−{inr(discountRupees)}</span>
+                  </div>
+                )}
                 <div className="om-line total">
                   <span>Total</span>
-                  <span>{inr(total)}</span>
+                  <span>{inr(netTotal)}</span>
                 </div>
+              </div>
+
+              <div style={{ margin: "12px 0" }}>
+                <CouponInput
+                  coupons={coupons}
+                  isLoading={couponsLoading}
+                  appliedCode={selectedCouponCode}
+                  discountRupees={discountRupees}
+                  onApply={setSelectedCouponCode}
+                  onRemove={() => setSelectedCouponCode(null)}
+                  disabled={isProcessing}
+                />
               </div>
 
               <button
@@ -420,7 +465,7 @@ const OrderModalContent = React.memo(function OrderModalContent({
                   </>
                 ) : (
                   <>
-                    <Zap size={16} /> Create checkout · {inr(total)}
+                    <Zap size={16} /> Create checkout · {inr(netTotal)}
                   </>
                 )}
               </button>

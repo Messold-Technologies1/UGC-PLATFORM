@@ -33,6 +33,7 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       brandAccess as never,
       {} as never,
       orderPortfolioSync as never,
+      {} as never,
     );
     return { service, orderUpdate, orderMail, orderPortfolioSync };
   }
@@ -141,6 +142,7 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
       {} as never,
       {} as never,
       orderPortfolioSync as never,
+      {} as never,
     );
 
     await service.adminRejectOrder({

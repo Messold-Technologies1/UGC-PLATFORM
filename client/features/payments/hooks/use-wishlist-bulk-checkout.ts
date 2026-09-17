@@ -47,12 +47,15 @@ export function useWishlistBulkCheckout() {
   }, []);
 
   const startBulkCheckout = useCallback(
-    async (items: BulkCheckoutItem[]) => {
+    async (items: BulkCheckoutItem[], couponCode?: string | null) => {
       if (isProcessing || items.length === 0) return false;
       setIsProcessing(true);
 
       try {
-        const session = await createBulkCheckout({ items });
+        const session = await createBulkCheckout({
+          items,
+          ...(couponCode ? { couponCode } : {}),
+        });
 
         if (session.skipped.length > 0) {
           const n = session.skipped.length;

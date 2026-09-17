@@ -6,7 +6,9 @@ import {
   ArrayUnique,
   IsArray,
   IsOptional,
+  IsString,
   IsUUID,
+  Length,
   ValidateNested,
 } from 'class-validator';
 
@@ -49,4 +51,14 @@ export class CreateBulkCheckoutDto {
   @ValidateNested({ each: true })
   @Type(() => BulkCheckoutItemDto)
   items!: BulkCheckoutItemDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Optional discount coupon applied once to the whole cart (one payment).',
+    example: 'WELCOME20',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(2, 40)
+  couponCode?: string;
 }

@@ -81,14 +81,48 @@ export class OrderPricingLedgerDto {
   @ApiProperty({ description: 'Base + add-ons + used extras' })
   earnedPaise!: number;
 
-  @ApiProperty({ description: '20% platform fee on earned' })
+  @ApiProperty({
+    description:
+      'Amount the platform fee is charged on: pre-coupon (gross) base + add-ons + used extras',
+  })
+  platformFeeBasePaise!: number;
+
+  @ApiProperty({ description: '20% of platformFeeBasePaise (the gross base)' })
   platformFeePaise!: number;
 
   @ApiProperty({ description: 'earned − platform fee' })
   payToCreatorPaise!: number;
 }
 
+/** Coupon applied at checkout. The discount reduced what the brand paid; the
+ *  admin uses this to settle the creator payout / any refund manually. */
+export class OrderCouponDto {
+  @ApiProperty({ example: 'WELCOME20' })
+  code!: string;
+
+  @ApiProperty({ example: '20% off your order' })
+  name!: string;
+
+  @ApiPropertyOptional({
+    description: 'PERCENTAGE | FIXED | PLATFORM_FEE_WAIVER',
+  })
+  discountType?: string | null;
+
+  @ApiProperty({ description: 'Discount applied to the charge (paise)' })
+  discountAmountPaise!: number;
+
+  @ApiProperty({ description: 'Pre-discount order total (paise)' })
+  grossAmountPaise!: number;
+}
+
 export class OrderDetailsAdminDto extends OrderDetailsPublicDto {
+  @ApiPropertyOptional({
+    type: () => OrderCouponDto,
+    nullable: true,
+    description: 'Coupon applied at checkout, if any (for manual settlement).',
+  })
+  coupon?: OrderCouponDto | null;
+
   @ApiPropertyOptional()
   razorpayOrderId?: string | null;
 

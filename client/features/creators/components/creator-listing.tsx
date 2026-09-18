@@ -41,6 +41,7 @@ import {
   useInfiniteCreatorsListQuery,
   type CreatorsListResult,
 } from "../hooks/use-creators-list-query";
+import { useFirstOrderFreeEligibility } from "../hooks/use-first-order-free-eligibility";
 
 const LANDING_PAGE_CREATOR_LIMIT = 12;
 
@@ -337,6 +338,32 @@ export function CreatorListing({
       landingPage ? creators.slice(0, LANDING_PAGE_CREATOR_LIMIT) : creators,
     [creators, landingPage],
   );
+
+  // Per-brand "first order free" eligibility, overlaid onto the cards. The
+  // creators list itself is shared/cacheable (and its SSR first page has no
+  // brand context), so this small brand-scoped lookup is the source of truth
+  // for the badge — it refreshes on each visit, reflecting admin toggles.
+  const visibleCreatorIds = useMemo(
+    () => visibleCreators.map((c) => c.id),
+    [visibleCreators],
+  );
+  const eligibleFreeSet = useFirstOrderFreeEligibility(
+    visibleCreatorIds,
+    isBrand,
+  );
+  const creatorsForCards = useMemo(
+    () =>
+      eligibleFreeSet.size === 0
+        ? visibleCreators
+        : visibleCreators.map((c) =>
+            eligibleFreeSet.has(c.id)
+              ? { ...c, firstOrderFreeEligible: true }
+              : c.firstOrderFreeEligible
+                ? { ...c, firstOrderFreeEligible: false }
+                : c,
+          ),
+    [visibleCreators, eligibleFreeSet],
+  );
   const handleFiltersChange = useCallback(
     (next: Filters) => {
       listingRef.current.filters = next;
@@ -451,7 +478,7 @@ export function CreatorListing({
                   : index
               }
               itemContent={(index) => {
-                const creator = visibleCreators[index];
+                const creator = creatorsForCards[index];
                 if (!creator) return null;
 
                 return (

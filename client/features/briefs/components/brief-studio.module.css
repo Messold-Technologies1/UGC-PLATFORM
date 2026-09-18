@@ -198,6 +198,113 @@
   line-height: 1;
 }
 
+.briefTypeSwitch {
+  margin-bottom: 22px;
+}
+
+.briefTypeQuestion {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.briefTypeCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.briefTypeCard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 44px 18px 16px;
+  border: 1.5px solid #e4e4e7;
+  border-radius: 16px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.16s,
+    border-color 0.16s;
+}
+
+.briefTypeCard:hover {
+  border-color: #d4d4d8;
+}
+
+.briefTypeCardSelected {
+  border-color: #fda4af;
+  background: #fff1f2;
+}
+
+.briefTypeCardCheck {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #fb7185;
+  color: #fff;
+}
+
+.briefTypeCardArt {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.briefTypeCardCopy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 0;
+}
+
+.briefTypeCardTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #18181b;
+  line-height: 1.2;
+}
+
+.briefTypeCardBlurb {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #71717a;
+}
+
+.briefTypePanel {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff1f2;
+}
+
+.briefTypeCopyTitle {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #18181b;
+}
+
+.briefTypePanel p:last-child {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #52525b;
+}
+
 .productTypeRow {
   display: flex;
   align-items: center;
@@ -614,6 +721,10 @@
 
   .briefCard {
     padding: 14px;
+  }
+
+  .briefTypeCards {
+    grid-template-columns: 1fr;
   }
 
   .productTypeRow {

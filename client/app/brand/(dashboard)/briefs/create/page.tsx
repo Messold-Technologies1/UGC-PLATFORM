@@ -70,6 +70,7 @@ import { getBriefOfferLabels } from "@/features/briefs/lib/brief-offer-labels";
 import { useBriefFieldOptionsQuery } from "@/features/briefs/hooks/use-brief-field-options-query";
 
 import { PaymentSuccessBanner } from "@/features/briefs/components/payment-success-banner";
+import { BriefTypePicker } from "@/features/briefs/components/brief-type-picker";
 import {
   ExistingBriefsSidebar,
   BriefsDrawerButton,
@@ -661,6 +662,20 @@ function CreateBriefPageContent() {
     }
   };
 
+  const handleBriefTypeChange = (nextIsProduct: boolean) => {
+    form.setValue("isProduct", nextIsProduct, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    if (!nextIsProduct) {
+      form.setValue("willShipPhysicalProductToCreator", false, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      handleRemoveProductImage();
+    }
+  };
+
   const isSubmitting =
     createBriefMutation.isPending || updateBriefMutation.isPending;
   const isSubmittingBrief = submitBriefMutation.isPending;
@@ -893,42 +908,15 @@ function CreateBriefPageContent() {
             <div className={styles.panelBody}>
               <form onSubmit={form.handleSubmit(onSubmit)} id="brief-form" className="space-y-0">
                 <div className={styles.formSection}>
+                  <BriefTypePicker
+                    value={isProductBrief ? "product" : "service"}
+                    onChange={handleBriefTypeChange}
+                  />
                   <div className={styles.formSectionTitle}>
                     <span className={styles.formSectionNum}>1</span>
                     {offerLabels.sectionTitle}
                   </div>
                   <div className="space-y-6">
-                  <div className={styles.productTypeRow}>
-                    <div className="min-w-0">
-                      <Label
-                        htmlFor="isProduct"
-                        className={styles.productTypeRowLabel}
-                      >
-                        Is this a product brief?
-                      </Label>
-                      <p className={styles.productTypeRowHint}>
-                        Turn off for service campaigns (e.g. app demo, salon
-                        visit). Product image is required when this is on.
-                      </p>
-                    </div>
-                    <Switch
-                      id="isProduct"
-                      checked={isProductBrief}
-                      onCheckedChange={(checked) => {
-                        form.setValue("isProduct", checked, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        });
-                        if (!checked) {
-                          form.setValue("willShipPhysicalProductToCreator", false, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          });
-                          handleRemoveProductImage();
-                        }
-                      }}
-                    />
-                  </div>
                   <div className="grid gap-6 lg:grid-cols-2">
                     {needsBrandName ? (
                       <div className="space-y-2 min-w-0">

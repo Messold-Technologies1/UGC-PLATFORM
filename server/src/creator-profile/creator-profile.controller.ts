@@ -25,6 +25,10 @@ import {
 import type { Request } from 'express';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { readBrandProfileIdFromRequest } from '../brand-access/brand-context.util';
+import {
+  FirstOrderFreeEligibleRequestDto,
+  FirstOrderFreeEligibleResponseDto,
+} from './dto/first-order-free-eligible.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
@@ -152,6 +156,28 @@ export class CreatorProfileController {
     req: Request & { user: { id: string } },
   ): Promise<PresignProfileImageUploadResponseDto> {
     return this.creatorProfileService.presignProfileImageUpload(req.user.id, dto);
+  }
+
+  @Post('first-order-free-eligible')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({
+    summary: "Per-brand 'first order free' eligibility for a set of creators",
+    description:
+      'Returns the subset of the given creators whose first order is free for the signed-in brand (promo enabled AND no prior order with them). Empty for guests. Kept separate from the cacheable creators list so the per-brand flag is never shared-cached.',
+  })
+  @ApiOkResponse({ type: FirstOrderFreeEligibleResponseDto })
+  async firstOrderFreeEligible(
+    @Body() dto: FirstOrderFreeEligibleRequestDto,
+    @Req() req: Request & { user?: { id: string } },
+  ): Promise<FirstOrderFreeEligibleResponseDto> {
+    const eligibleCreatorIds =
+      await this.creatorProfileService.firstOrderFreeEligibleIds({
+        actorUserId: req.user?.id ?? null,
+        brandProfileId: readBrandProfileIdFromRequest(req),
+        creatorIds: dto.creatorIds ?? [],
+      });
+    return { eligibleCreatorIds };
   }
 
   @Get()

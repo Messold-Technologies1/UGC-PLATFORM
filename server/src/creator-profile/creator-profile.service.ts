@@ -623,6 +623,28 @@ export class CreatorProfileService {
     return new Set(enabledIds.filter((id) => !usedIds.has(id)));
   }
 
+  /**
+   * Public per-brand "first order free" eligibility lookup for a set of
+   * creators. Powers the browse-grid badge overlay: the shared creators list
+   * stays cacheable, and this small per-brand call is layered on top client-
+   * side. Returns [] for guests / non-brand viewers.
+   */
+  async firstOrderFreeEligibleIds(params: {
+    actorUserId?: string | null;
+    brandProfileId?: string | null;
+    creatorIds: string[];
+  }): Promise<string[]> {
+    const brandId = await this.resolveViewerBrandId(
+      params.actorUserId,
+      params.brandProfileId,
+    );
+    const set = await this.firstOrderFreeEligibleForBrand(
+      brandId,
+      params.creatorIds,
+    );
+    return [...set];
+  }
+
   private async countCreatorOrdersBatch(
     creatorProfileIds: string[],
   ): Promise<Map<string, CreatorOrderCounts>> {

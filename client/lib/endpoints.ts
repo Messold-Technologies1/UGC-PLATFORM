@@ -19,6 +19,7 @@ export const ENDPOINTS = {
   },
   CREATORS: {
     LIST: "/api/creators",
+    FIRST_ORDER_FREE_ELIGIBLE: "/api/creators/first-order-free-eligible",
     PROFILE: "/api/creators/profile",
     PROFILE_ME: "/api/creators/profile/me",
     PROFILE_PAYOUT_DETAILS: "/api/creators/profile/me/payout-details",

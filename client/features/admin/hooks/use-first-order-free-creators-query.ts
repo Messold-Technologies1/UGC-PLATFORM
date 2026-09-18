@@ -19,9 +19,6 @@ export function useFirstOrderFreeCreatorsQuery(
   return useQuery({
     queryKey: firstOrderFreeCreatorsQueryKey(query),
     queryFn: () => fetchFirstOrderFreeCreators(query),
-    // A control surface: always re-check the server on open so a change made
-    // elsewhere (or on another machine) is never masked by the default cache.
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 5 * 60_000,
   });
 }

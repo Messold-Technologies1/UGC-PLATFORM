@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Gift, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -9,7 +9,7 @@ import { useFirstOrderFreeCreatorsQuery } from "../hooks/use-first-order-free-cr
 import { useFirstOrderFreeMutation } from "../hooks/use-first-order-free-mutation";
 
 /** Cards per page when browsing (a multiple of 4 so the grid stays even). */
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 28;
 /** Search is not paginated — pull a generous single page of matches. */
 const SEARCH_SIZE = 50;
 
@@ -60,19 +60,7 @@ export function FirstOrderFreeCreatorsSection() {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
-          <Gift className="size-5 text-primary" />
-          First order free creators
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Each brand&apos;s first order with an enabled creator is free — brand
-          pays ₹0, no payment step, and the creator is paid ₹0. The next order
-          with that creator is a normal paid checkout.
-        </p>
-      </div>
-
-      <div className="relative max-w-sm">
+      <div className="relative w-full">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"

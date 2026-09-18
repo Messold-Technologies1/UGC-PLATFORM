@@ -201,7 +201,7 @@ export const CreatorCard = memo(function CreatorCard({
       aria-label={`View ${creator.name}'s profile`}
       onKeyDown={handleKeyDown}
     >
-      <div className="reel">
+      <div className={cn("reel", creator.firstOrderFreeEligible && "has-fof")}>
         {imageSrc ? (
           <Image
             src={imageSrc}
@@ -265,29 +265,6 @@ export const CreatorCard = memo(function CreatorCard({
           </div>
         </div>
 
-        {creator.firstOrderFreeEligible ? (
-          <div
-            style={{
-              position: "absolute",
-              left: 10,
-              bottom: 62,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "3px 8px",
-              borderRadius: 999,
-              background: "linear-gradient(90deg,#16a34a,#22c55e)",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-              zIndex: 2,
-            }}
-          >
-            <Gift size={12} /> First order free
-          </div>
-        ) : null}
-
         <div className="who">
           <div className="nm">{priceLabel}</div>
           <div className="lc">
@@ -296,6 +273,13 @@ export const CreatorCard = memo(function CreatorCard({
             {creator.languages.slice(0, 2).join(", ")}
           </div>
         </div>
+        {creator.firstOrderFreeEligible ? (
+          <div className="fof-ribbon">
+            <span>
+              <Gift size={14} /> First order free
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div className="foot">

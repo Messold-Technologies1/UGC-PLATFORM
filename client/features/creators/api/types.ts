@@ -159,7 +159,8 @@ export type CreatorProfileItemApi = {
     | "APPROVED"
     | "REJECTED"
     | "SHORTLISTED"
-    | "SELF_COMPLETED";
+    | "SELF_COMPLETED"
+    | "WITHDRAWN";
   /** One-way Go-Live latch: true once every requirement has been met. */
   completeProfile?: boolean;
   /** Discovery gate = approved AND completeProfile. */

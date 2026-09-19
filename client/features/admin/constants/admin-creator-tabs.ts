@@ -7,6 +7,7 @@ import {
   ListTodo,
   SendHorizontal,
   Sparkles,
+  Undo2,
   UserX,
 } from "lucide-react";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
@@ -115,6 +116,15 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     badgeClassName: "bg-teal-100 text-teal-700",
   },
   {
+    value: "withdrawn",
+    label: "Withdrawn",
+    description:
+      "Pulled back from review to edit. They return to Self complete once they resubmit.",
+    icon: Undo2,
+    countKey: "withdrawn",
+    badgeClassName: "bg-orange-100 text-orange-700",
+  },
+  {
     value: "pending",
     label: "Awaiting review",
     description:
@@ -185,6 +195,8 @@ export function getAdminCreatorEmptyMessage(
   switch (segment) {
     case "self_completed":
       return "No self complete profiles waiting to be sent to Awaiting review.";
+    case "withdrawn":
+      return "No withdrawn profiles. Creators appear here after pulling a submitted profile back to edit.";
     case "pending":
       return profileFirst
         ? "No profiles in Awaiting review. List a creator from here after review."

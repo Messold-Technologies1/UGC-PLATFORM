@@ -377,6 +377,32 @@ describe('creator-list-filters.util', () => {
       });
     });
 
+    it('filters withdrawn profiles', () => {
+      expect(
+        buildAdminCreatorsListWhere(
+          AdminCreatorListSegment.WITHDRAWN,
+          undefined,
+          'profile_first',
+        ),
+      ).toEqual({
+        creatorApproval: { status: ApprovalStatus.WITHDRAWN },
+      });
+    });
+
+    it('keeps withdrawn profiles out of the building profile queue', () => {
+      const incomplete = buildAdminCreatorsListWhere(
+        AdminCreatorListSegment.INCOMPLETE,
+        undefined,
+        'profile_first',
+      );
+      // INCOMPLETE only matches PENDING/APPROVED, so WITHDRAWN never leaks in.
+      expect(incomplete).not.toEqual(
+        expect.objectContaining({
+          creatorApproval: { status: ApprovalStatus.WITHDRAWN },
+        }),
+      );
+    });
+
     it('puts all rejected creators in non_approved regardless of completeProfile', () => {
       expect(
         buildAdminCreatorsListWhere(

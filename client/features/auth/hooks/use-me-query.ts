@@ -10,7 +10,8 @@ export type CreatorApprovalStatus =
   | "APPROVED"
   | "REJECTED"
   | "SHORTLISTED"
-  | "SELF_COMPLETED";
+  | "SELF_COMPLETED"
+  | "WITHDRAWN";
 
 export type AccessibleBrandSummary = {
   id: string;

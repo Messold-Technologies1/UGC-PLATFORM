@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApprovalStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 
@@ -49,6 +50,17 @@ export class CreatorReminderService {
   isEnabled(): boolean {
     return (
       this.config.get<string>('CREATOR_COMPLETION_REMINDERS_ENABLED') === 'true'
+    );
+  }
+
+  /**
+   * Separate flag from the signup completion reminders: the resubmit reminder
+   * has its own WhatsApp template that must be created and approved in WhatsApp
+   * Manager first, so it stays off until explicitly enabled.
+   */
+  isResubmitEnabled(): boolean {
+    return (
+      this.config.get<string>('CREATOR_RESUBMIT_REMINDERS_ENABLED') === 'true'
     );
   }
 
@@ -268,6 +280,242 @@ export class CreatorReminderService {
 
     if (sent > 0) {
       this.logger.log(`creator_reminder backstop sent=${sent}`);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resubmit reminders — the same drip rule as the signup completion reminders,
+  // but for profiles the creator withdrew for editing. The clock starts at
+  // CreatorApproval.withdrawnAt and the stage stamps live on CreatorApproval;
+  // eligibility is "still WITHDRAWN" (resubmitting flips the status, which the
+  // atomic claim then excludes).
+  // ---------------------------------------------------------------------------
+
+  private resubmitStampNullWhere(stage: ReminderStage): Record<string, null> {
+    switch (stage) {
+      case 1:
+        return { resubmitReminder30mAt: null };
+      case 2:
+        return { resubmitReminder24hAt: null };
+      case 3:
+        return { resubmitReminder48hAt: null };
+    }
+  }
+
+  private resubmitStampData(
+    stage: ReminderStage,
+    value: Date | null,
+  ): {
+    resubmitReminder30mAt?: Date | null;
+    resubmitReminder24hAt?: Date | null;
+    resubmitReminder48hAt?: Date | null;
+  } {
+    switch (stage) {
+      case 1:
+        return { resubmitReminder30mAt: value };
+      case 2:
+        return { resubmitReminder24hAt: value };
+      case 3:
+        return { resubmitReminder48hAt: value };
+    }
+  }
+
+  private resubmitStampOf(
+    approval: {
+      resubmitReminder30mAt: Date | null;
+      resubmitReminder24hAt: Date | null;
+      resubmitReminder48hAt: Date | null;
+    },
+    stage: ReminderStage,
+  ): Date | null {
+    switch (stage) {
+      case 1:
+        return approval.resubmitReminder30mAt;
+      case 2:
+        return approval.resubmitReminder24hAt;
+      case 3:
+        return approval.resubmitReminder48hAt;
+    }
+  }
+
+  /**
+   * Atomically claim a resubmit stage: stamp its column only if the profile is
+   * still WITHDRAWN, the stage is actually due (withdrawnAt crossed the delay),
+   * and the column is null. Returns true only for the single caller whose UPDATE
+   * flipped the row.
+   */
+  private async claimResubmitStage(
+    profileId: string,
+    stage: ReminderStage,
+    now: number,
+  ): Promise<boolean> {
+    const dueBefore = new Date(now - STAGE_DELAY_MS[stage]);
+    const res = await this.prisma.creatorApproval.updateMany({
+      where: {
+        creatorId: profileId,
+        status: ApprovalStatus.WITHDRAWN,
+        withdrawnAt: { lte: dueBefore },
+        ...this.resubmitStampNullWhere(stage),
+      },
+      data: this.resubmitStampData(stage, new Date()),
+    });
+    return res.count === 1;
+  }
+
+  private async releaseResubmitStage(
+    profileId: string,
+    stage: ReminderStage,
+  ): Promise<void> {
+    await this.prisma.creatorApproval
+      .update({
+        where: { creatorId: profileId },
+        data: this.resubmitStampData(stage, null),
+      })
+      .catch(() => undefined);
+  }
+
+  private async silentResubmitStamp(
+    profileId: string,
+    stage: ReminderStage,
+  ): Promise<void> {
+    await this.prisma.creatorApproval.updateMany({
+      where: { creatorId: profileId, ...this.resubmitStampNullWhere(stage) },
+      data: this.resubmitStampData(stage, new Date()),
+    });
+  }
+
+  private async sendResubmitStageWithClaim(
+    profileId: string,
+    stage: ReminderStage,
+    now: number,
+  ): Promise<boolean> {
+    if (!(await this.claimResubmitStage(profileId, stage, now))) return false;
+    try {
+      await this.notifier.notifyResubmitReminder(profileId, stage);
+      return true;
+    } catch (err) {
+      await this.releaseResubmitStage(profileId, stage);
+      this.logger.warn(
+        `resubmit_reminder stage ${stage} send failed for ${profileId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Deliver one resubmit stage for one creator. Called by the delayed job when
+   * it fires. Exits if the profile is no longer withdrawn (already resubmitted),
+   * retires a stage that a later one already superseded, else claims + sends.
+   */
+  async deliverResubmitStage(
+    profileId: string,
+    stage: ReminderStage,
+  ): Promise<void> {
+    if (!this.isResubmitEnabled()) return;
+
+    const approval = await this.prisma.creatorApproval.findUnique({
+      where: { creatorId: profileId },
+      select: {
+        status: true,
+        withdrawnAt: true,
+        resubmitReminder30mAt: true,
+        resubmitReminder24hAt: true,
+        resubmitReminder48hAt: true,
+      },
+    });
+    if (
+      !approval ||
+      approval.status !== ApprovalStatus.WITHDRAWN ||
+      !approval.withdrawnAt
+    ) {
+      return;
+    }
+    if (this.resubmitStampOf(approval, stage) !== null) return; // already handled
+
+    const laterAlreadySent = REMINDER_STAGES.some(
+      (s) => s > stage && this.resubmitStampOf(approval, s) !== null,
+    );
+    if (laterAlreadySent) {
+      await this.silentResubmitStamp(profileId, stage);
+      return;
+    }
+
+    const sent = await this.sendResubmitStageWithClaim(
+      profileId,
+      stage,
+      Date.now(),
+    );
+    if (sent) {
+      this.logger.log(
+        `resubmit_reminder delivered stage=${stage} ${profileId}`,
+      );
+    }
+  }
+
+  /**
+   * DB-truth backstop for resubmit reminders. Finds still-WITHDRAWN profiles
+   * inside the backfill window with an unsent-but-due stage and sends only the
+   * most recent stage crossed (retiring earlier ones silently). Idempotent with
+   * the delayed-job path via the same atomic claim.
+   */
+  async runResubmitBackstopSweep(): Promise<void> {
+    if (!this.isResubmitEnabled()) return;
+
+    const now = Date.now();
+    const t30 = new Date(now - STAGE_DELAY_MS[1]);
+    const t24 = new Date(now - STAGE_DELAY_MS[2]);
+    const t48 = new Date(now - STAGE_DELAY_MS[3]);
+    const backfillFloor = new Date(now - this.backfillDays() * DAY);
+
+    const candidates = await this.prisma.creatorApproval.findMany({
+      where: {
+        status: ApprovalStatus.WITHDRAWN,
+        withdrawnAt: { lte: t30, gte: backfillFloor },
+        OR: [
+          { resubmitReminder30mAt: null },
+          { resubmitReminder24hAt: null },
+          { resubmitReminder48hAt: null },
+        ],
+      },
+      select: {
+        creatorId: true,
+        withdrawnAt: true,
+        resubmitReminder30mAt: true,
+        resubmitReminder24hAt: true,
+        resubmitReminder48hAt: true,
+      },
+      orderBy: { withdrawnAt: 'asc' },
+      take: 200,
+    });
+
+    let sent = 0;
+    for (const c of candidates) {
+      // withdrawnAt is guaranteed non-null by the `lte` filter above.
+      const withdrawnAt = c.withdrawnAt as Date;
+      const highest: ReminderStage =
+        withdrawnAt <= t48 ? 3 : withdrawnAt <= t24 ? 2 : 1;
+
+      for (const s of REMINDER_STAGES) {
+        if (s < highest && this.resubmitStampOf(c, s) === null) {
+          await this.silentResubmitStamp(c.creatorId, s);
+        }
+      }
+
+      if (this.resubmitStampOf(c, highest) === null) {
+        try {
+          if (await this.sendResubmitStageWithClaim(c.creatorId, highest, now)) {
+            sent += 1;
+          }
+        } catch {
+          // send failure logged + claim released; next sweep retries
+        }
+      }
+    }
+
+    if (sent > 0) {
+      this.logger.log(`resubmit_reminder backstop sent=${sent}`);
     }
   }
 }

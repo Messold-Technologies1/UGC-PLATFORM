@@ -11,7 +11,8 @@ export type ApprovalStatus =
   | "APPROVED"
   | "REJECTED"
   | "SHORTLISTED"
-  | "SELF_COMPLETED";
+  | "SELF_COMPLETED"
+  | "WITHDRAWN";
 
 export type CreatorFacetDimension =
   | "CONTENT_CATEGORY"
@@ -186,6 +187,7 @@ export type AdminCreatorListSegment =
   | "incomplete"
   | "shortlisted"
   | "self_completed"
+  | "withdrawn"
   | "listed"
   | "featured";
 
@@ -200,6 +202,7 @@ export interface AdminCreatorSegmentCountsDto {
   incomplete: number;
   shortlisted: number;
   selfCompleted: number;
+  withdrawn: number;
   listed: number;
   featured: number;
 }
@@ -227,6 +230,7 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   rejectionReason?: string | null;
   rejectedAt?: string | null;
   approvedAt?: string | null;
+  withdrawnAt?: string | null;
   avgRating?: string | null;
   reviewCount?: number;
   startingPrice?: string | null;

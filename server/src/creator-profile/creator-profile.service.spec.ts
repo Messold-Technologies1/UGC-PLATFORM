@@ -265,6 +265,7 @@ describe('CreatorProfileService', () => {
           .fn()
           .mockRejectedValue(new Error('no brand')),
       } as any,
+      { scheduleResubmitReminders: jest.fn() } as any,
     );
   });
 

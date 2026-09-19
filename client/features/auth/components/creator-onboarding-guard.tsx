@@ -42,7 +42,13 @@ export function CreatorOnboardingGuard({ children }: { children: React.ReactNode
     const complete = user.creatorProfileComplete === true;
     const allowed = isAllowedWhileOnboarding(pathname);
 
-    if (status === "PENDING" && !complete && !allowed) {
+    // WITHDRAWN profiles are back in the creator's hands to edit and resubmit,
+    // so route them to the profile editor like an incomplete PENDING profile.
+    if (
+      (status === "PENDING" || status === "WITHDRAWN") &&
+      !complete &&
+      !allowed
+    ) {
       router.replace(PROFILE_SETTINGS_PREFIX);
       return;
     }

@@ -79,6 +79,12 @@ function getRowDateColumn(
       value: formatRowDate(creator.approvedAt ?? creator.submittedAt),
     };
   }
+  if (creator.approvalStatus === "WITHDRAWN") {
+    return {
+      label: "Withdrawn",
+      value: formatRowDate(creator.withdrawnAt ?? creator.submittedAt),
+    };
+  }
   if (segment === "incomplete") {
     return {
       label: "Registered",
@@ -200,6 +206,11 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
           Self complete
         </Badge>
       ) : null}
+      {creator.approvalStatus === "WITHDRAWN" ? (
+        <Badge className="border-orange-500/20 bg-orange-500/10 text-orange-700 hover:bg-orange-500/20">
+          Withdrawn
+        </Badge>
+      ) : null}
       {creator.approvalStatus === "REJECTED" ? (
         <Badge
           variant="outline"
@@ -213,7 +224,7 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
           Approved
         </Badge>
       ) : null}
-      {!creator.completeProfile ? (
+      {!creator.completeProfile && creator.approvalStatus !== "WITHDRAWN" ? (
         <Badge variant="outline">Incomplete</Badge>
       ) : null}
       {creator.isListed ? (

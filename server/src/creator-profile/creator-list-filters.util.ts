@@ -418,6 +418,14 @@ export function buildAdminCreatorsListWhere(
         creatorApproval: { status: ApprovalStatus.SELF_COMPLETED },
       };
       break;
+    case AdminCreatorListSegment.WITHDRAWN:
+      // Profiles the creator pulled back from review to edit. They stay here
+      // (completeProfile is always false in this state) until they resubmit,
+      // which moves them to Self complete / Awaiting review.
+      segmentClause = {
+        creatorApproval: { status: ApprovalStatus.WITHDRAWN },
+      };
+      break;
     case AdminCreatorListSegment.LISTED:
       segmentClause = { isListed: true };
       break;

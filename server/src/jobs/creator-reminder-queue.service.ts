@@ -18,9 +18,13 @@ import {
 const QUEUE_NAME = 'creator-completion-reminder';
 const JOB_NAME = 'reminder-stage';
 
+type ReminderKind = 'completion' | 'resubmit';
+
 interface ReminderJobData {
   profileId: string;
   stage: ReminderStage;
+  /** Absent on legacy in-flight jobs → treated as 'completion'. */
+  kind?: ReminderKind;
 }
 
 /**
@@ -55,8 +59,8 @@ export class CreatorReminderQueueService
   }
 
   async onModuleInit(): Promise<void> {
-    if (!this.reminders.isEnabled()) {
-      this.logger.log('creator completion reminders disabled');
+    if (!this.reminders.isEnabled() && !this.reminders.isResubmitEnabled()) {
+      this.logger.log('creator reminders disabled (completion + resubmit)');
       return;
     }
     if (!this.redisUrl) {
@@ -94,7 +98,14 @@ export class CreatorReminderQueueService
     this.worker = new Worker<ReminderJobData>(
       QUEUE_NAME,
       async (job) => {
-        await this.reminders.deliverStage(job.data.profileId, job.data.stage);
+        if (job.data.kind === 'resubmit') {
+          await this.reminders.deliverResubmitStage(
+            job.data.profileId,
+            job.data.stage,
+          );
+        } else {
+          await this.reminders.deliverStage(job.data.profileId, job.data.stage);
+        }
       },
       { connection, concurrency: 5 },
     );
@@ -149,16 +160,56 @@ export class CreatorReminderQueueService
   }
 
   /**
+   * Schedule the resubmit reminder sequence for a profile the creator just
+   * withdrew. Call AFTER the withdraw transaction commits. `withdrawnAt` makes
+   * the jobId unique per withdraw so a re-withdraw is not swallowed as a
+   * duplicate. Never throws — the backstop sweep covers scheduling failures.
+   */
+  async scheduleResubmitReminders(
+    profileId: string,
+    withdrawnAt: Date,
+  ): Promise<void> {
+    if (!this.queue || !this.reminders.isResubmitEnabled()) return;
+    const stamp = withdrawnAt.getTime();
+    for (const stage of REMINDER_STAGES) {
+      try {
+        await this.queue.add(
+          JOB_NAME,
+          { profileId, stage, kind: 'resubmit' },
+          {
+            jobId: `crm-resubmit-${profileId}-${stage}-${stamp}`,
+            delay: STAGE_DELAY_MS[stage],
+          },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `resubmit reminders: could not schedule stage ${stage} for ${profileId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+  }
+
+  /**
    * DB-truth backstop. Runs every 6 hours — sparse enough that Neon can
    * autosuspend between runs, while still catching any reminder the delayed
-   * jobs missed. Single-flight so overlapping runs never stack.
+   * jobs missed. Single-flight so overlapping runs never stack. Covers both the
+   * signup completion reminders and the withdraw resubmit reminders; each sweep
+   * no-ops when its own flag is off.
    */
   @Cron('0 0 */6 * * *')
   async runBackstop(): Promise<void> {
-    if (!this.reminders.isEnabled() || this.backstopRunning) return;
+    if (
+      (!this.reminders.isEnabled() && !this.reminders.isResubmitEnabled()) ||
+      this.backstopRunning
+    ) {
+      return;
+    }
     this.backstopRunning = true;
     try {
       await this.reminders.runBackstopSweep();
+      await this.reminders.runResubmitBackstopSweep();
     } catch (err) {
       this.logger.warn(
         `creator_reminder backstop failed: ${

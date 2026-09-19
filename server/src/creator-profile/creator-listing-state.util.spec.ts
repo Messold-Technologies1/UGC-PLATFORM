@@ -87,4 +87,52 @@ describe('nextApprovalStatusOnCompletion', () => {
       }),
     ).toBeNull();
   });
+
+  it('Withdrawn → complete (never shortlisted) → Self complete', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: false,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.WITHDRAWN,
+        wasShortlisted: false,
+        profileFirst,
+      }),
+    ).toBe(ApprovalStatus.SELF_COMPLETED);
+  });
+
+  it('Withdrawn → complete (was shortlisted) → Awaiting review', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: false,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.WITHDRAWN,
+        wasShortlisted: true,
+        profileFirst,
+      }),
+    ).toBe(ApprovalStatus.PENDING);
+  });
+
+  it('Withdrawn → complete in approval_first → Awaiting review', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: false,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.WITHDRAWN,
+        wasShortlisted: false,
+        profileFirst: false,
+      }),
+    ).toBe(ApprovalStatus.PENDING);
+  });
+
+  it('leaves a still-incomplete withdrawn profile in place', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: false,
+        completeProfile: false,
+        currentStatus: ApprovalStatus.WITHDRAWN,
+        wasShortlisted: false,
+        profileFirst,
+      }),
+    ).toBeNull();
+  });
 });

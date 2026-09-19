@@ -51,6 +51,10 @@ export function resolveCreatorOnboardingPath(
     if (status === "PENDING" && !complete) {
       return "/creator/settings/profile";
     }
+    // A withdrawn profile is back in the creator's hands to edit and resubmit.
+    if (status === "WITHDRAWN") {
+      return "/creator/settings/profile";
+    }
     // SELF_COMPLETED sits behind an admin "Send for review" gate, but from the
     // creator's side it is indistinguishable from awaiting review.
     if ((status === "PENDING" || status === "SELF_COMPLETED") && complete) {
@@ -64,6 +68,9 @@ export function resolveCreatorOnboardingPath(
 
   if (status === "PENDING") {
     return "/creator/under-review";
+  }
+  if (status === "WITHDRAWN") {
+    return "/creator/settings/profile";
   }
   if (status === "APPROVED" && !complete) {
     return "/creator/settings/profile";

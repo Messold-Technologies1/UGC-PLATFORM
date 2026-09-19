@@ -44,6 +44,11 @@ enum ApprovalStatus {
   REJECTED
   SHORTLISTED
   SELF_COMPLETED
+  /// A previously-submitted profile the creator pulled back to edit. Distinct
+  /// from Building (PENDING + incomplete) so a withdraw is tracked as its own
+  /// stage. On the next Go Live it returns to SELF_COMPLETED (or Awaiting
+  /// review for shortlisted creators) like a first submission.
+  WITHDRAWN
 }
 
 enum RoleName {
@@ -1182,6 +1187,17 @@ model CreatorApproval {
   shortlistedById   String?        @db.Uuid
   /// Admin who sent a self-complete profile into Awaiting review.
   sentForReviewById String?        @db.Uuid
+  /// When the creator (or an admin on their behalf) last withdrew a submitted
+  /// profile back for editing. Kept after resubmission as an audit trail of the
+  /// most recent withdraw.
+  withdrawnAt       DateTime?
+  /// "Resubmit your profile" reminder bookkeeping — one stamp per stage
+  /// (~30min / 24h / 48h after withdrawnAt). Reset to null on each new withdraw
+  /// so every withdraw starts a fresh reminder cycle. Mirrors the signup
+  /// completion-reminder columns on CreatorProfile.
+  resubmitReminder30mAt DateTime?
+  resubmitReminder24hAt DateTime?
+  resubmitReminder48hAt DateTime?
   rejectionReason   String?
   // True while Sakshi has this creator on the shortlist. Cleared on unshortlist
   // so a later go-live lands in Self complete instead of skipping the queue.

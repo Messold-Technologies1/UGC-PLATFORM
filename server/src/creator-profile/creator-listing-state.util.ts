@@ -16,6 +16,9 @@ import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.u
  *   SHORTLISTED → PENDING (Awaiting review) — even if they already completed,
  *     so a backfill that latched completeProfile cannot leave them shortlisted
  *     or dump them into Self complete.
+ *   WITHDRAWN → SELF_COMPLETED (profile_first) / PENDING (approval_first) on
+ *     resubmission — a withdrawn profile lands wherever a first-time completion
+ *     would, and a still-shortlisted one goes straight to Awaiting review.
  *   PENDING → SELF_COMPLETED on the first completion only, and only in
  *     profile_first. Approval_first keeps a single PENDING review queue.
  */
@@ -41,9 +44,18 @@ export function nextApprovalStatusOnCompletion({
   }
   if (
     wasShortlisted &&
-    currentStatus === ApprovalStatus.SELF_COMPLETED
+    (currentStatus === ApprovalStatus.SELF_COMPLETED ||
+      currentStatus === ApprovalStatus.WITHDRAWN)
   ) {
     return ApprovalStatus.PENDING;
+  }
+  // A withdrawn profile completing again is a resubmission: it returns to the
+  // same place a first completion would — Self complete (profile_first) or the
+  // review queue (approval_first).
+  if (currentStatus === ApprovalStatus.WITHDRAWN) {
+    return profileFirst
+      ? ApprovalStatus.SELF_COMPLETED
+      : ApprovalStatus.PENDING;
   }
   if (
     !wasComplete &&

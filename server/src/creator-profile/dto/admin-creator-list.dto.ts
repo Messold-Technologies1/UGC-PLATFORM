@@ -22,6 +22,7 @@ export enum AdminCreatorListSegment {
   INCOMPLETE = 'incomplete',
   SHORTLISTED = 'shortlisted',
   SELF_COMPLETED = 'self_completed',
+  WITHDRAWN = 'withdrawn',
   LISTED = 'listed',
   FEATURED = 'featured',
 }
@@ -144,6 +145,12 @@ export class AdminCreatorListItemDto {
   @ApiPropertyOptional({ nullable: true })
   approvedAt?: Date | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'When the creator last withdrew their profile for editing',
+  })
+  withdrawnAt?: Date | null;
+
   @ApiPropertyOptional({ example: '4.50', nullable: true })
   avgRating?: string | null;
 
@@ -240,6 +247,9 @@ export class AdminCreatorSegmentCountsDto {
 
   @ApiProperty({ example: 6 })
   selfCompleted!: number;
+
+  @ApiProperty({ example: 2 })
+  withdrawn!: number;
 
   @ApiProperty({ example: 30 })
   listed!: number;

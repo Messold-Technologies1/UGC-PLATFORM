@@ -143,14 +143,18 @@ export function CreatorProfileWizard({
     Boolean(initialProfile.completeProfile),
   );
 
-  // A profile that was submitted before (Go-Live policies accepted) but is now
-  // Building — i.e. it was withdrawn for editing. It behaves like a live profile
-  // (free editor, "Save changes" per step) and resubmits from the Review step,
-  // rather than walking the first-time onboarding funnel again.
+  // A profile the creator withdrew from review to edit. It behaves like a live
+  // profile (free editor, "Save changes" per step) and resubmits from the
+  // Review step, rather than walking the first-time onboarding funnel again.
+  // Primarily the WITHDRAWN status, with the pre-status heuristic as a fallback
+  // for profiles withdrawn before this stage existed (or not caught by the
+  // backfill): a submitted profile (Go-Live policies accepted) now sitting
+  // incomplete and unlisted.
   const withdrawnEditing =
-    Boolean(initialProfile.acceptedGoLivePolicies) &&
-    !initialProfile.completeProfile &&
-    !initialProfile.isListed;
+    initialProfile.approvalStatus === "WITHDRAWN" ||
+    (Boolean(initialProfile.acceptedGoLivePolicies) &&
+      !initialProfile.completeProfile &&
+      !initialProfile.isListed);
 
   // An already-live (or admin-edited) profile behaves like a free editor:
   // every step is reachable from the rail, filled steps show as done, and each

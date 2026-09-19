@@ -97,6 +97,7 @@ import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
+import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -299,6 +300,7 @@ export class CreatorProfileService {
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
     private readonly brandAccess: BrandAccessService,
+    private readonly creatorReminders: CreatorReminderQueueService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -1748,6 +1750,7 @@ export class CreatorProfileService {
         base.approvalStatus,
         profile.creatorApproval,
       ),
+      withdrawnAt: profile.creatorApproval?.withdrawnAt ?? null,
       avgRating: profile.stats?.avgRating?.toString() ?? null,
       reviewCount: profile.stats?.reviewCount ?? 0,
       startingPrice: startingPkg?.priceAmount?.toString?.() ?? null,
@@ -1840,18 +1843,29 @@ export class CreatorProfileService {
                   { creatorApproval: { updatedAt: 'desc' } },
                   { createdAt: 'desc' },
                 ]
-              : query.segment === AdminCreatorListSegment.LISTED
-                ? // Newly listed creators must surface first. Sorting by
-                  // profile createdAt buried older signups after List.
+              : query.segment === AdminCreatorListSegment.WITHDRAWN
+                ? // Most recently withdrawn first, so admins see fresh
+                  // withdrawals at the top.
                   [
                     {
                       creatorApproval: {
-                        approvedAt: { sort: 'desc', nulls: 'last' },
+                        withdrawnAt: { sort: 'desc', nulls: 'last' },
                       },
                     },
                     { updatedAt: 'desc' },
                   ]
-                : [{ createdAt: 'desc' }];
+                : query.segment === AdminCreatorListSegment.LISTED
+                  ? // Newly listed creators must surface first. Sorting by
+                    // profile createdAt buried older signups after List.
+                    [
+                      {
+                        creatorApproval: {
+                          approvedAt: { sort: 'desc', nulls: 'last' },
+                        },
+                      },
+                      { updatedAt: 'desc' },
+                    ]
+                  : [{ createdAt: 'desc' }];
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
@@ -2199,6 +2213,7 @@ export class CreatorProfileService {
       AdminCreatorListSegment.INCOMPLETE,
       AdminCreatorListSegment.SHORTLISTED,
       AdminCreatorListSegment.SELF_COMPLETED,
+      AdminCreatorListSegment.WITHDRAWN,
       AdminCreatorListSegment.LISTED,
     ] as const;
 
@@ -2227,7 +2242,8 @@ export class CreatorProfileService {
       incomplete: counts[3],
       shortlisted: counts[4],
       selfCompleted: counts[5],
-      listed: counts[6],
+      withdrawn: counts[6],
+      listed: counts[7],
       featured: featuredCount,
     };
   }
@@ -2720,10 +2736,11 @@ export class CreatorProfileService {
   }
 
   /**
-   * Withdraw a submitted-but-not-yet-listed profile back to Building so the
-   * creator (or an admin on their behalf) can edit and resubmit. Callable from
-   * Self complete (SELF_COMPLETED) or Awaiting review (PENDING with the
-   * completeProfile latch set) — the two states where Submit is blocked.
+   * Withdraw a submitted-but-not-yet-listed profile into the WITHDRAWN stage so
+   * the creator (or an admin on their behalf) can edit and resubmit. Callable
+   * from Self complete (SELF_COMPLETED) or Awaiting review (PENDING with the
+   * completeProfile latch set) — the two states where Submit is blocked. Unlike
+   * a brand-new Building profile, a withdrawn one is tracked as its own stage.
    *
    * Rejected profiles are already editable, Building ones aren't submitted, and
    * a listed/approved profile edits in place via "Save changes"; none can be
@@ -2777,16 +2794,26 @@ export class CreatorProfileService {
       );
     }
 
+    const withdrawnAt = new Date();
     await this.prisma.$transaction(async (tx) => {
-      // Return the approval row to a clean PENDING (clear any send-for-review
-      // audit / rejection reason), and un-latch completeProfile so the profile
-      // is Building again. isListed is already false and stays false.
+      // Move the approval row to WITHDRAWN — its own stage, distinct from a
+      // brand-new Building profile — and stamp withdrawnAt. Clear any
+      // send-for-review audit / rejection reason, and reset the resubmit
+      // reminder stamps so this withdraw starts a fresh reminder cycle. Un-latch
+      // completeProfile so the profile is editable again. isListed is already
+      // false and stays false. On the next Go Live the profile returns to
+      // SELF_COMPLETED (or Awaiting review for shortlisted creators) like a
+      // first submission.
       await tx.creatorApproval.update({
         where: { creatorId: creatorProfileId },
         data: {
-          status: ApprovalStatus.PENDING,
+          status: ApprovalStatus.WITHDRAWN,
           sentForReviewById: null,
           rejectionReason: null,
+          withdrawnAt,
+          resubmitReminder30mAt: null,
+          resubmitReminder24hAt: null,
+          resubmitReminder48hAt: null,
         },
       });
       await tx.creatorProfile.update({
@@ -2794,6 +2821,13 @@ export class CreatorProfileService {
         data: { completeProfile: false, isListed: false },
       });
     });
+
+    // Kick off the "resubmit your profile" reminder drip (email + WhatsApp),
+    // timed from the withdraw. Fire-and-forget: a scheduling failure is covered
+    // by the backstop sweep, and this no-ops when the feature is disabled.
+    void this.creatorReminders
+      .scheduleResubmitReminders(creatorProfileId, withdrawnAt)
+      .catch(() => undefined);
 
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
@@ -2805,7 +2839,7 @@ export class CreatorProfileService {
 
     this.logger.log(
       `[creator-action] WITHDRAW_FOR_EDITING creator=${creatorProfileId} by=${actingUserId} ` +
-        `from=${status ?? 'unknown'} to=Building (completeProfile latch reverted)`,
+        `from=${status ?? 'unknown'} to=${ApprovalStatus.WITHDRAWN} (completeProfile latch reverted)`,
     );
 
     return this.mapCreatorProfileResponseDto(updated);

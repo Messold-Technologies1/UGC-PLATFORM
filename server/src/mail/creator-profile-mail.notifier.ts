@@ -152,6 +152,52 @@ export class CreatorProfileMailNotifier {
   }
 
   /**
+   * Reminder to resubmit a profile the creator withdrew for editing. `stage`
+   * selects the copy: 1 = +30min nudge, 2 = +24h, 3 = +48h last call. Awaitable
+   * so the caller can stamp its bookkeeping only after the send is attempted.
+   */
+  notifyResubmitReminder(
+    creatorProfileId: string,
+    stage: 1 | 2 | 3,
+  ): Promise<void> {
+    return this.run('creator_profile_resubmit_reminder', async () => {
+      const profile = await this.loadProfile(creatorProfileId);
+      if (!profile) return;
+
+      const email = this.recipientEmail(profile);
+      if (!email) {
+        this.logger.warn(
+          `creator resubmit reminder: no email for profile ${creatorProfileId}`,
+        );
+        return;
+      }
+
+      await this.mail.send({
+        to: email,
+        templateKey: EmailTemplateKey.CREATOR_PROFILE_RESUBMIT_REMINDER,
+        notificationGate: {
+          profileType: 'creator',
+          profileId: creatorProfileId,
+        },
+        context: {
+          recipientName: this.recipientName(profile),
+          actionUrl: `${this.frontendBase()}/creator/settings/profile`,
+          isStage1: stage === 1,
+          isStage2: stage === 2,
+          isStage3: stage === 3,
+        },
+      });
+      await sendWhatsAppForEmail(this.whatsapp, this.config, {
+        to: this.recipientPhone(profile),
+        emailKey: EmailTemplateKey.CREATOR_PROFILE_RESUBMIT_REMINDER,
+        recipientName: this.recipientName(profile),
+        actionUrl: `${this.frontendBase()}/creator/settings/profile`,
+        gate: { profileType: 'creator', profileId: creatorProfileId },
+      });
+    });
+  }
+
+  /**
    * A social connection (Instagram) went dead — its token was invalidated or
    * revoked and can't be refreshed, so the creator has to reconnect. Nudge them
    * with the deep link to the profile page that hosts the reconnect button.

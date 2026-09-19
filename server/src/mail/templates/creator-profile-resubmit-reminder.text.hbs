@@ -1,0 +1,21 @@
+Hi {{recipientName}},
+
+{{#if isStage1}}
+You reopened your creator profile on {{platformName}} to make changes, so it's out of the review queue for now. Once you're happy with your updates, submit it again and our team will review it to get you back live for brands.
+
+Submit my profile: {{actionUrl}}
+{{/if}}
+{{#if isStage2}}
+Your {{platformName}} profile is still withdrawn for editing, so brands can't find you while it sits unsubmitted. When you've finished your changes, submit it for review and we'll take it from there.
+
+Finish & submit: {{actionUrl}}
+{{/if}}
+{{#if isStage3}}
+It's been a couple of days since you reopened your {{platformName}} profile and it hasn't been submitted yet — which means brands searching {{platformName}} still can't discover you. The good news: your work is saved. Submit it for review today to get back in front of brands.
+
+Submit for review: {{actionUrl}}
+
+Stuck or have questions? Contact us: {{frontendUrl}}/contact
+{{/if}}
+
+— The {{platformName}} team

@@ -1,0 +1,38 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Ready to finish your edits? ✨</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You reopened your <strong>{{platformName}}</strong> profile to make changes, so it's out of the review queue for now. Once you're happy with your updates, submit it again and our team will review it to get you back live for brands.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Submit my profile →"}}
+</div>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Your profile is still on pause ⏸️</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your <strong>{{platformName}}</strong> profile is still withdrawn for editing, so brands can't find you while it sits unsubmitted. When you've finished your changes, submit it for review and we'll take it from there.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Finish &amp; submit →"}}
+</div>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Don't forget to resubmit your profile</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  It's been a couple of days since you reopened your <strong>{{platformName}}</strong> profile and it hasn't been submitted yet — which means brands searching {{platformName}} still can't discover you. The good news: your work is saved. Submit it for review today to get back in front of brands.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Submit for review →"}}
+</div>
+<p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Stuck or have questions?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 💗</p>

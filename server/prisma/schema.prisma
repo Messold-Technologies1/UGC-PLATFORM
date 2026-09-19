@@ -1191,6 +1191,13 @@ model CreatorApproval {
   /// profile back for editing. Kept after resubmission as an audit trail of the
   /// most recent withdraw.
   withdrawnAt       DateTime?
+  /// "Resubmit your profile" reminder bookkeeping — one stamp per stage
+  /// (~30min / 24h / 48h after withdrawnAt). Reset to null on each new withdraw
+  /// so every withdraw starts a fresh reminder cycle. Mirrors the signup
+  /// completion-reminder columns on CreatorProfile.
+  resubmitReminder30mAt DateTime?
+  resubmitReminder24hAt DateTime?
+  resubmitReminder48hAt DateTime?
   rejectionReason   String?
   // True while Sakshi has this creator on the shortlist. Cleared on unshortlist
   // so a later go-live lands in Self complete instead of skipping the queue.

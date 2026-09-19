@@ -97,6 +97,7 @@ import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
+import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -299,6 +300,7 @@ export class CreatorProfileService {
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
     private readonly brandAccess: BrandAccessService,
+    private readonly creatorReminders: CreatorReminderQueueService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -2792,20 +2794,26 @@ export class CreatorProfileService {
       );
     }
 
+    const withdrawnAt = new Date();
     await this.prisma.$transaction(async (tx) => {
       // Move the approval row to WITHDRAWN — its own stage, distinct from a
       // brand-new Building profile — and stamp withdrawnAt. Clear any
-      // send-for-review audit / rejection reason, and un-latch completeProfile
-      // so the profile is editable again. isListed is already false and stays
-      // false. On the next Go Live the profile returns to SELF_COMPLETED (or
-      // Awaiting review for shortlisted creators) like a first submission.
+      // send-for-review audit / rejection reason, and reset the resubmit
+      // reminder stamps so this withdraw starts a fresh reminder cycle. Un-latch
+      // completeProfile so the profile is editable again. isListed is already
+      // false and stays false. On the next Go Live the profile returns to
+      // SELF_COMPLETED (or Awaiting review for shortlisted creators) like a
+      // first submission.
       await tx.creatorApproval.update({
         where: { creatorId: creatorProfileId },
         data: {
           status: ApprovalStatus.WITHDRAWN,
           sentForReviewById: null,
           rejectionReason: null,
-          withdrawnAt: new Date(),
+          withdrawnAt,
+          resubmitReminder30mAt: null,
+          resubmitReminder24hAt: null,
+          resubmitReminder48hAt: null,
         },
       });
       await tx.creatorProfile.update({
@@ -2813,6 +2821,13 @@ export class CreatorProfileService {
         data: { completeProfile: false, isListed: false },
       });
     });
+
+    // Kick off the "resubmit your profile" reminder drip (email + WhatsApp),
+    // timed from the withdraw. Fire-and-forget: a scheduling failure is covered
+    // by the backstop sweep, and this no-ops when the feature is disabled.
+    void this.creatorReminders
+      .scheduleResubmitReminders(creatorProfileId, withdrawnAt)
+      .catch(() => undefined);
 
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },

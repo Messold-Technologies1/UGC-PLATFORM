@@ -5,14 +5,12 @@ import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useGetBrandOrderDetailsQuery } from "../../hooks/use-get-brand-order-details-query";
 import { useRouter } from "next/navigation";
 import { OrderPageHeader } from "./order-page-header";
 import { OrderProgressStepper } from "./order-progress-stepper";
 import { CreatorProfileCard } from "./creator-profile-card";
 import { OrderSummaryCard } from "./order-summary-card";
-import { NeedHelpCard } from "./support-tips-card";
 import { ShippingDetailsCard } from "./order-shipping/shipping-details-card";
 import { ShippingTimelineCard } from "./order-shipping/shipping-timeline-card";
 import { ShippingAddressCard } from "./order-shipping/shipping-address-card";
@@ -56,11 +54,10 @@ export function BrandOrderShippingView({
 }: BrandOrderShippingViewProps) {
   const { data, isLoading, isError, error } =
     useGetBrandOrderDetailsQuery(orderId);
-  const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
   const router = useRouter();
 
   const handleStepClick = (label: string) => {
-    if (label === "Awaiting\nShipment") return;
+    if (label === "Awaiting Shipment") return;
     router.push(`/brand/orders/${orderId}?preview=${encodeURIComponent(label)}`);
   };
 
@@ -98,7 +95,6 @@ export function BrandOrderShippingView({
   }
 
   const { order, creator } = data;
-  const briefId = order.briefId ?? orderBriefData?.brief?.id ?? null;
 
   // Once content is delivered (or later), leave the shipping page so the brand
   // sees the live delivered/completed UI without a manual refresh.
@@ -122,7 +118,7 @@ export function BrandOrderShippingView({
       <OrderProgressStepper 
         order={order} 
         onStepClick={handleStepClick}
-        previewState="Awaiting\nShipment"
+        previewState="Awaiting Shipment"
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
@@ -147,8 +143,7 @@ export function BrandOrderShippingView({
         <aside className="flex flex-col gap-5 lg:col-span-4">
           <CreatorProfileCard creator={creator} order={order} />
           <ShippingAddressCard shippingAddress={creator.shippingAddress} />
-          <OrderSummaryCard order={order} orderId={orderId} briefId={briefId} brief={orderBriefData?.brief ?? null} />
-          <NeedHelpCard />
+          <OrderSummaryCard order={order} creator={creator} />
         </aside>
       </div>
     </div>

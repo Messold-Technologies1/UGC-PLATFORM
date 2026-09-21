@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  ChevronDown,
   Download,
   Eye,
   FileVideo,
   Image as ImageIcon,
+  MessageCircle,
+  MessageSquareQuote,
   MoreVertical,
   Play,
 } from "lucide-react";
@@ -21,8 +24,9 @@ import {
   type CarouselAsset,
 } from "@/components/ui/thumbnails-carousel";
 
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import type { OrderDetailsPublic } from "../../../api/types";
-import { ExternalLink } from "lucide-react";
 import {
   DeliveryPreviewPreparing,
   getLatestDeliveryPreviewState,
@@ -33,6 +37,7 @@ interface DeliveredVideosCardProps {
   order?: OrderDetailsPublic;
   creatorName?: string;
   variant?: "delivered" | "completed";
+  sidebar?: ReactNode;
 }
 
 function filenameFromKey(key: string): string {
@@ -77,10 +82,6 @@ function formatApprovedDate(value?: string | null): string {
     minute: "2-digit",
     hour12: true,
   })}`;
-}
-
-function openInNewTab(url: string) {
-  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function downloadAsset(url: string, filename: string) {
@@ -129,6 +130,69 @@ function revisionLabel(revisionNumber?: number): string {
   return `Revision ${revisionNumber}`;
 }
 
+function DeliveryNoteBlock({
+  title,
+  body,
+  emptyText,
+}: Readonly<{ title: string; body?: string | null; emptyText: string }>) {
+  const text = body?.trim();
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/25 p-3">
+      <div className="flex items-center gap-1.5">
+        <MessageSquareQuote className="size-3.5 shrink-0 text-primary" />
+        <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+          {title}
+        </p>
+      </div>
+      <p
+        className={
+          text
+            ? "mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground"
+            : "mt-1.5 text-xs italic leading-relaxed text-muted-foreground/70"
+        }
+      >
+        {text || emptyText}
+      </p>
+    </div>
+  );
+}
+
+function PreviousVersionsAccordion({
+  versions,
+}: Readonly<{ versions: OrderDeliveryItem[] }>) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-4 border-t border-border/60 pt-3">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+      >
+        <h4 className="text-sm font-bold text-foreground">
+          Previous versions ({versions.length})
+        </h4>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+          <ChevronDown
+            className={`size-4 pointer-events-none transition-transform duration-200 ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </span>
+      </button>
+      {open ? (
+        <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {versions.map((delivery) => (
+            <PreviousVersionBlock key={delivery.id} delivery={delivery} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** A superseded delivery shown under "Previous versions". */
 function PreviousVersionBlock({
   delivery,
@@ -145,11 +209,11 @@ function PreviousVersionBlock({
   }));
 
   return (
-    <div className="rounded-xl border border-border/50 p-3 flex flex-col gap-3">
+    <div className="flex w-[200px] shrink-0 snap-start flex-col gap-3 rounded-xl border border-border/50 p-3">
       <div className="w-full">
         <ThumbnailsCarousel
           assets={carouselAssets}
-          itemGroupClassName="aspect-video h-auto rounded-lg"
+          itemGroupClassName="aspect-auto h-[180px] rounded-lg"
         />
       </div>
       <div className="min-w-0">
@@ -164,34 +228,6 @@ function PreviousVersionBlock({
             {delivery.note.trim()}
           </p>
         ) : null}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {assets.map((asset, index) => {
-            const filename = filenameFromKey(asset.key);
-            const Icon = asset.kind === "video" ? FileVideo : ImageIcon;
-            return (
-              <Button
-                key={asset.key}
-                asChild
-                variant="outline"
-                size="sm"
-                className="h-8 max-w-full justify-start rounded-lg border-border/50 px-2.5 text-xs font-semibold"
-              >
-                <a
-                  href={asset.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={filename}
-                >
-                  <Icon className="size-3.5 shrink-0" />
-                  <span className="truncate">
-                    {asset.kind === "video" ? "Video" : "Image"} {index + 1}
-                  </span>
-                  <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
-                </a>
-              </Button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
@@ -205,7 +241,7 @@ function DeliveredVideosSkeleton() {
         <Skeleton className="h-5 w-28 rounded-full" />
       </div>
       <div className="flex gap-5">
-        <Skeleton className="aspect-video w-[220px] rounded-xl" />
+        <Skeleton className="h-[280px] w-[340px] rounded-xl" />
         <div className="flex-1 space-y-3 pt-1">
           <Skeleton className="h-5 w-48" />
           <Skeleton className="h-4 w-36" />
@@ -225,6 +261,7 @@ export function DeliveredVideosCard({
   order,
   creatorName = "Creator",
   variant = "delivered",
+  sidebar,
 }: DeliveredVideosCardProps) {
   const { data, isLoading, isError } = useGetBrandOrderDeliveriesQuery(orderId);
 
@@ -248,7 +285,6 @@ export function DeliveredVideosCard({
   const allAssets = latestDelivery?.assets ?? [];
   const videoAssets = allAssets.filter((a) => a.kind === "video");
   const imageAssets = allAssets.filter((a) => a.kind === "image");
-  const primaryVideo = videoAssets[0];
   const videoCount = videoAssets.length;
 
   const isWatermarked = allAssets.some((a) => a.watermarked);
@@ -272,20 +308,11 @@ export function DeliveredVideosCard({
 
   const isEmpty = !latestDelivery || allAssets.length === 0;
 
-  const primaryAsset = primaryVideo ?? allAssets[0] ?? null;
-
-  const primaryFilename = primaryAsset
-    ? filenameFromKey(primaryAsset.key)
-    : "Pending Delivery...";
-  const shortPrimaryFilename = primaryAsset 
-    ? formatShortFilename(primaryFilename, 30) 
-    : primaryFilename;
-
   const isCompleted = variant === "completed";
 
   if (previewGenerating && !isCompleted) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div className="flex flex-col md:flex-row gap-6 justify-between">
           <div className="flex-1 min-w-0 w-full">
             <DeliveryPreviewPreparing
@@ -316,8 +343,29 @@ export function DeliveredVideosCard({
     );
   }
 
-  return (
-    <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
+  const extras = (
+    <>
+      {imageAssets.length > 0 && (
+        <div className="mt-4 border-t border-border/60 pt-3">
+          <h4 className="text-sm font-bold text-foreground mb-2">
+            Additional Files
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {imageAssets.map((asset) => (
+              <AdditionalFileCard key={asset.key} asset={asset} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {previousVersions.length > 0 && (
+        <PreviousVersionsAccordion versions={previousVersions} />
+      )}
+    </>
+  );
+
+  const currentDelivery = (
+    <>
       {isCompleted && (
         <h3 className="text-base font-bold text-foreground mb-6">
           Final Delivery
@@ -334,112 +382,108 @@ export function DeliveredVideosCard({
         </div>
       )}
 
-      <div className="flex-1 flex flex-col justify-center">
-        <div className="flex flex-col md:flex-row gap-6 justify-between">
-          <div className="flex-1 min-w-0 w-full">
-            {isEmpty || carouselAssets.length === 0 ? (
-              <div className="relative aspect-auto h-[263px] xl:h-[295px] w-full rounded-xl overflow-hidden bg-muted/50 border border-border/50 flex flex-col items-center justify-center text-muted-foreground/50">
-                <FileVideo className="size-8 mb-2" />
-                <span className="text-xs font-medium">No media</span>
-              </div>
-            ) : (
-              <ThumbnailsCarousel 
-                assets={carouselAssets} 
-                itemGroupClassName="aspect-auto h-[263px] xl:h-[295px]" 
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
+        <div className="flex w-full shrink-0 flex-col sm:w-[300px] lg:w-[340px] xl:w-[380px]">
+          {isEmpty || carouselAssets.length === 0 ? (
+            <div className="relative flex h-[280px] min-h-[280px] w-full flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border border-border/50 bg-muted/50 text-muted-foreground/50 sm:h-auto xl:min-h-[320px]">
+              <FileVideo className="size-8 mb-2" />
+              <span className="text-xs font-medium">No media</span>
+            </div>
+          ) : (
+            <ThumbnailsCarousel
+              className="flex h-[280px] min-h-[280px] flex-1 flex-col sm:h-full xl:min-h-[320px]"
+              assets={carouselAssets}
+              itemGroupClassName="aspect-auto h-full min-h-[280px] max-h-none xl:min-h-[320px]"
+            />
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileVideo
+                className={`size-4 shrink-0 ${isEmpty ? "text-muted-foreground/40" : "text-muted-foreground"}`}
               />
-            )}
-          </div>
-
-          <div className="shrink-0 w-full md:w-[260px] xl:w-[280px] flex flex-col justify-center">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <FileVideo
-                  className={`size-4 shrink-0 ${isEmpty ? "text-muted-foreground/40" : "text-muted-foreground"}`}
-                />
-                <h4
-                  className={`text-sm font-bold truncate ${isEmpty ? "text-muted-foreground/60" : "text-foreground"}`}
-                >
-                  {isEmpty ? "Pending Delivery..." : `${videoCount} Video${videoCount !== 1 ? "s" : ""} Delivered`}
-                </h4>
-              </div>
-              <div className="space-y-1.5 pt-1.5">
-                <p className="text-xs text-muted-foreground">
-                  {isEmpty
-                    ? "Not delivered yet"
-                    : formatDeliveryDate(latestDelivery?.createdAt)}
-                </p>
-                {isCompleted && (
-                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-500">
-                    {formatApprovedDate(order?.acceptedAt)}
-                  </p>
-                )}
-              </div>
+              <h4
+                className={`text-sm font-bold truncate ${isEmpty ? "text-muted-foreground/60" : "text-foreground"}`}
+              >
+                {isEmpty ? "Pending Delivery..." : `${videoCount} Video${videoCount !== 1 ? "s" : ""} Delivered`}
+              </h4>
             </div>
-
-            <div className="flex items-center gap-2.5 mt-6">
-              {isCompleted ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg font-semibold text-xs px-4 h-9"
-                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
-                  disabled={isEmpty}
-                >
-                  <ExternalLink className="size-3.5 mr-1.5" />
-                  Open Link
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  className="rounded-lg font-semibold text-xs px-4 h-9"
-                  onClick={() => primaryAsset && openInNewTab(primaryAsset.url)}
-                  disabled={isEmpty}
-                >
-                  <Eye className="size-3.5 mr-1.5" />
-                  Preview
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {latestDelivery?.note?.trim() ? (
-          <div className="mt-5 pt-4 border-t border-border/60">
-            <h4 className="text-sm font-bold text-foreground mb-2">
-              Note from creator
-            </h4>
-            <p className="rounded-lg bg-muted/30 p-3 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-              {latestDelivery.note.trim()}
+            <p className="pl-6 text-xs text-muted-foreground">
+              {isEmpty
+                ? "Not delivered yet"
+                : formatDeliveryDate(latestDelivery?.createdAt)}
             </p>
+            {isCompleted ? (
+              <p className="pl-6 text-xs font-semibold text-emerald-600 dark:text-emerald-500">
+                {formatApprovedDate(order?.acceptedAt)}
+              </p>
+            ) : null}
           </div>
-        ) : null}
+
+          {!isCompleted ? (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="mt-3 h-9 w-full justify-center rounded-lg px-3 text-xs font-semibold lg:hidden"
+            >
+              <Link href={`/brand/messages?orderId=${orderId}`}>
+                <MessageCircle className="mr-1.5 size-3.5" />
+                Message Creator
+              </Link>
+            </Button>
+          ) : null}
+
+          {isRevision ? (
+            <div className="mt-4 space-y-3">
+              <DeliveryNoteBlock
+                title="What you asked for"
+                body={
+                  order?.status === "REVISION_REQUESTED"
+                    ? order.previousRevision?.note
+                    : latestDelivery?.brandRevisionNote ??
+                      order?.currentRevision?.note
+                }
+                emptyText="No revision notes were added"
+              />
+              <DeliveryNoteBlock
+                title="Creator remarks"
+                body={latestDelivery?.note}
+                emptyText="No creator remarks"
+              />
+            </div>
+          ) : (
+            <div className="mt-4">
+              <DeliveryNoteBlock
+                title="Creator remarks"
+                body={latestDelivery?.note}
+                emptyText="No creator remarks"
+              />
+            </div>
+          )}
+        </div>
       </div>
+    </>
+  );
 
-      {imageAssets.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-border/60">
-          <h4 className="text-sm font-bold text-foreground mb-2">
-            Additional Files
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {imageAssets.map((asset) => (
-              <AdditionalFileCard key={asset.key} asset={asset} />
-            ))}
-          </div>
+  if (sidebar) {
+    return (
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
+        <div className="w-full rounded-lg border bg-card p-5 shadow-sm lg:col-span-8">
+          {currentDelivery}
+          {extras}
         </div>
-      )}
+        <div className="w-full lg:col-span-4">{sidebar}</div>
+      </div>
+    );
+  }
 
-      {previousVersions.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-border/60">
-          <h4 className="text-sm font-bold text-foreground mb-3">
-            Previous versions ({previousVersions.length})
-          </h4>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {previousVersions.map((delivery) => (
-              <PreviousVersionBlock key={delivery.id} delivery={delivery} />
-            ))}
-          </div>
-        </div>
-      )}
+  return (
+    <div className="rounded-lg border bg-card p-6 shadow-sm">
+      {currentDelivery}
+      {extras}
     </div>
   );
 }

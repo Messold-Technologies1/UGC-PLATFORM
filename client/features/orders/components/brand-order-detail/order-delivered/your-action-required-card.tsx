@@ -162,7 +162,7 @@ export function YourActionRequiredCard({
 
   if (previewPreparing) {
     return (
-      <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div>
           <h3 className="text-lg font-bold text-foreground">Almost there</h3>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -172,7 +172,7 @@ export function YourActionRequiredCard({
           </p>
         </div>
 
-        <div className="mt-auto pt-6 flex items-center gap-3 rounded-xl border border-dashed border-primary/20 bg-primary/[0.04] px-4 py-4">
+        <div className="mt-6 flex items-center gap-3 rounded-xl border border-dashed border-primary/20 bg-primary/[0.04] px-4 py-4">
           <Spinner className="size-5 text-primary shrink-0" />
           <p className="text-sm font-medium text-foreground">
             Preparing your preview…
@@ -184,7 +184,7 @@ export function YourActionRequiredCard({
 
   return (
     <>
-      <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
         <div>
           <h3 className="text-lg font-bold text-foreground">
             Your Action Required
@@ -194,7 +194,7 @@ export function YourActionRequiredCard({
           </p>
         </div>
 
-        <div className="mt-auto pt-5">
+        <div className="mt-5">
           <div className="flex flex-col gap-3">
             <Button
               className="w-full font-semibold h-11 rounded-xl shadow-sm"

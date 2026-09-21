@@ -1,12 +1,10 @@
 "use client";
 
-import { Info, MessageCircle, Star } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { OrderCreatorSnapshot, OrderDetailsPublic } from "../../api/types";
-import { useCreatorProfileQuery } from "../../../creators/hooks/use-creator-profile-query";
 
 interface CreatorProfileCardProps {
   creator: OrderCreatorSnapshot;
@@ -24,12 +22,10 @@ function getInitials(name: string) {
 
 export function CreatorProfileCard({
   creator,
-  order,
-}: CreatorProfileCardProps) {
-  const creatorName = creator.displayName || "Creator";
-  const { data: creatorProfile } = useCreatorProfileQuery(creator.id, {
-    enabled: !!creator.id,
-  });
+  order: _order,
+}: Readonly<CreatorProfileCardProps>) {
+  const creatorLabel = creator.displayName || "Creator";
+  const languageText = creator.languages?.filter(Boolean).join(", ") ?? "";
 
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm flex flex-col h-full">
@@ -39,35 +35,34 @@ export function CreatorProfileCard({
         <Avatar className="size-14 border-2 border-primary/20 shrink-0">
           <AvatarImage
             src={creator.profileImageUrl || undefined}
-            alt={creatorName}
+            alt={creatorLabel}
           />
           <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
-            {getInitials(creatorName)}
+            {getInitials(creatorLabel)}
           </AvatarFallback>
         </Avatar>
 
         <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="text-sm font-bold text-foreground">{creatorName}</h4>
-            <Badge className="rounded-full bg-primary/10 text-primary border-primary/20 text-[10px] font-semibold px-2 py-0">
-              Top Creator
-            </Badge>
-          </div>
+          <h4 className="text-sm font-bold text-foreground">Creator</h4>
 
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {creator.city ? `${creator.city}, India` : "India"} • Hindi, English
-          </p>
+          {creator.city ? (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {creator.city}
+            </p>
+          ) : null}
 
-          <div className="flex items-center gap-1.5 mt-1">
-            <Star className="size-3.5 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-semibold text-foreground">
-              {creator.avgRating ?? creatorProfile?.avgRating ?? "New"}
-            </span>
-            <span className="text-xs text-muted-foreground underline underline-offset-2">
-              ({creator.reviewCount ?? creatorProfile?.reviewCount ?? 0}{" "}
-              reviews)
-            </span>
-          </div>
+          {languageText ? (
+            <p className="text-xs text-muted-foreground mt-1">
+              {languageText}
+            </p>
+          ) : null}
+
+          {creator.primaryNiche ? (
+            <p className="text-xs font-medium text-foreground mt-1">
+              Primary niche:{" "}
+              <span className="text-muted-foreground">{creator.primaryNiche}</span>
+            </p>
+          ) : null}
         </div>
       </div>
 

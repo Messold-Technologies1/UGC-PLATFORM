@@ -9,7 +9,8 @@ import type { OrderBriefPayload } from "@/features/orders/api/get-order-brief";
 import { OrderPageHeader } from "./order-page-header";
 import { OrderProgressStepper } from "./order-progress-stepper";
 import { OrderStatusBanner } from "./order-status-banner";
-import { InprogressOrderDetailsCard } from "./order-inProgress/inprogress-order-details-card";
+import { BriefSummaryCard } from "./brief-summary-card";
+import { OrderSummaryCard } from "./order-summary-card";
 
 interface BrandOrderDisputeViewProps {
   orderId: string;
@@ -25,7 +26,7 @@ export function BrandOrderDisputeView({
   creator,
   brief,
   briefId,
-}: BrandOrderDisputeViewProps) {
+}: Readonly<BrandOrderDisputeViewProps>) {
   return (
     <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
       <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
@@ -47,12 +48,10 @@ export function BrandOrderDisputeView({
         </div>
 
         <aside className="flex flex-col gap-5 lg:col-span-5">
-          <InprogressOrderDetailsCard
-            order={order}
-            brief={brief}
-            briefId={briefId}
-            orderId={orderId}
-          />
+          {creator ? <OrderSummaryCard order={order} creator={creator} /> : null}
+          {order.hasBrief && brief ? (
+            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+          ) : null}
         </aside>
       </div>
     </div>

@@ -3015,6 +3015,55 @@ export class OrdersService {
     };
   }
 
+  private async attachRevisionSnapshots(
+    mappedOrder: OrderDetailsPublicDto,
+    order: { id: string; status: OrderStatus; revisionCount: number },
+  ): Promise<void> {
+    const revisionActiveStatuses = new Set<OrderStatus>([
+      'REVISION_REQUESTED',
+      'REVISION_SUBMITTED',
+    ]);
+    if (!revisionActiveStatuses.has(order.status) || order.revisionCount <= 0) {
+      return;
+    }
+
+    const revisionNumbers = [order.revisionCount];
+    if (order.status === 'REVISION_REQUESTED' && order.revisionCount > 1) {
+      revisionNumbers.push(order.revisionCount - 1);
+    }
+
+    const rows = await this.prisma.orderRevision.findMany({
+      where: {
+        orderId: order.id,
+        revisionNumber: { in: revisionNumbers },
+      },
+      select: {
+        revisionNumber: true,
+        note: true,
+        createdAt: true,
+      },
+    });
+
+    const byNumber = new Map(rows.map((row) => [row.revisionNumber, row]));
+    const current = byNumber.get(order.revisionCount);
+    if (current) {
+      mappedOrder.currentRevision = {
+        revisionNumber: current.revisionNumber,
+        note: current.note ?? null,
+        requestedAt: current.createdAt,
+      };
+    }
+
+    const previous = byNumber.get(order.revisionCount - 1);
+    if (order.status === 'REVISION_REQUESTED' && previous) {
+      mappedOrder.previousRevision = {
+        revisionNumber: previous.revisionNumber,
+        note: previous.note ?? null,
+        requestedAt: previous.createdAt,
+      };
+    }
+  }
+
   private mapOrderDetails(order: {
     id: string;
     status: OrderStatus;
@@ -3047,6 +3096,12 @@ export class OrdersService {
     cancellationReason?: string | null;
     cancelledAt?: Date | null;
     cancelledOnBehalfOf?: string | null;
+    couponCodeSnapshot?: string | null;
+    couponNameSnapshot?: string | null;
+    discountTypeSnapshot?: string | null;
+    discountAmountPaise?: number;
+    grossAmountPaise?: number;
+    isFreeOrder?: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): OrderDetailsPublicDto {
@@ -3125,6 +3180,16 @@ export class OrdersService {
       extraRevisionsPaidPaise: 0,
       extraRevisionsAdded: 0,
       extraUsageRightsPaidPaise: 0,
+      isFreeOrder: !!order.isFreeOrder,
+      coupon: order.couponCodeSnapshot
+        ? {
+            code: order.couponCodeSnapshot,
+            name: order.couponNameSnapshot ?? order.couponCodeSnapshot,
+            discountType: order.discountTypeSnapshot ?? null,
+            discountAmountPaise: order.discountAmountPaise ?? 0,
+            grossAmountPaise: order.grossAmountPaise ?? 0,
+          }
+        : null,
     };
   }
 
@@ -3231,6 +3296,12 @@ export class OrdersService {
         creatorPaidAt: true,
         revisionCount: true,
         refundedAt: true,
+        couponCodeSnapshot: true,
+        couponNameSnapshot: true,
+        discountTypeSnapshot: true,
+        discountAmountPaise: true,
+        grossAmountPaise: true,
+        isFreeOrder: true,
         cancellationReason: true,
         cancelledAt: true,
         cancelledByUserId: true,
@@ -3245,6 +3316,26 @@ export class OrdersService {
             profileImageUrl: true,
             city: true,
             shippingAddress: true,
+            profileLanguages: {
+              select: {
+                option: {
+                  select: {
+                    label: true,
+                  },
+                },
+              },
+            },
+            facetSelections: {
+              select: {
+                rank: true,
+                option: {
+                  select: {
+                    label: true,
+                    dimension: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -3255,6 +3346,17 @@ export class OrdersService {
 
     const { creator, brandId, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetails(orderFields);
+    const creatorLanguages = Array.isArray(creator.profileLanguages)
+      ? creator.profileLanguages
+          .map((row: any) => String(row?.option?.label ?? '').trim())
+          .filter(Boolean)
+      : [];
+    const primaryNiche = Array.isArray(creator.facetSelections)
+      ? (creator.facetSelections.find(
+          (row: any) =>
+            row?.rank === 0 && row?.option?.dimension === 'CONTENT_CATEGORY',
+        )?.option?.label ?? null)
+      : null;
 
     // Surface the price to buy +N revisions so the brand's CTA can show it.
     const revisionUnitPaise = await this.resolveRevisionAddOnUnitPaise(
@@ -3296,32 +3398,7 @@ export class OrdersService {
     mappedOrder.extraUsageRightsPaidPaise =
       usageRightsPurchaseAgg._sum.expectedAmountPaise ?? 0;
 
-    const revisionActiveStatuses = new Set<OrderStatus>([
-      'REVISION_REQUESTED',
-      'REVISION_SUBMITTED',
-    ]);
-    if (revisionActiveStatuses.has(order.status) && order.revisionCount > 0) {
-      const currentRevision = await this.prisma.orderRevision.findUnique({
-        where: {
-          orderId_revisionNumber: {
-            orderId: order.id,
-            revisionNumber: order.revisionCount,
-          },
-        },
-        select: {
-          revisionNumber: true,
-          note: true,
-          createdAt: true,
-        },
-      });
-      if (currentRevision) {
-        mappedOrder.currentRevision = {
-          revisionNumber: currentRevision.revisionNumber,
-          note: currentRevision.note ?? null,
-          requestedAt: currentRevision.createdAt,
-        };
-      }
-    }
+    await this.attachRevisionSnapshots(mappedOrder, order);
 
     // Surface the latest dispute whether it's still OPEN (active banner +
     // withdrawal) or resolved (persistent "Dispute resolved" note across the
@@ -3338,6 +3415,11 @@ export class OrdersService {
         introVideoUrl: creator.introVideoUrl ?? null,
         profileImageUrl: creator.profileImageUrl ?? null,
         city: creator.city ?? null,
+        languages: creatorLanguages,
+        primaryNiche:
+          typeof primaryNiche === 'string' && primaryNiche.trim()
+            ? primaryNiche.trim()
+            : null,
         // Real address is needed so the brand can ship the product; the
         // recipient name and phone are deliberately withheld to preserve the
         // anonymized creator identity.
@@ -3406,32 +3488,7 @@ export class OrdersService {
     const { brand, creatorId, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetails(orderFields);
 
-    const revisionActiveStatuses = new Set<OrderStatus>([
-      'REVISION_REQUESTED',
-      'REVISION_SUBMITTED',
-    ]);
-    if (revisionActiveStatuses.has(order.status) && order.revisionCount > 0) {
-      const currentRevision = await this.prisma.orderRevision.findUnique({
-        where: {
-          orderId_revisionNumber: {
-            orderId: order.id,
-            revisionNumber: order.revisionCount,
-          },
-        },
-        select: {
-          revisionNumber: true,
-          note: true,
-          createdAt: true,
-        },
-      });
-      if (currentRevision) {
-        mappedOrder.currentRevision = {
-          revisionNumber: currentRevision.revisionNumber,
-          note: currentRevision.note ?? null,
-          requestedAt: currentRevision.createdAt,
-        };
-      }
-    }
+    await this.attachRevisionSnapshots(mappedOrder, order);
 
     // Surface the latest dispute whether it's still OPEN (active banner +
     // withdrawal) or resolved (persistent "Dispute resolved" note across the
@@ -3463,22 +3520,35 @@ export class OrdersService {
     if (order.brandId !== brand.id)
       throw new ForbiddenException('Not your order');
 
-    const rows: any[] = await (this.prisma as any).orderDelivery.findMany({
-      where: { orderId: order.id },
-      orderBy: [{ revisionNumber: 'asc' }, { createdAt: 'asc' }],
-      select: {
-        id: true,
-        orderId: true,
-        creatorId: true,
-        revisionNumber: true,
-        assets: true,
-        note: true,
-        createdAt: true,
-        previewStatus: true,
-        previewAttempts: true,
-        previewUpdatedAt: true,
-      },
-    });
+    const [rows, revisions]: [any[], any[]] = await Promise.all([
+      (this.prisma as any).orderDelivery.findMany({
+        where: { orderId: order.id },
+        orderBy: [{ revisionNumber: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          orderId: true,
+          creatorId: true,
+          revisionNumber: true,
+          assets: true,
+          note: true,
+          createdAt: true,
+          previewStatus: true,
+          previewAttempts: true,
+          previewUpdatedAt: true,
+        },
+      }),
+      (this.prisma as any).orderRevision.findMany({
+        where: { orderId: order.id },
+        select: { revisionNumber: true, note: true },
+      }),
+    ]);
+
+    const brandNoteByRevision = new Map<number, string | null>(
+      revisions.map((revision) => [
+        revision.revisionNumber as number,
+        (revision.note as string | null) ?? null,
+      ]),
+    );
 
     // Brands only get the original files once they have accepted the order.
     // Until then they see the watermarked preview copies.
@@ -3505,6 +3575,10 @@ export class OrdersService {
         previewStatus: r.previewStatus,
       }),
       note: r.note ?? null,
+      brandRevisionNote:
+        r.revisionNumber > 0
+          ? (brandNoteByRevision.get(r.revisionNumber) ?? null)
+          : null,
       createdAt: r.createdAt,
     }));
 

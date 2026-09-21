@@ -18,6 +18,12 @@ export interface OrderDeliveryItem {
   revisionsUsed: number;
   assets: OrderDeliveryAsset[];
   note?: string | null;
+  /**
+   * Brand revision notes this delivery was submitted against.
+   * Null for the initial delivery. A pending revision request is not
+   * attached here until the creator submits the next video.
+   */
+  brandRevisionNote?: string | null;
   createdAt: string;
 }
 

@@ -4,6 +4,7 @@ import {
   OrderDisputeStatus,
   OrderStatus,
 } from '@prisma/client';
+import { OrderCouponDto } from './order-coupon.dto';
 
 export class OrderActiveDisputeDto {
   @ApiProperty({ enum: OrderDisputeStatus })
@@ -237,11 +238,32 @@ export class OrderDetailsPublicDto {
   extraUsageRightsPaidPaise!: number;
 
   @ApiPropertyOptional({
+    type: () => OrderCouponDto,
+    nullable: true,
+    description: 'Coupon applied at checkout, if any.',
+  })
+  coupon?: OrderCouponDto | null;
+
+  @ApiPropertyOptional({
+    description:
+      "Placed under the creator's 'first order free' promo: brand paid Rs 0 and the creator is paid Rs 0.",
+    example: false,
+  })
+  isFreeOrder?: boolean;
+
+  @ApiPropertyOptional({
     type: () => OrderCurrentRevisionDto,
     description:
       'Present when status is REVISION_REQUESTED or REVISION_SUBMITTED — the active brand revision request',
   })
   currentRevision?: OrderCurrentRevisionDto;
+
+  @ApiPropertyOptional({
+    type: () => OrderCurrentRevisionDto,
+    description:
+      'When a newer revision is pending, the previous request that the currently displayed video was submitted against',
+  })
+  previousRevision?: OrderCurrentRevisionDto;
 
   @ApiPropertyOptional({
     type: () => OrderActiveDisputeDto,

@@ -3,6 +3,8 @@ export interface OrderCreatorSnapshot {
   displayName: string;
   profileImageUrl?: string | null;
   city?: string | null;
+  languages?: string[];
+  primaryNiche?: string | null;
   avgRating?: string | null;
   reviewCount?: number;
   /**
@@ -71,6 +73,14 @@ export interface OrderCurrentRevision {
   requestedAt: string;
 }
 
+export interface OrderCouponSummary {
+  code: string;
+  name: string;
+  discountType?: string | null;
+  discountAmountPaise: number;
+  grossAmountPaise: number;
+}
+
 export type OrderDisputeOpenedBy = "BRAND" | "CREATOR";
 
 export interface OrderActiveDispute {
@@ -114,7 +124,16 @@ export interface OrderDetailsPublic extends OrderListSummary {
   extraRevisionsAdded: number;
   /** Total paid for post-order usage-rights extensions (paise). Brand details only. */
   extraUsageRightsPaidPaise: number;
+  /** Coupon applied at checkout, if any. */
+  coupon?: OrderCouponSummary | null;
+  /** True when this was placed under a first-order-free promo. */
+  isFreeOrder?: boolean;
   currentRevision?: OrderCurrentRevision;
+  /**
+   * When a newer revision is pending, the previous request whose
+   * notes belong with the video currently on screen.
+   */
+  previousRevision?: OrderCurrentRevision;
   dispute?: OrderActiveDispute;
 }
 

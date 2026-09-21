@@ -31,6 +31,14 @@ export class OrderDeliveryItemDto {
   @IsString()
   note?: string | null;
 
+  @ApiPropertyOptional({
+    description:
+      'Brand revision notes this delivery was submitted in response to. Null for the initial delivery or a pending revision that has not been delivered yet.',
+  })
+  @IsOptional()
+  @IsString()
+  brandRevisionNote?: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 }

@@ -15,6 +15,8 @@ export interface DeliveryTimelineInput {
   deliveryGraceDeadlineAt?: string | null;
   deliveredAt?: string | null;
   requiresPhysicalProductShipment?: boolean;
+  status?: string;
+  currentRevision?: { requestedAt?: string | null } | null;
 }
 
 export interface DeliveryTimeline {
@@ -37,6 +39,48 @@ function daysBetween(from: Date, to: Date): number {
   const ms = to.getTime() - from.getTime();
   if (Number.isNaN(ms)) return 0;
   return Math.max(0, Math.ceil(ms / 86_400_000));
+}
+
+function timelineFromDueAndGrace(
+  dueAt: Date,
+  graceEnd: Date,
+  now: Date,
+): DeliveryTimeline {
+  const nowMs = now.getTime();
+
+  if (nowMs < dueAt.getTime()) {
+    return {
+      phase: "promised",
+      targetAt: dueAt.toISOString(),
+      label: "Due date",
+      daysRemaining: daysBetween(now, dueAt),
+      displayDate: dueAt.toISOString(),
+      displayDateLabel: "Due date",
+      isInGrace: false,
+    };
+  }
+
+  if (nowMs < graceEnd.getTime()) {
+    return {
+      phase: "grace",
+      targetAt: graceEnd.toISOString(),
+      label: "Grace period ends",
+      daysRemaining: daysBetween(now, graceEnd),
+      displayDate: graceEnd.toISOString(),
+      displayDateLabel: "Grace period ends",
+      isInGrace: true,
+    };
+  }
+
+  return {
+    phase: "overdue",
+    targetAt: graceEnd.toISOString(),
+    label: "Overdue",
+    daysRemaining: 0,
+    displayDate: graceEnd.toISOString(),
+    displayDateLabel: "Overdue",
+    isInGrace: false,
+  };
 }
 
 /** Promised due date from `deliveryDueAt` or clock start + delivery days. */
@@ -97,39 +141,33 @@ export function getDeliveryTimeline(
     ? new Date(order.deliveryGraceDeadlineAt)
     : addCalendarDays(dueAt, DELIVERY_GRACE_DAYS);
 
-  const nowMs = now.getTime();
+  return timelineFromDueAndGrace(dueAt, graceEnd, now);
+}
 
-  if (nowMs < dueAt.getTime()) {
-    return {
-      phase: "promised",
-      targetAt: dueAt.toISOString(),
-      label: "Due date",
-      daysRemaining: daysBetween(now, dueAt),
-      displayDate: dueAt.toISOString(),
-      displayDateLabel: "Due date",
-      isInGrace: false,
-    };
+/** First-delivery clock, or a new clock from the revision request (same days + grace). */
+export function getOrderWorkTimeline(
+  order: DeliveryTimelineInput,
+  now: Date = new Date(),
+): DeliveryTimeline {
+  if (order.status === "REVISION_REQUESTED") {
+    const start = order.currentRevision?.requestedAt;
+    if (!start) {
+      const days = order.deliveryDaysSnapshot;
+      return {
+        phase: "not_started",
+        targetAt: null,
+        label: "Not started",
+        daysRemaining: null,
+        displayDate: null,
+        displayDateLabel: `Revision in ${days} day${days === 1 ? "" : "s"}`,
+        isInGrace: false,
+      };
+    }
+
+    const dueAt = addCalendarDays(new Date(start), order.deliveryDaysSnapshot);
+    const graceEnd = addCalendarDays(dueAt, DELIVERY_GRACE_DAYS);
+    return timelineFromDueAndGrace(dueAt, graceEnd, now);
   }
 
-  if (nowMs < graceEnd.getTime()) {
-    return {
-      phase: "grace",
-      targetAt: graceEnd.toISOString(),
-      label: "Grace period ends",
-      daysRemaining: daysBetween(now, graceEnd),
-      displayDate: graceEnd.toISOString(),
-      displayDateLabel: "Grace period ends",
-      isInGrace: true,
-    };
-  }
-
-  return {
-    phase: "overdue",
-    targetAt: graceEnd.toISOString(),
-    label: "Overdue",
-    daysRemaining: 0,
-    displayDate: graceEnd.toISOString(),
-    displayDateLabel: "Overdue",
-    isInGrace: false,
-  };
+  return getDeliveryTimeline(order, now);
 }

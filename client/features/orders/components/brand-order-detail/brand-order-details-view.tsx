@@ -13,31 +13,22 @@ import { useGetBrandOrderDeliveriesQuery } from "../../hooks/use-get-brand-order
 import { getLatestDeliveryPreviewState } from "./order-delivered/delivery-preview-preparing";
 import { OrderRatingReviewCard } from "../order-rating-review-card";
 import { BriefSummaryCard } from "./brief-summary-card";
-import { CreatorAcceptanceCard } from "./creator-acceptance-card";
-import { CreatorProfileCard } from "./creator-profile-card";
-import { AwaitingAcceptanceCreatorCard } from "./awaiting-acceptance-creator-card";
 import { OrderActivityTimeline } from "./order-activity-timeline";
-import { OrderDetailsCard } from "./order-details-card";
 import { OrderPageHeader } from "./order-page-header";
 import { OrderProgressStepper } from "./order-progress-stepper";
 import { OrderStatusBanner } from "./order-status-banner";
 import { BrandOrderDisputeView } from "./brand-order-dispute-view";
 import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import { OrderSummaryCard } from "./order-summary-card";
-import { NeedHelpCard, TipsCard } from "./support-tips-card";
 import { InprogressNotificationBanner } from "./order-inProgress/inprogress-notification-banner";
-import { InprogressOrderDetailsCard } from "./order-inProgress/inprogress-order-details-card";
 import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
-import { ChatPreviewCard } from "./chat-preview-card";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { DeliveredNotificationBanner } from "./order-delivered/delivered-notification-banner";
 import { DeliveredVideosCard } from "./order-delivered/delivered-videos-card";
 import { YourActionRequiredCard } from "./order-delivered/your-action-required-card";
-import { CompletedNotificationBanner } from "./order-completed/completed-notification-banner";
-import { CompletedPaymentSummaryCard } from "./order-completed/completed-payment-summary-card";
+import { CompletedNotificationBanner, ORDER_REVIEW_SECTION_ID } from "./order-completed/completed-notification-banner";
 import { UsageRightsCard } from "./order-completed/usage-rights-card";
 import { ShareExperienceCard } from "./order-completed/share-experience-card";
-import { SupportBanner } from "./order-completed/support-banner";
 import { cn } from "@/lib/utils";
 
 interface BrandOrderDetailsViewProps {
@@ -76,7 +67,7 @@ function BrandOrderDetailsSkeleton() {
   );
 }
 
-export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
+export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsViewProps>) {
   const { data, isLoading, isError, error } =
     useGetBrandOrderDetailsQuery(orderId);
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
@@ -178,9 +169,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
     (isActuallyCompleted && previewState === null);
 
   
-  const packageDescription = order.deliverablesSnapshot.length > 0
-    ? `${order.deliverablesSnapshot.length} UGC Video (Up to 60 sec)`
-    : order.packageNameSnapshot;
   const isAwaitingPayment = order.status === "PENDING_PAYMENT";
 
   // A live dispute gets its own dedicated view with the brand ↔ creator ↔
@@ -205,10 +193,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           orderId={orderId}
           paidAt={order.paidAt}
           completedAt={order.acceptedAt || order.createdAt}
-          status={order.status === "ACCEPTED" || order.status === "CREATOR_PAYMENT_DONE" ? order.status : "ACCEPTED"}
-          packageDescription={packageDescription}
-          showBriefDownload
-          showInvoice
         />
 
         <OrderProgressStepper
@@ -226,24 +210,23 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
             <DeliveredVideosCard orderId={orderId} order={order} variant="completed" />
           </div>
           <aside className="flex flex-col gap-5 lg:col-span-4">
-            <CompletedPaymentSummaryCard order={order} />
+            <div id={ORDER_REVIEW_SECTION_ID} className="scroll-mt-24">
+              <ShareExperienceCard
+                order={order}
+                creatorName={creator?.displayName}
+              />
+            </div>
             <UsageRightsCard orderId={orderId} order={order} />
           </aside>
         </div>
 
-        <InprogressOrderDetailsCard
-          order={order}
-          brief={brief}
-          briefId={briefId}
-          orderId={orderId}
-        />
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
+          <OrderSummaryCard order={order} creator={creator} />
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <CreatorProfileCard creator={creator} order={order} />
-          <ShareExperienceCard order={order} creatorName={creator?.displayName} />
+          {order.hasBrief && brief ? (
+            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+          ) : null}
         </div>
-
-        <SupportBanner />
       </div>
     );
   }
@@ -254,10 +237,6 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
         <OrderPageHeader
           orderId={orderId}
           paidAt={order.paidAt}
-          status={order.status}
-          packageDescription={packageDescription}
-          showBriefDownload
-          showInvoice
         />
 
         <OrderProgressStepper
@@ -281,15 +260,11 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           />
         )}
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-stretch">
-          <div className="flex flex-col gap-5 lg:col-span-8 h-full">
-            <DeliveredVideosCard
-              orderId={orderId}
-              creatorName={creator?.displayName || "Creator"}
-            />
-          </div>
-
-          <aside className="flex flex-col gap-5 lg:col-span-4 h-full">
+        <DeliveredVideosCard
+          orderId={orderId}
+          order={order}
+          creatorName={creator?.displayName || "Creator"}
+          sidebar={
             <YourActionRequiredCard
               order={order}
               orderId={orderId}
@@ -297,20 +272,24 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
               creatorName={creator?.displayName || "Creator"}
               isRevision={isRevision}
             />
-          </aside>
-        </div>
-
-        <InprogressOrderDetailsCard
-          order={order}
-          brief={brief}
-          briefId={briefId}
-          orderId={orderId}
+          }
         />
 
-       
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <CreatorProfileCard creator={creator} order={order} />
-          <ChatPreviewCard creator={creator} orderId={orderId} />
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+          <div className="flex flex-col gap-5 lg:col-span-8">
+            <OrderSummaryCard order={order} creator={creator} />
+
+            {order.hasBrief && brief ? (
+              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            ) : null}
+          </div>
+
+          <aside className="flex flex-col gap-5 lg:col-span-4">
+            <div className="hidden lg:block">
+              <OrderChatWidget orderId={orderId} role="brand" creator={creator} />
+            </div>
+            <OrderActivityTimeline order={order} />
+          </aside>
         </div>
       </div>
     );
@@ -332,17 +311,20 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
         {order.status === "DISPUTED" ? (
           <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
         ) : (
-          <InprogressNotificationBanner creatorName={creator?.displayName || "Creator"} isOrderCompleted={isActuallyCompleted} />
+          <InprogressNotificationBanner
+            creatorName={creator?.displayName || "Creator"}
+            order={order}
+            isOrderCompleted={isActuallyCompleted}
+          />
         )}
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
           <div className="flex flex-col gap-5 lg:col-span-8">
-            <InprogressOrderDetailsCard
-              order={order}
-              brief={brief}
-              briefId={briefId}
-              orderId={orderId}
-            />
+            <OrderSummaryCard order={order} creator={creator} />
+
+            {order.hasBrief && brief ? (
+              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            ) : null}
 
             {order.requiresPhysicalProductShipment && (
               <InprogressShippingCard
@@ -355,8 +337,8 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
-            <CreatorProfileCard creator={creator} order={order} />
             <OrderChatWidget orderId={orderId} role="brand" creator={creator} />
+            <OrderActivityTimeline order={order} />
           </aside>
         </div>
       </div>
@@ -368,18 +350,23 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
       <OrderPageHeader
         orderId={orderId}
         paidAt={order.paidAt}
-        status={order.status}
       />
 
       <OrderProgressStepper
         order={order}
-        onStepClick={(label) => setPreviewState(prev => prev === label ? null : label)}
+        onStepClick={(label) =>
+          setPreviewState((prev) => (prev === label ? null : label))
+        }
         previewState={previewState}
       />
 
       <DisputeResolvedBanner dispute={order.dispute} />
 
-      <OrderStatusBanner order={order} creator={creator} isOrderCompleted={isActuallyCompleted} />
+      <OrderStatusBanner
+        order={order}
+        creator={creator}
+        isOrderCompleted={isActuallyCompleted}
+      />
 
       <div
         className={cn(
@@ -389,32 +376,20 @@ export function BrandOrderDetailsView({ orderId }: BrandOrderDetailsViewProps) {
         aria-disabled={isAwaitingPayment}
       >
         <div className="flex flex-col gap-5 lg:col-span-8">
-          <AwaitingAcceptanceCreatorCard creator={creator} order={order} />
-
           <OrderSummaryCard
             order={order}
-            orderId={orderId}
-            briefId={briefId}
-            brief={brief}
+            creator={creator}
           />
 
           {order.hasBrief && brief ? (
             <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
           ) : null}
-
-          <OrderActivityTimeline order={order} />
         </div>
 
         <aside className="flex flex-col gap-5 lg:col-span-4">
-          <CreatorAcceptanceCard creator={creator} order={order} />
-
-          <OrderDetailsCard order={order} />
-
           <OrderRatingReviewCard order={order} role="brand" />
 
-          <NeedHelpCard />
-
-          <TipsCard />
+          <OrderActivityTimeline order={order} />
         </aside>
       </div>
     </div>

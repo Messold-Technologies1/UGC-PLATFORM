@@ -54,7 +54,7 @@ function OrderChatShell({
   return (
     <section
       className={cn(
-        "flex h-160 items-center justify-center rounded-3xl border bg-card p-6 text-center shadow-sm",
+        "flex h-128 items-center justify-center rounded-3xl border bg-card p-6 text-center shadow-sm",
         className,
       )}
     >
@@ -285,7 +285,7 @@ export function OrderChatWidget({
   return (
     <MessagingConversation
       alignRightUserId={viewerUserId}
-      className={className}
+      className={cn("h-128", className)}
       emptyState="No chat messages yet."
       hasMoreMessages={messagesQuery.hasNextPage}
       headerAvatarUrl={otherParticipant.avatar}

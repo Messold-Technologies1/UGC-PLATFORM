@@ -1,7 +1,8 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2, Sparkles } from "lucide-react";
 import type { OrderDetailsPublic } from "../../../api/types";
+import { OrderCountdownBanner } from "../order-countdown-banner";
 
 interface DeliveredNotificationBannerProps {
   creatorName: string;
@@ -97,13 +98,7 @@ export function DeliveredNotificationBanner({
 
   if (order.status === "REVISION_REQUESTED") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
-        <AlertCircle className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-        <p className="text-sm font-medium text-amber-900 dark:text-amber-300">
-          You&apos;ve requested a revision. {creatorName} is working on updated
-          content and will submit it soon.
-        </p>
-      </div>
+      <OrderCountdownBanner order={order} creatorName={creatorName} />
     );
   }
 

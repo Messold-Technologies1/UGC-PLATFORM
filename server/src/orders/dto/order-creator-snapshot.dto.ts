@@ -23,6 +23,19 @@ export class OrderCreatorSnapshotDto {
   city?: string | null;
 
   @ApiPropertyOptional({
+    type: [String],
+    example: ['English', 'Hindi'],
+    description: 'Creator languages available in the order details snapshot.',
+  })
+  languages?: string[];
+
+  @ApiPropertyOptional({
+    example: 'Tech',
+    description: 'Creator primary niche/category from the profile.',
+  })
+  primaryNiche?: string | null;
+
+  @ApiPropertyOptional({
     example: 'A-102, Green Avenue\nSaket, New Delhi - 110017\nIndia',
     description:
       "Creator's shipping address for physical-product orders. The recipient name and phone are intentionally omitted — the brand only ever sees the anonymized creator identity.",

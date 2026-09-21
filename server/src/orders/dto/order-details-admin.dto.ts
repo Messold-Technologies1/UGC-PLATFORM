@@ -94,42 +94,7 @@ export class OrderPricingLedgerDto {
   payToCreatorPaise!: number;
 }
 
-/** Coupon applied at checkout. The discount reduced what the brand paid; the
- *  admin uses this to settle the creator payout / any refund manually. */
-export class OrderCouponDto {
-  @ApiProperty({ example: 'WELCOME20' })
-  code!: string;
-
-  @ApiProperty({ example: '20% off your order' })
-  name!: string;
-
-  @ApiPropertyOptional({
-    description: 'PERCENTAGE | FIXED | PLATFORM_FEE_WAIVER',
-  })
-  discountType?: string | null;
-
-  @ApiProperty({ description: 'Discount applied to the charge (paise)' })
-  discountAmountPaise!: number;
-
-  @ApiProperty({ description: 'Pre-discount order total (paise)' })
-  grossAmountPaise!: number;
-}
-
 export class OrderDetailsAdminDto extends OrderDetailsPublicDto {
-  @ApiPropertyOptional({
-    type: () => OrderCouponDto,
-    nullable: true,
-    description: 'Coupon applied at checkout, if any (for manual settlement).',
-  })
-  coupon?: OrderCouponDto | null;
-
-  @ApiProperty({
-    description:
-      "Placed under the creator's 'first order free' promo: brand paid ₹0 and the creator is paid ₹0.",
-    example: false,
-  })
-  isFreeOrder!: boolean;
-
   @ApiPropertyOptional()
   razorpayOrderId?: string | null;
 

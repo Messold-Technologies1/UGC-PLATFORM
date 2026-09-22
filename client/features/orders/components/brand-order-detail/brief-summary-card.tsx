@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactElement, ReactNode } from "react";
+import { cloneElement, isValidElement } from "react";
 import {
   ArrowRight,
   Box,
@@ -34,6 +36,8 @@ interface BriefSummaryCardProps {
    * page; the creator order view passes its own read-only brief route.
    */
   briefHref?: string | null;
+  /** Optional footer actions, e.g. Accept / Reject on the creator order page. */
+  actions?: ReactNode;
 }
 
 function formatSubmittedDate(value?: string | null) {
@@ -95,28 +99,45 @@ function Metric({
   value: string;
   href?: string | null;
 }) {
+  const valueNode = href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex max-w-full items-center gap-1 text-muted-foreground hover:text-foreground"
+    >
+      <span className="truncate">{value}</span>
+      <ExternalLink className="size-3 shrink-0 sm:size-3.5" />
+    </a>
+  ) : (
+    <span className="wrap-break-word">{value}</span>
+  );
+
   return (
-    <div className="flex items-center gap-3 px-1 py-1 sm:px-2">
-      <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", accentClass)}>
-        <Icon className="size-4" />
+    <>
+      <div className="flex items-start justify-between gap-4 py-3 sm:hidden">
+        <p className="shrink-0 text-sm text-muted-foreground">{label}</p>
+        <div className="min-w-0 text-right text-sm font-medium leading-5 text-foreground">
+          {valueNode}
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-[12px] font-semibold text-foreground">{label}</p>
-        {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-0.5 inline-flex max-w-full items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
-          >
-            <span className="truncate">{value}</span>
-            <ExternalLink className="size-3.5 shrink-0" />
-          </a>
-        ) : (
-          <p className="mt-0.5 text-[12px] text-muted-foreground">{value}</p>
-        )}
+      <div className="hidden min-w-0 items-center gap-3 px-2 py-1 sm:flex">
+        <div
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-full",
+            accentClass,
+          )}
+        >
+          <Icon className="size-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[12px] font-semibold text-foreground">{label}</p>
+          <div className="mt-0.5 text-[12px] text-muted-foreground">
+            {valueNode}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -125,6 +146,7 @@ export function BriefSummaryCard({
   brief,
   briefId,
   briefHref,
+  actions,
 }: Readonly<BriefSummaryCardProps>) {
   if (!brief) return null;
 
@@ -174,52 +196,59 @@ export function BriefSummaryCard({
   };
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border/50 bg-card p-5 shadow-sm sm:p-6 lg:p-7">
+    <div className="overflow-hidden rounded-2xl border border-border/50 bg-card p-5 shadow-sm sm:rounded-3xl sm:p-6 lg:p-7">
       <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex min-w-0 gap-4">
-                <div className={cn("flex size-12 shrink-0 items-center justify-center rounded-2xl", theme.iconWrap)}>
-                  {isProductBrief ? <Package className="size-5" /> : <Box className="size-5" />}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl sm:size-12 sm:rounded-2xl", theme.iconWrap)}>
+                  {isProductBrief ? <Package className="size-4 sm:size-5" /> : <Box className="size-4 sm:size-5" />}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold text-foreground">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <h3 className="text-base font-semibold text-foreground sm:text-lg">
                       {title}
                     </h3>
-                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                    <span className="hidden rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 sm:inline-flex">
                       Submitted
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {submittedOn ? `Submitted on ${submittedOn}` : "Submitted"}
                   </p>
+                  {fullBriefHref ? (
+                    <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
+                      See complete details, script, references and more.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
-              <div className="flex flex-col items-start gap-2 lg:items-end">
-                {fullBriefHref ? (
-                  <Link
-                    href={fullBriefHref}
-                    className={cn(
-                      "inline-flex h-11 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-semibold transition-colors",
-                      theme.button,
-                    )}
-                  >
-                    View Full Brief
-                    <ArrowRight className="size-4" />
-                  </Link>
-                ) : null}
-                <p className="text-xs text-muted-foreground lg:text-right">
-                  See complete details, script, references and more.
-                </p>
-              </div>
+              {fullBriefHref || actions ? (
+                <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                  {fullBriefHref ? (
+                    <Link
+                      href={fullBriefHref}
+                      className={cn(
+                        "inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-semibold transition-colors sm:h-11 sm:w-auto sm:gap-2 sm:rounded-2xl sm:px-5",
+                        theme.button,
+                      )}
+                    >
+                      View Full Brief
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  ) : null}
+                  {actions ? (
+                    <div className="hidden sm:block">{actions}</div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="flex items-center gap-3.5 sm:items-start sm:gap-4">
                 {isProductBrief ? (
                   imageUrl ? (
-                    <div className="size-24 shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-muted">
+                    <div className="size-14 shrink-0 overflow-hidden rounded-xl border border-border/60 bg-muted sm:size-24 sm:rounded-2xl">
                       <img
                         src={imageUrl}
                         alt={primaryName}
@@ -230,22 +259,21 @@ export function BriefSummaryCard({
                       />
                     </div>
                   ) : (
-                    <div className={cn("flex size-24 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br", theme.fallbackCard)}>
-                      <Package className="size-9" />
+                    <div className={cn("flex size-14 shrink-0 items-center justify-center rounded-xl bg-linear-to-br sm:size-24 sm:rounded-2xl", theme.fallbackCard)}>
+                      <Package className="size-6 sm:size-9" />
                     </div>
                   )
                 ) : null}
 
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-lg font-semibold text-foreground sm:text-xl">
+                  <h4 className="text-base font-semibold leading-snug text-foreground sm:text-xl">
                     {primaryName}
                   </h4>
-                  <p className="mt-1.5 max-w-full text-[13px] leading-6 text-muted-foreground">
+                  <p className="mt-1.5 hidden max-w-full text-[13px] leading-6 text-muted-foreground sm:block">
                     {description}
                   </p>
-
                   {chips.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 hidden flex-wrap gap-2 sm:flex">
                       {chips.map((chip) => (
                         <span
                           key={chip}
@@ -259,14 +287,31 @@ export function BriefSummaryCard({
                 </div>
               </div>
 
+              <p className="line-clamp-2 text-sm leading-6 text-muted-foreground sm:hidden">
+                {description}
+              </p>
+
+              {chips.length > 0 ? (
+                <div className="flex flex-wrap gap-2 sm:hidden">
+                  {chips.map((chip) => (
+                    <span
+                      key={chip}
+                      className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", theme.chip)}
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
               {scriptPreview ? (
-                <div className="w-full rounded-2xl bg-[#FFF5F8] px-4 py-3">
+                <div className="hidden w-full rounded-2xl bg-[#FFF5F8] px-4 py-3 sm:block">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[#E11D48]/10 text-[#E11D48]">
                       <MessageSquareQuote className="size-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[13px] leading-6 text-foreground line-clamp-2">
+                      <p className="line-clamp-2 text-[13px] leading-6 text-foreground">
                         {scriptPreview}
                       </p>
                     </div>
@@ -279,7 +324,7 @@ export function BriefSummaryCard({
 
             <div
               className={cn(
-                "grid gap-3 md:gap-0",
+                "grid grid-cols-1 divide-y divide-border/50 sm:gap-3 sm:divide-y-0 md:gap-0",
                 location ? "md:grid-cols-5" : "md:grid-cols-4",
               )}
             >
@@ -321,7 +366,7 @@ export function BriefSummaryCard({
               </div>
 
               {location ? (
-                <div className="flex items-center px-1 py-1 sm:px-2">
+                <div className="md:flex md:items-center">
                   <Metric
                     icon={LocateFixed}
                     accentClass={cn(
@@ -336,6 +381,14 @@ export function BriefSummaryCard({
                 </div>
               ) : null}
             </div>
+
+            {actions ? (
+              <div className="border-t border-border/50 pt-4 sm:hidden">
+                {isValidElement(actions)
+                  ? cloneElement(actions as ReactElement)
+                  : actions}
+              </div>
+            ) : null}
           </div>
     </div>
   );

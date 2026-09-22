@@ -9,6 +9,7 @@ import {
   acceptOrderDelivery,
   type AcceptOrderDeliveryPayload,
 } from "../api/accept-order-delivery";
+import { markReviewPrompt } from "../lib/review-prompt";
 
 type AcceptOrderDeliveryMutationOptions = UseMutationOptions<
   void,
@@ -27,6 +28,7 @@ export function useAcceptOrderDeliveryMutation(
     mutationKey: ["orders", "accept-delivery"],
     mutationFn: acceptOrderDelivery,
     onSuccess: async (data, variables, onMutateResult, context) => {
+      markReviewPrompt(variables.orderId);
       toast.success("Delivery approved successfully");
       await queryClient.invalidateQueries({ queryKey: ["orders", "brand"] });
       options?.onSuccess?.(data, variables, onMutateResult, context);

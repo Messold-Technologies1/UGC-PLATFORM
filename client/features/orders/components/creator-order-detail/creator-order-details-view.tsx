@@ -7,16 +7,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
-  ClipboardCheck,
   Clock,
   Copy,
-  FileVideo,
   Info,
   MessageCircle,
+  MessageSquare,
   Package,
   Star,
   Truck,
-  Wallet,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -121,9 +119,11 @@ function resolvePhase(order: OrderDetailsPublic): CreatorPhase {
 function CreatorOrderHeader({
   order,
   brand,
+  showMessageBrand = false,
 }: {
   order: OrderDetailsPublic;
   brand: OrderBrandSnapshot;
+  showMessageBrand?: boolean;
 }) {
   const displayId = order.id.slice(0, 8).toUpperCase();
   const placedOn = fmtDateTime(order.paidAt ?? order.createdAt);
@@ -169,13 +169,30 @@ function CreatorOrderHeader({
         </div>
       </div>
 
-      <ContactSupportButton
-        className="h-10 shrink-0 rounded-xl border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 px-4 text-sm font-medium"
-        defaultSubject="Order support"
-      >
-        <MessageCircle className="size-4" />
-        Need Help
-      </ContactSupportButton>
+      <div className="flex w-full flex-col gap-2 sm:w-auto">
+        <ContactSupportButton
+          className="h-10 w-full shrink-0 rounded-xl border-primary/30 text-primary hover:bg-primary/5 hover:text-primary px-4 text-sm font-medium sm:w-auto"
+          defaultSubject="Order support"
+        >
+          <MessageCircle className="size-4" />
+          Need Help
+        </ContactSupportButton>
+        {showMessageBrand ? (
+          <Button
+            variant="outline"
+            className="h-10 w-full rounded-xl px-4 text-sm font-medium lg:hidden"
+            asChild
+          >
+            <Link
+              href={`/creator/messages?orderId=${order.id}`}
+              className="flex items-center justify-center gap-1.5"
+            >
+              <MessageSquare className="size-4" />
+              Message Brand
+            </Link>
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -210,11 +227,6 @@ function CreatorStatusBanner({
   phase: CreatorPhase;
 }) {
   const brandLabel = brandDisplayName(brand.brandName);
-  const acceptMutation = useAcceptBriefMutation();
-  const [isRejectOpen, setIsRejectOpen] = useState(false);
-  const rejectMutation = useRejectBriefMutation({
-    onSuccess: () => setIsRejectOpen(false),
-  });
   const markReceivedMutation = useMarkProductReceivedMutation({
     onSuccess: () =>
       toast.success("Product marked as received — you can start creating!"),
@@ -227,78 +239,38 @@ function CreatorStatusBanner({
   let variant: keyof typeof VARIANT_STYLES = "info";
   let action: React.ReactNode = null;
 
-  const hasBrief = Boolean(order.hasBrief);
-
   switch (phase) {
     case "new_request":
-      icon = ClipboardCheck;
-      variant = "info";
-      title = "New order request";
-      description = hasBrief
-        ? `Review the brief from ${brandLabel} below, then accept it if it's a good fit — or reject it with a reason.`
-        : `${brandLabel} hasn't submitted the brief yet. You'll be able to accept once it's shared.`;
-      action = hasBrief ? (
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            className="h-10 rounded-xl border-red-200 px-4 font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
-            disabled={acceptMutation.isPending || rejectMutation.isPending}
-            onClick={() => setIsRejectOpen(true)}
-          >
-            <XCircle className="size-4" />
-            Reject
-          </Button>
-          <Button
-            className="h-10 rounded-xl bg-[#4318FF] px-5 font-semibold text-white shadow-sm hover:bg-[#4318FF]/90"
-            disabled={acceptMutation.isPending || rejectMutation.isPending}
-            onClick={() => acceptMutation.mutate({ orderId: order.id })}
-          >
-            {acceptMutation.isPending ? (
-              <Spinner className="size-4" aria-hidden />
-            ) : (
-              <CheckCircle2 className="size-4" />
-            )}
-            {acceptMutation.isPending ? "Accepting..." : "Accept Order"}
-          </Button>
-        </div>
-      ) : null;
-      break;
+      return null;
     case "awaiting_shipment":
+      if (order.status !== "PRODUCT_SHIPPED") {
+        return null;
+      }
       icon = Truck;
       variant = "info";
-      if (order.status === "PRODUCT_SHIPPED") {
-        title = "Product shipped to you";
-        description = `${brandLabel} has shipped the product. Mark it as received once it arrives to start creating.`;
-        action = (
-          <Button
-            className="h-10 shrink-0 rounded-xl bg-[#22c55e] px-5 font-semibold text-white shadow-sm hover:bg-[#22c55e]/90"
-            disabled={markReceivedMutation.isPending}
-            onClick={() =>
-              markReceivedMutation.mutate({ orderId: order.id })
-            }
-          >
-            {markReceivedMutation.isPending ? (
-              <Spinner className="size-4" aria-hidden />
-            ) : (
-              <Package className="size-4" />
-            )}
-            {markReceivedMutation.isPending
-              ? "Confirming..."
-              : "Mark Product Received"}
-          </Button>
-        );
-      } else {
-        title = "Brief accepted — awaiting shipment";
-        description = `You've accepted this order. ${brandLabel} will ship the product to your address soon.`;
-      }
+      title = "Product shipped to you";
+      description = `${brandLabel} has shipped the product. Mark it as received once it arrives to start creating.`;
+      action = (
+        <Button
+          className="h-10 shrink-0 rounded-xl bg-[#22c55e] px-5 font-semibold text-white shadow-sm hover:bg-[#22c55e]/90"
+          disabled={markReceivedMutation.isPending}
+          onClick={() =>
+            markReceivedMutation.mutate({ orderId: order.id })
+          }
+        >
+          {markReceivedMutation.isPending ? (
+            <Spinner className="size-4" aria-hidden />
+          ) : (
+            <Package className="size-4" />
+          )}
+          {markReceivedMutation.isPending
+            ? "Confirming..."
+            : "Mark Product Received"}
+        </Button>
+      );
       break;
     case "in_progress":
-      icon = FileVideo;
-      variant = "info";
-      title = "In progress — create your content";
-      description =
-        "You're all set to create. Upload your content below when it's ready for the brand to review.";
-      break;
+      return null;
     case "revision":
       icon = AlertCircle;
       variant = "warning";
@@ -396,7 +368,48 @@ function CreatorStatusBanner({
 
         {action}
       </div>
+    </>
+  );
+}
 
+function BriefDecisionActions({ orderId }: Readonly<{ orderId: string }>) {
+  const acceptMutation = useAcceptBriefMutation();
+  const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const rejectMutation = useRejectBriefMutation({
+    onSuccess: () => setIsRejectOpen(false),
+  });
+  const busy = acceptMutation.isPending || rejectMutation.isPending;
+
+  return (
+    <>
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+        <Button
+          variant="outline"
+          className="h-10 rounded-xl border-red-200 px-3 font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 sm:px-4"
+          disabled={busy}
+          onClick={() => setIsRejectOpen(true)}
+        >
+          <XCircle className="size-4" />
+          Reject
+        </Button>
+        <Button
+          className="h-10 rounded-xl bg-emerald-600 px-3 font-semibold text-white shadow-sm hover:bg-emerald-700 sm:px-5"
+          disabled={busy}
+          onClick={() => acceptMutation.mutate({ orderId })}
+        >
+          {acceptMutation.isPending ? (
+            <Spinner className="size-4" aria-hidden />
+          ) : (
+            <CheckCircle2 className="size-4" />
+          )}
+          <span className="sm:hidden">
+            {acceptMutation.isPending ? "Accepting..." : "Accept"}
+          </span>
+          <span className="hidden sm:inline">
+            {acceptMutation.isPending ? "Accepting..." : "Accept Order"}
+          </span>
+        </Button>
+      </div>
       <ReasonPromptDialog
         open={isRejectOpen}
         onOpenChange={setIsRejectOpen}
@@ -407,9 +420,7 @@ function CreatorStatusBanner({
         confirmLabel="Reject Order"
         pendingLabel="Rejecting..."
         isPending={rejectMutation.isPending}
-        onConfirm={(note) =>
-          rejectMutation.mutate({ orderId: order.id, note })
-        }
+        onConfirm={(note) => rejectMutation.mutate({ orderId, note })}
       />
     </>
   );
@@ -418,57 +429,6 @@ function CreatorStatusBanner({
 /* -------------------------------------------------------------------------- */
 /* Phase content cards                                                        */
 /* -------------------------------------------------------------------------- */
-
-function WhatHappensNextCard() {
-  const steps = [
-    {
-      icon: ClipboardCheck,
-      title: "Accept the order",
-      body: "Review the brief and accept if you'd like to work on this project.",
-    },
-    {
-      icon: Truck,
-      title: "Receive the product",
-      body: "If a product is involved, the brand ships it to your address.",
-    },
-    {
-      icon: FileVideo,
-      title: "Create & deliver",
-      body: "Create amazing content and upload it here for review.",
-    },
-    {
-      icon: Wallet,
-      title: "Get paid",
-      body: "Once the brand approves, your payout is released.",
-    },
-  ];
-
-  return (
-    <div className="rounded-3xl border border-[#4318FF]/10 bg-[#FAF9FF] p-6 shadow-sm">
-      <h3 className="mb-6 text-lg font-bold text-foreground">
-        What happens next?
-      </h3>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map((step, i) => {
-          const Icon = step.icon;
-          return (
-            <div key={step.title} className="flex items-start gap-3">
-              <Icon className="mt-0.5 size-6 shrink-0 text-[#4318FF]" />
-              <div className="flex flex-col gap-1.5">
-                <h4 className="text-sm font-bold text-foreground">
-                  {i + 1}. {step.title}
-                </h4>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {step.body}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function ShippingDetailsCard({ order }: { order: OrderDetailsPublic }) {
   const hasShippingDetails = Boolean(order.dispatchedAt || order.courierName);
@@ -838,9 +798,9 @@ export function CreatorOrderDetailsView({
   function renderPhaseContent() {
     switch (phase) {
       case "new_request":
-        return <WhatHappensNextCard />;
+        return null;
       case "awaiting_shipment":
-        return <ShippingDetailsCard order={order} />;
+        return null;
       case "in_progress":
         return (
           <CreatorContentUploadCard
@@ -933,38 +893,97 @@ export function CreatorOrderDetailsView({
 
   return (
     <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
-      <CreatorOrderHeader order={order} brand={brand} />
+      <CreatorOrderHeader
+        order={order}
+        brand={brand}
+        showMessageBrand={showChat}
+      />
 
       <CreatorOrderProgressStepper order={order} />
 
       <DisputeResolvedBanner dispute={order.dispute} />
 
-      <CreatorStatusBanner order={order} brand={brand} phase={phase} />
+      {phase !== "new_request" ? (
+        <CreatorStatusBanner order={order} brand={brand} phase={phase} />
+      ) : null}
+
+      {phase === "new_request" && brief ? (
+        <BriefSummaryCard
+          order={order}
+          brief={brief}
+          briefId={briefId}
+          briefHref={briefHref}
+          actions={<BriefDecisionActions orderId={orderId} />}
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
         <div className="flex flex-col gap-5 lg:col-span-8">
-          <CreatorOrderSummaryCard
-            order={order}
-            brand={brand}
-            orderId={orderId}
-            cancelled={isCancelled}
-          />
-
-          {brief ? (
-            <BriefSummaryCard
-              order={order}
-              brief={brief}
-              briefId={briefId}
-              briefHref={briefHref}
-            />
-          ) : null}
-
-          {renderPhaseContent()}
+          {phase === "awaiting_shipment" ? (
+            <>
+              <ShippingDetailsCard order={order} />
+              {brief ? (
+                <BriefSummaryCard
+                  order={order}
+                  brief={brief}
+                  briefId={briefId}
+                  briefHref={briefHref}
+                />
+              ) : null}
+              <CreatorOrderSummaryCard
+                order={order}
+                brand={brand}
+                orderId={orderId}
+                cancelled={isCancelled}
+              />
+            </>
+          ) : phase === "in_progress" ||
+            phase === "revision" ||
+            phase === "delivered" ||
+            phase === "completed" ? (
+            <>
+              {renderPhaseContent()}
+              {brief ? (
+                <BriefSummaryCard
+                  order={order}
+                  brief={brief}
+                  briefId={briefId}
+                  briefHref={briefHref}
+                />
+              ) : null}
+              <CreatorOrderSummaryCard
+                order={order}
+                brand={brand}
+                orderId={orderId}
+                cancelled={isCancelled}
+              />
+            </>
+          ) : (
+            <>
+              {phase !== "new_request" && brief ? (
+                <BriefSummaryCard
+                  order={order}
+                  brief={brief}
+                  briefId={briefId}
+                  briefHref={briefHref}
+                />
+              ) : null}
+              <CreatorOrderSummaryCard
+                order={order}
+                brand={brand}
+                orderId={orderId}
+                cancelled={isCancelled}
+              />
+              {renderPhaseContent()}
+            </>
+          )}
         </div>
 
         <aside className="flex flex-col gap-5 lg:col-span-4">
           {showChat ? (
-            <OrderChatWidget orderId={orderId} role="creator" brand={brand} />
+            <div className="hidden lg:block">
+              <OrderChatWidget orderId={orderId} role="creator" brand={brand} />
+            </div>
           ) : null}
           <CreatorOrderActivityTimeline order={order} />
         </aside>

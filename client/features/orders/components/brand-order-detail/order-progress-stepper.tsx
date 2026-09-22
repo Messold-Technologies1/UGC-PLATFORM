@@ -93,7 +93,7 @@ const STEPS: StepDefinition[] = [
     icon: Package,
     dateKey: "dispatchedAt",
     statusMatch: ["BRIEF_ACCEPTED"],
-    getHref: (orderId) => `/brand/orders/${orderId}/shipping`,
+    getHref: (orderId) => `/brand/orders/${orderId}`,
   },
   {
     label: "In Progress",
@@ -470,10 +470,6 @@ function getStepPresentation(
         title: "Awaiting Shipment",
         hint: "After acceptance",
         description: "Ship the product to the creator so production can start.",
-        cta: {
-          href: `/brand/orders/${order.id}/shipping`,
-          label: "Add Shipping Details",
-        },
       };
     case "In Progress":
       return {

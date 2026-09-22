@@ -85,7 +85,7 @@ function CreatorOrdersListInner() {
   const { data, isLoading } = useGetCreatorOrdersQuery({ page: 1, limit: 50 });
 
   const allItems = useMemo<CreatorOrderListItem[]>(
-    () => data?.items ?? [],
+    () => (data?.items ?? []).filter((item) => Boolean(item.order.hasBrief)),
     [data?.items],
   );
 
@@ -118,7 +118,7 @@ function CreatorOrdersListInner() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         allItems={allItems}
-        totalCount={data?.total}
+        totalCount={allItems.length}
       />
 
       <div className="grid gap-6 items-start mt-4 grid-cols-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { OrderDetailsPublic } from "../../../api/types";
 import { useCreateOrderRatingReviewMutation } from "../../../hooks/use-create-order-rating-review-mutation";
 import { useGetOrderRatingReviewQuery } from "../../../hooks/use-get-order-rating-review-query";
+import { consumeReviewPrompt } from "../../../lib/review-prompt";
 
 interface ShareExperienceCardProps {
   order: OrderDetailsPublic;
@@ -53,6 +54,12 @@ export function ShareExperienceCard({ order, creatorName = "the creator" }: Shar
   const existingReview = reviewQuery.data ?? null;
   const canCreateReview = isReviewable && !existingReview;
   const isSubmitting = createReviewMutation.isPending;
+
+  useEffect(() => {
+    if (!canCreateReview || reviewQuery.isLoading || isDialogOpen) return;
+    if (!consumeReviewPrompt(order.id)) return;
+    setIsDialogOpen(true);
+  }, [canCreateReview, isDialogOpen, order.id, reviewQuery.isLoading]);
 
   function handleSubmit() {
     if (!canCreateReview || rating < 1 || isSubmitting) return;

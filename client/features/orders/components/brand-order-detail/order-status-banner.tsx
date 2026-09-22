@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -233,15 +232,6 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
           </p>
         </div>
       </div>
-
-      {!isOrderCompleted && order.status === "BRIEF_ACCEPTED" &&
-        order.requiresPhysicalProductShipment && (
-          <Button asChild className="shrink-0 sm:self-center mt-2 sm:mt-0">
-            <Link href={`/brand/orders/${order.id}/shipping`}>
-              Add Shipping Details
-            </Link>
-          </Button>
-        )}
 
       {!isOrderCompleted && order.status === "PENDING_PAYMENT" && (
         <Button

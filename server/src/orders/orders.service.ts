@@ -4006,6 +4006,8 @@ export class OrdersService {
     const where: Prisma.OrderWhereInput = {
       creatorId: creator.id,
       status: { not: OrderStatus.PENDING_PAYMENT },
+      // Creators should not see an order until the brand has submitted a brief.
+      briefSubmittedAt: { not: null },
     };
 
     const [total, rows] = await this.prisma.$transaction([

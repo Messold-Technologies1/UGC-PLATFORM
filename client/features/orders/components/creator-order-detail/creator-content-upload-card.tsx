@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ExternalLink,
   FileVideo,
-  Image as ImageIcon,
   Upload,
   UploadCloud,
 } from "lucide-react";
@@ -71,21 +69,6 @@ function formatDateTime(value?: string | null): string | null {
   }
 }
 
-function filenameFromKey(key: string): string {
-  const segments = key.split("/");
-  return segments.at(-1) || key;
-}
-
-function shortFilename(filename: string, maxLength = 24): string {
-  if (filename.length <= maxLength) return filename;
-  const extIndex = filename.lastIndexOf(".");
-  if (extIndex === -1) return `${filename.slice(0, maxLength - 3)}...`;
-  const ext = filename.slice(extIndex);
-  const name = filename.slice(0, extIndex);
-  const keepLength = Math.max(6, maxLength - ext.length - 3);
-  return `${name.slice(0, keepLength)}...${ext}`;
-}
-
 function revisionLabel(revisionNumber?: number): string {
   if (!revisionNumber) return "Initial delivery";
   return `Revision ${revisionNumber}`;
@@ -100,48 +83,20 @@ function toCarouselAssets(assets: OrderDeliveryAsset[]): CarouselAsset[] {
   }));
 }
 
-function AssetButton({
-  asset,
-  index,
-}: {
-  asset: OrderDeliveryAsset;
-  index: number;
-}) {
-  const filename = filenameFromKey(asset.key);
-  const Icon = asset.kind === "video" ? FileVideo : ImageIcon;
-
-  return (
-    <Button
-      asChild
-      variant="outline"
-      size="sm"
-      className="h-8 max-w-full justify-start rounded-lg border-border/50 px-2.5 text-xs font-semibold"
-    >
-      <a href={asset.url} target="_blank" rel="noreferrer" title={filename}>
-        <Icon className="size-3.5 shrink-0" />
-        <span className="truncate">
-          {asset.kind === "video" ? "Video" : "Image"} {index + 1}:{" "}
-          {shortFilename(filename)}
-        </span>
-        <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
-      </a>
-    </Button>
-  );
-}
-
 function SubmittedDeliveryBlock({ delivery }: { delivery: CreatorDeliveryItem }) {
   const assets = delivery.assets ?? [];
   const submittedDate = formatDateTime(delivery.createdAt);
   if (assets.length === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <ThumbnailsCarousel
         assets={toCarouselAssets(assets)}
-        itemGroupClassName="aspect-auto h-40 rounded-xl"
+        className="w-full"
+        itemGroupClassName="aspect-auto h-52 rounded-xl sm:h-56"
       />
 
-      <div>
+      <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">
           {revisionLabel(delivery.revisionNumber)}
         </p>
@@ -156,16 +111,6 @@ function SubmittedDeliveryBlock({ delivery }: { delivery: CreatorDeliveryItem })
           {delivery.note}
         </p>
       ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {assets.map((asset, index) => (
-          <AssetButton
-            key={`${delivery.id}-${asset.key}`}
-            asset={asset}
-            index={index}
-          />
-        ))}
-      </div>
     </div>
   );
 }
@@ -290,6 +235,30 @@ export function CreatorContentUploadCard({
     .filter((d) => (d.assets ?? []).length > 0)
     .reverse();
 
+  const deliveryList =
+    !isLoading && deliveries.length > 0 ? (
+      <div
+        className={cn(
+          canUpload ? "mt-4 border-t border-border/40 pt-4" : "mb-4",
+        )}
+      >
+        {deliveries.length === 1 ? (
+          <SubmittedDeliveryBlock delivery={deliveries[0]} />
+        ) : (
+          <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {deliveries.map((delivery) => (
+              <div
+                key={delivery.id}
+                className="w-[78%] shrink-0 snap-start sm:w-[280px]"
+              >
+                <SubmittedDeliveryBlock delivery={delivery} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    ) : null;
+
   return (
     <div className="overflow-hidden rounded-3xl border border-border/50 bg-card p-5 shadow-sm sm:p-6">
       <div className="mb-4 flex items-start gap-3">
@@ -308,20 +277,7 @@ export function CreatorContentUploadCard({
 
       {isLoading ? (
         <Skeleton className="h-40 w-full rounded-2xl" />
-      ) : deliveries.length > 0 ? (
-        <div className="mb-4 space-y-5">
-          {deliveries.map((delivery, index) => (
-            <div
-              key={delivery.id}
-              className={
-                index > 0 ? "border-t border-border/40 pt-5" : undefined
-              }
-            >
-              <SubmittedDeliveryBlock delivery={delivery} />
-            </div>
-          ))}
-        </div>
-      ) : !canUpload ? (
+      ) : !canUpload && deliveries.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 py-10 text-center">
           <div className="mb-3 flex size-11 items-center justify-center rounded-2xl bg-muted/50">
             <FileVideo className="size-5 text-muted-foreground/50" />
@@ -330,30 +286,10 @@ export function CreatorContentUploadCard({
         </div>
       ) : null}
 
+      {!canUpload ? deliveryList : null}
+
       {canUpload ? (
         <div className="space-y-3">
-          {withNote ? (
-            <div className="space-y-2">
-              <label
-                htmlFor={`content-upload-note-${orderId}`}
-                className="text-[11px] font-bold uppercase tracking-wide text-foreground"
-              >
-                Notes for the brand{" "}
-                <span className="font-normal normal-case text-muted-foreground">
-                  (optional)
-                </span>
-              </label>
-              <Textarea
-                id={`content-upload-note-${orderId}`}
-                placeholder="Summarize what you changed in this version..."
-                className="min-h-20 resize-y rounded-xl border-border/50 bg-background p-3 text-xs shadow-none"
-                value={submissionNote}
-                onChange={(event) => setSubmissionNote(event.target.value)}
-                disabled={isUploading}
-              />
-            </div>
-          ) : null}
-
           <input
             type="file"
             ref={fileInputRef}
@@ -444,12 +380,36 @@ export function CreatorContentUploadCard({
               </p>
             </div>
           )}
+
+          {withNote ? (
+            <div className="space-y-2">
+              <label
+                htmlFor={`content-upload-note-${orderId}`}
+                className="text-[11px] font-bold uppercase tracking-wide text-foreground"
+              >
+                Notes for the brand{" "}
+                <span className="font-normal normal-case text-muted-foreground">
+                  (optional)
+                </span>
+              </label>
+              <Textarea
+                id={`content-upload-note-${orderId}`}
+                placeholder="Summarize what you changed in this version..."
+                className="min-h-20 resize-y rounded-xl border-border/50 bg-background p-3 text-xs shadow-none"
+                value={submissionNote}
+                onChange={(event) => setSubmissionNote(event.target.value)}
+                disabled={isUploading}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {footer ? (
         <div className="mt-4 border-t border-border/40 pt-4">{footer}</div>
       ) : null}
+
+      {canUpload ? deliveryList : null}
     </div>
   );
 }

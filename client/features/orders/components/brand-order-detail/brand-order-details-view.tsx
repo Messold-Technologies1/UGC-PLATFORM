@@ -22,6 +22,8 @@ import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import { OrderSummaryCard } from "./order-summary-card";
 import { InprogressNotificationBanner } from "./order-inProgress/inprogress-notification-banner";
 import { InprogressShippingCard } from "./order-inProgress/inprogress-shipping-card";
+import { ShippingDetailsCard } from "./order-shipping/shipping-details-card";
+import { ShippingAddressCard } from "./order-shipping/shipping-address-card";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { DeliveredNotificationBanner } from "./order-delivered/delivered-notification-banner";
 import { DeliveredVideosCard } from "./order-delivered/delivered-videos-card";
@@ -152,6 +154,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
     previewState === "In Progress" ||
     (isActuallyInProgress && previewState === null);
 
+  const isActuallyAwaitingShipment =
+    order.requiresPhysicalProductShipment && order.status === "BRIEF_ACCEPTED";
+  const showAwaitingShipmentUI =
+    previewState === "Awaiting Shipment" ||
+    (isActuallyAwaitingShipment && previewState === null);
+
 
   const deliveredStatuses = ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"];
   const isActuallyDelivered =
@@ -183,6 +191,56 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
         brief={brief}
         briefId={briefId}
       />
+    );
+  }
+
+  if (showAwaitingShipmentUI) {
+    return (
+      <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
+        <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
+
+        <OrderProgressStepper
+          order={order}
+          onStepClick={(label) =>
+            setPreviewState((prev) => (prev === label ? null : label))
+          }
+          previewState={previewState}
+        />
+
+        <DisputeResolvedBanner dispute={order.dispute} />
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+          <div className="flex flex-col gap-5 lg:col-span-8">
+            <div className="lg:hidden">
+              <ShippingAddressCard shippingAddress={creator.shippingAddress} />
+            </div>
+
+            {order.dispatchedAt ? (
+              <InprogressShippingCard
+                courierPartner={(order as any).courierName}
+                trackingId={(order as any).trackingId}
+                shippedAt={order.dispatchedAt}
+                productReceivedAt={(order as any).productReceivedAt}
+              />
+            ) : (
+              <ShippingDetailsCard orderId={orderId} />
+            )}
+
+            <OrderSummaryCard order={order} creator={creator} />
+
+            {order.hasBrief && brief ? (
+              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            ) : null}
+          </div>
+
+          <aside className="flex flex-col gap-5 lg:col-span-4">
+            <div className="hidden lg:block">
+              <ShippingAddressCard shippingAddress={creator.shippingAddress} />
+            </div>
+            <OrderActivityTimeline order={order} />
+          </aside>
+        </div>
+      </div>
     );
   }
 
@@ -320,12 +378,6 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
           <div className="flex flex-col gap-5 lg:col-span-8">
-            <OrderSummaryCard order={order} creator={creator} />
-
-            {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
-            ) : null}
-
             {order.requiresPhysicalProductShipment && (
               <InprogressShippingCard
                 courierPartner={(order as any).courierName}
@@ -334,6 +386,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
                 productReceivedAt={(order as any).productReceivedAt}
               />
             )}
+
+            <OrderSummaryCard order={order} creator={creator} />
+
+            {order.hasBrief && brief ? (
+              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            ) : null}
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  getDeliveryTimeline,
+  getOrderWorkTimeline,
   type DeliveryTimelineInput,
 } from "../lib/delivery-timeline";
 
@@ -32,7 +32,7 @@ export function DeliveryDeadlineDisplay({
   showBadge = true,
   dateClassName,
 }: DeliveryDeadlineDisplayProps) {
-  const timeline = useMemo(() => getDeliveryTimeline(order), [order]);
+  const timeline = useMemo(() => getOrderWorkTimeline(order), [order]);
 
   if (timeline.phase === "not_started") {
     return (
@@ -88,7 +88,7 @@ export function DeliveryDeadlineDisplay({
 }
 
 export function getDeliveryDeadlineLabel(order: DeliveryTimelineInput): string {
-  const timeline = getDeliveryTimeline(order);
+  const timeline = getOrderWorkTimeline(order);
   if (timeline.phase === "not_started") return timeline.displayDateLabel;
   if (timeline.phase === "overdue") return "Overdue";
   if (timeline.phase === "delivered") {
@@ -113,7 +113,7 @@ export function getDeliveryDeadlineCardMeta(
     dispute?: { openedAt?: string | null; resolvedAt?: string | null } | null;
   },
 ): { value: string; label: string; showBadge: boolean } {
-  const timeline = getDeliveryTimeline(order);
+  const timeline = getOrderWorkTimeline(order);
   const date = formatDate(timeline.displayDate);
 
   if (order.status === "COMPLETED" || order.status === "ACCEPTED" || order.status === "CREATOR_PAYMENT_DONE") {
@@ -170,8 +170,7 @@ export function getDeliveryDeadlineCardMeta(
 
   if (
     order.status === "DELIVERED" ||
-    order.status === "REVISION_SUBMITTED" ||
-    order.status === "REVISION_REQUESTED"
+    order.status === "REVISION_SUBMITTED"
   ) {
     return {
       value: formatDate(order.deliveredAt) ?? formatDate(order.updatedAt) ?? "—",

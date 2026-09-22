@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ReasonPromptDialog } from "../reason-prompt-dialog";
 import { useCancelOrderMutation } from "../../hooks/use-cancel-order-mutation";
-import { getDeliveryTimeline } from "../../lib/delivery-timeline";
+import { getOrderWorkTimeline } from "../../lib/delivery-timeline";
 import type { OrderCreatorSnapshot, OrderDetailsPublic } from "../../api/types";
 
 interface OrderSummaryCardProps {
@@ -70,7 +70,13 @@ function OrderDeadlinePanel({ order }: Readonly<{ order: OrderDetailsPublic }>) 
   }, []);
 
   const timeline = useMemo(
-    () => getDeliveryTimeline({ ...order, deliveredAt: null }, now),
+    () =>
+      getOrderWorkTimeline(
+        order.status === "REVISION_REQUESTED"
+          ? order
+          : { ...order, deliveredAt: null },
+        now,
+      ),
     [order, now],
   );
 

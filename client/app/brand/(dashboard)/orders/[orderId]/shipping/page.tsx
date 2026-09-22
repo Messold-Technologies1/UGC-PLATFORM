@@ -1,10 +1,4 @@
-import type { Metadata } from "next";
-import { BrandOrderShippingView } from "@/features/orders/components/brand-order-detail";
-
-export const metadata: Metadata = {
-  title: "Order Shipping | Brand Dashboard",
-  description: "Add shipping details for your order.",
-};
+import { redirect } from "next/navigation";
 
 interface BrandOrderShippingPageProps {
   params: Promise<{ orderId: string }>;
@@ -14,5 +8,5 @@ export default async function BrandOrderShippingPage({
   params,
 }: BrandOrderShippingPageProps) {
   const { orderId } = await params;
-  return <BrandOrderShippingView orderId={orderId} />;
+  redirect(`/brand/orders/${orderId}`);
 }

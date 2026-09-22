@@ -62,12 +62,11 @@ export function getCreatorOrdersTabForStatus(status?: string): string {
 
 export function getCreatorOrdersPageHref(
   orderId: string,
-  status?: string,
+  _status?: string,
 ): string {
-  const tab = getCreatorOrdersTabForStatus(status);
-  const params = new URLSearchParams({ orderId });
-  if (tab !== "all") params.set("tab", tab);
-  return `/creator/orders?${params.toString()}`;
+  // Creator orders now open on a dedicated full-page detail view (mirroring the
+  // brand order experience) rather than a side panel on the list page.
+  return `/creator/orders/${orderId}`;
 }
 
 interface CreatorOrdersTabsProps {

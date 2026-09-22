@@ -29,6 +29,11 @@ interface BriefSummaryCardProps {
   order: OrderDetailsPublic;
   brief?: OrderBriefPayload | null;
   briefId?: string | null;
+  /**
+   * Destination for the "View Full Brief" button. Defaults to the brand brief
+   * page; the creator order view passes its own read-only brief route.
+   */
+  briefHref?: string | null;
 }
 
 function formatSubmittedDate(value?: string | null) {
@@ -119,8 +124,11 @@ export function BriefSummaryCard({
   order,
   brief,
   briefId,
+  briefHref,
 }: Readonly<BriefSummaryCardProps>) {
   if (!brief) return null;
+
+  const fullBriefHref = briefHref ?? (briefId ? `/brand/briefs/${briefId}` : null);
 
   const isProductBrief = brief.isProduct ?? true;
   const offerLabels = getBriefOfferLabels(isProductBrief);
@@ -189,9 +197,9 @@ export function BriefSummaryCard({
               </div>
 
               <div className="flex flex-col items-start gap-2 lg:items-end">
-                {briefId ? (
+                {fullBriefHref ? (
                   <Link
-                    href={`/brand/briefs/${briefId}`}
+                    href={fullBriefHref}
                     className={cn(
                       "inline-flex h-11 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-semibold transition-colors",
                       theme.button,

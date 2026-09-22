@@ -41,9 +41,9 @@ import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { BriefSummaryCard } from "../brand-order-detail/brief-summary-card";
-import { OrderActivityTimeline } from "../brand-order-detail/order-activity-timeline";
 
-import { OrderProgressStepper, type StepDef } from "./order-progress-stepper";
+import { CreatorOrderProgressStepper } from "./creator-order-progress-stepper";
+import { CreatorOrderActivityTimeline } from "./creator-order-activity-timeline";
 import { CreatorOrderSummaryCard } from "./creator-order-summary-card";
 import { CreatorContentUploadCard } from "./creator-content-upload-card";
 import type {
@@ -56,17 +56,6 @@ interface CreatorOrderDetailsViewProps {
 }
 
 const RATING_LABELS = ["", "Terrible", "Poor", "Average", "Good", "Excellent"];
-
-const STEP_LABELS: Record<string, string> = {
-  accepted: "Accepted",
-  awaiting_shipment: "Awaiting Shipment",
-  product_received: "Product Received",
-  in_progress: "In Progress",
-  revision_requested: "Revision",
-  delivered: "Delivered",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
 
 type CreatorPhase =
   | "new_request"
@@ -124,113 +113,6 @@ function resolvePhase(order: OrderDetailsPublic): CreatorPhase {
   return "in_progress";
 }
 
-function buildCreatorSteps(order: OrderDetailsPublic): {
-  steps: StepDef[];
-  currentStepId: string;
-} {
-  const status = order.status;
-  const ship = Boolean(order.requiresPhysicalProductShipment);
-  const cancelled = ["REJECTED", "REFUNDED"].includes(status);
-
-  const dates: Record<string, string | null | undefined> = {
-    accepted: order.briefAcceptedAt,
-    awaiting_shipment: order.dispatchedAt,
-    product_received: order.productReceivedAt ?? order.briefAcceptedAt,
-    in_progress: order.productReceivedAt ?? order.briefAcceptedAt,
-    revision_requested: order.currentRevision?.requestedAt ?? order.updatedAt,
-    delivered: order.deliveredAt,
-    completed: order.acceptedAt ?? order.creatorPaidAt,
-    cancelled: order.cancelledAt ?? order.refundedAt ?? order.updatedAt,
-  };
-
-  if (cancelled) {
-    const ids = ["accepted", "cancelled", "in_progress", "delivered", "completed"];
-    const hasAccepted = Boolean(order.briefAcceptedAt || order.paidAt);
-    const steps = ids.map((id) => ({
-      id,
-      label: STEP_LABELS[id],
-      status: (id === "accepted" && hasAccepted
-        ? "completed"
-        : id === "cancelled"
-          ? "cancelled"
-          : "pending") as StepDef["status"],
-      date: dates[id] ?? null,
-    }));
-    return { steps, currentStepId: "cancelled" };
-  }
-
-  const showRevision =
-    status === "REVISION_REQUESTED" || order.revisionCount > 0;
-
-  const ids: string[] = ["accepted"];
-  if (ship) ids.push("awaiting_shipment", "product_received");
-  ids.push("in_progress");
-  if (showRevision) ids.push("revision_requested");
-  ids.push("delivered", "completed");
-
-  let currentStepId = "accepted";
-  switch (status) {
-    case "BRIEF_ACCEPTED":
-      currentStepId = ship ? "awaiting_shipment" : "in_progress";
-      break;
-    case "PRODUCT_SHIPPED":
-      currentStepId = "awaiting_shipment";
-      break;
-    case "PRODUCT_RECEIVED":
-      currentStepId = "in_progress";
-      break;
-    case "REVISION_REQUESTED":
-      currentStepId = "revision_requested";
-      break;
-    case "DELIVERED":
-    case "REVISION_SUBMITTED":
-      currentStepId = "delivered";
-      break;
-    case "ACCEPTED":
-    case "CREATOR_PAYMENT_DONE":
-      currentStepId = "completed";
-      break;
-    case "DISPUTED":
-      if (order.deliveredAt) currentStepId = "delivered";
-      else if (ship)
-        currentStepId = order.productReceivedAt
-          ? "in_progress"
-          : "awaiting_shipment";
-      else currentStepId = "in_progress";
-      break;
-    default:
-      currentStepId = "accepted";
-  }
-
-  const curIdx = ids.indexOf(currentStepId);
-  const allDone = ["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(status);
-
-  const steps = ids.map((id, i) => {
-    let stepStatus: StepDef["status"];
-    if (allDone) {
-      stepStatus = "completed";
-    } else if (i < curIdx) {
-      stepStatus = "completed";
-    } else if (i === curIdx) {
-      stepStatus =
-        id === "delivered"
-          ? "delivered"
-          : id === "revision_requested"
-            ? "revision"
-            : "current";
-    } else {
-      stepStatus = "pending";
-    }
-    return {
-      id,
-      label: STEP_LABELS[id],
-      status: stepStatus,
-      date: dates[id] ?? null,
-    };
-  });
-
-  return { steps, currentStepId };
-}
 
 /* -------------------------------------------------------------------------- */
 /* Header                                                                     */
@@ -947,7 +829,6 @@ export function CreatorOrderDetailsView({
   const briefHref = `/creator/orders/${orderId}/brief`;
 
   const phase = resolvePhase(order);
-  const { steps, currentStepId } = buildCreatorSteps(order);
   const isCancelled = phase === "cancelled";
 
   const showChat = ["awaiting_shipment", "in_progress", "revision", "delivered", "completed", "disputed"].includes(
@@ -1054,9 +935,7 @@ export function CreatorOrderDetailsView({
     <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
       <CreatorOrderHeader order={order} brand={brand} />
 
-      <div className="rounded-2xl border border-border/50 bg-card px-4 py-3 shadow-sm sm:px-6">
-        <OrderProgressStepper steps={steps} viewingStepId={currentStepId} />
-      </div>
+      <CreatorOrderProgressStepper order={order} />
 
       <DisputeResolvedBanner dispute={order.dispute} />
 
@@ -1087,7 +966,7 @@ export function CreatorOrderDetailsView({
           {showChat ? (
             <OrderChatWidget orderId={orderId} role="creator" brand={brand} />
           ) : null}
-          <OrderActivityTimeline order={order} />
+          <CreatorOrderActivityTimeline order={order} />
         </aside>
       </div>
     </div>

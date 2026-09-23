@@ -43,7 +43,6 @@ export class WorkspacePermissionGuard implements CanActivate {
       where: { id: userId },
       select: {
         status: true,
-        brandAccessRevokedAt: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
       },
@@ -70,16 +69,6 @@ export class WorkspacePermissionGuard implements CanActivate {
     if (!hasWorkspace) {
       throw new ForbiddenException(
         `${requiredWorkspace} workspace access required`,
-      );
-    }
-
-    if (
-      (requiredWorkspace === 'BRAND' || requiredWorkspace === 'AGENCY') &&
-      roles.has(RoleName.BRAND) &&
-      user.brandAccessRevokedAt
-    ) {
-      throw new ForbiddenException(
-        'Brand workspace access has been removed by an admin',
       );
     }
 

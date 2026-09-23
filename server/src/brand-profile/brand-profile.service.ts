@@ -506,7 +506,6 @@ export class BrandProfileService {
 
     const where = {
       deletedAt: null,
-      brandAccessRevokedAt: null,
       brandProfile: {
         isNot: null,
       },

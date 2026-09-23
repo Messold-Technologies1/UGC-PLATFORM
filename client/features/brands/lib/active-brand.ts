@@ -64,7 +64,6 @@ export function userCanUseBrandWorkspace(user: AuthUser): boolean {
   }
   return (
     user.roles.includes("BRAND") &&
-    !user.brandAccessRevoked &&
     (user.hasBrandProfile || user.accessibleBrands.length > 0)
   );
 }

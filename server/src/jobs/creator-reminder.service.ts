@@ -290,11 +290,34 @@ export class CreatorReminderService {
       where: {
         completeProfile: false,
         completionReminderStartedAt: { lte: t30, gte: backfillFloor },
+        // Each branch pairs an unsent stamp with the clock reaching that stage,
+        // so a row appears only while it has work that is actually due.
+        //
+        // Matching on "any stamp is null" instead would keep a creator in the
+        // set from their first email until their last: after stage 1 is sent,
+        // the later columns are still null. The page is ordered oldest-clock
+        // first, so those inert rows hold the head of every sweep and starve
+        // everyone behind them. A cohort larger than one batch would reach the
+        // back of the queue only once its clock had passed the final stage,
+        // and the "retire earlier stages" rule below would then silently drop
+        // the first three emails for those creators.
         OR: [
-          { completionReminder30mAt: null },
-          { completionReminder24hAt: null },
-          { completionReminder72hAt: null },
-          { completionReminder168hAt: null },
+          {
+            completionReminderStartedAt: { lte: t168 },
+            completionReminder168hAt: null,
+          },
+          {
+            completionReminderStartedAt: { lte: t72 },
+            completionReminder72hAt: null,
+          },
+          {
+            completionReminderStartedAt: { lte: t24 },
+            completionReminder24hAt: null,
+          },
+          {
+            completionReminderStartedAt: { lte: t30 },
+            completionReminder30mAt: null,
+          },
         ],
       },
       select: {

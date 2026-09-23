@@ -34,7 +34,10 @@ function buildProfile(startedAgoMs: number, overrides: Partial<Profile> = {}) {
  * every claim the service attempts succeeds — the assertions are about which
  * stage it decides to claim, not about the database's locking.
  */
-type SweepWhere = { completionReminderStartedAt: { gte: Date; lte: Date } };
+type SweepWhere = {
+  completionReminderStartedAt: { gte: Date; lte: Date };
+  OR: Array<Record<string, unknown>>;
+};
 
 function makePrisma(candidates: Profile[]) {
   const updates: Array<Record<string, unknown>> = [];
@@ -164,6 +167,30 @@ describe('CreatorReminderService', () => {
       await service.runBackstopSweep();
 
       expect(notifier.notifyCompletionReminder).not.toHaveBeenCalled();
+    });
+
+    it('only considers profiles whose next stage is actually due', async () => {
+      // Regression guard for cohort starvation. If a row matched on "any stamp
+      // is null", a creator stayed in the candidate set from their first email
+      // until their last, and — since the page is ordered oldest-clock first —
+      // inert rows held the head of every sweep. A cohort larger than one batch
+      // then reached the back of the queue only past the final stage, where the
+      // retire-earlier rule drops the first three emails.
+      const { service, prisma } = build([]);
+
+      await service.runBackstopSweep();
+
+      const branches = prisma.sweepWheres[0].OR;
+      expect(branches).toHaveLength(4);
+      for (const branch of branches) {
+        const stamp = Object.keys(branch).find(
+          (k) => k !== 'completionReminderStartedAt',
+        );
+        // Every branch names one stamp AND the clock threshold that makes it due.
+        expect(stamp).toMatch(/^completionReminder(30m|24h|72h|168h)At$/);
+        expect(branch[stamp as string]).toBeNull();
+        expect(branch.completionReminderStartedAt).toHaveProperty('lte');
+      }
     });
 
     it('keeps the backfill window wide enough to reach the day-7 stage', async () => {

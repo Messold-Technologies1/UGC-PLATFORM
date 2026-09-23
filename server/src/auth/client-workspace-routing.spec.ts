@@ -36,7 +36,6 @@ function createUser(overrides?: Partial<AuthUser>): AuthUser {
     primaryRole: 'CREATOR',
     hasCreatorProfile: true,
     hasBrandProfile: false,
-    brandAccessRevoked: false,
     ...overrides,
   };
 }
@@ -96,22 +95,6 @@ describe('Client workspace routing helpers', () => {
     );
     expect(pathAfterWorkspaceSelection(user, 'BRAND', '/creator/jobs/42')).toBe(
       '/brand/creators',
-    );
-  });
-
-  it('keeps revoked dual-role users in the continue flow until they choose an allowed route', () => {
-    const user = createUser({
-      roles: ['CREATOR', 'BRAND'],
-      primaryRole: 'BRAND',
-      hasBrandProfile: true,
-      brandAccessRevoked: true,
-    });
-
-    expect(resolveImmediatePostAuthPath(user, '/brand/creators')).toBe(
-      '/auth/continue?callbackUrl=%2Fbrand%2Fcreators',
-    );
-    expect(pathAfterWorkspaceSelection(user, 'BRAND', '/brand/creators')).toBe(
-      '/creator/orders',
     );
   });
 

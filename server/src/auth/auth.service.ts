@@ -43,7 +43,6 @@ export type MeUser = {
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
-  brandAccessRevoked: boolean;
   activeBrandProfileId: string | null;
   accessibleBrands: MeBrandSummary[];
   /** Present when `roles` includes CREATOR; null if no creator profile yet. */
@@ -74,7 +73,6 @@ type MeLookupUser = {
   email: string;
   name: string | null;
   status: string;
-  brandAccessRevokedAt: Date | null;
   primaryRole: { name: RoleName | null } | null;
   userRoles: Array<{ role: { name: RoleName | null } }>;
   creatorProfile: {
@@ -439,6 +437,16 @@ export class AuthService {
           .delete({ where: { id: session.id } })
           .catch(() => {});
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // Login already refuses a non-ACTIVE account; refresh has to agree, or a
+    // user deactivated mid-session keeps minting access tokens that every guard
+    // then rejects — a silent refresh loop instead of a clean bounce to login.
+    if (session.user.status !== 'ACTIVE') {
+      await this.prisma.session
+        .delete({ where: { id: session.id } })
+        .catch(() => {});
+      throw new UnauthorizedException('Account is not active');
     }
 
     const expiresIn = this.getAccessExpiry();
@@ -841,7 +849,6 @@ export class AuthService {
         email: true,
         name: true,
         status: true,
-        brandAccessRevokedAt: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
         creatorProfile: {
@@ -919,7 +926,6 @@ export class AuthService {
       email: user.email,
       name: user.name,
       roles,
-      brandAccessRevoked: !!user.brandAccessRevokedAt,
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,

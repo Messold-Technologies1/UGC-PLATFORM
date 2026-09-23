@@ -32,7 +32,6 @@ export type AuthUser = {
   creatorProfileComplete?: boolean;
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
-  brandAccessRevoked: boolean;
   activeBrandProfileId: string | null;
   accessibleBrands: AccessibleBrandSummary[];
   /** Whether this admin can open Settings and create other admin users. */

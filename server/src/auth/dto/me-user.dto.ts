@@ -46,12 +46,6 @@ export class MeUserDto {
   @ApiProperty()
   hasAgencyProfile!: boolean;
 
-  @ApiProperty({
-    description:
-      'Whether admin has permanently removed this user’s brand access',
-  })
-  brandAccessRevoked!: boolean;
-
   @ApiPropertyOptional({
     nullable: true,
     description: 'Last active brand for agency owners (server-validated).',

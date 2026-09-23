@@ -51,6 +51,23 @@ export class AdminBrandDetailDto {
   @ApiPropertyOptional({ example: 'ACTIVE', nullable: true })
   status!: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'When the status was last changed. Null if it has never been changed from the default.',
+  })
+  statusChangedAt!: Date | null;
+
+  @ApiPropertyOptional({
+    example: 'Bipasha Roy',
+    nullable: true,
+    description: 'Admin who last changed the status.',
+  })
+  statusChangedByName!: string | null;
+
+  @ApiPropertyOptional({ example: 'admin@gocollab.io', nullable: true })
+  statusChangedByEmail!: string | null;
+
   @ApiProperty()
   createdAt!: Date;
 

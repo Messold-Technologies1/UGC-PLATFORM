@@ -188,6 +188,12 @@ function WishlistCard({
   );
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  DEACTIVATED: "Deactivated",
+  SUSPENDED: "Suspended",
+};
+
 export default function AdminBrandDetailPage() {
   const { id } = useParams() as { id: string };
 
@@ -276,11 +282,25 @@ export default function AdminBrandDetailPage() {
               {displayName}
             </h1>
             {brand.status ? (
-              <Badge variant={brand.status === "ACTIVE" ? "default" : "outline"}>
-                {brand.status}
+              <Badge variant={brand.status === "ACTIVE" ? "default" : "muted"}>
+                {STATUS_LABELS[brand.status] ?? brand.status}
               </Badge>
             ) : null}
           </div>
+
+          {brand.statusChangedAt && brand.status !== "ACTIVE" ? (
+            <p className="mb-1 text-sm text-muted-foreground">
+              {STATUS_LABELS[brand.status ?? ""] ?? brand.status} on{" "}
+              {new Date(brand.statusChangedAt).toLocaleDateString(undefined, {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+              {brand.statusChangedByName || brand.statusChangedByEmail
+                ? ` by ${brand.statusChangedByName ?? brand.statusChangedByEmail}`
+                : null}
+            </p>
+          ) : null}
 
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
             {brand.email ? (

@@ -713,7 +713,10 @@ export function AdminCreatorListRow({
       </div>
 
       <Dialog open={portfolioOpen} onOpenChange={setPortfolioOpen}>
-        <DialogContent className="max-w-3xl gap-4 p-6">
+        <DialogContent
+          className="max-w-[calc(100%-2rem)] gap-4 overflow-hidden p-5 sm:max-w-100"
+          overlayClassName="bg-black/50 backdrop-blur-sm"
+        >
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">
               {creator.displayName}&rsquo;s portfolio
@@ -723,7 +726,10 @@ export function AdminCreatorListRow({
           {/* Mounted only while open, so the videos are not fetched for every
               row in the list and stop playing the moment the modal closes. */}
           {portfolioOpen ? (
-            <ThumbnailsCarousel assets={portfolioAssets} />
+            <ThumbnailsCarousel
+              assets={portfolioAssets}
+              orientation="portrait"
+            />
           ) : null}
         </DialogContent>
       </Dialog>

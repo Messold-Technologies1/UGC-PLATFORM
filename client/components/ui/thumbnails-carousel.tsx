@@ -24,6 +24,8 @@ export interface ThumbnailsCarouselProps {
   assets?: CarouselAsset[];
   isEditable?: boolean;
   onRemove?: (index: number) => void;
+  /** Portfolio reels are 9:16. Default stays landscape for order-delivery cards. */
+  orientation?: "landscape" | "portrait";
 }
 
 export function ThumbnailsCarousel({ 
@@ -31,8 +33,10 @@ export function ThumbnailsCarousel({
   itemGroupClassName,
   assets = [],
   isEditable = false,
-  onRemove
+  onRemove,
+  orientation = "landscape",
 }: ThumbnailsCarouselProps) {
+  const isPortrait = orientation === "portrait";
   const [currentPage, setCurrentPage] = useState(0);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
@@ -122,7 +126,10 @@ export function ThumbnailsCarousel({
       className={cn("w-full transition-opacity duration-300", className)}
     >
       <Carousel.ItemGroup className={cn(
-        "relative aspect-video max-h-[70vh] overflow-hidden rounded-2xl border bg-black shadow-sm",
+        "relative overflow-hidden rounded-2xl border bg-black shadow-sm",
+        isPortrait
+          ? "mx-auto aspect-9/16 w-full max-h-[min(68vh,560px)] max-w-[320px]"
+          : "aspect-video max-h-[70vh]",
         assets.length > 1 && "mb-4",
         itemGroupClassName,
       )}>
@@ -211,12 +218,18 @@ export function ThumbnailsCarousel({
             <ChevronLeft className="w-5 h-5" />
           </Carousel.PrevTrigger>
 
-          <div className="scrollbar-hide flex min-w-0 flex-1 gap-2 overflow-x-auto px-0.5 py-1">
+          <div className="scrollbar-hide flex min-w-0 flex-1 justify-center gap-2 overflow-x-auto px-0.5 py-1">
             {assets.map((asset, index) => (
-              <div key={asset.id ?? index} className="group/thumb relative aspect-video w-24 shrink-0">
+              <div
+                key={asset.id ?? index}
+                className={cn(
+                  "group/thumb relative shrink-0",
+                  isPortrait ? "aspect-9/16 w-12" : "aspect-video w-24",
+                )}
+              >
                 <Carousel.Indicator
                   index={index}
-                  className="absolute inset-0 w-full h-full ring-2 ring-transparent data-current:ring-primary data-current:ring-offset-2 ring-offset-background rounded-lg overflow-hidden cursor-pointer transition-all hover:ring-primary/50 bg-black block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="absolute inset-0 block h-full w-full cursor-pointer overflow-hidden rounded-lg bg-black ring-2 ring-transparent ring-offset-background transition-all hover:ring-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-current:ring-primary data-current:ring-offset-2"
                 >
                   {asset.type === "video" ? (
                     <video
@@ -243,8 +256,14 @@ export function ThumbnailsCarousel({
                     />
                   )}
                   {asset.type === "video" && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <Play className="w-6 h-6 text-white/80 drop-shadow-md" fill="currentColor" />
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <Play
+                        className={cn(
+                          "text-white/80 drop-shadow-md",
+                          isPortrait ? "h-3.5 w-3.5" : "h-6 w-6",
+                        )}
+                        fill="currentColor"
+                      />
                     </div>
                   )}
                 </Carousel.Indicator>

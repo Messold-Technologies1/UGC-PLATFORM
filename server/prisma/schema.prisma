@@ -212,9 +212,6 @@ model User {
   createdAt                   DateTime   @default(now())
   updatedAt                   DateTime   @updatedAt
   primaryRoleId               String?    @db.Uuid
-  brandAccessRevokedAt        DateTime?
-  brandAccessRevokedById      String?    @db.Uuid
-  brandAccessRevocationReason String?
 
   primaryRole                 Role?                      @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
   authAccounts                AuthAccount[]
@@ -241,8 +238,38 @@ model User {
   @@index([status])
   @@index([deletedAt])
   @@index([primaryRoleId])
-  @@index([brandAccessRevokedAt])
   @@index([phoneOtpLastAttemptAt])
+}
+
+/// Audit trail for admin removal of a brand user.
+///
+/// Removing a brand user hard-deletes the User row and cascades away its brand
+/// profile, so there is nothing left to hang a "deletedBy"/"deletedAt" column
+/// on — which is why this is a separate table rather than fields on User.
+///
+/// It deliberately holds NO foreign keys: every id here points at a row that
+/// the removal has already deleted, and an audit record that cascades away with
+/// what it describes is worthless. The email/name snapshots are what make the
+/// record readable afterwards.
+model BrandUserRemoval {
+  id               String   @id @default(uuid()) @db.Uuid
+  /// The deleted account, snapshotted at removal time.
+  removedUserId    String   @db.Uuid
+  removedUserEmail String
+  removedUserName  String?
+  /// The brand workspace deleted along with it.
+  brandProfileId   String   @db.Uuid
+  brandName        String?
+  /// The admin who performed the removal, snapshotted for the same reason.
+  removedById      String   @db.Uuid
+  removedByEmail   String?
+  /// Optional free-text note supplied by the admin on the remove call.
+  reason           String?
+  removedAt        DateTime @default(now())
+
+  @@index([removedAt])
+  @@index([removedUserEmail])
+  @@index([removedById])
 }
 
 model ContactMessage {

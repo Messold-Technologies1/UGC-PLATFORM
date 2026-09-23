@@ -14,9 +14,7 @@ export default function BrandSettingsProfilePage() {
     isLoading,
     isError,
   } = useBrandProfileStateQuery({
-    enabled: Boolean(
-      user?.id && user.hasBrandProfile && !user.brandAccessRevoked,
-    ),
+    enabled: Boolean(user?.id && user.hasBrandProfile),
     staleTime: 2 * 60_000,
     retry: false,
   });
@@ -31,7 +29,7 @@ export default function BrandSettingsProfilePage() {
 
   if (!user) return null;
 
-  if (user.brandAccessRevoked || profileState?.kind === "revoked") {
+  if (profileState?.kind === "revoked") {
     return (
       <div className="space-y-8 pt-4 lg:pt-5">
         <PageHeader

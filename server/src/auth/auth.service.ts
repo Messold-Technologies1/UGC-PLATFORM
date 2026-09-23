@@ -43,7 +43,6 @@ export type MeUser = {
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
-  brandAccessRevoked: boolean;
   activeBrandProfileId: string | null;
   accessibleBrands: MeBrandSummary[];
   /** Present when `roles` includes CREATOR; null if no creator profile yet. */
@@ -74,7 +73,6 @@ type MeLookupUser = {
   email: string;
   name: string | null;
   status: string;
-  brandAccessRevokedAt: Date | null;
   primaryRole: { name: RoleName | null } | null;
   userRoles: Array<{ role: { name: RoleName | null } }>;
   creatorProfile: {
@@ -841,7 +839,6 @@ export class AuthService {
         email: true,
         name: true,
         status: true,
-        brandAccessRevokedAt: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
         creatorProfile: {
@@ -919,7 +916,6 @@ export class AuthService {
       email: user.email,
       name: user.name,
       roles,
-      brandAccessRevoked: !!user.brandAccessRevokedAt,
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,

@@ -498,7 +498,6 @@ export class BrandProfileService {
 
     const where = {
       deletedAt: null,
-      brandAccessRevokedAt: null,
       brandProfile: {
         isNot: null,
       },
@@ -651,10 +650,20 @@ export class BrandProfileService {
     };
   }
 
+  /**
+   * Permanently remove a brand user: delete the account and let the cascade take
+   * its brand data with it.
+   *
+   * The deletion is recorded in BrandUserRemoval first, inside the same
+   * transaction. That ordering matters — once `user.delete` runs there is no row
+   * left to read the email or brand name from, and a record written outside the
+   * transaction could be left behind by a rollback describing a removal that
+   * never happened.
+   */
   async removeBrandAccessFromUser(
-    _adminUserId: string,
+    adminUserId: string,
     userId: string,
-    _dto?: RemoveBrandRoleDto,
+    dto?: RemoveBrandRoleDto,
   ): Promise<void> {
     let logoKeyToDelete: string | null = null;
     let pronunciationAudioKeyToDelete: string | null = null;
@@ -711,6 +720,31 @@ export class BrandProfileService {
         logoKeyToDelete = user.brandProfile.logoKey ?? null;
         pronunciationAudioKeyToDelete =
           user.brandProfile.brandPronunciationAudioKey ?? null;
+
+        const [admin, brand] = await Promise.all([
+          tx.user.findUnique({
+            where: { id: adminUserId },
+            select: { email: true },
+          }),
+          tx.brandProfile.findUnique({
+            where: { id: user.brandProfile.id },
+            select: { brandName: true },
+          }),
+        ]);
+
+        // Snapshot everything the audit needs while the rows still exist.
+        await tx.brandUserRemoval.create({
+          data: {
+            removedUserId: user.id,
+            removedUserEmail: user.email,
+            removedUserName: user.name,
+            brandProfileId: user.brandProfile.id,
+            brandName: brand?.brandName ?? null,
+            removedById: adminUserId,
+            removedByEmail: admin?.email ?? null,
+            reason: dto?.reason?.trim() || null,
+          },
+        });
 
         await tx.user.delete({
           where: { id: userId },

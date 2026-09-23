@@ -30,10 +30,14 @@
  *   BULLMQ_WORKER_ENABLED=false npm run reenroll:completion-reminders -- --apply --days=0
  *
  * Flags:
- *   --apply        perform the writes (otherwise dry run)
- *   --days=N       only creators who signed up within N days (default 90;
- *                  0 = no cutoff)
- *   --batch=N      rows per page (default 200)
+ *   --apply           perform the writes (otherwise dry run)
+ *   --days=N          only creators who signed up within N days (default 90;
+ *                     0 = no cutoff)
+ *   --skip-recent=N   leave creators who registered within N days alone. They
+ *                     are still working through the drip they got at signup,
+ *                     so restarting them means a second "finish your profile"
+ *                     email within a day or two. Default 0 (include them).
+ *   --batch=N         rows per page (default 200)
  *
  * The script boots Config + Prisma only and talks to Redis directly, so it
  * starts no BullMQ worker and cannot process the jobs it schedules — passing
@@ -47,10 +51,9 @@
  *   the script refuses to --apply while it is off, since enrolling with the
  *   feature dark burns the cohort's stamps without delivering the emails.
  *
- * Idempotent in the way that matters: a second run re-enrolls only creators who
- * are still building, and a creator already mid-sequence is skipped (their clock
- * is recent), so an accidental re-run cannot restart the sequence for someone
- * already receiving it.
+ * Idempotent: enrolling moves a creator's drip clock ahead of their signup date,
+ * and the cohort only includes creators whose clock still equals their signup
+ * date, so a second run enrolls nobody the first run already took.
  */
 import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -72,10 +75,30 @@ const DEFAULT_CUTOFF_DAYS = 90;
 const DEFAULT_BATCH = 200;
 
 /**
- * A creator whose clock is already this recent is mid-sequence — re-enrolling
- * them would restart the emails they are currently receiving.
+ * "Has this script already enrolled them?" is answered by comparing the drip
+ * clock to the signup date, not by how recent the clock is.
+ *
+ * Every creator starts with `completionReminderStartedAt` equal to `createdAt`
+ * — that is the column default for a new signup, and what the migration
+ * backfilled onto existing rows. Enrolling is the only thing that moves the
+ * clock ahead of the signup date, so `clock <= createdAt` means "never
+ * enrolled" exactly, with no time window to tune.
+ *
+ * Testing clock recency instead conflated two different creators: one this
+ * script already enrolled, and one who simply registered days ago and is still
+ * working through the drip they got at signup. The second group is part of the
+ * campaign — excluding them silently dropped every recent signup from the
+ * cohort.
  */
-const ALREADY_ENROLLED_WINDOW_MS = 8 * DAY_MS;
+function neverEnrolledClause(
+  prisma: PrismaService,
+): Prisma.CreatorProfileWhereInput {
+  return {
+    completionReminderStartedAt: {
+      lte: prisma.creatorProfile.fields.createdAt,
+    },
+  };
+}
 
 // Config + Prisma only. The script enqueues through its own Queue rather than
 // CreatorReminderQueueService on purpose: that service depends on
@@ -112,6 +135,7 @@ async function main(): Promise<void> {
   const apply = process.argv.includes('--apply');
   const cutoffDays = numericFlag('days', DEFAULT_CUTOFF_DAYS);
   const batchSize = Math.max(1, numericFlag('batch', DEFAULT_BATCH));
+  const skipRecentDays = numericFlag('skip-recent', 0);
 
   const app = await NestFactory.createApplicationContext(ReenrollModule, {
     logger: ['error', 'warn', 'log'],
@@ -150,18 +174,28 @@ async function main(): Promise<void> {
     }
 
     const now = Date.now();
+
+    // `--days` bounds how far back the campaign reaches; `--skip-recent`
+    // optionally leaves the newest signups on the drip they already have.
+    const signupBounds: Prisma.DateTimeFilter = {
+      ...(cutoffDays > 0 ? { gte: new Date(now - cutoffDays * DAY_MS) } : {}),
+      ...(skipRecentDays > 0
+        ? { lt: new Date(now - skipRecentDays * DAY_MS) }
+        : {}),
+    };
+    const signupWindow =
+      Object.keys(signupBounds).length > 0 ? signupBounds : undefined;
+
     const where: Prisma.CreatorProfileWhereInput = {
       completeProfile: false,
       creatorApproval: {
         status: { in: [ApprovalStatus.PENDING, ApprovalStatus.APPROVED] },
       },
-      // Skip anyone already mid-sequence so a re-run never restarts their drip.
-      completionReminderStartedAt: {
-        lt: new Date(now - ALREADY_ENROLLED_WINDOW_MS),
-      },
-      ...(cutoffDays > 0
-        ? { createdAt: { gte: new Date(now - cutoffDays * DAY_MS) } }
-        : {}),
+      // A re-run must not restart a sequence this script already started.
+      ...neverEnrolledClause(prisma),
+      // Both signup-date bounds live in one clause; as two spreads the later
+      // `createdAt` key would silently replace the earlier one.
+      ...(signupWindow ? { createdAt: signupWindow } : {}),
     };
 
     if (!queue) {
@@ -204,15 +238,17 @@ async function main(): Promise<void> {
     let failed = 0;
 
     for (;;) {
-      // Cursor-page by id. Enrolled rows still match `where` only until their
-      // clock moves, which the update below does, so paging by id (not offset)
-      // keeps the walk stable either way.
+      // Walk forward by id with a plain `gt` bound rather than Prisma's
+      // cursor + skip:1. Enrolling moves a creator's clock, which drops them
+      // out of `where`, so by the next page the cursor row is no longer in the
+      // filtered set — and `skip: 1` then skips a row that IS still in it,
+      // silently leaving creators unenrolled. A `gt` bound needs no row to
+      // anchor on, so the walk covers the set exactly once.
       const batch = await prisma.creatorProfile.findMany({
-        where,
+        where: cursor ? { ...where, id: { gt: cursor } } : where,
         select: { id: true },
         orderBy: { id: 'asc' },
         take: batchSize,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
       if (batch.length === 0) break;
       cursor = batch[batch.length - 1].id;

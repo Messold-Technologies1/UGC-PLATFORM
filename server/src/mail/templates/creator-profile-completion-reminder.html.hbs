@@ -1,52 +1,90 @@
-{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3, isStage4 --}}
 <p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
 
 {{#if isStage1}}
-<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">You're almost there ✨</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Your {{platformName}} profile is almost ready 👀</p>
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
-  You just started your creator profile on <strong>{{platformName}}</strong> — nice work. You're one step away from going live. Finish your setup (about 5 minutes) to appear in search and start receiving briefs from brands:
+  You've started creating your <strong>{{platformName}}</strong> profile — just a few minutes left to get it live.
 </p>
-<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
-  <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">
-    • Add your portfolio videos<br />
-    • Set your packages &amp; pricing<br />
-    • Complete your bio and niches
-  </p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Once your profile is complete, brands can discover you and place paid orders with you. 💸
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You'll also get your own professional Creator Portfolio that you can share with brands or add to your Instagram bio.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  It takes around 5 minutes to finish.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Complete My Profile →"}}
 </div>
-<div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="Complete my profile →"}}
-</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Don't miss an opportunity just because your profile wasn't ready. 🚀
+</p>
 {{/if}}
 
 {{#if isStage2}}
-<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Brands are looking for creators like you 👀</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">You started it. Don't leave it halfway 👀</p>
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
-  Your <strong>{{platformName}}</strong> profile is still in draft, so brands can't find you yet. Creators who complete their profile start getting briefs much faster. Here's what's left to go live:
+  Your <strong>{{platformName}}</strong> profile is still incomplete, which means you're not discoverable by brands yet.
 </p>
-<div style="margin:0 0 20px;padding:14px 16px;background:#fdf2f8;border:2px solid #181313;border-radius:12px;">
-  <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">
-    • Portfolio videos that show your best work<br />
-    • Packages &amp; pricing so brands can book you<br />
-    • A short bio so brands know your style
-  </p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You've already done the hard part by getting started.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Take a few minutes, finish your profile and get yourself listed for paid brand opportunities. 💸
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Complete My Profile →"}}
 </div>
-<div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="Finish my profile →"}}
-</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Your next brand collaboration could start with simply finishing what you already started.
+</p>
 {{/if}}
 
 {{#if isStage3}}
-<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Your profile isn't live yet</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">What if a brand is looking for someone like you?</p>
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
-  It's been a couple of days and your creator profile still isn't live — which means brands searching <strong>{{platformName}}</strong> can't discover you or send you paid work. The good news: you're almost there. Finish the last steps (about 5 minutes) and go live today.
+  Brands don't always need creators with millions of followers.
 </p>
-<div style="margin:0 0 24px;">
-  {{> actionButton url=actionUrl label="Go live now →"}}
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Sometimes they're simply looking for the right face, style, niche or content for their brand.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  But they can only discover you if your <strong>{{platformName}}</strong> profile is complete.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Complete your profile, showcase your work and make yourself available for paid opportunities.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label=(concat "Get Listed on " platformName " →")}}
 </div>
-<p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#6b7280;">
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  It only takes a few minutes. ✨
+</p>
+{{/if}}
+
+{{#if isStage4}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Still want to be listed on {{platformName}}?</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your creator profile is still waiting to be completed.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Until it's live, brands can't discover your profile or place an order with you.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  If becoming a paid creator is something you want to explore, don't let an unfinished profile be the reason you miss an opportunity.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  5 minutes. One profile. And you're ready to be discovered. 🚀
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Complete My Profile →"}}
+</div>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">
   Stuck or have questions?
   <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
 </p>
 {{/if}}
 
-<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 💗</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— Team {{platformName}} 💗</p>

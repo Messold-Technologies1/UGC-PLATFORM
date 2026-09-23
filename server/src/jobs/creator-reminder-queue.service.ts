@@ -9,10 +9,13 @@ import { Cron } from '@nestjs/schedule';
 import { Queue, Worker } from 'bullmq';
 import { buildBullmqConnection } from './bullmq-redis.connection';
 import {
+  COMPLETION_STAGE_DELAY_MS,
+  COMPLETION_STAGES,
   CreatorReminderService,
-  REMINDER_STAGES,
-  STAGE_DELAY_MS,
-  type ReminderStage,
+  RESUBMIT_STAGE_DELAY_MS,
+  RESUBMIT_STAGES,
+  type CompletionStage,
+  type ResubmitStage,
 } from './creator-reminder.service';
 
 const QUEUE_NAME = 'creator-completion-reminder';
@@ -22,7 +25,7 @@ type ReminderKind = 'completion' | 'resubmit';
 
 interface ReminderJobData {
   profileId: string;
-  stage: ReminderStage;
+  stage: CompletionStage | ResubmitStage;
   /** Absent on legacy in-flight jobs → treated as 'completion'. */
   kind?: ReminderKind;
 }
@@ -31,8 +34,8 @@ interface ReminderJobData {
  * Event-driven "finish your profile" reminders — the drip-campaign model used
  * by Mailchimp/Braze/Customer.io, not a polling loop.
  *
- * At signup we schedule one delayed BullMQ job per stage (30 min / 24 h / 48 h).
- * Each job re-checks exit conditions at fire time and sends via
+ * At signup we schedule one delayed BullMQ job per stage (30 min / 24 h /
+ * day 3 / day 7). Each job re-checks exit conditions at fire time and sends via
  * CreatorReminderService, so the database is touched only when a reminder is
  * actually due — nothing polls on a fixed interval, which lets the Neon compute
  * endpoint autosuspend between signups.
@@ -101,10 +104,13 @@ export class CreatorReminderQueueService
         if (job.data.kind === 'resubmit') {
           await this.reminders.deliverResubmitStage(
             job.data.profileId,
-            job.data.stage,
+            job.data.stage as ResubmitStage,
           );
         } else {
-          await this.reminders.deliverStage(job.data.profileId, job.data.stage);
+          await this.reminders.deliverStage(
+            job.data.profileId,
+            job.data.stage as CompletionStage,
+          );
         }
       },
       { connection, concurrency: 5 },
@@ -139,14 +145,14 @@ export class CreatorReminderQueueService
    */
   async scheduleReminders(profileId: string): Promise<void> {
     if (!this.queue || !this.reminders.isEnabled()) return;
-    for (const stage of REMINDER_STAGES) {
+    for (const stage of COMPLETION_STAGES) {
       try {
         await this.queue.add(
           JOB_NAME,
           { profileId, stage },
           {
             jobId: `crm-${profileId}-${stage}`,
-            delay: STAGE_DELAY_MS[stage],
+            delay: COMPLETION_STAGE_DELAY_MS[stage],
           },
         );
       } catch (err) {
@@ -171,14 +177,14 @@ export class CreatorReminderQueueService
   ): Promise<void> {
     if (!this.queue || !this.reminders.isResubmitEnabled()) return;
     const stamp = withdrawnAt.getTime();
-    for (const stage of REMINDER_STAGES) {
+    for (const stage of RESUBMIT_STAGES) {
       try {
         await this.queue.add(
           JOB_NAME,
           { profileId, stage, kind: 'resubmit' },
           {
             jobId: `crm-resubmit-${profileId}-${stage}-${stamp}`,
-            delay: STAGE_DELAY_MS[stage],
+            delay: RESUBMIT_STAGE_DELAY_MS[stage],
           },
         );
       } catch (err) {

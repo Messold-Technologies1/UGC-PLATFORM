@@ -75,4 +75,59 @@ describe('TemplateRendererService', () => {
     // Brand name still shown in the header.
     expect(html).toContain('Go Collab');
   });
+
+  describe('creator-profile-completion-reminder', () => {
+    const actionUrl = 'https://app.gocollab.io/creator/settings/profile';
+
+    function renderStage(stage: 1 | 2 | 3 | 4) {
+      return service.render(
+        EmailTemplateKey.CREATOR_PROFILE_COMPLETION_REMINDER,
+        {
+          recipientName: 'Anuj',
+          actionUrl,
+          isStage1: stage === 1,
+          isStage2: stage === 2,
+          isStage3: stage === 3,
+          isStage4: stage === 4,
+        },
+      );
+    }
+
+    // The drip is four emails (30min / 24h / day 3 / day 7); every stage must
+    // produce its own subject + a working CTA. A stage the template forgot
+    // renders an empty subject and a body with no button, which is exactly the
+    // failure this guards.
+    it.each([
+      [1, 'Your Go Collab profile is almost ready 👀', 'Complete My Profile'],
+      [2, "You started it. Don't leave it halfway 👀", 'Complete My Profile'],
+      [
+        3,
+        'What if a brand is looking for someone like you?',
+        'Get Listed on Go Collab',
+      ],
+      [4, 'Still want to be listed on Go Collab?', 'Complete My Profile'],
+    ] as const)(
+      'renders stage %i with its own subject and CTA',
+      (stage, subjectLine, ctaLabel) => {
+        const { subject, html, text } = renderStage(stage);
+
+        expect(subject).toBe(subjectLine);
+        expect(html).toContain(`href="${actionUrl}"`);
+        expect(html).toContain(ctaLabel);
+        expect(text).toContain(actionUrl);
+        // No unresolved Handlebars left in either body.
+        expect(html).not.toContain('{{');
+        expect(text).not.toContain('{{');
+      },
+    );
+
+    it('shows only the copy for the stage being sent', () => {
+      const { html } = renderStage(1);
+
+      expect(html).toContain('just a few minutes left to get it live');
+      expect(html).not.toContain("You started it. Don't leave it halfway");
+      expect(html).not.toContain('What if a brand is looking for someone');
+      expect(html).not.toContain('Still want to be listed on');
+    });
+  });
 });

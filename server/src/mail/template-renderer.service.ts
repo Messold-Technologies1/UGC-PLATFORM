@@ -64,6 +64,21 @@ export class TemplateRendererService implements OnModuleInit {
     this.templatesDir = this.resolveTemplatesDir();
     this.logger.log(`mail templates loaded from ${this.templatesDir}`);
 
+    // `concat` lets a partial hash argument carry an interpolated string —
+    // Handlebars has no string interpolation inside hash values, so a CTA label
+    // that includes {{platformName}} has to be built as a subexpression:
+    //   {{> actionButton url=actionUrl label=(concat "Get listed on " platformName)}}
+    Handlebars.registerHelper('concat', (...args: unknown[]) =>
+      args
+        .slice(0, -1)
+        .map((part) =>
+          typeof part === 'string' || typeof part === 'number'
+            ? String(part)
+            : '',
+        )
+        .join(''),
+    );
+
     const partialsDir = join(this.templatesDir, '_partials');
     Handlebars.registerPartial(
       'actionButton',

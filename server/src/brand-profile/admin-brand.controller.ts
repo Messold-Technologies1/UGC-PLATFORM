@@ -1,12 +1,9 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  HttpCode,
-  HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Query,
   Req,
   UseGuards,
@@ -23,7 +20,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { BrandProfileService } from './brand-profile.service';
 import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 import { BrandsListResponseDto } from './dto/brands-list-response.dto';
-import { RemoveBrandRoleDto } from './dto/remove-brand-role.dto';
+import { BrandUserStatusDto } from './dto/brand-user-status.dto';
 import { AdminBrandDetailDto } from './dto/admin-brand-detail.dto';
 import { AdminBrandWishlistsResponseDto } from './dto/admin-brand-wishlists.dto';
 
@@ -63,21 +60,36 @@ export class AdminBrandController {
     return this.brandProfileService.listBrandWishlistsForAdmin(brandProfileId);
   }
 
-  @Delete('user/:userId/role')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @Patch('user/:userId/deactivate')
   @ApiOperation({
     summary:
-      'Permanently delete a brand user and all related brand data. Blocked when the brand has ongoing orders.',
+      'Deactivate a brand user. Blocks login and every workspace guard; keeps the account and all brand data intact so it can be reactivated.',
   })
-  async removeBrandAccess(
+  @ApiOkResponse({ type: BrandUserStatusDto })
+  async deactivateBrandUser(
     @Param('userId', ParseUUIDPipe) userId: string,
-    @Body() dto: RemoveBrandRoleDto,
     @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
-    await this.brandProfileService.removeBrandAccessFromUser(
+  ): Promise<BrandUserStatusDto> {
+    return this.brandProfileService.setBrandUserActive(
       req.user.id,
       userId,
-      dto,
+      false,
+    );
+  }
+
+  @Patch('user/:userId/activate')
+  @ApiOperation({
+    summary: 'Reactivate a deactivated brand user and restore their access.',
+  })
+  @ApiOkResponse({ type: BrandUserStatusDto })
+  async activateBrandUser(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BrandUserStatusDto> {
+    return this.brandProfileService.setBrandUserActive(
+      req.user.id,
+      userId,
+      true,
     );
   }
 }

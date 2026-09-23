@@ -95,6 +95,7 @@ async function resolveHomeWorkspacePath(cookieHeader: string): Promise<string | 
       user?: {
         primaryRole?: string | null;
         roles?: string[] | null;
+        brandAccessRevoked?: boolean;
       } | null;
     };
     return resolveLandingWorkspacePath(data.user ?? null);

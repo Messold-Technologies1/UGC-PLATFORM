@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Skeleton as BoneyardSkeleton } from "boneyard-js/react";
-import { Building2, Mail, Store, Trash2, UserRound } from "lucide-react";
+import { Building2, Mail, Power, Store, UserRound } from "lucide-react";
 import {
   Pagination,
   PaginationContent,
@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useBrandsQuery } from "@/features/admin/hooks/use-brands-query";
-import { useRemoveBrandAccessMutation } from "@/features/admin/hooks/use-remove-brand-access-mutation";
+import { useSetBrandUserStatusMutation } from "@/features/admin/hooks/use-set-brand-user-status-mutation";
 import type { AdminBrandListItemDto } from "@/features/admin/types";
 
 function StatusBadge({ status }: { status: string }) {
@@ -158,7 +158,7 @@ interface BrandManagementContentProps {
   page: number;
   limit: number;
   totalPages: number;
-  removePending: boolean;
+  statusPending: boolean;
   onSelectBrand: (brand: AdminBrandListItemDto) => void;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
@@ -170,7 +170,7 @@ function BrandManagementContent({
   page,
   limit,
   totalPages,
-  removePending,
+  statusPending,
   onSelectBrand,
   onPageChange,
   onLimitChange,
@@ -314,17 +314,19 @@ function BrandManagementContent({
                     <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-[180px] w-full md:w-auto mt-2 md:mt-0">
                       <StatusBadge status={brand.status} />
                       <Button
-                        variant="destructive"
+                        variant={
+                          brand.status === "ACTIVE" ? "destructive" : "default"
+                        }
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectBrand(brand);
                         }}
-                        disabled={removePending}
+                        disabled={statusPending}
                         className="opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-opacity"
                       >
-                        <Trash2 className="mr-2 size-4" />
-                        Remove
+                        <Power className="mr-2 size-4" />
+                        {brand.status === "ACTIVE" ? "Deactivate" : "Activate"}
                       </Button>
                     </div>
                   </div>
@@ -481,7 +483,7 @@ export default function BrandManagementPage() {
     useState<AdminBrandListItemDto | null>(null);
 
   const { data, isLoading, isError } = useBrandsQuery({ page, limit });
-  const removeBrandAccess = useRemoveBrandAccessMutation();
+  const setBrandUserStatus = useSetBrandUserStatusMutation();
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -490,17 +492,21 @@ export default function BrandManagementPage() {
   const previewTotalPages = Math.max(1, Math.ceil(previewTotal / limit));
 
   const closeDialog = () => {
-    if (removeBrandAccess.isPending) return;
+    if (setBrandUserStatus.isPending) return;
     setSelectedBrand(null);
   };
 
-  const confirmRemoval = async () => {
+  // Reactivating a deactivated brand is the same call with the flag flipped.
+  const selectedIsActive = selectedBrand?.status === "ACTIVE";
+
+  const confirmStatusChange = async () => {
     if (!selectedBrand) return;
     try {
-      await removeBrandAccess.mutateAsync(selectedBrand.userId);
-      if (items.length === 1 && page > 1) {
-        setPage((current) => Math.max(1, current - 1));
-      }
+      await setBrandUserStatus.mutateAsync({
+        userId: selectedBrand.userId,
+        active: !selectedIsActive,
+      });
+      // The row stays in the list with a new status, so paging is untouched.
       setSelectedBrand(null);
     } catch {
       // Error toast is handled by the mutation.
@@ -538,7 +544,7 @@ export default function BrandManagementPage() {
                   1,
                   Math.ceil(BRAND_MANAGEMENT_FIXTURE_TOTAL / limit),
                 )}
-                removePending={false}
+                statusPending={false}
                 onSelectBrand={() => {}}
                 onPageChange={() => {}}
                 onLimitChange={() => {}}
@@ -552,7 +558,7 @@ export default function BrandManagementPage() {
               page={page}
               limit={limit}
               totalPages={previewTotalPages}
-              removePending={removeBrandAccess.isPending}
+              statusPending={setBrandUserStatus.isPending}
               onSelectBrand={setSelectedBrand}
               onPageChange={setPage}
               onLimitChange={setLimit}
@@ -568,13 +574,16 @@ export default function BrandManagementPage() {
         <DialogContent showCloseButton={false} className="sm:max-w-md gap-5 p-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
-              Remove this brand?
+              {selectedIsActive
+                ? "Deactivate this brand?"
+                : "Reactivate this brand?"}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Are you sure you want to remove{" "}
+              Are you sure you want to{" "}
+              {selectedIsActive ? "deactivate" : "reactivate"}{" "}
               <span className="font-semibold text-foreground">
                 {selectedName}
               </span>
@@ -609,9 +618,19 @@ export default function BrandManagementPage() {
             </div>
 
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Deleting this brand will permanently delete this user and
-              everything related to it: orders, wishlists, and all brand data.
-              This cannot be undone.
+              {selectedIsActive ? (
+                <>
+                  They will be signed out and blocked from logging in. Nothing
+                  is deleted — their orders, wishlists and brand data stay
+                  exactly as they are, and you can reactivate them at any time.
+                </>
+              ) : (
+                <>
+                  They will be able to log in again and pick up where they left
+                  off, with all of their orders, wishlists and brand data
+                  intact.
+                </>
+              )}
             </p>
           </div>
 
@@ -620,17 +639,21 @@ export default function BrandManagementPage() {
               variant="outline"
               className="h-11 w-full rounded-xl text-sm font-semibold"
               onClick={closeDialog}
-              disabled={removeBrandAccess.isPending}
+              disabled={setBrandUserStatus.isPending}
             >
               No
             </Button>
             <Button
-              variant="destructive"
+              variant={selectedIsActive ? "destructive" : "default"}
               className="h-11 w-full rounded-xl text-sm font-semibold"
-              onClick={() => void confirmRemoval()}
-              disabled={removeBrandAccess.isPending}
+              onClick={() => void confirmStatusChange()}
+              disabled={setBrandUserStatus.isPending}
             >
-              {removeBrandAccess.isPending ? "Deleting..." : "Yes"}
+              {setBrandUserStatus.isPending
+                ? selectedIsActive
+                  ? "Deactivating..."
+                  : "Activating..."
+                : "Yes"}
             </Button>
           </DialogFooter>
         </DialogContent>

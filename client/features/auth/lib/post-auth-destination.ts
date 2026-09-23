@@ -12,6 +12,7 @@ const ADMIN_FALLBACK = "/admin";
 export type LandingWorkspaceUser = {
   primaryRole?: string | null;
   roles?: readonly string[] | null;
+  brandAccessRevoked?: boolean;
 };
 
 function canUseLandingRole(
@@ -20,7 +21,8 @@ function canUseLandingRole(
 ): boolean {
   if (!role) return false;
   if (role === "AGENCY") return true;
-  return role === "BRAND" || role === "CREATOR" || role === "ADMIN";
+  if (role === "BRAND") return !user.brandAccessRevoked;
+  return role === "CREATOR" || role === "ADMIN";
 }
 
 function landingPathForRole(role: string | null | undefined): string | null {

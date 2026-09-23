@@ -30,6 +30,7 @@ describe('WorkspacePermissionGuard', () => {
     requiredWorkspace?: 'BRAND' | 'CREATOR';
     user?: {
       status?: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+      brandAccessRevokedAt: Date | null;
       primaryRole?: { name: RoleName | null } | null;
       userRoles: Array<{ role: { name: RoleName | null } | null }>;
     } | null;
@@ -77,6 +78,7 @@ describe('WorkspacePermissionGuard', () => {
       requiredWorkspace: 'BRAND',
       user: {
         status: 'ACTIVE',
+        brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.BRAND },
         userRoles: [],
       },
@@ -92,6 +94,7 @@ describe('WorkspacePermissionGuard', () => {
       requiredWorkspace: 'CREATOR',
       user: {
         status: 'ACTIVE',
+        brandAccessRevokedAt: null,
         primaryRole: null,
         userRoles: [{ role: { name: RoleName.CREATOR } }],
       },
@@ -107,6 +110,7 @@ describe('WorkspacePermissionGuard', () => {
       requiredWorkspace: 'CREATOR',
       user: {
         status: 'ACTIVE',
+        brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.BRAND },
         userRoles: [{ role: { name: RoleName.CREATOR } }],
       },
@@ -122,6 +126,7 @@ describe('WorkspacePermissionGuard', () => {
       requiredWorkspace: 'BRAND',
       user: {
         status: 'ACTIVE',
+        brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.CREATOR },
         userRoles: [{ role: { name: RoleName.BRAND } }],
       },
@@ -137,6 +142,23 @@ describe('WorkspacePermissionGuard', () => {
       requiredWorkspace: 'CREATOR',
       user: {
         status: 'ACTIVE',
+        brandAccessRevokedAt: null,
+        primaryRole: { name: RoleName.BRAND },
+        userRoles: [],
+      },
+    });
+
+    await expect(
+      guard.canActivate(createContext('user-1')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects revoked brand access even if the user has the brand role', async () => {
+    const { guard } = createGuard({
+      requiredWorkspace: 'BRAND',
+      user: {
+        status: 'ACTIVE',
+        brandAccessRevokedAt: new Date(),
         primaryRole: { name: RoleName.BRAND },
         userRoles: [],
       },
@@ -152,6 +174,7 @@ describe('WorkspacePermissionGuard', () => {
       requiredWorkspace: 'CREATOR',
       user: {
         status: 'SUSPENDED',
+        brandAccessRevokedAt: null,
         primaryRole: { name: RoleName.CREATOR },
         userRoles: [],
       },

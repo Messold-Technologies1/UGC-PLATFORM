@@ -28,6 +28,7 @@ export type ServerAuthUser = {
   email: string;
   roles?: ServerWorkspaceRole[];
   primaryRole?: ServerWorkspaceRole | null;
+  brandAccessRevoked?: boolean;
 };
 
 type MeResponse = {
@@ -175,6 +176,9 @@ function canAccessWorkspaceRole(
     const hasBrandAccess =
       (user.roles?.includes("BRAND") || user.roles?.includes("AGENCY")) ?? false;
     if (!hasBrandAccess) return false;
+    if (user.roles?.includes("BRAND") && user.brandAccessRevoked) {
+      return false;
+    }
     return true;
   }
 

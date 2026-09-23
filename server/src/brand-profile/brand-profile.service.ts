@@ -2,9 +2,15 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { BrandCategory, OrderStatus, RoleName } from '@prisma/client';
+import {
+  BrandCategory,
+  OrderStatus,
+  RoleName,
+  UserStatus,
+} from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { BrandProfileMailNotifier } from '../mail/brand-profile-mail.notifier';
 import { PrismaService } from '../prisma/prisma.service';
@@ -23,7 +29,7 @@ import { AdminBrandDetailDto } from './dto/admin-brand-detail.dto';
 import { AdminBrandWishlistsResponseDto } from './dto/admin-brand-wishlists.dto';
 import { BrandProfileResponseDto } from './dto/brand-profile-response.dto';
 import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
-import { RemoveBrandRoleDto } from './dto/remove-brand-role.dto';
+import { BrandUserStatusDto } from './dto/brand-user-status.dto';
 import { BrandCategoryOptionsResponseDto } from './dto/brand-category-options-response.dto';
 import { BRAND_CATEGORY_OPTIONS } from './brand-category-options';
 
@@ -42,6 +48,8 @@ const ONGOING_ORDER_STATUSES: OrderStatus[] = [
 
 @Injectable()
 export class BrandProfileService {
+  private readonly logger = new Logger(BrandProfileService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -498,6 +506,7 @@ export class BrandProfileService {
 
     const where = {
       deletedAt: null,
+      brandAccessRevokedAt: null,
       brandProfile: {
         isNot: null,
       },
@@ -651,122 +660,62 @@ export class BrandProfileService {
   }
 
   /**
-   * Permanently remove a brand user: delete the account and let the cascade take
-   * its brand data with it.
+   * Deactivate or reactivate a brand user.
    *
-   * The deletion is recorded in BrandUserRemoval first, inside the same
-   * transaction. That ordering matters — once `user.delete` runs there is no row
-   * left to read the email or brand name from, and a record written outside the
-   * transaction could be left behind by a rollback describing a removal that
-   * never happened.
+   * Deactivating flips `User.status` to DEACTIVATED, which every access path
+   * already enforces — login, `/me`, the admin guard, the workspace guard and
+   * password reset all require ACTIVE. Nothing is deleted, so the brand, its
+   * orders and its wishlists stay intact and reactivating restores access.
+   *
+   * Ongoing orders do NOT block this the way they blocked deletion: that guard
+   * existed to prevent irreversible data loss, and a deactivation can simply be
+   * undone. The admin UI shows the ongoing count so the call is made with it in
+   * view.
    */
-  async removeBrandAccessFromUser(
+  async setBrandUserActive(
     adminUserId: string,
     userId: string,
-    dto?: RemoveBrandRoleDto,
-  ): Promise<void> {
-    let logoKeyToDelete: string | null = null;
-    let pronunciationAudioKeyToDelete: string | null = null;
+    active: boolean,
+  ): Promise<BrandUserStatusDto> {
+    if (adminUserId === userId) {
+      // Without this an admin holding a brand profile could lock themselves out.
+      throw new BadRequestException('You cannot change your own status');
+    }
 
-    await this.prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.findUnique({
-          where: { id: userId },
-          include: {
-            ownedAgency: { select: { id: true } },
-            brandProfile: {
-              select: {
-                id: true,
-                logoKey: true,
-                brandPronunciationAudioKey: true,
-              },
-            },
-          },
-        });
-
-        if (!user || user.deletedAt) {
-          throw new NotFoundException('User not found');
-        }
-
-        if (!user.brandProfile) {
-          throw new BadRequestException(
-            'User does not currently have brand access',
-          );
-        }
-
-        if (user.ownedAgency) {
-          throw new ConflictException(
-            "Sorry, we can't delete this brand. This user owns an agency with other brand data.",
-          );
-        }
-
-        const ongoingOrderCount = await tx.order.count({
-          where: {
-            brandId: user.brandProfile.id,
-            status: { in: ONGOING_ORDER_STATUSES },
-          },
-        });
-
-        if (ongoingOrderCount > 0) {
-          throw new ConflictException(
-            `Sorry, we can't delete this brand. There ${
-              ongoingOrderCount === 1 ? 'is' : 'are'
-            } ${ongoingOrderCount} ongoing order${
-              ongoingOrderCount === 1 ? '' : 's'
-            } tied to it.`,
-          );
-        }
-
-        logoKeyToDelete = user.brandProfile.logoKey ?? null;
-        pronunciationAudioKeyToDelete =
-          user.brandProfile.brandPronunciationAudioKey ?? null;
-
-        const [admin, brand] = await Promise.all([
-          tx.user.findUnique({
-            where: { id: adminUserId },
-            select: { email: true },
-          }),
-          tx.brandProfile.findUnique({
-            where: { id: user.brandProfile.id },
-            select: { brandName: true },
-          }),
-        ]);
-
-        // Snapshot everything the audit needs while the rows still exist.
-        await tx.brandUserRemoval.create({
-          data: {
-            removedUserId: user.id,
-            removedUserEmail: user.email,
-            removedUserName: user.name,
-            brandProfileId: user.brandProfile.id,
-            brandName: brand?.brandName ?? null,
-            removedById: adminUserId,
-            removedByEmail: admin?.email ?? null,
-            reason: dto?.reason?.trim() || null,
-          },
-        });
-
-        await tx.user.delete({
-          where: { id: userId },
-        });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        deletedAt: true,
+        status: true,
+        brandProfile: { select: { id: true } },
       },
-      { timeout: 30_000, maxWait: 10_000 },
+    });
+
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.brandProfile) {
+      throw new BadRequestException('User does not have brand access');
+    }
+
+    const status = active ? UserStatus.ACTIVE : UserStatus.DEACTIVATED;
+    if (user.status === status) {
+      // Already in the requested state — report it rather than writing again.
+      return { userId: user.id, status };
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { status },
+      select: { id: true, status: true },
+    });
+
+    this.logger.log(
+      `brand user ${updated.id} set to ${updated.status} by admin ${adminUserId}`,
     );
 
-    if (logoKeyToDelete) {
-      try {
-        await this.storage.deleteObjectIfExists(logoKeyToDelete);
-      } catch {
-        // Keep removal durable even if storage cleanup fails.
-      }
-    }
-    if (pronunciationAudioKeyToDelete) {
-      try {
-        await this.storage.deleteObjectIfExists(pronunciationAudioKeyToDelete);
-      } catch {
-        // same
-      }
-    }
+    return { userId: updated.id, status: updated.status };
   }
 
   async getBrandProfileForActor(params: {

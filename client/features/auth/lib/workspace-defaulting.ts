@@ -9,6 +9,9 @@ export function canUseWorkspaceRole(
     return user.hasAgencyProfile && user.accessibleBrands.length > 0;
   }
   if (role === "BRAND") {
+    if (user.brandAccessRevoked && user.roles.includes("BRAND")) {
+      return false;
+    }
     return (
       user.hasBrandProfile ||
       (user.hasAgencyProfile && user.accessibleBrands.length > 0) ||

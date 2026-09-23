@@ -43,5 +43,16 @@ export class CheckoutResponseDto {
       'True when the net is ₹0 (e.g. a 100% coupon): the order is already placed and no payment is needed.',
   })
   free?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Store credit ('Credits') applied to this order, in paise.",
+  })
+  creditsAppliedPaise?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'True when store credit fully covered the order: it is already placed and paid, no Razorpay payment is needed.',
+  })
+  paidFromCredits?: boolean;
 }
 

@@ -14,6 +14,7 @@ export const CHAT_LOCKED_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.CREATOR_PAYMENT_DONE,
   OrderStatus.REJECTED,
   OrderStatus.REFUNDED,
+  OrderStatus.CANCELLED_CREDITED,
 ];
 
 /** Threads appear in the inbox only after the creator accepts. */

@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsOptional,
   IsString,
   IsUUID,
@@ -37,5 +38,14 @@ export class CreateCheckoutDto {
   @IsString()
   @Length(2, 40)
   couponCode?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Apply the brand's store credit ('Credits') toward this order. Credit is used after any coupon; the remainder (if any) is charged via Razorpay.",
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  useCredits?: boolean;
 }
 

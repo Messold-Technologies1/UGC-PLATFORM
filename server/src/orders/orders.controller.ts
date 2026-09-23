@@ -218,6 +218,7 @@ export class OrdersController {
       packageId: dto.packageId,
       addOnIds: dto.addOnIds,
       couponCode: dto.couponCode,
+      useCredits: dto.useCredits,
     });
   }
 

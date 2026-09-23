@@ -11,6 +11,7 @@ import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module'
 import { JobsModule } from '../jobs/jobs.module';
 import { CreatorPortfolioModule } from '../creator-portfolio/creator-portfolio.module';
 import { CouponsModule } from '../coupons/coupons.module';
+import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CouponsModule } from '../coupons/coupons.module';
     JobsModule,
     CreatorPortfolioModule,
     CouponsModule,
+    WalletModule,
   ],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],

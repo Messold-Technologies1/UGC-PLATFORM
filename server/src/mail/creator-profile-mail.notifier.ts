@@ -107,12 +107,13 @@ export class CreatorProfileMailNotifier {
 
   /**
    * Reminder to finish a still-building profile. `stage` selects the copy:
-   * 1 = +30min nudge, 2 = +24h, 3 = +48h last call. Awaitable so the caller can
-   * stamp its bookkeeping only after the send has been attempted.
+   * 1 = +30min nudge, 2 = +24h, 3 = day 3 "what you're unlocking", 4 = day 7
+   * last call. Awaitable so the caller can stamp its bookkeeping only after the
+   * send has been attempted.
    */
   notifyCompletionReminder(
     creatorProfileId: string,
-    stage: 1 | 2 | 3,
+    stage: 1 | 2 | 3 | 4,
   ): Promise<void> {
     return this.run('creator_profile_completion_reminder', async () => {
       const profile = await this.loadProfile(creatorProfileId);
@@ -139,6 +140,7 @@ export class CreatorProfileMailNotifier {
           isStage1: stage === 1,
           isStage2: stage === 2,
           isStage3: stage === 3,
+          isStage4: stage === 4,
         },
       });
       await sendWhatsAppForEmail(this.whatsapp, this.config, {

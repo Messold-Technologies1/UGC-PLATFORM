@@ -429,12 +429,21 @@ model CreatorProfile {
   metaFbc                      String?
   metaSignupIp                 String?
   metaSignupUserAgent          String?
+  /// Start of this creator's profile-completion reminder drip — the clock every
+  /// stage is measured from, rather than createdAt. Defaults to row creation, so
+  /// a new signup's sequence starts at registration time. Re-enrolling an
+  /// existing building-profile creator moves it to "now", which restarts the
+  /// sequence for them without touching their signup date.
+  completionReminderStartedAt  DateTime                    @default(now())
   /// Profile-completion reminder emails sent while the profile is still building
-  /// (completeProfile = false). Each stamp is set once, when its reminder is
-  /// handled, so the reminder job stays idempotent. All nullable/additive.
+  /// (completeProfile = false). One stamp per drip stage (~30min / 24h / day 3 /
+  /// day 7 after completionReminderStartedAt). Each stamp is set once, when its
+  /// reminder is handled, so the reminder job stays idempotent. Cleared on
+  /// re-enrollment so the creator receives the sequence from the top.
   completionReminder30mAt      DateTime?
   completionReminder24hAt      DateTime?
-  completionReminder48hAt      DateTime?
+  completionReminder72hAt      DateTime?
+  completionReminder168hAt     DateTime?
   createdAt                    DateTime                    @default(now())
   updatedAt                    DateTime                    @updatedAt
 

@@ -8,17 +8,40 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-export type ReminderStage = 1 | 2 | 3;
-export const REMINDER_STAGES: readonly ReminderStage[] = [1, 2, 3];
+/** Completion drip: 30min nudge, 24h, day 3 "what you're unlocking", day 7 last call. */
+export type CompletionStage = 1 | 2 | 3 | 4;
+export const COMPLETION_STAGES: readonly CompletionStage[] = [1, 2, 3, 4];
 
-/** How long after signup each stage becomes due. */
-export const STAGE_DELAY_MS: Record<ReminderStage, number> = {
+/** How long after signup each completion stage becomes due. */
+export const COMPLETION_STAGE_DELAY_MS: Record<CompletionStage, number> = {
+  1: 30 * MINUTE,
+  2: 24 * HOUR,
+  3: 3 * DAY,
+  4: 7 * DAY,
+};
+
+/**
+ * Resubmit drip: unchanged at 30min / 24h / 48h. Kept on its own scale because
+ * a withdrawn profile is already built — it needs a short nudge, not the week
+ * long "get yourself listed" sequence a half-finished signup gets.
+ */
+export type ResubmitStage = 1 | 2 | 3;
+export const RESUBMIT_STAGES: readonly ResubmitStage[] = [1, 2, 3];
+export const RESUBMIT_STAGE_DELAY_MS: Record<ResubmitStage, number> = {
   1: 30 * MINUTE,
   2: 24 * HOUR,
   3: 48 * HOUR,
 };
 
-const DEFAULT_BACKFILL_DAYS = 7;
+const DEFAULT_BACKFILL_DAYS = 10;
+const DEFAULT_SWEEP_BATCH = 200;
+
+/**
+ * The sweep can only send a stage while the profile is still inside the
+ * backfill window, so the window must outlast the final stage (day 7) with room
+ * for a missed sweep. Floors whatever the env var asks for.
+ */
+const MIN_BACKFILL_DAYS = Math.ceil(COMPLETION_STAGE_DELAY_MS[4] / DAY) + 2;
 
 /**
  * Core "finish your profile" reminder logic, shared by two callers:
@@ -68,26 +91,46 @@ export class CreatorReminderService {
     const raw = Number(
       this.config.get<string>('CREATOR_COMPLETION_REMINDER_BACKFILL_DAYS'),
     );
-    return Number.isFinite(raw) && raw >= 1
-      ? Math.floor(raw)
-      : DEFAULT_BACKFILL_DAYS;
+    const configured =
+      Number.isFinite(raw) && raw >= 1
+        ? Math.floor(raw)
+        : DEFAULT_BACKFILL_DAYS;
+    return Math.max(configured, MIN_BACKFILL_DAYS);
   }
 
-  private stampNullWhere(stage: ReminderStage): Record<string, null> {
+  /**
+   * How many due profiles one sweep may serve. Only the *highest* stage a
+   * profile has crossed is sent, so a backlog the sweep cannot drain within a
+   * stage's width costs those creators the earlier emails. Raise this when
+   * re-enrolling a large cohort without Redis to carry the delayed jobs.
+   */
+  private sweepBatchSize(): number {
+    const raw = Number(
+      this.config.get<string>('CREATOR_COMPLETION_REMINDER_SWEEP_BATCH'),
+    );
+    return Number.isFinite(raw) && raw >= 1
+      ? Math.floor(raw)
+      : DEFAULT_SWEEP_BATCH;
+  }
+
+  private stampNullWhere(stage: CompletionStage): Record<string, null> {
     switch (stage) {
       case 1:
         return { completionReminder30mAt: null };
       case 2:
         return { completionReminder24hAt: null };
       case 3:
-        return { completionReminder48hAt: null };
+        return { completionReminder72hAt: null };
+      case 4:
+        return { completionReminder168hAt: null };
     }
   }
 
-  private stampData(stage: ReminderStage, value: Date | null): {
+  private stampData(stage: CompletionStage, value: Date | null): {
     completionReminder30mAt?: Date | null;
     completionReminder24hAt?: Date | null;
-    completionReminder48hAt?: Date | null;
+    completionReminder72hAt?: Date | null;
+    completionReminder168hAt?: Date | null;
   } {
     switch (stage) {
       case 1:
@@ -95,7 +138,9 @@ export class CreatorReminderService {
       case 2:
         return { completionReminder24hAt: value };
       case 3:
-        return { completionReminder48hAt: value };
+        return { completionReminder72hAt: value };
+      case 4:
+        return { completionReminder168hAt: value };
     }
   }
 
@@ -103,9 +148,10 @@ export class CreatorReminderService {
     profile: {
       completionReminder30mAt: Date | null;
       completionReminder24hAt: Date | null;
-      completionReminder48hAt: Date | null;
+      completionReminder72hAt: Date | null;
+      completionReminder168hAt: Date | null;
     },
-    stage: ReminderStage,
+    stage: CompletionStage,
   ): Date | null {
     switch (stage) {
       case 1:
@@ -113,7 +159,9 @@ export class CreatorReminderService {
       case 2:
         return profile.completionReminder24hAt;
       case 3:
-        return profile.completionReminder48hAt;
+        return profile.completionReminder72hAt;
+      case 4:
+        return profile.completionReminder168hAt;
     }
   }
 
@@ -125,15 +173,15 @@ export class CreatorReminderService {
    */
   private async claimStage(
     profileId: string,
-    stage: ReminderStage,
+    stage: CompletionStage,
     now: number,
   ): Promise<boolean> {
-    const dueBefore = new Date(now - STAGE_DELAY_MS[stage]);
+    const dueBefore = new Date(now - COMPLETION_STAGE_DELAY_MS[stage]);
     const res = await this.prisma.creatorProfile.updateMany({
       where: {
         id: profileId,
         completeProfile: false,
-        createdAt: { lte: dueBefore },
+        completionReminderStartedAt: { lte: dueBefore },
         ...this.stampNullWhere(stage),
       },
       data: this.stampData(stage, new Date()),
@@ -144,7 +192,7 @@ export class CreatorReminderService {
   /** Release a claim so a retry / the backstop can re-send after a send failure. */
   private async releaseStage(
     profileId: string,
-    stage: ReminderStage,
+    stage: CompletionStage,
   ): Promise<void> {
     await this.prisma.creatorProfile
       .update({ where: { id: profileId }, data: this.stampData(stage, null) })
@@ -154,7 +202,7 @@ export class CreatorReminderService {
   /** Mark a stage handled without sending — used to retire stale earlier stages. */
   private async silentStamp(
     profileId: string,
-    stage: ReminderStage,
+    stage: CompletionStage,
   ): Promise<void> {
     await this.prisma.creatorProfile.updateMany({
       where: { id: profileId, ...this.stampNullWhere(stage) },
@@ -165,7 +213,7 @@ export class CreatorReminderService {
   /** Claim a stage and send its email; roll the claim back if the send throws. */
   private async sendStageWithClaim(
     profileId: string,
-    stage: ReminderStage,
+    stage: CompletionStage,
     now: number,
   ): Promise<boolean> {
     if (!(await this.claimStage(profileId, stage, now))) return false;
@@ -191,7 +239,7 @@ export class CreatorReminderService {
    *   silently instead of sending "finish in 30 min" a day late.
    * - Otherwise claim + send (idempotent; no-op if already sent).
    */
-  async deliverStage(profileId: string, stage: ReminderStage): Promise<void> {
+  async deliverStage(profileId: string, stage: CompletionStage): Promise<void> {
     if (!this.isEnabled()) return;
 
     const profile = await this.prisma.creatorProfile.findUnique({
@@ -200,13 +248,14 @@ export class CreatorReminderService {
         completeProfile: true,
         completionReminder30mAt: true,
         completionReminder24hAt: true,
-        completionReminder48hAt: true,
+        completionReminder72hAt: true,
+        completionReminder168hAt: true,
       },
     });
     if (!profile || profile.completeProfile) return;
     if (this.stampOf(profile, stage) !== null) return; // already handled
 
-    const laterAlreadySent = REMINDER_STAGES.some(
+    const laterAlreadySent = COMPLETION_STAGES.some(
       (s) => s > stage && this.stampOf(profile, s) !== null,
     );
     if (laterAlreadySent) {
@@ -231,39 +280,66 @@ export class CreatorReminderService {
     if (!this.isEnabled()) return;
 
     const now = Date.now();
-    const t30 = new Date(now - STAGE_DELAY_MS[1]);
-    const t24 = new Date(now - STAGE_DELAY_MS[2]);
-    const t48 = new Date(now - STAGE_DELAY_MS[3]);
+    const t30 = new Date(now - COMPLETION_STAGE_DELAY_MS[1]);
+    const t24 = new Date(now - COMPLETION_STAGE_DELAY_MS[2]);
+    const t72 = new Date(now - COMPLETION_STAGE_DELAY_MS[3]);
+    const t168 = new Date(now - COMPLETION_STAGE_DELAY_MS[4]);
     const backfillFloor = new Date(now - this.backfillDays() * DAY);
 
     const candidates = await this.prisma.creatorProfile.findMany({
       where: {
         completeProfile: false,
-        createdAt: { lte: t30, gte: backfillFloor },
+        completionReminderStartedAt: { lte: t30, gte: backfillFloor },
+        // Each branch pairs an unsent stamp with the clock reaching that stage,
+        // so a row appears only while it has work that is actually due.
+        //
+        // Matching on "any stamp is null" instead would keep a creator in the
+        // set from their first email until their last: after stage 1 is sent,
+        // the later columns are still null. The page is ordered oldest-clock
+        // first, so those inert rows hold the head of every sweep and starve
+        // everyone behind them. A cohort larger than one batch would reach the
+        // back of the queue only once its clock had passed the final stage,
+        // and the "retire earlier stages" rule below would then silently drop
+        // the first three emails for those creators.
         OR: [
-          { completionReminder30mAt: null },
-          { completionReminder24hAt: null },
-          { completionReminder48hAt: null },
+          {
+            completionReminderStartedAt: { lte: t168 },
+            completionReminder168hAt: null,
+          },
+          {
+            completionReminderStartedAt: { lte: t72 },
+            completionReminder72hAt: null,
+          },
+          {
+            completionReminderStartedAt: { lte: t24 },
+            completionReminder24hAt: null,
+          },
+          {
+            completionReminderStartedAt: { lte: t30 },
+            completionReminder30mAt: null,
+          },
         ],
       },
       select: {
         id: true,
-        createdAt: true,
+        completionReminderStartedAt: true,
         completionReminder30mAt: true,
         completionReminder24hAt: true,
-        completionReminder48hAt: true,
+        completionReminder72hAt: true,
+        completionReminder168hAt: true,
       },
-      orderBy: { createdAt: 'asc' },
-      take: 200,
+      orderBy: { completionReminderStartedAt: 'asc' },
+      take: this.sweepBatchSize(),
     });
 
     let sent = 0;
     for (const c of candidates) {
-      const highest: ReminderStage =
-        c.createdAt <= t48 ? 3 : c.createdAt <= t24 ? 2 : 1;
+      const startedAt = c.completionReminderStartedAt;
+      const highest: CompletionStage =
+        startedAt <= t168 ? 4 : startedAt <= t72 ? 3 : startedAt <= t24 ? 2 : 1;
 
       // Retire any earlier unsent stages without emailing them.
-      for (const s of REMINDER_STAGES) {
+      for (const s of COMPLETION_STAGES) {
         if (s < highest && this.stampOf(c, s) === null) {
           await this.silentStamp(c.id, s);
         }
@@ -291,7 +367,7 @@ export class CreatorReminderService {
   // atomic claim then excludes).
   // ---------------------------------------------------------------------------
 
-  private resubmitStampNullWhere(stage: ReminderStage): Record<string, null> {
+  private resubmitStampNullWhere(stage: ResubmitStage): Record<string, null> {
     switch (stage) {
       case 1:
         return { resubmitReminder30mAt: null };
@@ -303,7 +379,7 @@ export class CreatorReminderService {
   }
 
   private resubmitStampData(
-    stage: ReminderStage,
+    stage: ResubmitStage,
     value: Date | null,
   ): {
     resubmitReminder30mAt?: Date | null;
@@ -326,7 +402,7 @@ export class CreatorReminderService {
       resubmitReminder24hAt: Date | null;
       resubmitReminder48hAt: Date | null;
     },
-    stage: ReminderStage,
+    stage: ResubmitStage,
   ): Date | null {
     switch (stage) {
       case 1:
@@ -346,10 +422,10 @@ export class CreatorReminderService {
    */
   private async claimResubmitStage(
     profileId: string,
-    stage: ReminderStage,
+    stage: ResubmitStage,
     now: number,
   ): Promise<boolean> {
-    const dueBefore = new Date(now - STAGE_DELAY_MS[stage]);
+    const dueBefore = new Date(now - RESUBMIT_STAGE_DELAY_MS[stage]);
     const res = await this.prisma.creatorApproval.updateMany({
       where: {
         creatorId: profileId,
@@ -364,7 +440,7 @@ export class CreatorReminderService {
 
   private async releaseResubmitStage(
     profileId: string,
-    stage: ReminderStage,
+    stage: ResubmitStage,
   ): Promise<void> {
     await this.prisma.creatorApproval
       .update({
@@ -376,7 +452,7 @@ export class CreatorReminderService {
 
   private async silentResubmitStamp(
     profileId: string,
-    stage: ReminderStage,
+    stage: ResubmitStage,
   ): Promise<void> {
     await this.prisma.creatorApproval.updateMany({
       where: { creatorId: profileId, ...this.resubmitStampNullWhere(stage) },
@@ -386,7 +462,7 @@ export class CreatorReminderService {
 
   private async sendResubmitStageWithClaim(
     profileId: string,
-    stage: ReminderStage,
+    stage: ResubmitStage,
     now: number,
   ): Promise<boolean> {
     if (!(await this.claimResubmitStage(profileId, stage, now))) return false;
@@ -411,7 +487,7 @@ export class CreatorReminderService {
    */
   async deliverResubmitStage(
     profileId: string,
-    stage: ReminderStage,
+    stage: ResubmitStage,
   ): Promise<void> {
     if (!this.isResubmitEnabled()) return;
 
@@ -434,7 +510,7 @@ export class CreatorReminderService {
     }
     if (this.resubmitStampOf(approval, stage) !== null) return; // already handled
 
-    const laterAlreadySent = REMINDER_STAGES.some(
+    const laterAlreadySent = RESUBMIT_STAGES.some(
       (s) => s > stage && this.resubmitStampOf(approval, s) !== null,
     );
     if (laterAlreadySent) {
@@ -464,9 +540,9 @@ export class CreatorReminderService {
     if (!this.isResubmitEnabled()) return;
 
     const now = Date.now();
-    const t30 = new Date(now - STAGE_DELAY_MS[1]);
-    const t24 = new Date(now - STAGE_DELAY_MS[2]);
-    const t48 = new Date(now - STAGE_DELAY_MS[3]);
+    const t30 = new Date(now - RESUBMIT_STAGE_DELAY_MS[1]);
+    const t24 = new Date(now - RESUBMIT_STAGE_DELAY_MS[2]);
+    const t48 = new Date(now - RESUBMIT_STAGE_DELAY_MS[3]);
     const backfillFloor = new Date(now - this.backfillDays() * DAY);
 
     const candidates = await this.prisma.creatorApproval.findMany({
@@ -494,10 +570,10 @@ export class CreatorReminderService {
     for (const c of candidates) {
       // withdrawnAt is guaranteed non-null by the `lte` filter above.
       const withdrawnAt = c.withdrawnAt as Date;
-      const highest: ReminderStage =
+      const highest: ResubmitStage =
         withdrawnAt <= t48 ? 3 : withdrawnAt <= t24 ? 2 : 1;
 
-      for (const s of REMINDER_STAGES) {
+      for (const s of RESUBMIT_STAGES) {
         if (s < highest && this.resubmitStampOf(c, s) === null) {
           await this.silentResubmitStamp(c.creatorId, s);
         }

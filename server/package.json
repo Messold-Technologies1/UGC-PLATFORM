@@ -21,6 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "backfill:preview-videos": "node dist/scripts/backfill-preview-videos.js",
     "backfill:normalize-media": "node dist/scripts/backfill-normalize-media.js",
+    "reenroll:completion-reminders": "node dist/scripts/reenroll-completion-reminders.js",
+    "reenroll:completion-reminders:dev": "node -r ts-node/register/transpile-only src/scripts/reenroll-completion-reminders.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

@@ -35,9 +35,14 @@
  *                  0 = no cutoff)
  *   --batch=N      rows per page (default 200)
  *
+ * The script boots Config + Prisma only and talks to Redis directly, so it
+ * starts no BullMQ worker and cannot process the jobs it schedules — passing
+ * BULLMQ_WORKER_ENABLED=false is harmless but no longer necessary.
+ *
  * Env:
- *   BULLMQ_WORKER_ENABLED=false   so the script does not also start the worker
- *                                 and process the jobs it just scheduled
+ *   DATABASE_URL / DIRECT_URL     the usual app database env
+ *   REDIS_URL                     optional; without it the backstop sweep
+ *                                 delivers instead of the delayed jobs
  *   CREATOR_COMPLETION_REMINDERS_ENABLED must be 'true' for anything to send;
  *   the script refuses to --apply while it is off, since enrolling with the
  *   feature dark burns the cohort's stamps without delivering the emails.
@@ -51,13 +56,16 @@ import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { ApprovalStatus, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
 import { envValidationSchema } from '../config/env.validation';
-import { MailModule } from '../mail/mail.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
-import { WhatsAppModule } from '../whatsapp/whatsapp.module';
-import { CreatorReminderModule } from '../jobs/creator-reminder.module';
-import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
+import { buildBullmqConnection } from '../jobs/bullmq-redis.connection';
+import {
+  buildCompletionReminderJobs,
+  REMINDER_QUEUE_NAME,
+  type ReminderJobData,
+} from '../jobs/creator-reminder-jobs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_CUTOFF_DAYS = 90;
@@ -69,8 +77,12 @@ const DEFAULT_BATCH = 200;
  */
 const ALREADY_ENROLLED_WINDOW_MS = 8 * DAY_MS;
 
-// Minimal context: the reminder queue plus the mail/WhatsApp providers its
-// notifier depends on. No HTTP server, no other job queues.
+// Config + Prisma only. The script enqueues through its own Queue rather than
+// CreatorReminderQueueService on purpose: that service depends on
+// CreatorReminderService -> the mail notifier -> the whole MailModule provider
+// graph (orders, brand access, WhatsApp), none of which a data migration needs.
+// Booting it here made the script fail at startup on an unrelated provider.
+// The job definitions still come from one shared place, so nothing drifts.
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -79,9 +91,6 @@ const ALREADY_ENROLLED_WINDOW_MS = 8 * DAY_MS;
       validationOptions: { abortEarly: true },
     }),
     PrismaModule,
-    MailModule,
-    WhatsAppModule,
-    CreatorReminderModule,
   ],
 })
 class ReenrollModule {}
@@ -109,7 +118,23 @@ async function main(): Promise<void> {
   });
   const prisma = app.get(PrismaService);
   const config = app.get(ConfigService);
-  const queue = app.get(CreatorReminderQueueService);
+
+  // Enqueue straight onto the reminder queue. Without Redis the enrollment
+  // still happens and the 6-hourly backstop sweep delivers instead — slower,
+  // and worth raising CREATOR_COMPLETION_REMINDER_SWEEP_BATCH for a big cohort.
+  const redisUrl = config.get<string>('REDIS_URL');
+  const queue = redisUrl
+    ? new Queue<ReminderJobData>(REMINDER_QUEUE_NAME, {
+        connection: buildBullmqConnection(redisUrl),
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 60_000 },
+          removeOnComplete: 1000,
+          removeOnFail: 1000,
+        },
+      })
+    : null;
+  if (queue) await queue.waitUntilReady();
 
   try {
     const remindersOn =
@@ -138,6 +163,15 @@ async function main(): Promise<void> {
         ? { createdAt: { gte: new Date(now - cutoffDays * DAY_MS) } }
         : {}),
     };
+
+    if (!queue) {
+      logger.warn(
+        'REDIS_URL not set — enrollment will be delivered by the 6-hourly ' +
+          'backstop sweep rather than by delayed jobs. Each email can land up ' +
+          'to 6 hours late, and a cohort larger than ' +
+          'CREATOR_COMPLETION_REMINDER_SWEEP_BATCH per sweep drains slowly.',
+      );
+    }
 
     const total = await prisma.creatorProfile.count({ where });
     logger.log(
@@ -200,12 +234,13 @@ async function main(): Promise<void> {
               select: { completionReminderStartedAt: true },
             });
 
-          // Delayed jobs give each stage its exact time. Without Redis this is
-          // a no-op and the 6-hourly backstop sweep delivers instead — slower,
-          // and for a large cohort it can outrun the sweep's per-run batch, so
-          // raise CREATOR_COMPLETION_REMINDER_SWEEP_BATCH if you enroll many
-          // creators with no Redis attached.
-          await queue.scheduleReminders(creator.id, startedAt);
+          // Delayed jobs give each stage its exact time.
+          for (const job of buildCompletionReminderJobs(
+            creator.id,
+            startedAt,
+          )) {
+            await queue?.add(job.name, job.data, job.opts);
+          }
           enrolled++;
         } catch (err) {
           failed++;
@@ -219,10 +254,11 @@ async function main(): Promise<void> {
     }
 
     logger.log(
-      `re-enrollment complete: ${enrolled} enrolled, ${failed} failed. ` +
-        'First email goes out ~30 minutes from now.',
+      `re-enrollment complete: ${enrolled} enrolled, ${failed} failed.` +
+        (enrolled > 0 ? ' First email goes out ~30 minutes from now.' : ''),
     );
   } finally {
+    await queue?.close().catch(() => undefined);
     await app.close();
   }
 }

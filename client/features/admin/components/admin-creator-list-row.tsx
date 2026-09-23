@@ -12,6 +12,7 @@ import {
   Play,
   SendHorizontal,
   Sparkles,
+  Instagram,
   Star,
   UserX,
   Video,
@@ -24,6 +25,7 @@ import {
   formatCreatorLocation,
   formatInrPrice,
 } from "@/features/admin/constants/admin-creator-tabs";
+import { formatFollowers } from "@/features/admin/lib/format-followers";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
 import { useFeatureCreatorMutation } from "@/features/admin/hooks/use-feature-creator-mutation";
@@ -35,6 +37,16 @@ import { useUnshortlistCreatorMutation } from "@/features/admin/hooks/use-unshor
 import { RejectDialog } from "@/components/admin/RejectDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ThumbnailsCarousel,
+  type CarouselAsset,
+} from "@/components/ui/thumbnails-carousel";
 
 function formatRowDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -129,6 +141,42 @@ function CreatorAvatar({ creator }: { creator: AdminCreatorListItemDto }) {
       {initials || creator.displayName.charAt(0).toUpperCase()}
     </div>
   );
+}
+
+function InstagramFollowers({ creator }: { creator: AdminCreatorListItemDto }) {
+  const count = creator.instagramFollowers;
+
+  if (count === null || count === undefined) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      title={
+        creator.instagramUsername
+          ? `@${creator.instagramUsername} — ${count.toLocaleString()} followers`
+          : `${count.toLocaleString()} followers`
+      }
+    >
+      <Instagram className="size-3 shrink-0 text-muted-foreground" />
+      <span>{formatFollowers(count)}</span>
+    </div>
+  );
+}
+
+/** Portfolio videos as carousel assets, for the preview modal. */
+function toCarouselAssets(
+  videos: AdminCreatorListItemDto["portfolioVideos"],
+): CarouselAsset[] {
+  return (videos ?? [])
+    .filter((video) => Boolean(video.videoUrl?.trim()))
+    .map((video) => ({
+      type: "video" as const,
+      full: video.videoUrl,
+      thumb: video.thumbnailUrl ?? video.videoUrl,
+      id: video.id,
+    }));
 }
 
 function PortfolioThumbnails({
@@ -287,6 +335,8 @@ export function AdminCreatorListRow({
   const { mutate: unfeatureCreator, isPending: isUnfeaturing } =
     useUnfeatureCreatorMutation();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const portfolioAssets = toCarouselAssets(creator.portfolioVideos);
   const [rank, setRank] = useState(String(creator.featureRank ?? 0));
 
   const isPending = creator.approvalStatus === "PENDING";
@@ -391,7 +441,26 @@ export function AdminCreatorListRow({
 
           <div className="flex flex-wrap items-start gap-6 lg:gap-8">
             <RowMetric label="Portfolio" className="hidden min-w-[120px] md:block">
-              <PortfolioThumbnails videos={creator.portfolioVideos} />
+              {portfolioAssets.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    // The row itself is clickable; this opens the preview only.
+                    event.stopPropagation();
+                    setPortfolioOpen(true);
+                  }}
+                  className="rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={`Preview ${creator.displayName}'s portfolio (${portfolioAssets.length} video${portfolioAssets.length === 1 ? "" : "s"})`}
+                >
+                  <PortfolioThumbnails videos={creator.portfolioVideos} />
+                </button>
+              ) : (
+                <PortfolioThumbnails videos={creator.portfolioVideos} />
+              )}
+            </RowMetric>
+
+            <RowMetric label="Followers">
+              <InstagramFollowers creator={creator} />
             </RowMetric>
 
             <RowMetric label={dateColumn.label}>
@@ -642,6 +711,22 @@ export function AdminCreatorListRow({
           </div>
         </div>
       </div>
+
+      <Dialog open={portfolioOpen} onOpenChange={setPortfolioOpen}>
+        <DialogContent className="max-w-3xl gap-4 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">
+              {creator.displayName}&rsquo;s portfolio
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Mounted only while open, so the videos are not fetched for every
+              row in the list and stop playing the moment the modal closes. */}
+          {portfolioOpen ? (
+            <ThumbnailsCarousel assets={portfolioAssets} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <RejectDialog
         isOpen={isRejectOpen}

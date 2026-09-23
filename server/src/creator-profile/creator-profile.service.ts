@@ -232,6 +232,20 @@ const pendingCreatorApprovalInclude = {
 
 /** Include for admin unified creator list (all segments). */
 const adminCreatorListInclude = {
+  /**
+   * Instagram reach for the admin list. Restricted to the live connection: an
+   * EXPIRED or REVOKED one still carries the follower count from its last sync,
+   * and showing a stale number as current is worse than showing none.
+   */
+  socialConnections: {
+    where: {
+      platform: SocialPlatform.INSTAGRAM,
+      status: SocialConnectionStatus.ACTIVE,
+    },
+    orderBy: { updatedAt: 'desc' as const },
+    take: 1,
+    select: { followersCount: true, username: true },
+  },
   user: { select: { phone: true, phoneVerified: true } },
   facetSelections: { include: { option: true } },
   creatorApproval: {
@@ -1726,6 +1740,7 @@ export class CreatorProfileService {
   ): AdminCreatorListItemDto {
     const base = this.mapPendingCreatorApprovalListItem(profile);
     const startingPkg = profile.packages?.[0];
+    const instagram = profile.socialConnections?.[0];
     const now = new Date();
     const isFeatured =
       !!profile.feature &&
@@ -1764,6 +1779,8 @@ export class CreatorProfileService {
       reviewSentByName: adminActorDisplayName(
         profile.creatorApproval?.sentForReviewBy,
       ),
+      instagramFollowers: instagram?.followersCount ?? null,
+      instagramUsername: instagram?.username ?? null,
     };
   }
 

@@ -107,9 +107,21 @@ export class SignupRegistrationService {
       { timeout: 30_000, maxWait: 10_000 },
     );
 
-    await this.creatorReminders
-      .scheduleReminders(creatorProfileId)
-      .catch(() => undefined);
+    // Schedule off the stored clock rather than `new Date()`: each delayed job
+    // re-checks due-ness against completionReminderStartedAt, so a timestamp
+    // that drifts from the column would fire jobs that can never claim.
+    const profile = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: { completionReminderStartedAt: true },
+    });
+    if (profile) {
+      await this.creatorReminders
+        .scheduleReminders(
+          creatorProfileId,
+          profile.completionReminderStartedAt,
+        )
+        .catch(() => undefined);
+    }
   }
 
   async registerAgencyUser(dto: RegisterAgencyDto): Promise<string> {

@@ -34,6 +34,7 @@ export const RESUBMIT_STAGE_DELAY_MS: Record<ResubmitStage, number> = {
 };
 
 const DEFAULT_BACKFILL_DAYS = 10;
+const DEFAULT_SWEEP_BATCH = 200;
 
 /**
  * The sweep can only send a stage while the profile is still inside the
@@ -95,6 +96,21 @@ export class CreatorReminderService {
         ? Math.floor(raw)
         : DEFAULT_BACKFILL_DAYS;
     return Math.max(configured, MIN_BACKFILL_DAYS);
+  }
+
+  /**
+   * How many due profiles one sweep may serve. Only the *highest* stage a
+   * profile has crossed is sent, so a backlog the sweep cannot drain within a
+   * stage's width costs those creators the earlier emails. Raise this when
+   * re-enrolling a large cohort without Redis to carry the delayed jobs.
+   */
+  private sweepBatchSize(): number {
+    const raw = Number(
+      this.config.get<string>('CREATOR_COMPLETION_REMINDER_SWEEP_BATCH'),
+    );
+    return Number.isFinite(raw) && raw >= 1
+      ? Math.floor(raw)
+      : DEFAULT_SWEEP_BATCH;
   }
 
   private stampNullWhere(stage: CompletionStage): Record<string, null> {
@@ -165,7 +181,7 @@ export class CreatorReminderService {
       where: {
         id: profileId,
         completeProfile: false,
-        createdAt: { lte: dueBefore },
+        completionReminderStartedAt: { lte: dueBefore },
         ...this.stampNullWhere(stage),
       },
       data: this.stampData(stage, new Date()),
@@ -273,7 +289,7 @@ export class CreatorReminderService {
     const candidates = await this.prisma.creatorProfile.findMany({
       where: {
         completeProfile: false,
-        createdAt: { lte: t30, gte: backfillFloor },
+        completionReminderStartedAt: { lte: t30, gte: backfillFloor },
         OR: [
           { completionReminder30mAt: null },
           { completionReminder24hAt: null },
@@ -283,26 +299,21 @@ export class CreatorReminderService {
       },
       select: {
         id: true,
-        createdAt: true,
+        completionReminderStartedAt: true,
         completionReminder30mAt: true,
         completionReminder24hAt: true,
         completionReminder72hAt: true,
         completionReminder168hAt: true,
       },
-      orderBy: { createdAt: 'asc' },
-      take: 200,
+      orderBy: { completionReminderStartedAt: 'asc' },
+      take: this.sweepBatchSize(),
     });
 
     let sent = 0;
     for (const c of candidates) {
+      const startedAt = c.completionReminderStartedAt;
       const highest: CompletionStage =
-        c.createdAt <= t168
-          ? 4
-          : c.createdAt <= t72
-            ? 3
-            : c.createdAt <= t24
-              ? 2
-              : 1;
+        startedAt <= t168 ? 4 : startedAt <= t72 ? 3 : startedAt <= t24 ? 2 : 1;
 
       // Retire any earlier unsent stages without emailing them.
       for (const s of COMPLETION_STAGES) {

@@ -139,20 +139,33 @@ export class CreatorReminderQueueService
   }
 
   /**
-   * Schedule the full reminder sequence for a freshly-created creator profile.
-   * Call AFTER the signup transaction commits. Never throws — a scheduling
+   * Schedule the full reminder sequence for a creator profile, measured from
+   * `startedAt` — the profile's `completionReminderStartedAt`, which is its
+   * registration time for a new signup and "now" for a re-enrolled creator.
+   *
+   * Call AFTER the transaction that set `startedAt` commits, and pass the value
+   * the database actually holds: the delayed job's claim re-checks due-ness
+   * against that column, so a drifting timestamp would fire a job that can
+   * never claim its stage.
+   *
+   * `startedAt` is part of the jobId so re-enrolling a creator who was already
+   * scheduled once is not swallowed as a duplicate. Never throws — a scheduling
    * failure is covered by the backstop sweep. No-op when disabled or Redis-less.
    */
-  async scheduleReminders(profileId: string): Promise<void> {
+  async scheduleReminders(profileId: string, startedAt: Date): Promise<void> {
     if (!this.queue || !this.reminders.isEnabled()) return;
+    const stamp = startedAt.getTime();
+    const elapsed = Date.now() - stamp;
     for (const stage of COMPLETION_STAGES) {
       try {
         await this.queue.add(
           JOB_NAME,
           { profileId, stage },
           {
-            jobId: `crm-${profileId}-${stage}`,
-            delay: COMPLETION_STAGE_DELAY_MS[stage],
+            jobId: `crm-${profileId}-${stage}-${stamp}`,
+            // Fire on the sequence clock, not on enqueue time, so a job added
+            // slightly after `startedAt` still lands on schedule.
+            delay: Math.max(COMPLETION_STAGE_DELAY_MS[stage] - elapsed, 0),
           },
         );
       } catch (err) {

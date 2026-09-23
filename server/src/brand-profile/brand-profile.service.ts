@@ -705,11 +705,17 @@ export class BrandProfileService {
       return { userId: user.id, status };
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { status },
-      select: { id: true, status: true },
-    });
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { status },
+        select: { id: true, status: true },
+      }),
+      // Drop their sessions so deactivation takes effect immediately rather
+      // than when the refresh token happens to expire. Harmless when
+      // reactivating — they simply log in again.
+      this.prisma.session.deleteMany({ where: { userId } }),
+    ]);
 
     this.logger.log(
       `brand user ${updated.id} set to ${updated.status} by admin ${adminUserId}`,

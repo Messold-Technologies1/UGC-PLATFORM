@@ -273,7 +273,7 @@ describe('AuthService', () => {
       id: 'session-1',
       userId: 'user-1',
       expiresAt: new Date('2999-01-01T00:00:00.000Z'),
-      user: { id: 'user-1' },
+      user: { id: 'user-1', status: 'ACTIVE' },
     });
     jwt.sign.mockReturnValue('new-access-token');
 
@@ -281,6 +281,29 @@ describe('AuthService', () => {
 
     expect(result.accessToken).toBe('new-access-token');
     expect(result.refreshToken).toBe('valid-refresh-token');
+  });
+
+  it('refuses to refresh a deactivated account and drops its session', async () => {
+    // Login already refuses a non-ACTIVE account. Without the same check here,
+    // a user deactivated mid-session keeps minting access tokens that every
+    // guard then rejects — a silent refresh loop instead of a bounce to login.
+    jwt.verifyAsync.mockResolvedValue({ sub: 'user-1' });
+    prisma.session.findFirst.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      expiresAt: new Date('2999-01-01T00:00:00.000Z'),
+      user: { id: 'user-1', status: 'DEACTIVATED' },
+    });
+    prisma.session.delete.mockResolvedValue({ id: 'session-1' });
+
+    await expect(service.refresh('valid-refresh-token')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+
+    expect(prisma.session.delete).toHaveBeenCalledWith({
+      where: { id: 'session-1' },
+    });
+    expect(jwt.sign).not.toHaveBeenCalled();
   });
 
   it('returns 401 when the stored session has expired', async () => {

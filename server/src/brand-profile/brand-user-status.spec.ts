@@ -20,7 +20,16 @@ describe('BrandProfileService.setBrandUserActive', () => {
     } | null = {},
   ) {
     const updates: Array<Record<string, unknown>> = [];
+    const sessionDeletes: Array<Record<string, unknown>> = [];
     const prisma = {
+      // The status write and the session purge go out together.
+      $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+      session: {
+        deleteMany: jest.fn((args: { where: Record<string, unknown> }) => {
+          sessionDeletes.push(args.where);
+          return Promise.resolve({ count: 1 });
+        }),
+      },
       user: {
         findUnique: jest.fn(() =>
           Promise.resolve(
@@ -47,7 +56,7 @@ describe('BrandProfileService.setBrandUserActive', () => {
       {} as never,
       {} as never,
     );
-    return { service, prisma, updates };
+    return { service, prisma, updates, sessionDeletes };
   }
 
   it('deactivates an active brand user', async () => {
@@ -60,6 +69,15 @@ describe('BrandProfileService.setBrandUserActive', () => {
       userId: USER_ID,
       status: UserStatus.DEACTIVATED,
     });
+  });
+
+  it('drops their sessions so the lockout is immediate', async () => {
+    // Without this they stay signed in until the refresh token expires.
+    const { service, sessionDeletes } = build({ status: UserStatus.ACTIVE });
+
+    await service.setBrandUserActive(ADMIN_ID, USER_ID, false);
+
+    expect(sessionDeletes).toEqual([{ userId: USER_ID }]);
   });
 
   it('reactivates a deactivated brand user', async () => {

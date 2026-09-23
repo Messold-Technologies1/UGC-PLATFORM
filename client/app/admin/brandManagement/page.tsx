@@ -35,11 +35,19 @@ import { useBrandsQuery } from "@/features/admin/hooks/use-brands-query";
 import { useSetBrandUserStatusMutation } from "@/features/admin/hooks/use-set-brand-user-status-mutation";
 import type { AdminBrandListItemDto } from "@/features/admin/types";
 
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  DEACTIVATED: "Deactivated",
+  SUSPENDED: "Suspended",
+};
+
 function StatusBadge({ status }: { status: string }) {
   if (status === "ACTIVE") {
     return <Badge variant="default">Active</Badge>;
   }
-  return <Badge variant="outline">{status}</Badge>;
+  // Deactivated brands stay in the list in full, so the badge is the only thing
+  // marking them out — spell it rather than showing the raw enum.
+  return <Badge variant="muted">{STATUS_LABELS[status] ?? status}</Badge>;
 }
 
 const BRAND_MANAGEMENT_FIXTURE_TOTAL = 24;

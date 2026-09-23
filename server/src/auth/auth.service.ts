@@ -441,6 +441,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    // Login already refuses a non-ACTIVE account; refresh has to agree, or a
+    // user deactivated mid-session keeps minting access tokens that every guard
+    // then rejects — a silent refresh loop instead of a clean bounce to login.
+    if (session.user.status !== 'ACTIVE') {
+      await this.prisma.session
+        .delete({ where: { id: session.id } })
+        .catch(() => {});
+      throw new UnauthorizedException('Account is not active');
+    }
+
     const expiresIn = this.getAccessExpiry();
     const accessToken = this.jwt.sign(
       { sub: session.userId },

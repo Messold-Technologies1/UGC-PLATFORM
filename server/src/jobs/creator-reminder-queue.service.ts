@@ -9,26 +9,18 @@ import { Cron } from '@nestjs/schedule';
 import { Queue, Worker } from 'bullmq';
 import { buildBullmqConnection } from './bullmq-redis.connection';
 import {
-  COMPLETION_STAGE_DELAY_MS,
-  COMPLETION_STAGES,
+  buildCompletionReminderJobs,
+  REMINDER_JOB_NAME as JOB_NAME,
+  REMINDER_QUEUE_NAME as QUEUE_NAME,
+  type ReminderJobData,
+} from './creator-reminder-jobs';
+import {
   CreatorReminderService,
   RESUBMIT_STAGE_DELAY_MS,
   RESUBMIT_STAGES,
   type CompletionStage,
   type ResubmitStage,
 } from './creator-reminder.service';
-
-const QUEUE_NAME = 'creator-completion-reminder';
-const JOB_NAME = 'reminder-stage';
-
-type ReminderKind = 'completion' | 'resubmit';
-
-interface ReminderJobData {
-  profileId: string;
-  stage: CompletionStage | ResubmitStage;
-  /** Absent on legacy in-flight jobs → treated as 'completion'. */
-  kind?: ReminderKind;
-}
 
 /**
  * Event-driven "finish your profile" reminders — the drip-campaign model used
@@ -154,23 +146,12 @@ export class CreatorReminderQueueService
    */
   async scheduleReminders(profileId: string, startedAt: Date): Promise<void> {
     if (!this.queue || !this.reminders.isEnabled()) return;
-    const stamp = startedAt.getTime();
-    const elapsed = Date.now() - stamp;
-    for (const stage of COMPLETION_STAGES) {
+    for (const job of buildCompletionReminderJobs(profileId, startedAt)) {
       try {
-        await this.queue.add(
-          JOB_NAME,
-          { profileId, stage },
-          {
-            jobId: `crm-${profileId}-${stage}-${stamp}`,
-            // Fire on the sequence clock, not on enqueue time, so a job added
-            // slightly after `startedAt` still lands on schedule.
-            delay: Math.max(COMPLETION_STAGE_DELAY_MS[stage] - elapsed, 0),
-          },
-        );
+        await this.queue.add(job.name, job.data, job.opts);
       } catch (err) {
         this.logger.warn(
-          `creator reminders: could not schedule stage ${stage} for ${profileId}: ${
+          `creator reminders: could not schedule stage ${job.data.stage} for ${profileId}: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );

@@ -7,6 +7,8 @@ export type CreateCheckoutPayload = {
   addOnIds?: string[];
   /** Optional discount coupon code applied to this checkout. */
   couponCode?: string;
+  /** Apply the brand's store credit ("Credits") toward this order. */
+  useCredits?: boolean;
 };
 
 export type CheckoutSession = {
@@ -29,6 +31,13 @@ export type CheckoutSession = {
    * and no Razorpay payment is needed. The client skips the gateway.
    */
   free?: boolean;
+  /** Store credit ("Credits") applied to this order, in paise (0 when none). */
+  creditsAppliedPaise?: number;
+  /**
+   * True when store credit fully covered the order: it is already placed and
+   * paid, no Razorpay payment is needed. The client skips the gateway.
+   */
+  paidFromCredits?: boolean;
 };
 
 export async function createCheckout(

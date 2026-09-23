@@ -202,7 +202,7 @@ function getActiveStepIndex(order: OrderDetailsPublic, steps: StepDefinition[]):
     const disputeIndex = steps.findIndex((step) => step.disputeStep);
     if (disputeIndex >= 0) return disputeIndex;
   }
-  if (order.status === "REJECTED" || order.status === "REFUNDED") {
+  if (order.status === "REJECTED" || order.status === "REFUNDED" || order.status === "CANCELLED_CREDITED") {
     const cancelledIndex = steps.findIndex((step) => step.cancelledStep);
     if (cancelledIndex >= 0) return cancelledIndex;
   }
@@ -289,7 +289,7 @@ function MobileStepTrack({
           const isDisputeActive =
             order.status === "DISPUTED" && isActive && Boolean(step.disputeStep);
           const isCancelledActive =
-            (order.status === "REJECTED" || order.status === "REFUNDED") &&
+            (order.status === "REJECTED" || order.status === "REFUNDED" || order.status === "CANCELLED_CREDITED") &&
             isActive &&
             Boolean(step.cancelledStep);
           const canClick = Boolean(
@@ -555,7 +555,7 @@ function buildSteps(order: OrderDetailsPublic): StepDefinition[] {
       ...baseSteps.slice(insertAfter + 1),
     ];
   }
-  if (order.status === "REJECTED" || order.status === "REFUNDED") {
+  if (order.status === "REJECTED" || order.status === "REFUNDED" || order.status === "CANCELLED_CREDITED") {
     return insertTerminalStep(baseSteps, order, CANCELLED_STEP);
   }
   return baseSteps;
@@ -586,7 +586,7 @@ function StepNode({
   const isAwaitingPayment = order.status === "PENDING_PAYMENT" && index === 0;
   const isDisputeActive = order.status === "DISPUTED" && isActive && Boolean(step.disputeStep);
   const isCancelledActive =
-    (order.status === "REJECTED" || order.status === "REFUNDED") &&
+    (order.status === "REJECTED" || order.status === "REFUNDED" || order.status === "CANCELLED_CREDITED") &&
     isActive &&
     Boolean(step.cancelledStep);
   const canClick = Boolean(onStepClick && (isActive || isCompleted) && !step.cancelledStep);

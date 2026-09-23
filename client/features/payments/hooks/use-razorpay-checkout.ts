@@ -44,6 +44,8 @@ interface UseRazorpayCheckoutArgs {
   selectedAddOns?: AddOn[];
   /** Applied coupon code, if the brand selected one. */
   couponCode?: string | null;
+  /** Apply the brand's store credit ("Credits") toward this order. */
+  useCredits?: boolean;
 }
 
 export function useRazorpayCheckout({
@@ -51,6 +53,7 @@ export function useRazorpayCheckout({
   selectedPackage,
   selectedAddOns = [],
   couponCode = null,
+  useCredits = false,
 }: UseRazorpayCheckoutArgs) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -70,8 +73,9 @@ export function useRazorpayCheckout({
         selectedPackage?.id ?? "",
         selectedAddOns.map((addOn) => addOn.id).join(","),
         couponCode ?? "",
+        useCredits ? "credits" : "",
       ].join("|"),
-    [creator.id, selectedAddOns, selectedPackage?.id, couponCode],
+    [creator.id, selectedAddOns, selectedPackage?.id, couponCode, useCredits],
   );
 
   const localTotal = useMemo(
@@ -176,17 +180,21 @@ export function useRazorpayCheckout({
             ? { addOnIds: selectedAddOns.map((addOn) => addOn.id) }
             : {}),
           ...(couponCode ? { couponCode } : {}),
+          ...(useCredits ? { useCredits: true } : {}),
         }));
 
-      // Zero-rupee order (e.g. a 100% coupon): nothing to pay — the server has
-      // already placed the order. Skip Razorpay and go straight to the order.
-      if (session.free) {
+      // Nothing to charge via Razorpay: either a zero-rupee order (e.g. a 100%
+      // coupon) or store credit fully covered it. The server has already placed
+      // the order — skip the gateway and go straight to the order.
+      if (session.free || session.paidFromCredits) {
         clearStoredCheckoutSession(selectionSignature);
         void queryClient.prefetchQuery(
           brandOrderDetailsQueryOptions(session.orderId),
         );
         toast.success("Order placed", {
-          description: "No payment needed — redirecting to your order...",
+          description: session.paidFromCredits
+            ? "Paid from your credits — redirecting to your order..."
+            : "No payment needed — redirecting to your order...",
         });
         redirectToOrderDetails(session.orderId);
         setIsProcessing(false);
@@ -218,6 +226,7 @@ export function useRazorpayCheckout({
     selectedAddOns,
     selectedPackage,
     couponCode,
+    useCredits,
     queryClient,
     redirectToOrderDetails,
   ]);

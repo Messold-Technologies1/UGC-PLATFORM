@@ -167,7 +167,7 @@ function CreatorOrdersListInner() {
                   order.status === "BRIEF_SUBMITTED";
 
                 const isCancelled =
-                  order.status === "REJECTED" || order.status === "REFUNDED";
+                  order.status === "REJECTED" || order.status === "REFUNDED" || order.status === "CANCELLED_CREDITED";
 
                 let badgeLabel =
                   STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] ||

@@ -18,6 +18,7 @@ import type { CreatorProfile, Package, AddOn } from "../../types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
 import { useAvailableCoupons } from "@/features/payments/hooks/use-available-coupons";
 import { CouponInput } from "@/features/payments/components/coupon-input";
+import { useWalletBalance } from "@/features/wallet/hooks";
 import { computeCouponDiscountPaise } from "@/features/payments/lib/coupon-discount";
 import { getInitials, posterColor } from "@/lib/utils";
 
@@ -199,12 +200,14 @@ const OrderModalContent = React.memo(function OrderModalContent({
   const [selectedCouponCode, setSelectedCouponCode] = useState<string | null>(
     null,
   );
+  const [useCredits, setUseCredits] = useState(false);
 
   useEffect(() => {
     if (open) {
       setSelectedPkgId(defaultPackageId);
       setSelectedAddOnIds([]);
       setSelectedCouponCode(null);
+      setUseCredits(false);
     }
   }, [open, creator.id, defaultPackageId]);
 
@@ -264,15 +267,28 @@ const OrderModalContent = React.memo(function OrderModalContent({
   // "First order free": this brand's first order with the creator is free, so
   // the checkout is ₹0, no coupon, and no payment step (the hook skips Razorpay).
   const isFirstOrderFree = Boolean(creator.firstOrderFreeEligible);
-  const netTotal = isFirstOrderFree
+  const netAfterCoupon = isFirstOrderFree
     ? 0
     : Math.max(0, total - discountRupees);
+
+  // Store credit ("Credits") applied after the coupon, capped at the net.
+  const { data: walletBalance } = useWalletBalance(open);
+  const creditsAvailableRupees = Math.floor(
+    (walletBalance?.balancePaise ?? 0) / 100,
+  );
+  const canUseCredits = !isFirstOrderFree && creditsAvailableRupees > 0;
+  const creditsAppliedRupees =
+    useCredits && canUseCredits
+      ? Math.min(creditsAvailableRupees, netAfterCoupon)
+      : 0;
+  const netTotal = Math.max(0, netAfterCoupon - creditsAppliedRupees);
 
   const { isProcessing, startCheckout } = useRazorpayCheckout({
     creator,
     selectedPackage,
     selectedAddOns,
     couponCode: selectedCouponCode,
+    useCredits: useCredits && canUseCredits,
   });
 
   const toggleAddOn = useCallback((id: string) => {
@@ -487,6 +503,43 @@ const OrderModalContent = React.memo(function OrderModalContent({
                 </div>
               )}
 
+              {canUseCredits && (
+                <div style={{ margin: "12px 0" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={useCredits}
+                      onChange={(e) => setUseCredits(e.target.checked)}
+                      disabled={isProcessing}
+                    />
+                    Use my credits ({inr(creditsAvailableRupees)} available)
+                  </label>
+                  {creditsAppliedRupees > 0 && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 13,
+                        color: "var(--muted-foreground, #666)",
+                      }}
+                    >
+                      <span>Credits applied</span>
+                      <span>− {inr(creditsAppliedRupees)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 type="button"
                 className="dr-btn dr-btn-primary om-checkout"
@@ -501,6 +554,10 @@ const OrderModalContent = React.memo(function OrderModalContent({
                 ) : isFirstOrderFree ? (
                   <>
                     <Zap size={16} /> Place free order
+                  </>
+                ) : creditsAppliedRupees > 0 && netTotal === 0 ? (
+                  <>
+                    <Zap size={16} /> Pay with credits · {inr(creditsAppliedRupees)}
                   </>
                 ) : (
                   <>

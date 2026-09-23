@@ -244,7 +244,7 @@ export default function AdminOrderDetailsPage() {
     Boolean(order.refundedAt) ||
     Boolean(order.razorpayRefundId);
   const isRejectedOrRefunded =
-    order.status === "REJECTED" || order.status === "REFUNDED";
+    order.status === "REJECTED" || order.status === "REFUNDED" || order.status === "CANCELLED_CREDITED";
   const canResolveDispute = order.status === "DISPUTED";
   const isActionPending =
     markCreatorPaidMutation.isPending ||

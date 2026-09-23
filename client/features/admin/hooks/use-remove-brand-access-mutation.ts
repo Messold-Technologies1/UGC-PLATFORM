@@ -33,7 +33,7 @@ export function useRemoveBrandAccessMutation() {
       return { previousQueries };
     },
     onSuccess: () => {
-      toast.success("Brand access removed.");
+      toast.success("Brand and user deleted.");
     },
     onError: (err, _userId, context) => {
       if (context?.previousQueries) {
@@ -43,9 +43,10 @@ export function useRemoveBrandAccessMutation() {
       }
 
       if (isAxiosError(err) && err.response?.data?.message) {
-        toast.error(`Could not remove brand access: ${err.response.data.message}`);
+        const message = err.response.data.message;
+        toast.error(Array.isArray(message) ? String(message[0]) : String(message));
       } else {
-        toast.error("Could not remove brand access.");
+        toast.error("Could not remove this brand.");
       }
     },
     onSettled: () => {

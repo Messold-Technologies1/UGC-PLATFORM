@@ -68,6 +68,9 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
+    orderCount: 0,
+    ongoingOrderCount: 0,
+    wishlistCount: 0,
     createdAt: "2026-03-10T09:00:00.000Z",
     updatedAt: "2026-03-10T09:00:00.000Z",
   },
@@ -82,6 +85,9 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     categories: ["HOME_AND_LIFESTYLE"],
     logoUrl: null,
     status: "ACTIVE",
+    orderCount: 0,
+    ongoingOrderCount: 0,
+    wishlistCount: 0,
     createdAt: "2026-02-18T09:00:00.000Z",
     updatedAt: "2026-02-18T09:00:00.000Z",
   },
@@ -96,6 +102,9 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     categories: ["FOOD_AND_BEVERAGES"],
     logoUrl: null,
     status: "ACTIVE",
+    orderCount: 0,
+    ongoingOrderCount: 0,
+    wishlistCount: 0,
     createdAt: "2026-01-27T09:00:00.000Z",
     updatedAt: "2026-01-27T09:00:00.000Z",
   },
@@ -374,9 +383,8 @@ function BrandManagementFixtureContent() {
               Permanent Brand Removal
             </h3>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Removing a brand here deletes the brand profile and permanently
-              revokes brand access for that user. The user account itself stays
-              in the system.
+              Removing a brand permanently deletes the user account and all
+              related brand data. Brands with ongoing orders cannot be removed.
             </p>
           </div>
         </div>
@@ -391,8 +399,9 @@ export function AdminBrandManagementLoadingState() {
       <section className="space-y-4">
         <h1 className="text-4xl font-headline font-bold">Brand Management</h1>
         <p className="max-w-3xl text-muted-foreground font-body">
-          Review brands that currently have an active profile and remove brand
-          access without deleting the underlying user account.
+          Review brands that currently have an active profile. Removing a brand
+          deletes the user and all related data, unless they have ongoing
+          orders.
         </p>
       </section>
 

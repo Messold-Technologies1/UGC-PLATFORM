@@ -38,6 +38,18 @@ export class AdminBrandListItemDto {
   @ApiProperty({ example: 'ACTIVE' })
   status!: string;
 
+  @ApiProperty({ example: 4, description: 'Total orders placed by this brand' })
+  orderCount!: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Orders that are still in progress and block deletion',
+  })
+  ongoingOrderCount!: number;
+
+  @ApiProperty({ example: 2 })
+  wishlistCount!: number;
+
   @ApiProperty()
   createdAt!: Date;
 

@@ -303,6 +303,9 @@ export interface AdminBrandListItemDto {
   categories: BrandCategoryApi[];
   logoUrl: string | null;
   status: string;
+  orderCount: number;
+  ongoingOrderCount: number;
+  wishlistCount: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -66,7 +66,8 @@ export class AdminBrandController {
   @Delete('user/:userId/role')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Remove brand access from a user without deleting the user account',
+    summary:
+      'Permanently delete a brand user and all related brand data. Blocked when the brand has ongoing orders.',
   })
   async removeBrandAccess(
     @Param('userId', ParseUUIDPipe) userId: string,

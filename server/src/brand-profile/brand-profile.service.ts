@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BrandCategory, RoleName } from '@prisma/client';
+import { BrandCategory, OrderStatus, RoleName } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { BrandProfileMailNotifier } from '../mail/brand-profile-mail.notifier';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,6 +26,19 @@ import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 import { RemoveBrandRoleDto } from './dto/remove-brand-role.dto';
 import { BrandCategoryOptionsResponseDto } from './dto/brand-category-options-response.dto';
 import { BRAND_CATEGORY_OPTIONS } from './brand-category-options';
+
+const ONGOING_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.PENDING_PAYMENT,
+  OrderStatus.BRIEF_SUBMISSION_PENDING,
+  OrderStatus.BRIEF_SUBMITTED,
+  OrderStatus.BRIEF_ACCEPTED,
+  OrderStatus.PRODUCT_SHIPPED,
+  OrderStatus.PRODUCT_RECEIVED,
+  OrderStatus.DELIVERED,
+  OrderStatus.REVISION_REQUESTED,
+  OrderStatus.REVISION_SUBMITTED,
+  OrderStatus.DISPUTED,
+];
 
 @Injectable()
 export class BrandProfileService {
@@ -503,10 +516,33 @@ export class BrandProfileService {
         skip,
         orderBy: { createdAt: 'desc' },
         include: {
-          brandProfile: true,
+          brandProfile: {
+            include: {
+              brandCategories: { select: { category: true } },
+              _count: { select: { orders: true, wishlists: true } },
+            },
+          },
         } as any,
       }),
     ]);
+
+    const brandIds = users
+      .map((user: any) => user.brandProfile?.id as string | undefined)
+      .filter((id): id is string => Boolean(id));
+    const ongoingByBrandId = new Map<string, number>();
+    if (brandIds.length > 0) {
+      const ongoingGroups = await this.prisma.order.groupBy({
+        by: ['brandId'],
+        where: {
+          brandId: { in: brandIds },
+          status: { in: ONGOING_ORDER_STATUSES },
+        },
+        _count: { _all: true },
+      });
+      for (const group of ongoingGroups) {
+        ongoingByBrandId.set(group.brandId, group._count._all);
+      }
+    }
 
     return {
       items: users.map((user: any) => ({
@@ -520,6 +556,11 @@ export class BrandProfileService {
         categories: user.brandProfile?.brandCategories?.map((bc: { category: BrandCategory }) => bc.category) ?? [],
         logoUrl: user.brandProfile?.logoUrl ?? null,
         status: user.status,
+        orderCount: user.brandProfile?._count?.orders ?? 0,
+        ongoingOrderCount: user.brandProfile?.id
+          ? (ongoingByBrandId.get(user.brandProfile.id) ?? 0)
+          : 0,
+        wishlistCount: user.brandProfile?._count?.wishlists ?? 0,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       })),
@@ -611,93 +652,68 @@ export class BrandProfileService {
   }
 
   async removeBrandAccessFromUser(
-    adminUserId: string,
+    _adminUserId: string,
     userId: string,
-    dto?: RemoveBrandRoleDto,
+    _dto?: RemoveBrandRoleDto,
   ): Promise<void> {
     let logoKeyToDelete: string | null = null;
     let pronunciationAudioKeyToDelete: string | null = null;
 
     await this.prisma.$transaction(
       async (tx) => {
-        const brandRole = await tx.role.findUnique({
-          where: { name: RoleName.BRAND },
-          select: { id: true },
-        });
-
-        const creatorRole = await tx.role.findUnique({
-          where: { name: RoleName.CREATOR },
-          select: { id: true },
-        });
-
-        if (!brandRole) {
-          throw new NotFoundException('BRAND role not configured');
-        }
-
-        const user: any = await tx.user.findUnique({
+        const user = await tx.user.findUnique({
           where: { id: userId },
           include: {
-            brandProfile: true,
-            userRoles: true,
-          } as any,
+            ownedAgency: { select: { id: true } },
+            brandProfile: {
+              select: {
+                id: true,
+                logoKey: true,
+                brandPronunciationAudioKey: true,
+              },
+            },
+          },
         });
 
         if (!user || user.deletedAt) {
           throw new NotFoundException('User not found');
         }
 
-        const hasBrandPrimaryRole = user.primaryRoleId === brandRole.id;
-        const hasBrandUserRole = user.userRoles.some(
-          (ur: any) => ur.roleId === brandRole.id,
-        );
-        const hasBrandProfile = !!user.brandProfile;
-
-        if (!hasBrandPrimaryRole && !hasBrandUserRole && !hasBrandProfile) {
+        if (!user.brandProfile) {
           throw new BadRequestException(
             'User does not currently have brand access',
           );
         }
 
-        const hasCreatorRole =
-          !!creatorRole &&
-          user.userRoles.some((ur: any) => ur.roleId === creatorRole.id);
+        if (user.ownedAgency) {
+          throw new ConflictException(
+            "Sorry, we can't delete this brand. This user owns an agency with other brand data.",
+          );
+        }
 
-        const fallbackRoleId =
-          hasCreatorRole && creatorRole ? creatorRole.id : null;
-
-        await tx.userRole.deleteMany({
+        const ongoingOrderCount = await tx.order.count({
           where: {
-            userId,
-            roleId: brandRole.id,
+            brandId: user.brandProfile.id,
+            status: { in: ONGOING_ORDER_STATUSES },
           },
         });
 
-        if (hasBrandPrimaryRole) {
-          await tx.user.update({
-            where: { id: userId },
-            data: {
-              primaryRoleId: fallbackRoleId,
-            } as any,
-          });
+        if (ongoingOrderCount > 0) {
+          throw new ConflictException(
+            `Sorry, we can't delete this brand. There ${
+              ongoingOrderCount === 1 ? 'is' : 'are'
+            } ${ongoingOrderCount} ongoing order${
+              ongoingOrderCount === 1 ? '' : 's'
+            } tied to it.`,
+          );
         }
 
-        if (user.brandProfile) {
-          logoKeyToDelete = user.brandProfile.logoKey ?? null;
-          pronunciationAudioKeyToDelete =
-            user.brandProfile.brandPronunciationAudioKey ?? null;
+        logoKeyToDelete = user.brandProfile.logoKey ?? null;
+        pronunciationAudioKeyToDelete =
+          user.brandProfile.brandPronunciationAudioKey ?? null;
 
-          await tx.brandProfile.delete({
-            where: { userId },
-          });
-        }
-
-        await tx.user.update({
+        await tx.user.delete({
           where: { id: userId },
-          data: {
-            brandAccessRevokedAt: new Date(),
-            brandAccessRevokedById: adminUserId,
-            brandAccessRevocationReason: dto?.reason?.trim() || null,
-          } as any,
         });
       },
       { timeout: 30_000, maxWait: 10_000 },

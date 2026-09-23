@@ -56,6 +56,9 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
+    orderCount: 0,
+    ongoingOrderCount: 0,
+    wishlistCount: 0,
     createdAt: "2026-03-10T09:00:00.000Z",
     updatedAt: "2026-03-10T09:00:00.000Z",
   },
@@ -70,6 +73,9 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
+    orderCount: 2,
+    ongoingOrderCount: 0,
+    wishlistCount: 1,
     createdAt: "2026-02-18T09:00:00.000Z",
     updatedAt: "2026-02-18T09:00:00.000Z",
   },
@@ -84,6 +90,9 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
     categories: ["APPAREL_AND_FASHION"],
     logoUrl: null,
     status: "ACTIVE",
+    orderCount: 3,
+    ongoingOrderCount: 1,
+    wishlistCount: 2,
     createdAt: "2026-01-27T09:00:00.000Z",
     updatedAt: "2026-01-27T09:00:00.000Z",
   },
@@ -455,8 +464,8 @@ function BrandManagementContent({
               Permanent Brand Removal
             </h3>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Removing a brand here deletes the brand profile and permanently
-              revokes brand access for that user.
+              Removing a brand permanently deletes the user account and all
+              related brand data. Brands with ongoing orders cannot be removed.
             </p>
           </div>
         </div>
@@ -487,12 +496,25 @@ export default function BrandManagementPage() {
 
   const confirmRemoval = async () => {
     if (!selectedBrand) return;
-    await removeBrandAccess.mutateAsync(selectedBrand.userId);
-    if (items.length === 1 && page > 1) {
-      setPage((current) => Math.max(1, current - 1));
+    try {
+      await removeBrandAccess.mutateAsync(selectedBrand.userId);
+      if (items.length === 1 && page > 1) {
+        setPage((current) => Math.max(1, current - 1));
+      }
+      setSelectedBrand(null);
+    } catch {
+      // Error toast is handled by the mutation.
     }
-    setSelectedBrand(null);
   };
+
+  const selectedName =
+    selectedBrand?.brandName ??
+    selectedBrand?.name ??
+    selectedBrand?.email ??
+    "this brand";
+  const selectedOrderCount = selectedBrand?.orderCount ?? 0;
+  const selectedOngoingCount = selectedBrand?.ongoingOrderCount ?? 0;
+  const selectedWishlistCount = selectedBrand?.wishlistCount ?? 0;
 
   return (
     <>
@@ -543,43 +565,72 @@ export default function BrandManagementPage() {
         open={!!selectedBrand}
         onOpenChange={(open) => !open && closeDialog()}
       >
-        <DialogContent showCloseButton={false}>
+        <DialogContent showCloseButton={false} className="sm:max-w-md gap-5 p-6">
           <DialogHeader>
-            <DialogTitle>Remove Brand Access</DialogTitle>
+            <DialogTitle className="text-xl font-bold">
+              Remove this brand?
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-sm text-muted-foreground">
-            <p>
-              This will permanently remove brand access for{" "}
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Are you sure you want to remove{" "}
               <span className="font-semibold text-foreground">
-                {selectedBrand?.brandName ??
-                  selectedBrand?.name ??
-                  selectedBrand?.email}
+                {selectedName}
               </span>
-              .
+              ?
             </p>
-            <p>
-              Their user account will remain, but the brand profile and brand
-              workspace access will be removed.
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border bg-muted/40 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Orders
+                </p>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {selectedOrderCount}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/40 px-3 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Wishlists
+                </p>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {selectedWishlistCount}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/40 px-3 py-2.5 col-span-2 sm:col-span-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ongoing
+                </p>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {selectedOngoingCount}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Deleting this brand will permanently delete this user and
+              everything related to it: orders, wishlists, and all brand data.
+              This cannot be undone.
             </p>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mx-0 mb-0 grid grid-cols-2 gap-3 border-0 bg-transparent p-0 sm:justify-stretch">
             <Button
-              variant="ghost"
+              variant="outline"
+              className="h-11 w-full rounded-xl text-sm font-semibold"
               onClick={closeDialog}
               disabled={removeBrandAccess.isPending}
             >
-              Cancel
+              No
             </Button>
             <Button
               variant="destructive"
+              className="h-11 w-full rounded-xl text-sm font-semibold"
               onClick={() => void confirmRemoval()}
               disabled={removeBrandAccess.isPending}
             >
-              {removeBrandAccess.isPending
-                ? "Removing..."
-                : "Remove Brand Access"}
+              {removeBrandAccess.isPending ? "Deleting..." : "Yes"}
             </Button>
           </DialogFooter>
         </DialogContent>

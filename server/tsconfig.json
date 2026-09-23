@@ -9,7 +9,8 @@
     "node_modules",
     "dist",
     "src/auth/client-workspace-routing.spec.ts",
-    "src/auth/login-redirect.spec.ts"
+    "src/auth/login-redirect.spec.ts",
+    "src/creator-profile/admin-follower-format.spec.ts"
   ],
   "compilerOptions": {
     "strict": true,

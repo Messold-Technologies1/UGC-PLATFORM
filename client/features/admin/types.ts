@@ -238,6 +238,13 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   approvedByName?: string | null;
   shortlistedByName?: string | null;
   reviewSentByName?: string | null;
+  /**
+   * Follower count from the creator's live Instagram connection. Null when none
+   * is connected, when the connection has expired or been revoked, or when the
+   * last sync reported no count — the column shows a dash for all three.
+   */
+  instagramFollowers?: number | null;
+  instagramUsername?: string | null;
 }
 
 export interface AdminCreatorsListResponseDto {

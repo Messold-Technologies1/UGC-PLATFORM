@@ -180,9 +180,25 @@ export class AdminCreatorListItemDto {
   @ApiPropertyOptional({
     example: 'Bipasha Roy',
     nullable: true,
-    description: 'Admin who sent this creator from Self complete to Awaiting review',
+    description:
+      'Admin who sent this creator from Self complete to Awaiting review',
   })
   reviewSentByName?: string | null;
+
+  @ApiPropertyOptional({
+    example: 12400,
+    nullable: true,
+    description:
+      "Follower count from the creator's live Instagram connection. Null when no Instagram is connected, when the connection has expired or been revoked, or when the last sync did not report a count.",
+  })
+  instagramFollowers?: number | null;
+
+  @ApiPropertyOptional({
+    example: 'jane.creates',
+    nullable: true,
+    description: 'Handle of the live Instagram connection, if any.',
+  })
+  instagramUsername?: string | null;
 
   @ApiProperty()
   submittedAt!: Date;
@@ -213,7 +229,8 @@ export class AdminFeatureCreatorDto {
   @ApiPropertyOptional({
     example: '2026-08-01T00:00:00.000Z',
     nullable: true,
-    description: 'Optional expiry. Null/omitted means featured until manually removed.',
+    description:
+      'Optional expiry. Null/omitted means featured until manually removed.',
   })
   @IsOptional()
   @IsDateString()

@@ -587,7 +587,16 @@ export class BrandProfileService {
     const brand = await this.prisma.brandProfile.findUnique({
       where: { id: brandProfileId },
       include: {
-        user: { select: { id: true, email: true, name: true, status: true } },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            status: true,
+            statusChangedAt: true,
+            statusChangedBy: { select: { email: true, name: true } },
+          },
+        },
         brandCategories: { select: { category: true } },
       },
     });
@@ -607,6 +616,9 @@ export class BrandProfileService {
       logoUrl: brand.logoUrl ?? null,
       categories: brand.brandCategories.map((bc) => bc.category),
       status: brand.user?.status ?? null,
+      statusChangedAt: brand.user?.statusChangedAt ?? null,
+      statusChangedByName: brand.user?.statusChangedBy?.name ?? null,
+      statusChangedByEmail: brand.user?.statusChangedBy?.email ?? null,
       createdAt: brand.createdAt,
       updatedAt: brand.updatedAt,
     };
@@ -688,6 +700,7 @@ export class BrandProfileService {
         id: true,
         deletedAt: true,
         status: true,
+        statusChangedAt: true,
         brandProfile: { select: { id: true } },
       },
     });
@@ -701,15 +714,27 @@ export class BrandProfileService {
 
     const status = active ? UserStatus.ACTIVE : UserStatus.DEACTIVATED;
     if (user.status === status) {
-      // Already in the requested state — report it rather than writing again.
-      return { userId: user.id, status };
+      // Already in the requested state — report it rather than writing again,
+      // and keep the existing stamp so a no-op cannot claim credit for someone
+      // else's change.
+      return {
+        userId: user.id,
+        status,
+        statusChangedAt: user.statusChangedAt,
+      };
     }
 
     const [updated] = await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
-        data: { status },
-        select: { id: true, status: true },
+        // Stamped alongside the status itself, so the two can never disagree
+        // about who put the account in its current state.
+        data: {
+          status,
+          statusChangedAt: new Date(),
+          statusChangedById: adminUserId,
+        },
+        select: { id: true, status: true, statusChangedAt: true },
       }),
       // Drop their sessions so deactivation takes effect immediately rather
       // than when the refresh token happens to expire. Harmless when
@@ -721,7 +746,11 @@ export class BrandProfileService {
       `brand user ${updated.id} set to ${updated.status} by admin ${adminUserId}`,
     );
 
-    return { userId: updated.id, status: updated.status };
+    return {
+      userId: updated.id,
+      status: updated.status,
+      statusChangedAt: updated.statusChangedAt,
+    };
   }
 
   async getBrandProfileForActor(params: {

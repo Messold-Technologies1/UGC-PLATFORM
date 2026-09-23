@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserStatus } from '@prisma/client';
 
 export class BrandUserStatusDto {
@@ -12,4 +12,10 @@ export class BrandUserStatusDto {
       'Account status after the change. Anything other than ACTIVE blocks login, /me and every workspace guard.',
   })
   status!: UserStatus;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'When this status was set.',
+  })
+  statusChangedAt!: Date | null;
 }

@@ -208,6 +208,11 @@ model User {
   phoneOtpLastStatus          String?
   phoneOtpLastPhone           String?
   status                      UserStatus @default(ACTIVE)
+  /// Who last changed `status` (activate/deactivate) and when. Nothing is
+  /// deleted by that flow, so the record lives on the row it describes. Holds
+  /// the most recent change only — there is no per-change history.
+  statusChangedAt             DateTime?
+  statusChangedById           String?    @db.Uuid
   deletedAt                   DateTime?
   createdAt                   DateTime   @default(now())
   updatedAt                   DateTime   @updatedAt
@@ -217,6 +222,8 @@ model User {
   brandAccessRevocationReason String?
 
   primaryRole                 Role?                      @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
+  statusChangedBy             User?                      @relation("UserStatusChangedBy", fields: [statusChangedById], references: [id], onDelete: SetNull)
+  statusChangesMade           User[]                     @relation("UserStatusChangedBy")
   authAccounts                AuthAccount[]
   sessions                    Session[]
   userRoles                   UserRole[]
@@ -241,6 +248,7 @@ model User {
   @@index([status])
   @@index([deletedAt])
   @@index([primaryRoleId])
+  @@index([statusChangedById])
   @@index([brandAccessRevokedAt])
   @@index([phoneOtpLastAttemptAt])
 }

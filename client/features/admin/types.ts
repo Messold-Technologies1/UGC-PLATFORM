@@ -343,6 +343,10 @@ export interface AdminBrandDetailDto {
   logoUrl: string | null;
   categories: BrandCategoryApi[];
   status: string | null;
+  /** When the status was last changed, and by which admin. Latest change only. */
+  statusChangedAt: string | null;
+  statusChangedByName: string | null;
+  statusChangedByEmail: string | null;
   createdAt: string;
   updatedAt: string;
 }

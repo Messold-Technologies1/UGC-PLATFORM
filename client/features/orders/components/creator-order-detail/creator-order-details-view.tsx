@@ -101,7 +101,8 @@ function resolvePhase(order: OrderDetailsPublic): CreatorPhase {
     return "new_request";
   }
   if (status === "DISPUTED") return "disputed";
-  if (["REJECTED", "REFUNDED"].includes(status)) return "cancelled";
+  if (["REJECTED", "REFUNDED", "CANCELLED_CREDITED"].includes(status))
+    return "cancelled";
   if (status === "REVISION_REQUESTED") return "revision";
   if (["DELIVERED", "REVISION_SUBMITTED"].includes(status)) return "delivered";
   if (["ACCEPTED", "CREATOR_PAYMENT_DONE"].includes(status)) return "completed";

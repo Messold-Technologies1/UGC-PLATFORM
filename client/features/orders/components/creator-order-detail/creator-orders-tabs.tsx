@@ -40,7 +40,7 @@ export const TAB_DEFINITIONS = [
   {
     id: "cancelled",
     label: "Cancelled",
-    statuses: ["REJECTED", "REFUNDED"]
+    statuses: ["REJECTED", "REFUNDED", "CANCELLED_CREDITED"]
   },
 ];
 

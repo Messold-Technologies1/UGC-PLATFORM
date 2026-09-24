@@ -587,7 +587,9 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   const brandName = brief.brandName || brand?.brandName || "Brand";
   const orderStatus = order?.status;
   const isCancelled =
-    orderStatus === "REJECTED" || orderStatus === "REFUNDED";
+    orderStatus === "REJECTED" ||
+    orderStatus === "REFUNDED" ||
+    orderStatus === "CANCELLED_CREDITED";
   const canRespond = !isAccepted && !isCancelled;
   const durationLabel = brief.durationBucket
     ? formatDuration(brief.durationBucket)

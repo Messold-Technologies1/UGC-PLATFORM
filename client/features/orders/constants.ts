@@ -193,6 +193,11 @@ export const STATUS_PILL_STYLE: Record<
     bg: "bg-slate-400/10",
     text: "text-slate-500",
   },
+  CANCELLED_CREDITED: {
+    dot: "bg-slate-400",
+    bg: "bg-slate-400/10",
+    text: "text-slate-500",
+  },
 };
 
 export const SPINE_COLOR: Record<string, string> = {

@@ -160,6 +160,15 @@ export function getDeliveryDeadlineCardMeta(
     };
   }
 
+  if (order.status === "CANCELLED_CREDITED") {
+    return {
+      value:
+        formatDate(order.cancelledAt) ?? formatDate(order.updatedAt) ?? "—",
+      label: "Credited on",
+      showBadge: false,
+    };
+  }
+
   if (order.status === "CANCELLED" || order.status === "ADMIN_CANCELLED") {
     return {
       value: formatDate(order.updatedAt) ?? "—",

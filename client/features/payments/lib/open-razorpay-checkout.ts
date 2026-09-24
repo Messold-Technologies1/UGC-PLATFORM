@@ -72,6 +72,8 @@ export type OpenRazorpayCheckoutParams = {
   notes?: Record<string, string>;
   onSuccess: (orderId: string) => void;
   onDismiss?: () => void;
+  /** Called when Razorpay reports a failed payment (distinct from a dismiss). */
+  onFailure?: () => void;
 };
 
 export async function openRazorpayCheckout({
@@ -81,6 +83,7 @@ export async function openRazorpayCheckout({
   notes,
   onSuccess,
   onDismiss,
+  onFailure,
 }: OpenRazorpayCheckoutParams): Promise<void> {
   await loadRazorpayCheckoutScript();
 
@@ -106,7 +109,13 @@ export async function openRazorpayCheckout({
       ...notes,
     },
     retry: {
-      enabled: true,
+      // When store credit was reserved for this order, a failed payment returns
+      // the credit and closes the order server-side, so an in-modal retry would
+      // pay into a dead order. Disable retry for credit orders — the brand
+      // re-checks out fresh (which reserves credit again).
+      enabled: !(
+        session.creditsAppliedPaise && session.creditsAppliedPaise > 0
+      ),
       max_count: 1,
     },
     theme: {
@@ -131,6 +140,7 @@ export async function openRazorpayCheckout({
   });
 
   razorpay.on("payment.failed", (response) => {
+    onFailure?.();
     onDismiss?.();
     toast.error("Payment failed", {
       description:

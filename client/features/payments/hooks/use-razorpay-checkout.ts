@@ -152,6 +152,15 @@ export function useRazorpayCheckout({
         onDismiss: () => {
           setIsProcessing(false);
         },
+        onFailure: () => {
+          // A failed credit payment returns the credit and closes the order
+          // server-side, so drop the cached session — a retry starts a fresh
+          // checkout (which reserves the credit again) — and refresh the balance.
+          setIsProcessing(false);
+          clearStoredCheckoutSession(selectionSignature);
+          setCachedSession(null);
+          invalidateBrandWallet(queryClient);
+        },
       });
     },
     [

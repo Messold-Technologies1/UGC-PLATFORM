@@ -515,6 +515,17 @@ export function AdminCreatorListRow({
               <InstagramFollowers creator={creator} />
             </RowMetric>
 
+            <RowMetric label="Instagram" className="min-w-32">
+              <InstagramProfileLink creator={creator} />
+            </RowMetric>
+
+            <RowMetric label="Starting Price">
+              <div className="flex items-center gap-1">
+                <Banknote className="hidden size-3 text-muted-foreground lg:block" />
+                <span>{formatInrPrice(creator.startingPrice)}</span>
+              </div>
+            </RowMetric>
+
             <RowMetric label={dateColumn.label}>
               <span>{dateColumn.value}</span>
             </RowMetric>
@@ -549,17 +560,6 @@ export function AdminCreatorListRow({
                 </span>
               </RowMetric>
             ) : null}
-
-            <RowMetric label="Instagram" className="min-w-32">
-              <InstagramProfileLink creator={creator} />
-            </RowMetric>
-
-            <RowMetric label="Starting Price">
-              <div className="flex items-center gap-1">
-                <Banknote className="hidden size-3 text-muted-foreground lg:block" />
-                <span>{formatInrPrice(creator.startingPrice)}</span>
-              </div>
-            </RowMetric>
 
             {showFeatureControls ? (
               <RowMetric label="Featured Rank" className="min-w-[140px]">

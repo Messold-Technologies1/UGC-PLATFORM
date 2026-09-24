@@ -11,7 +11,6 @@ import {
   SendHorizontal,
   Sparkles,
   Instagram,
-  Star,
   UserX,
   Video,
 } from "lucide-react";
@@ -130,6 +129,61 @@ function CreatorAvatar({ creator }: { creator: AdminCreatorListItemDto }) {
     <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-border bg-primary/10 font-headline text-lg font-bold text-primary">
       {initials || creator.displayName.charAt(0).toUpperCase()}
     </div>
+  );
+}
+
+function instagramProfileHref(creator: AdminCreatorListItemDto): string | null {
+  const raw = creator.instagramUrl?.trim();
+  if (raw) {
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^(www\.)?instagram\.com\//i.test(raw)) return `https://${raw}`;
+    const handle = raw.replace(/^@/, "").replace(/^\/+/, "");
+    return handle ? `https://www.instagram.com/${handle}` : null;
+  }
+  const username = creator.instagramUsername?.trim();
+  return username ? `https://www.instagram.com/${username}` : null;
+}
+
+function instagramProfileLabel(
+  creator: AdminCreatorListItemDto,
+  href: string,
+): string {
+  const username = creator.instagramUsername?.trim().replace(/^@/, "");
+  if (username) return `@${username}`;
+  try {
+    const handle = new URL(href).pathname.split("/").filter(Boolean)[0];
+    if (handle) return `@${decodeURIComponent(handle)}`;
+  } catch {
+    // fall through
+  }
+  return (
+    creator.instagramUrl?.trim().replace(/^https?:\/\/(www\.)?/i, "") ??
+    "Open profile"
+  );
+}
+
+function InstagramProfileLink({
+  creator,
+}: {
+  creator: AdminCreatorListItemDto;
+}) {
+  const href = instagramProfileHref(creator);
+  if (!href) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => event.stopPropagation()}
+      title={href}
+      className="inline-flex max-w-40 items-center gap-1.5 text-sm font-bold text-foreground hover:text-primary"
+    >
+      <Instagram className="size-3 shrink-0 text-muted-foreground" />
+      <span className="truncate">{instagramProfileLabel(creator, href)}</span>
+    </a>
   );
 }
 
@@ -339,8 +393,6 @@ export function AdminCreatorListRow({
     isSendingForReview ||
     isFeaturing ||
     isUnfeaturing;
-  const rating = Number.parseFloat(creator.avgRating ?? "0");
-  const reviewCount = creator.reviewCount ?? 0;
   const dateColumn = getRowDateColumn(creator, segment);
 
   useEffect(() => {
@@ -431,6 +483,17 @@ export function AdminCreatorListRow({
               <InstagramFollowers creator={creator} />
             </RowMetric>
 
+            <RowMetric label="Instagram" className="min-w-32">
+              <InstagramProfileLink creator={creator} />
+            </RowMetric>
+
+            <RowMetric label="Starting Price">
+              <div className="flex items-center gap-1">
+                <Banknote className="hidden size-3 text-muted-foreground lg:block" />
+                <span>{formatInrPrice(creator.startingPrice)}</span>
+              </div>
+            </RowMetric>
+
             <RowMetric label={dateColumn.label}>
               <span>{dateColumn.value}</span>
             </RowMetric>
@@ -450,25 +513,6 @@ export function AdminCreatorListRow({
                 </span>
               </RowMetric>
             ) : null}
-
-            <RowMetric label="Rating">
-              <div className="flex items-center gap-1">
-                <Star className="size-3 fill-yellow-500 text-yellow-500" />
-                <span>{rating > 0 ? rating.toFixed(1) : "New"}</span>
-                {reviewCount > 0 ? (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({reviewCount})
-                  </span>
-                ) : null}
-              </div>
-            </RowMetric>
-
-            <RowMetric label="Starting Price">
-              <div className="flex items-center gap-1">
-                <Banknote className="hidden size-3 text-muted-foreground lg:block" />
-                <span>{formatInrPrice(creator.startingPrice)}</span>
-              </div>
-            </RowMetric>
 
             {showFeatureControls ? (
               <RowMetric label="Featured Rank" className="min-w-[140px]">

@@ -509,7 +509,10 @@ function getStepPresentation(
     case "Cancelled":
       return {
         title: "Cancelled",
-        description: "This order was cancelled. Any amount paid will be refunded.",
+        description:
+          order.status === "CANCELLED_CREDITED"
+            ? "This order was cancelled and the amount was added to your GoCollab credits. Use it at checkout, or request a refund from the Credits page."
+            : "This order was cancelled. Any amount paid will be refunded.",
       };
     default:
       return { title: step.label };

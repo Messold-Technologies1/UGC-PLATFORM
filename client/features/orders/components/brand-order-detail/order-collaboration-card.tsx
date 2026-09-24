@@ -67,6 +67,12 @@ export function OrderCollaborationCard({
       ? STATUS_LABELS.ACCEPTED
       : STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] ?? order.status;
   const canBuyUsageRights = COMPLETED_BUY_USAGE_STATUSES.has(order.status);
+  // Show the true amount charged (package + add-ons − any discount) rather than
+  // the base-package snapshot, so add-on-heavy and credited orders read right.
+  const orderValueLabel =
+    order.expectedAmountPaise && order.expectedAmountPaise > 0
+      ? `₹${Math.round(order.expectedAmountPaise / 100).toLocaleString("en-IN")}`
+      : formatCurrency(order.priceAmountSnapshot, order.currency);
   const deadlineMeta = getDeliveryDeadlineCardMeta(order);
   const timelineLabel =
     order.status === "REJECTED" ||
@@ -140,7 +146,7 @@ export function OrderCollaborationCard({
             Order value
           </div>
           <div className="mt-0.5 font-heading text-[21px] font-extrabold tracking-tight leading-tight">
-            {formatCurrency(order.priceAmountSnapshot, order.currency)}
+            {orderValueLabel}
           </div>
         </div>
 
@@ -150,7 +156,7 @@ export function OrderCollaborationCard({
               Order value
             </div>
             <div className="font-heading text-lg font-extrabold leading-tight">
-              {formatCurrency(order.priceAmountSnapshot, order.currency)}
+              {orderValueLabel}
             </div>
           </div>
 

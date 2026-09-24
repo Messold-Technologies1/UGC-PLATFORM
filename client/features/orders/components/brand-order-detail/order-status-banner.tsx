@@ -216,6 +216,26 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
     displayDescription = `${lead}. Reason: “${order.cancellationReason}”. Any amount paid will be refunded.`;
   }
 
+  if (order.status === "CANCELLED_CREDITED") {
+    const lead =
+      order.cancelledBy === "CREATOR"
+        ? `${creatorName} rejected this order`
+        : order.cancelledBy === "BRAND"
+          ? "You cancelled this order"
+          : "This order was cancelled";
+    displayTitle =
+      order.cancelledBy === "CREATOR"
+        ? "Order rejected — amount added to your credits"
+        : "Order cancelled — amount added to your credits";
+    const amount = order.expectedAmountPaise
+      ? `₹${Math.round(order.expectedAmountPaise / 100).toLocaleString("en-IN")}`
+      : "The amount";
+    const reasonPart = order.cancellationReason
+      ? ` Reason: “${order.cancellationReason}”.`
+      : "";
+    displayDescription = `${lead}.${reasonPart} ${amount} has been added to your GoCollab credits — use it at checkout, or request a refund from the Credits page.`;
+  }
+
   return (
     <div
       className={cn(

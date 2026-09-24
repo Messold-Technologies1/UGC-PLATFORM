@@ -4,64 +4,26 @@ import { nextApprovalStatusOnCompletion } from './creator-listing-state.util';
 describe('nextApprovalStatusOnCompletion', () => {
   const profileFirst = true;
 
-  it('Building → Shortlisted → complete → Awaiting review', () => {
-    expect(
-      nextApprovalStatusOnCompletion({
-        wasComplete: false,
-        completeProfile: true,
-        currentStatus: ApprovalStatus.SHORTLISTED,
-        wasShortlisted: true,
-        profileFirst,
-      }),
-    ).toBe(ApprovalStatus.PENDING);
-  });
-
-  it('still moves a shortlisted creator who is already marked complete', () => {
-    expect(
-      nextApprovalStatusOnCompletion({
-        wasComplete: true,
-        completeProfile: true,
-        currentStatus: ApprovalStatus.SHORTLISTED,
-        wasShortlisted: true,
-        profileFirst,
-      }),
-    ).toBe(ApprovalStatus.PENDING);
-  });
-
-  it('repairs a shortlisted creator who landed in Self complete', () => {
-    expect(
-      nextApprovalStatusOnCompletion({
-        wasComplete: true,
-        completeProfile: true,
-        currentStatus: ApprovalStatus.SELF_COMPLETED,
-        wasShortlisted: true,
-        profileFirst,
-      }),
-    ).toBe(ApprovalStatus.PENDING);
-  });
-
-  it('Building → complete (never shortlisted) → Self complete', () => {
+  it('Building → complete → Self complete', () => {
     expect(
       nextApprovalStatusOnCompletion({
         wasComplete: false,
         completeProfile: true,
         currentStatus: ApprovalStatus.PENDING,
-        wasShortlisted: false,
         profileFirst,
       }),
     ).toBe(ApprovalStatus.SELF_COMPLETED);
   });
 
-  it('unshortlisted creators who then complete go to Self complete', () => {
+  it('leaves a still-incomplete Building profile in place', () => {
     expect(
       nextApprovalStatusOnCompletion({
         wasComplete: false,
-        completeProfile: true,
+        completeProfile: false,
         currentStatus: ApprovalStatus.PENDING,
-        wasShortlisted: false,
         profileFirst,
       }),
-    ).toBe(ApprovalStatus.SELF_COMPLETED);
+    ).toBeNull();
   });
 
   it('does not bounce Awaiting review back into Self complete', () => {
@@ -70,46 +32,44 @@ describe('nextApprovalStatusOnCompletion', () => {
         wasComplete: true,
         completeProfile: true,
         currentStatus: ApprovalStatus.PENDING,
-        wasShortlisted: true,
         profileFirst,
       }),
     ).toBeNull();
   });
 
-  it('leaves incomplete shortlisted creators on the shortlist', () => {
+  it('leaves a Self complete profile where it is', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: true,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.SELF_COMPLETED,
+        profileFirst,
+      }),
+    ).toBeNull();
+  });
+
+  it('never sends a completion straight into Awaiting review', () => {
+    // The shortlist was the only path that skipped Self complete. Without it,
+    // a first completion in profile_first always lands in Self complete.
     expect(
       nextApprovalStatusOnCompletion({
         wasComplete: false,
-        completeProfile: false,
-        currentStatus: ApprovalStatus.SHORTLISTED,
-        wasShortlisted: true,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.PENDING,
         profileFirst,
       }),
-    ).toBeNull();
+    ).not.toBe(ApprovalStatus.PENDING);
   });
 
-  it('Withdrawn → complete (never shortlisted) → Self complete', () => {
+  it('Withdrawn → complete → Self complete', () => {
     expect(
       nextApprovalStatusOnCompletion({
         wasComplete: false,
         completeProfile: true,
         currentStatus: ApprovalStatus.WITHDRAWN,
-        wasShortlisted: false,
         profileFirst,
       }),
     ).toBe(ApprovalStatus.SELF_COMPLETED);
-  });
-
-  it('Withdrawn → complete (was shortlisted) → Awaiting review', () => {
-    expect(
-      nextApprovalStatusOnCompletion({
-        wasComplete: false,
-        completeProfile: true,
-        currentStatus: ApprovalStatus.WITHDRAWN,
-        wasShortlisted: true,
-        profileFirst,
-      }),
-    ).toBe(ApprovalStatus.PENDING);
   });
 
   it('Withdrawn → complete in approval_first → Awaiting review', () => {
@@ -118,7 +78,6 @@ describe('nextApprovalStatusOnCompletion', () => {
         wasComplete: false,
         completeProfile: true,
         currentStatus: ApprovalStatus.WITHDRAWN,
-        wasShortlisted: false,
         profileFirst: false,
       }),
     ).toBe(ApprovalStatus.PENDING);
@@ -130,7 +89,39 @@ describe('nextApprovalStatusOnCompletion', () => {
         wasComplete: false,
         completeProfile: false,
         currentStatus: ApprovalStatus.WITHDRAWN,
-        wasShortlisted: false,
+        profileFirst,
+      }),
+    ).toBeNull();
+  });
+
+  it('approval_first keeps a first completion in the single PENDING queue', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: false,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.PENDING,
+        profileFirst: false,
+      }),
+    ).toBeNull();
+  });
+
+  it('leaves an approved creator alone when they complete', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: false,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.APPROVED,
+        profileFirst,
+      }),
+    ).toBeNull();
+  });
+
+  it('leaves a rejected creator alone when they complete', () => {
+    expect(
+      nextApprovalStatusOnCompletion({
+        wasComplete: false,
+        completeProfile: true,
+        currentStatus: ApprovalStatus.REJECTED,
         profileFirst,
       }),
     ).toBeNull();

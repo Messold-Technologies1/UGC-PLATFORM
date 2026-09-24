@@ -387,8 +387,7 @@ export function buildAdminCreatorsListWhere(
       break;
     case AdminCreatorListSegment.INCOMPLETE:
       // profile_first "Building profile": incomplete profiles that are not
-      // rejected or shortlisted (PENDING or APPROVED). Rejected incomplete →
-      // NON_APPROVED. Shortlisted incomplete → SHORTLISTED.
+      // rejected (PENDING or APPROVED). Rejected incomplete → NON_APPROVED.
       // approval_first: approved creators who haven't finished go-live.
       segmentClause = profileFirst
         ? {
@@ -404,15 +403,9 @@ export function buildAdminCreatorsListWhere(
             creatorApproval: { status: ApprovalStatus.APPROVED },
           };
       break;
-    case AdminCreatorListSegment.SHORTLISTED:
-      segmentClause = {
-        completeProfile: false,
-        creatorApproval: { status: ApprovalStatus.SHORTLISTED },
-      };
-      break;
     case AdminCreatorListSegment.SELF_COMPLETED:
-      // profile_first only: creators who finished their profile without ever
-      // being shortlisted. They wait here until an admin sends them for review.
+      // profile_first only: creators who finished their profile on their own.
+      // They wait here until an admin sends them for review.
       segmentClause = {
         completeProfile: true,
         creatorApproval: { status: ApprovalStatus.SELF_COMPLETED },

@@ -158,7 +158,6 @@ export type CreatorProfileItemApi = {
     | "PENDING"
     | "APPROVED"
     | "REJECTED"
-    | "SHORTLISTED"
     | "SELF_COMPLETED"
     | "WITHDRAWN";
   /** One-way Go-Live latch: true once every requirement has been met. */

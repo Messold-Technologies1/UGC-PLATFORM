@@ -9,7 +9,6 @@ export type CreatorApprovalStatus =
   | "PENDING"
   | "APPROVED"
   | "REJECTED"
-  | "SHORTLISTED"
   | "SELF_COMPLETED"
   | "WITHDRAWN";
 

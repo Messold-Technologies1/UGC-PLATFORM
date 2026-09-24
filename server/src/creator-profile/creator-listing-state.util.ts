@@ -13,12 +13,12 @@ import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.u
 /**
  * Where a creator lands when their profile is (or becomes) complete.
  *
- *   SHORTLISTED → PENDING (Awaiting review) — even if they already completed,
- *     so a backfill that latched completeProfile cannot leave them shortlisted
- *     or dump them into Self complete.
+ * Every creator takes the same path — Building profile → Self complete →
+ * Awaiting review — so completion never jumps a profile into the review queue.
+ *
  *   WITHDRAWN → SELF_COMPLETED (profile_first) / PENDING (approval_first) on
  *     resubmission — a withdrawn profile lands wherever a first-time completion
- *     would, and a still-shortlisted one goes straight to Awaiting review.
+ *     would.
  *   PENDING → SELF_COMPLETED on the first completion only, and only in
  *     profile_first. Approval_first keeps a single PENDING review queue.
  */
@@ -26,29 +26,14 @@ export function nextApprovalStatusOnCompletion({
   wasComplete,
   completeProfile,
   currentStatus,
-  wasShortlisted,
   profileFirst,
 }: {
   wasComplete: boolean;
   completeProfile: boolean;
   currentStatus: ApprovalStatus | undefined;
-  wasShortlisted: boolean;
   profileFirst: boolean;
 }): ApprovalStatus | null {
   if (!completeProfile) return null;
-  // Shortlisted (now or still flagged) skip Self complete and wait in
-  // Awaiting review. Unshortlist clears wasShortlisted so they can land in
-  // Self complete like anyone else from Building profile.
-  if (currentStatus === ApprovalStatus.SHORTLISTED) {
-    return ApprovalStatus.PENDING;
-  }
-  if (
-    wasShortlisted &&
-    (currentStatus === ApprovalStatus.SELF_COMPLETED ||
-      currentStatus === ApprovalStatus.WITHDRAWN)
-  ) {
-    return ApprovalStatus.PENDING;
-  }
   // A withdrawn profile completing again is a resubmission: it returns to the
   // same place a first completion would — Self complete (profile_first) or the
   // review queue (approval_first).
@@ -113,7 +98,7 @@ export async function recomputeCreatorListingState(
       shippingAddress: true,
       completeProfile: true,
       isListed: true,
-      creatorApproval: { select: { status: true, wasShortlisted: true } },
+      creatorApproval: { select: { status: true } },
       facetSelections: {
         select: { rank: true, option: { select: { dimension: true } } },
       },
@@ -205,7 +190,6 @@ export async function recomputeCreatorListingState(
     wasComplete,
     completeProfile,
     currentStatus,
-    wasShortlisted: profile.creatorApproval?.wasShortlisted === true,
     profileFirst: isProfileFirstOnboardingMode(
       process.env.CREATOR_ONBOARDING_MODE,
     ),
@@ -216,8 +200,7 @@ export async function recomputeCreatorListingState(
     completeProfile;
 
   // Latch completeProfile before flipping approval so a concurrent Go Live
-  // cannot read PENDING + still-incomplete and shove a shortlisted creator
-  // into Self complete.
+  // cannot read PENDING + still-incomplete and re-run the completion flip.
   if (
     completeProfile !== profile.completeProfile ||
     isListed !== profile.isListed

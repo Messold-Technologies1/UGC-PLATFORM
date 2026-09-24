@@ -11,8 +11,8 @@
  * three-email version, whose copy this campaign replaces.
  *
  * Cohort = the admin "Building profile" segment: completeProfile = false with
- * approval PENDING or APPROVED. REJECTED and SHORTLISTED creators are left
- * alone — neither should be told to go finish their profile. A signup-date
+ * approval PENDING or APPROVED. REJECTED creators are left alone — they should
+ * not be told to go finish their profile. A signup-date
  * cutoff (default 90 days) keeps long-dormant addresses out of the send, since
  * complaints and hard bounces from dead addresses cost sender reputation for
  * every other email the platform sends.

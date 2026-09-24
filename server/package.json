@@ -31,7 +31,6 @@
     "prisma:backfill:creator-public-slug": "ts-node prisma/backfill-creator-public-slug.ts",
     "prisma:backfill:creator-complete-profile": "ts-node prisma/backfill-creator-complete-profile.ts",
     "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts",
-    "prisma:backfill:shortlisted-awaiting-review": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-shortlisted-awaiting-review.ts",
     "prisma:backfill:building-profile-self-complete": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-building-profile-self-complete.ts",
     "prisma:backfill:go-live-policies-accepted": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-go-live-policies-accepted.ts",
     "prisma:backfill:phone-verified": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-phone-verified.ts",

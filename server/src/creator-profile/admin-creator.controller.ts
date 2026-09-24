@@ -132,7 +132,7 @@ export class AdminCreatorController {
   @Get()
   @ApiOperation({
     summary:
-      'List creators for admin (segment: pending, approved, non_approved, incomplete, shortlisted, self_completed, listed, featured)',
+      'List creators for admin (segment: pending, approved, non_approved, incomplete, self_completed, withdrawn, listed, featured)',
   })
   @ApiOkResponse({ type: AdminCreatorsListResponseDto })
   async listCreators(
@@ -200,37 +200,6 @@ export class AdminCreatorController {
       req.user.id,
       id,
       dto.rejectionReason,
-    );
-  }
-
-  @Patch(':id/shortlist')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      'Shortlist an incomplete (building) creator profile. No email is sent.',
-  })
-  @ApiOkResponse({ type: CreatorProfileResponseDto })
-  async shortlistCreator(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.shortlistCreatorProfile(req.user.id, id);
-  }
-
-  @Patch(':id/unshortlist')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      'Remove a creator from the shortlist (back to building profile). No email is sent.',
-  })
-  @ApiOkResponse({ type: CreatorProfileResponseDto })
-  async unshortlistCreator(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.unshortlistCreatorProfile(
-      req.user.id,
-      id,
     );
   }
 

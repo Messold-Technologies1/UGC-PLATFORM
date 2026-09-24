@@ -10,7 +10,6 @@ export type ApprovalStatus =
   | "PENDING"
   | "APPROVED"
   | "REJECTED"
-  | "SHORTLISTED"
   | "SELF_COMPLETED"
   | "WITHDRAWN";
 
@@ -185,7 +184,6 @@ export type AdminCreatorListSegment =
   | "approved"
   | "non_approved"
   | "incomplete"
-  | "shortlisted"
   | "self_completed"
   | "withdrawn"
   | "listed"
@@ -200,7 +198,6 @@ export interface AdminCreatorSegmentCountsDto {
   approved: number;
   nonApproved: number;
   incomplete: number;
-  shortlisted: number;
   selfCompleted: number;
   withdrawn: number;
   listed: number;
@@ -236,7 +233,6 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   startingPrice?: string | null;
   onLocationAvailable: boolean;
   approvedByName?: string | null;
-  shortlistedByName?: string | null;
   reviewSentByName?: string | null;
   /**
    * Follower count from the creator's live Instagram connection. Null when none

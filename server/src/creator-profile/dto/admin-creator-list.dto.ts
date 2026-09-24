@@ -20,7 +20,6 @@ export enum AdminCreatorListSegment {
   APPROVED = 'approved',
   NON_APPROVED = 'non_approved',
   INCOMPLETE = 'incomplete',
-  SHORTLISTED = 'shortlisted',
   SELF_COMPLETED = 'self_completed',
   WITHDRAWN = 'withdrawn',
   LISTED = 'listed',
@@ -173,13 +172,6 @@ export class AdminCreatorListItemDto {
   @ApiPropertyOptional({
     example: 'Bipasha Roy',
     nullable: true,
-    description: 'Admin who shortlisted this creator',
-  })
-  shortlistedByName?: string | null;
-
-  @ApiPropertyOptional({
-    example: 'Bipasha Roy',
-    nullable: true,
     description:
       'Admin who sent this creator from Self complete to Awaiting review',
   })
@@ -258,9 +250,6 @@ export class AdminCreatorSegmentCountsDto {
 
   @ApiProperty({ example: 12 })
   incomplete!: number;
-
-  @ApiProperty({ example: 8 })
-  shortlisted!: number;
 
   @ApiProperty({ example: 6 })
   selfCompleted!: number;

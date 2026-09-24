@@ -76,10 +76,7 @@ import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
-import {
-  getCreatorOnboardingMode,
-  isProfileFirstOnboardingMode,
-} from '../config/creator-onboarding-mode';
+import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
@@ -251,7 +248,6 @@ const adminCreatorListInclude = {
   creatorApproval: {
     include: {
       approvedBy: { select: { name: true, email: true } },
-      shortlistedBy: { select: { name: true, email: true } },
       sentForReviewBy: { select: { name: true, email: true } },
     },
   },
@@ -1773,9 +1769,6 @@ export class CreatorProfileService {
       approvedByName: adminActorDisplayName(
         profile.creatorApproval?.approvedBy,
       ),
-      shortlistedByName: adminActorDisplayName(
-        profile.creatorApproval?.shortlistedBy,
-      ),
       reviewSentByName: adminActorDisplayName(
         profile.creatorApproval?.sentForReviewBy,
       ),
@@ -1794,10 +1787,7 @@ export class CreatorProfileService {
     status: ApprovalStatus,
     approval: { approvedAt?: Date | null; updatedAt?: Date | null } | null,
   ): Date | null {
-    if (
-      status === ApprovalStatus.APPROVED ||
-      status === ApprovalStatus.SHORTLISTED
-    ) {
+    if (status === ApprovalStatus.APPROVED) {
       return approval?.approvedAt ?? null;
     }
     if (status === ApprovalStatus.SELF_COMPLETED) {
@@ -1842,47 +1832,35 @@ export class CreatorProfileService {
         ? [{ createdAt: 'asc' }]
         : query.segment === AdminCreatorListSegment.NON_APPROVED
           ? [{ creatorApproval: { approvedAt: 'desc' } }]
-          : query.segment === AdminCreatorListSegment.SHORTLISTED
-            ? [
-                {
-                  creatorApproval: {
-                    approvedAt: { sort: 'desc', nulls: 'last' },
-                  },
-                },
-                { createdAt: 'desc' },
-              ]
-            : query.segment === AdminCreatorListSegment.SELF_COMPLETED
-              ? // Sort by when they actually completed (approval row updates on
-                // the PENDING -> SELF_COMPLETED flip). approvedAt is often null
-                // for older self-completes, so using it left Aug signups under
-                // Jul rows that happened to have a leftover approvedAt.
+          : query.segment === AdminCreatorListSegment.SELF_COMPLETED
+            ? // Sort by when they actually completed (approval row updates on
+              // the PENDING -> SELF_COMPLETED flip). approvedAt is often null
+              // for older self-completes, so using it left Aug signups under
+              // Jul rows that happened to have a leftover approvedAt.
+              [{ creatorApproval: { updatedAt: 'desc' } }, { createdAt: 'desc' }]
+            : query.segment === AdminCreatorListSegment.WITHDRAWN
+              ? // Most recently withdrawn first, so admins see fresh
+                // withdrawals at the top.
                 [
-                  { creatorApproval: { updatedAt: 'desc' } },
-                  { createdAt: 'desc' },
+                  {
+                    creatorApproval: {
+                      withdrawnAt: { sort: 'desc', nulls: 'last' },
+                    },
+                  },
+                  { updatedAt: 'desc' },
                 ]
-              : query.segment === AdminCreatorListSegment.WITHDRAWN
-                ? // Most recently withdrawn first, so admins see fresh
-                  // withdrawals at the top.
+              : query.segment === AdminCreatorListSegment.LISTED
+                ? // Newly listed creators must surface first. Sorting by
+                  // profile createdAt buried older signups after List.
                   [
                     {
                       creatorApproval: {
-                        withdrawnAt: { sort: 'desc', nulls: 'last' },
+                        approvedAt: { sort: 'desc', nulls: 'last' },
                       },
                     },
                     { updatedAt: 'desc' },
                   ]
-                : query.segment === AdminCreatorListSegment.LISTED
-                  ? // Newly listed creators must surface first. Sorting by
-                    // profile createdAt buried older signups after List.
-                    [
-                      {
-                        creatorApproval: {
-                          approvedAt: { sort: 'desc', nulls: 'last' },
-                        },
-                      },
-                      { updatedAt: 'desc' },
-                    ]
-                  : [{ createdAt: 'desc' }];
+                : [{ createdAt: 'desc' }];
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
@@ -2228,7 +2206,6 @@ export class CreatorProfileService {
       AdminCreatorListSegment.APPROVED,
       AdminCreatorListSegment.NON_APPROVED,
       AdminCreatorListSegment.INCOMPLETE,
-      AdminCreatorListSegment.SHORTLISTED,
       AdminCreatorListSegment.SELF_COMPLETED,
       AdminCreatorListSegment.WITHDRAWN,
       AdminCreatorListSegment.LISTED,
@@ -2257,10 +2234,9 @@ export class CreatorProfileService {
       approved: counts[1],
       nonApproved: counts[2],
       incomplete: counts[3],
-      shortlisted: counts[4],
-      selfCompleted: counts[5],
-      withdrawn: counts[6],
-      listed: counts[7],
+      selfCompleted: counts[4],
+      withdrawn: counts[5],
+      listed: counts[6],
       featured: featuredCount,
     };
   }
@@ -2482,12 +2458,6 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator not found');
     }
 
-    if (profile.creatorApproval?.status === ApprovalStatus.SHORTLISTED) {
-      throw new BadRequestException(
-        'Shortlisted creators cannot be approved until they complete their profile and enter awaiting review',
-      );
-    }
-
     if (profile.creatorApproval?.status === ApprovalStatus.SELF_COMPLETED) {
       throw new BadRequestException(
         'Self completed profiles must be sent for review before they can be listed',
@@ -2557,138 +2527,6 @@ export class CreatorProfileService {
     );
 
     this.creatorProfileMail.notifyApproved(creatorProfileId);
-
-    return this.mapCreatorProfileResponseDto(updated);
-  }
-
-  async shortlistCreatorProfile(
-    adminUserId: string,
-    creatorProfileId: string,
-  ): Promise<CreatorProfileResponseDto> {
-    const profile = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      select: {
-        id: true,
-        completeProfile: true,
-        creatorApproval: { select: { status: true } },
-      },
-    });
-    if (!profile) {
-      throw new NotFoundException('Creator not found');
-    }
-    if (profile.completeProfile) {
-      throw new BadRequestException(
-        'Only incomplete (building) profiles can be shortlisted',
-      );
-    }
-
-    const status = profile.creatorApproval?.status ?? ApprovalStatus.PENDING;
-    if (status === ApprovalStatus.REJECTED) {
-      throw new BadRequestException(
-        'Rejected creators cannot be shortlisted — shortlist only from Building profile',
-      );
-    }
-    if (status === ApprovalStatus.SHORTLISTED) {
-      throw new BadRequestException('Creator is already shortlisted');
-    }
-    if (
-      status !== ApprovalStatus.PENDING &&
-      status !== ApprovalStatus.APPROVED
-    ) {
-      throw new BadRequestException(
-        'Only building-profile creators can be shortlisted',
-      );
-    }
-
-    await this.prisma.creatorApproval.upsert({
-      where: { creatorId: creatorProfileId },
-      create: {
-        creatorId: creatorProfileId,
-        status: ApprovalStatus.SHORTLISTED,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-        shortlistedById: adminUserId,
-        wasShortlisted: true,
-      },
-      update: {
-        status: ApprovalStatus.SHORTLISTED,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-        shortlistedById: adminUserId,
-        rejectionReason: null,
-        wasShortlisted: true,
-      },
-    });
-
-    await recomputeCreatorListingState(this.prisma, creatorProfileId);
-
-    const updated = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      include: creatorProfileWithRelationsInclude as any,
-    });
-    if (!updated) {
-      throw new Error('Creator profile load failed');
-    }
-
-    this.logger.log(
-      `[admin-action] SHORTLIST creator=${creatorProfileId} by admin=${adminUserId} ` +
-        `from=${status} to=${ApprovalStatus.SHORTLISTED}`,
-    );
-
-    return this.mapCreatorProfileResponseDto(updated);
-  }
-
-  async unshortlistCreatorProfile(
-    adminUserId: string,
-    creatorProfileId: string,
-  ): Promise<CreatorProfileResponseDto> {
-    const profile = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      select: {
-        id: true,
-        creatorApproval: { select: { status: true } },
-      },
-    });
-    if (!profile) {
-      throw new NotFoundException('Creator not found');
-    }
-    if (profile.creatorApproval?.status !== ApprovalStatus.SHORTLISTED) {
-      throw new BadRequestException('Creator is not shortlisted');
-    }
-
-    // profile_first Building = PENDING incomplete; approval_first Incomplete = APPROVED incomplete
-    const unshortlistedStatus =
-      getCreatorOnboardingMode(process.env.CREATOR_ONBOARDING_MODE) ===
-      'profile_first'
-        ? ApprovalStatus.PENDING
-        : ApprovalStatus.APPROVED;
-
-    await this.prisma.creatorApproval.update({
-      where: { creatorId: creatorProfileId },
-      data: {
-        status: unshortlistedStatus,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-        rejectionReason: null,
-        wasShortlisted: false,
-      },
-    });
-
-    await recomputeCreatorListingState(this.prisma, creatorProfileId);
-
-    const updated = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      include: creatorProfileWithRelationsInclude as any,
-    });
-    if (!updated) {
-      throw new Error('Creator profile load failed');
-    }
-
-    this.logger.log(
-      `[admin-action] UNSHORTLIST creator=${creatorProfileId} by admin=${adminUserId} ` +
-        `from=${ApprovalStatus.SHORTLISTED} to=${unshortlistedStatus} ` +
-        `(back to Building profile)`,
-    );
 
     return this.mapCreatorProfileResponseDto(updated);
   }
@@ -2819,8 +2657,7 @@ export class CreatorProfileService {
       // reminder stamps so this withdraw starts a fresh reminder cycle. Un-latch
       // completeProfile so the profile is editable again. isListed is already
       // false and stays false. On the next Go Live the profile returns to
-      // SELF_COMPLETED (or Awaiting review for shortlisted creators) like a
-      // first submission.
+      // SELF_COMPLETED like a first submission.
       await tx.creatorApproval.update({
         where: { creatorId: creatorProfileId },
         data: {

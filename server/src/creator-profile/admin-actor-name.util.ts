@@ -1,4 +1,4 @@
-/** Name shown in the admin creator list for who shortlisted / sent / approved. */
+/** Name shown in the admin creator list for who sent for review / approved. */
 export function adminActorDisplayName(user?: {
   name?: string | null;
   email?: string | null;

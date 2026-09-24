@@ -41,7 +41,6 @@ export function useWalletBalance(enabled = true) {
     queryKey: walletBalanceQueryKey,
     queryFn: getWalletBalance,
     enabled,
-    staleTime: 30_000,
   });
 }
 
@@ -61,7 +60,9 @@ export function useWalletWithdrawals(enabled = true) {
   });
 }
 
-function invalidateBrandWallet(qc: ReturnType<typeof useQueryClient>) {
+export function invalidateBrandWallet(
+  qc: ReturnType<typeof useQueryClient>,
+) {
   void qc.invalidateQueries({ queryKey: walletBalanceQueryKey });
   void qc.invalidateQueries({ queryKey: walletTransactionsQueryKey });
   void qc.invalidateQueries({ queryKey: walletWithdrawalsQueryKey });

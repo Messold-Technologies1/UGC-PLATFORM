@@ -118,11 +118,11 @@ function getStatusConfig(
     case "CANCELLED_CREDITED":
       return {
         icon: Info,
-        title: "Order cancelled — credited",
+        title: "This order was cancelled",
         description:
-          "This order was cancelled and its amount was added to your Credits. Use it at checkout, or request a refund from the Credits page.",
+          "The amount has been added to your credits. You can use it on your next order, or request a refund from Credits.",
         showTimer: false,
-        variant: "neutral",
+        variant: "warning",
       };
     case "PENDING_PAYMENT":
       return {
@@ -213,35 +213,38 @@ export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: 
   }
 
   if (!isOrderCompleted && order.status === "REJECTED" && order.cancellationReason) {
-    const lead =
+    displayTitle =
       order.cancelledBy === "CREATOR"
-        ? `${creatorName} rejected this order`
+        ? `${creatorName} declined this order`
         : order.cancelledBy === "BRAND"
           ? "You cancelled this order"
           : "This order was cancelled";
-    displayTitle =
-      order.cancelledBy === "CREATOR" ? "Order rejected" : "Order cancelled";
-    displayDescription = `${lead}. Reason: “${order.cancellationReason}”. Any amount paid will be refunded.`;
+    displayDescription =
+      order.cancelledBy === "CREATOR"
+        ? `They said “${order.cancellationReason}”. Any amount paid will be refunded.`
+        : `Reason: “${order.cancellationReason}”. Any amount paid will be refunded.`;
   }
 
   if (order.status === "CANCELLED_CREDITED") {
-    const lead =
-      order.cancelledBy === "CREATOR"
-        ? `${creatorName} rejected this order`
-        : order.cancelledBy === "BRAND"
-          ? "You cancelled this order"
-          : "This order was cancelled";
-    displayTitle =
-      order.cancelledBy === "CREATOR"
-        ? "Order rejected — amount added to your credits"
-        : "Order cancelled — amount added to your credits";
     const amount = order.expectedAmountPaise
       ? `₹${Math.round(order.expectedAmountPaise / 100).toLocaleString("en-IN")}`
-      : "The amount";
-    const reasonPart = order.cancellationReason
-      ? ` Reason: “${order.cancellationReason}”.`
-      : "";
-    displayDescription = `${lead}.${reasonPart} ${amount} has been added to your GoCollab credits — use it at checkout, or request a refund from the Credits page.`;
+      : "The payment";
+    const creditsLine = `${amount} has been added to your credits. You can use it on your next order, or request a refund from Credits.`;
+
+    if (order.cancelledBy === "CREATOR") {
+      displayTitle = `${creatorName} declined this order`;
+      displayDescription = order.cancellationReason
+        ? `They said “${order.cancellationReason}”. ${creditsLine}`
+        : creditsLine;
+    } else if (order.cancelledBy === "BRAND") {
+      displayTitle = "You cancelled this order";
+      displayDescription = creditsLine;
+    } else {
+      displayTitle = "This order was cancelled";
+      displayDescription = order.cancellationReason
+        ? `Reason: “${order.cancellationReason}”. ${creditsLine}`
+        : creditsLine;
+    }
   }
 
   return (

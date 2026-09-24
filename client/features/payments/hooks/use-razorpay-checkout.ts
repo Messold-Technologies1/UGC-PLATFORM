@@ -18,6 +18,7 @@ import {
   openRazorpayCheckout,
 } from "@/features/payments/lib/open-razorpay-checkout";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/use-create-checkout-mutation";
+import { invalidateBrandWallet } from "@/features/wallet/hooks";
 import { useAuth } from "@/providers/auth-provider";
 
 function getErrorMessage(error: unknown): string {
@@ -141,6 +142,7 @@ export function useRazorpayCheckout({
         onSuccess: (orderId) => {
           setIsProcessing(false);
           clearStoredCheckoutSession(selectionSignature);
+          invalidateBrandWallet(queryClient);
           void queryClient.prefetchQuery(brandOrderDetailsQueryOptions(orderId));
           toast.success("Payment successful", {
             description: "Redirecting to order details...",
@@ -182,6 +184,11 @@ export function useRazorpayCheckout({
           ...(couponCode ? { couponCode } : {}),
           ...(useCredits ? { useCredits: true } : {}),
         }));
+
+      // Credit is reserved on the server when the checkout session is created.
+      if (session.paidFromCredits || (session.creditsAppliedPaise ?? 0) > 0) {
+        invalidateBrandWallet(queryClient);
+      }
 
       // Nothing to charge via Razorpay: either a zero-rupee order (e.g. a 100%
       // coupon) or store credit fully covered it. The server has already placed

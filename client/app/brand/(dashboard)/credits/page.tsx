@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Wallet } from "lucide-react";
 
+import { Switch } from "@/components/ui/switch";
 import {
   useCancelWithdrawalMutation,
   useRequestWithdrawalMutation,
@@ -34,26 +35,43 @@ export default function BrandCreditsPage() {
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [refundFull, setRefundFull] = useState(false);
 
-  const availableRupees = Math.floor((balance?.balancePaise ?? 0) / 100);
+  const availablePaise =
+    transactions[0]?.balanceAfterPaise ?? balance?.balancePaise ?? 0;
+  const availableRupees = Math.floor(availablePaise / 100);
   const pendingRupees = Math.round((balance?.pendingWithdrawalPaise ?? 0) / 100);
 
   const pending = withdrawals.filter((w) => w.status === "REQUESTED");
   const history = withdrawals.filter((w) => w.status !== "REQUESTED");
 
+  const enteredRupees = Number(amount);
+  const hasEnteredAmount =
+    !refundFull && amount.trim() !== "" && Number.isFinite(enteredRupees);
+  const exceedsBalance =
+    hasEnteredAmount && enteredRupees > availableRupees;
+  const canSubmit =
+    !requestMutation.isPending &&
+    availablePaise > 0 &&
+    (refundFull ||
+      (hasEnteredAmount && enteredRupees > 0 && !exceedsBalance));
+
+  const resetForm = () => {
+    setShowForm(false);
+    setAmount("");
+    setNote("");
+    setRefundFull(false);
+  };
+
   const submit = () => {
-    const rupees = Number(amount);
-    if (!Number.isFinite(rupees) || rupees <= 0) return;
-    if (rupees > availableRupees) return;
+    const amountPaise = refundFull
+      ? availablePaise
+      : Math.round(Number(amount) * 100);
+    if (!Number.isInteger(amountPaise) || amountPaise <= 0) return;
+    if (amountPaise > availablePaise) return;
     requestMutation.mutate(
-      { amountPaise: Math.round(rupees * 100), brandNote: note || undefined },
-      {
-        onSuccess: () => {
-          setShowForm(false);
-          setAmount("");
-          setNote("");
-        },
-      },
+      { amountPaise, brandNote: note || undefined },
+      { onSuccess: resetForm },
     );
   };
 
@@ -76,7 +94,9 @@ export default function BrandCreditsPage() {
       <div className="rounded-3xl border border-border/50 bg-card p-6 shadow-sm">
         <p className="text-sm text-muted-foreground">Available credits</p>
         <p className="mt-1 text-4xl font-extrabold tracking-tight">
-          {balanceLoading ? "…" : inr(balance?.balancePaise ?? 0)}
+          {balanceLoading && transactions.length === 0
+            ? "…"
+            : inr(availablePaise)}
         </p>
         {pendingRupees > 0 && (
           <p className="mt-1 text-xs text-muted-foreground">
@@ -86,19 +106,64 @@ export default function BrandCreditsPage() {
         <div className="mt-4">
           {showForm ? (
             <div className="space-y-3 rounded-2xl bg-muted/40 p-4">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Refund the full amount
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Request {inr(availablePaise)} back to your bank
+                  </p>
+                </div>
+                <Switch
+                  checked={refundFull}
+                  onCheckedChange={(on) => {
+                    setRefundFull(on);
+                    if (on) setAmount(String(availableRupees));
+                  }}
+                  disabled={availableRupees <= 0}
+                  aria-label="Refund the full amount"
+                />
+              </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Amount to withdraw (max {inr(balance?.balancePaise ?? 0)})
+                <label
+                  htmlFor="withdraw-amount"
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Amount to withdraw (max {inr(availablePaise)})
                 </label>
                 <input
+                  id="withdraw-amount"
                   type="number"
                   min={1}
                   max={availableRupees}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  value={refundFull ? String(availableRupees) : amount}
+                  onChange={(e) => {
+                    setRefundFull(false);
+                    setAmount(e.target.value);
+                  }}
+                  disabled={refundFull}
+                  aria-invalid={exceedsBalance || undefined}
+                  aria-describedby={
+                    exceedsBalance ? "withdraw-amount-error" : undefined
+                  }
+                  className={`mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60 ${
+                    exceedsBalance
+                      ? "border-destructive focus-visible:outline-destructive"
+                      : "border-border"
+                  }`}
                   placeholder="₹ amount"
                 />
+                {exceedsBalance ? (
+                  <p
+                    id="withdraw-amount-error"
+                    className="mt-1.5 text-xs font-medium text-destructive"
+                    role="alert"
+                  >
+                    This amount is more than your available balance of{" "}
+                    {inr(availablePaise)}.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
@@ -116,11 +181,7 @@ export default function BrandCreditsPage() {
                 <button
                   type="button"
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                  disabled={
-                    requestMutation.isPending ||
-                    Number(amount) <= 0 ||
-                    Number(amount) > availableRupees
-                  }
+                  disabled={!canSubmit}
                   onClick={submit}
                 >
                   Submit request
@@ -128,7 +189,7 @@ export default function BrandCreditsPage() {
                 <button
                   type="button"
                   className="rounded-lg border border-border px-4 py-2 text-sm font-semibold"
-                  onClick={() => setShowForm(false)}
+                  onClick={resetForm}
                 >
                   Cancel
                 </button>

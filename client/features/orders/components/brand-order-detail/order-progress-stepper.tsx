@@ -511,7 +511,7 @@ function getStepPresentation(
         title: "Cancelled",
         description:
           order.status === "CANCELLED_CREDITED"
-            ? "This order was cancelled and the amount was added to your GoCollab credits. Use it at checkout, or request a refund from the Credits page."
+            ? "The amount has been added to your credits. You can use it on your next order, or request a refund from Credits."
             : "This order was cancelled. Any amount paid will be refunded.",
       };
     default:

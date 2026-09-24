@@ -71,6 +71,7 @@ export function OrderCollaborationCard({
   const timelineLabel =
     order.status === "REJECTED" ||
     order.status === "REFUNDED" ||
+    order.status === "CANCELLED_CREDITED" ||
     order.status === "DISPUTED" ||
     order.status === "ACCEPTED" ||
     order.status === "CREATOR_PAYMENT_DONE"

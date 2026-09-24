@@ -115,6 +115,15 @@ function getStatusConfig(
         showTimer: false,
         variant: "neutral",
       };
+    case "CANCELLED_CREDITED":
+      return {
+        icon: Info,
+        title: "Order cancelled — credited",
+        description:
+          "This order was cancelled and its amount was added to your Credits. Use it at checkout, or request a refund from the Credits page.",
+        showTimer: false,
+        variant: "neutral",
+      };
     case "PENDING_PAYMENT":
       return {
         icon: AlertCircle,

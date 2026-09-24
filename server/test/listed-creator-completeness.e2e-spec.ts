@@ -50,6 +50,14 @@ type ListBody = {
   total: number;
 };
 
+/** Stable 8 digits from a handle, so every seeded phone is unique. */
+function handleDigits(handle: string): string {
+  let hash = 0;
+  for (const char of handle)
+    hash = (hash * 31 + char.charCodeAt(0)) % 100000000;
+  return String(hash).padStart(8, '0');
+}
+
 const prisma = new PrismaClient();
 
 const config = {
@@ -97,6 +105,8 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       language?: boolean;
       primaryNiche?: boolean;
       secondaryNiches?: boolean;
+      /** `null` seeds a creator with no phone on file. */
+      phone?: string | null;
     } = {},
   ) {
     const user = await prisma.user.create({
@@ -104,6 +114,11 @@ describe('Listed creators split by profile completeness (e2e)', () => {
         email: `${handle}@creator.test`,
         name: handle,
         primaryRoleId: creatorRoleId,
+        phone:
+          gaps.phone === null
+            ? null
+            : (gaps.phone ?? `+9199${handleDigits(handle)}`),
+        phoneVerified: gaps.phone !== null,
       },
     });
     const profile = await prisma.creatorProfile.create({
@@ -520,6 +535,89 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       const body = res.body as ListBody;
       expect(body.items).toEqual([]);
       expect(body.total).toBe(1);
+    });
+  });
+
+  describe('the outreach cohort (listListedCreatorsWithIncompleteProfiles)', () => {
+    const cohort = () =>
+      app.get(CreatorProfileService).listListedCreatorsWithIncompleteProfiles();
+
+    it('returns only the incomplete creators, with contact details', async () => {
+      await seedListedCreator('whole');
+      await seedListedCreator('needs-intro', { introVideo: true });
+
+      const rows = await cohort();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        displayName: 'needs-intro',
+        phoneVerified: true,
+        contactEmail: 'needs-intro@creator.test',
+        missing: ['Intro video'],
+      });
+      expect(rows[0]?.phone).toMatch(/^\+9199\d{8}$/);
+      expect(rows[0]?.userId).toEqual(expect.any(String));
+    });
+
+    it('still returns a creator with no phone on file, flagged as unverified', async () => {
+      // The sender decides what to do about a missing number; dropping them
+      // here would hide the gap from whoever is chasing the cohort.
+      await seedListedCreator('no-phone', { introVideo: true, phone: null });
+
+      const rows = await cohort();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.phone).toBeNull();
+      expect(rows[0]?.phoneVerified).toBe(false);
+    });
+
+    it('names every outstanding requirement, not just the first', async () => {
+      await seedListedCreator('several', {
+        introVideo: true,
+        instagram: true,
+        primaryNiche: true,
+      });
+
+      const [row] = await cohort();
+
+      expect(row?.missing).toEqual(
+        expect.arrayContaining([
+          'Primary niche',
+          'Instagram connected',
+          'Intro video',
+        ]),
+      );
+    });
+
+    it('agrees exactly with the admin listed · incomplete tab', async () => {
+      await seedListedCreator('whole');
+      await seedListedCreator('gap-a', { introVideo: true });
+      await seedListedCreator('gap-b', { language: true });
+
+      const rows = await cohort();
+      const tab = await listSegment('listed_incomplete').expect(200);
+
+      expect(rows.map((r) => r.creatorProfileId).sort()).toEqual(
+        (tab.body as ListBody).items.map((i) => i.id).sort(),
+      );
+    });
+
+    it('is empty when every listed profile is finished', async () => {
+      await seedListedCreator('whole');
+
+      await expect(cohort()).resolves.toEqual([]);
+    });
+
+    it('never includes a creator who is not listed', async () => {
+      const unlisted = await seedListedCreator('not-listed', {
+        introVideo: true,
+      });
+      await prisma.creatorProfile.update({
+        where: { id: unlisted.id },
+        data: { isListed: false },
+      });
+
+      await expect(cohort()).resolves.toEqual([]);
     });
   });
 

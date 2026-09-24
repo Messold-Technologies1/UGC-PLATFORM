@@ -228,6 +228,23 @@ const pendingCreatorApprovalInclude = {
   },
 } as const;
 
+/**
+ * One LISTED creator who still has requirements outstanding, as returned by
+ * `listListedCreatorsWithIncompleteProfiles`. `missing` holds the same labels
+ * the admin list shows, each of which maps to a stable key in
+ * `LISTED_PROFILE_REQUIREMENTS` — so a nudge can name what is actually needed
+ * rather than sending a generic reminder.
+ */
+export type ListedCreatorProfileGap = {
+  creatorProfileId: string;
+  userId: string | null;
+  displayName: string;
+  phone: string | null;
+  phoneVerified: boolean;
+  contactEmail: string | null;
+  missing: string[];
+};
+
 /** Include for admin unified creator list (all segments). */
 const adminCreatorListInclude = {
   /**
@@ -2281,6 +2298,63 @@ export class CreatorProfileService {
     }
 
     return byCreatorId;
+  }
+
+  /**
+   * The outreach cohort: every LISTED creator whose profile is not actually
+   * finished, with the contact details needed to reach them and the exact list
+   * of what they are still missing.
+   *
+   * Public because the admin list is not the only consumer — a WhatsApp/email
+   * nudge job, a one-off script or a CSV export all need the same cohort, and
+   * none of them can go through the paginated HTTP endpoint.
+   *
+   * Deliberately NOT backed by a stored column. A denormalized flag would have
+   * to be refreshed by every write that can change the answer, and one of them
+   * does not go through `recomputeCreatorListingState` at all: a creator's
+   * Instagram connection is parked as EXPIRED/REVOKED by the sync in
+   * `social-connections.service.ts`, which never touches listing state. A
+   * stored flag would therefore go quietly stale in exactly the way
+   * `completeProfile` already does — the bug this whole split exists to work
+   * around. Deriving it on read costs one extra query per run and cannot drift.
+   *
+   * Callers still need their own send-tracking (a stamp column per nudge
+   * stage, as `CreatorReminderService` does) so nobody is messaged twice;
+   * that is a separate concern from finding the cohort.
+   */
+  async listListedCreatorsWithIncompleteProfiles(): Promise<
+    ListedCreatorProfileGap[]
+  > {
+    const missingByCreatorId = await this.evaluateListedCreatorsCompleteness();
+
+    const incompleteIds = [...missingByCreatorId.entries()]
+      .filter(([, missing]) => missing.length > 0)
+      .map(([id]) => id);
+
+    if (incompleteIds.length === 0) return [];
+
+    const rows = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: incompleteIds } },
+      orderBy: { displayName: 'asc' },
+      select: {
+        id: true,
+        displayName: true,
+        contactEmail: true,
+        user: { select: { id: true, phone: true, phoneVerified: true } },
+      },
+    });
+
+    return rows.map((row) => ({
+      creatorProfileId: row.id,
+      userId: row.user?.id ?? null,
+      displayName: row.displayName,
+      // WhatsApp needs the account phone; WhatsAppService normalizes it to
+      // E.164 and silently skips a creator who has opted out of notifications.
+      phone: row.user?.phone ?? null,
+      phoneVerified: row.user?.phoneVerified ?? false,
+      contactEmail: row.contactEmail ?? null,
+      missing: missingByCreatorId.get(row.id) ?? [],
+    }));
   }
 
   /**

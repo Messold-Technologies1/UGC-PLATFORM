@@ -352,6 +352,13 @@ export class AuthController {
     const user = await this.authService.onboardWorkspaceRole(
       req.user.id,
       dto.role,
+      {
+        fbp: dto.metaFbp,
+        fbc: dto.metaFbc,
+        ipAddress: req.ip,
+        userAgent: req.headers?.['user-agent'],
+        sourceUrl: req.headers?.referer,
+      },
     );
     return { user };
   }

@@ -12,6 +12,14 @@ export class MeUserDto {
   @ApiPropertyOptional({ nullable: true })
   name!: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'E.164 phone when one was collected + verified at signup; null otherwise.',
+    example: '+919876543210',
+  })
+  phone!: string | null;
+
   @ApiProperty({ enum: ['CREATOR', 'BRAND', 'ADMIN', 'AGENCY'], isArray: true })
   roles!: ('CREATOR' | 'BRAND' | 'ADMIN' | 'AGENCY')[];
 

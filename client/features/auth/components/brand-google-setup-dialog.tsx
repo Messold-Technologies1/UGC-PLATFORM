@@ -32,11 +32,7 @@ import {
 } from "@/features/brands/api/presign-brand-logo-upload";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
-import {
-  identifyPixelUser,
-  splitFullName,
-  trackPixelCustom,
-} from "@/lib/meta-pixel";
+import { trackBrandRegistration } from "@/features/auth/lib/track-signup-events";
 import { cn } from "@/lib/utils";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
@@ -98,14 +94,17 @@ export function BrandGoogleSetupDialog({
 
   const mutation = useMutation({
     mutationFn: completeBrandSetup,
-    onSuccess: async (_data, variables) => {
-      identifyPixelUser({
+    onSuccess: async (profile, variables) => {
+      // Brand signup conversion (brand dataset). This is the Google route —
+      // the email+password route creates the brand profile at role choice and
+      // reports it from there. The server sends the same event with the same
+      // id, derived from the profile, so Meta counts the pair once.
+      trackBrandRegistration({
+        brandProfileId: profile.id,
         email: user.email,
-        ...splitFullName(user.name ?? variables.contactFullName),
+        name: user.name ?? variables.contactFullName,
         phone: variables.contactPhone,
-      });
-      trackPixelCustom("BrandRegistration", {
-        phone: variables.contactPhone,
+        brandName: profile.brandName ?? variables.brandName ?? null,
         ...(variables.website ? { website: variables.website } : {}),
       });
       toast.success("Brand profile ready");

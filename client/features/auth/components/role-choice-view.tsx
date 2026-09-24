@@ -18,6 +18,10 @@ import {
   type OnboardingRole,
 } from "@/features/auth/api/onboarding";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import {
+  PIXEL_FLUSH_MS,
+  trackBrandRegistration,
+} from "@/features/auth/lib/track-signup-events";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 
 const AURORA_BG: CSSProperties = {
@@ -94,8 +98,25 @@ export function RoleChoiceView() {
 
   const mutation = useMutation({
     mutationFn: chooseWorkspaceRole,
-    onSuccess: (updated: AuthUser) => {
+    onSuccess: (updated: AuthUser, role: OnboardingRole) => {
       queryClient.setQueryData(authMeQueryKey, updated);
+      // Brand signup conversion. An email+password brand carries an
+      // OTP-verified phone, so the server creates the brand profile at this
+      // step and the /onboarding/brand setup screen is skipped — this is the
+      // moment to report it. A Google brand has no profile yet; that screen
+      // reports the conversion instead. Creators are not tracked at signup:
+      // their conversion is CreatorProfileListed, sent server-side on listing.
+      const brand = updated.accessibleBrands[0];
+      const tracked =
+        role === "BRAND" && updated.hasBrandProfile && brand
+          ? trackBrandRegistration({
+              brandProfileId: brand.id,
+              email: updated.email,
+              name: updated.name,
+              phone: updated.phone,
+              brandName: brand.brandName,
+            })
+          : false;
       // Creator → straight into Edit Profile to fill in the rest (name, phone,
       // categories, portfolio…). Brand → resolveImmediatePostAuthPath sends a
       // BRAND-without-profile account to the brand setup screen.
@@ -104,7 +125,13 @@ export function RoleChoiceView() {
           ? "/creator/settings/profile"
           : resolveImmediatePostAuthPath(updated, callbackUrl);
       beginClientNavigation();
-      window.location.replace(target);
+      // Let the conversion beacon leave the browser before the hard redirect
+      // tears the page down.
+      if (tracked) {
+        window.setTimeout(() => window.location.replace(target), PIXEL_FLUSH_MS);
+      } else {
+        window.location.replace(target);
+      }
     },
     onError: (error) => toast.error(readError(error)),
   });

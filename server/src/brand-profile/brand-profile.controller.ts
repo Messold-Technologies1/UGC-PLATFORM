@@ -95,6 +95,13 @@ export class BrandProfileController {
     return this.brandProfileService.createOwnedBrandProfileForUser(
       req.user.id,
       dto,
+      {
+        fbp: dto.metaFbp,
+        fbc: dto.metaFbc,
+        ipAddress: req.ip,
+        userAgent: req.headers?.['user-agent'],
+        sourceUrl: req.headers?.referer,
+      },
     );
   }
 

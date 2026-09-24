@@ -47,6 +47,14 @@ export const env = {
    */
   metaPixelId: process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || "",
   /**
+   * Meta (Facebook) Pixel ID for the *brand* dataset. Brand signup events are
+   * reported here instead of {@link env.metaPixelId} so brand and creator ad
+   * campaigns optimize on their own dataset. When empty, brand events fall
+   * back to the main pixel (the behaviour before the split).
+   * Set NEXT_PUBLIC_META_BRAND_PIXEL_ID to enable.
+   */
+  metaBrandPixelId: process.env.NEXT_PUBLIC_META_BRAND_PIXEL_ID?.trim() || "",
+  /**
    * Microsoft Clarity project ID. When empty the Clarity SDK never initializes
    * and every clarity call becomes a silent no-op — the client-side kill switch
    * for Clarity. Set NEXT_PUBLIC_CLARITY_PROJECT_ID to enable (e.g. xk7yl8ttic).

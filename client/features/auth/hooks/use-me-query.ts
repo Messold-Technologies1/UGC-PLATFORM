@@ -22,6 +22,8 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  /** E.164 phone when one was collected + verified at signup; null otherwise. */
+  phone?: string | null;
   roles: WorkspaceRole[];
   primaryRole: WorkspaceRole | null;
   hasCreatorProfile: boolean;

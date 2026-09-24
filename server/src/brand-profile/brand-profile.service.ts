@@ -13,6 +13,12 @@ import {
 } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { BrandProfileMailNotifier } from '../mail/brand-profile-mail.notifier';
+import {
+  brandRegistrationEventId,
+  MetaCapiService,
+  splitFullName,
+  type MetaBrowserAttribution,
+} from '../meta-capi/meta-capi.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
@@ -55,6 +61,7 @@ export class BrandProfileService {
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
     private readonly brandMail: BrandProfileMailNotifier,
+    private readonly metaCapi: MetaCapiService,
   ) {}
 
   private assertTempBrandLogoKeyOwner(userId: string, key: string): void {
@@ -442,12 +449,19 @@ export class BrandProfileService {
   }
 
   /**
-   * Authenticated brand setup (e.g. after Google OAuth). Creates the owned
-   * brand profile for a user who already has a session but no BrandProfile.
+   * Authenticated brand setup. Creates the owned brand profile for a user who
+   * already has a session but no BrandProfile — the single point both signup
+   * routes pass through (email+password at the role-choice step, Google on the
+   * brand setup screen), and so where the BrandRegistration conversion is
+   * reported to Meta.
+   *
+   * `meta` carries the attribution read in the user's own browser; it is only
+   * used for that event.
    */
   async createOwnedBrandProfileForUser(
     userId: string,
     dto: CreateBrandProfileDto,
+    meta?: MetaBrowserAttribution,
   ): Promise<BrandProfileResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -491,12 +505,69 @@ export class BrandProfileService {
       { timeout: 30_000, maxWait: 10_000 },
     );
 
-    return this.finalizeOwnedBrandProfileAssets({
+    const profile = await this.finalizeOwnedBrandProfileAssets({
       brandProfileId,
       actorUserId: userId,
       logoKey,
       pronunciationAudioKey,
     });
+
+    void this.fireBrandRegistrationMetaEvent({
+      brandProfileId,
+      brandName: profile.brandName,
+      email: dto.contactEmail?.trim() || user.email,
+      phone: dto.contactPhone?.trim() || null,
+      contactFullName,
+      meta,
+    });
+
+    return profile;
+  }
+
+  /**
+   * Send the Meta "BrandRegistration" conversion via the Conversions API,
+   * deduplicated against the browser pixel's copy by a shared event id derived
+   * from the brand profile. Best-effort and fire-and-forget: never blocks or
+   * fails brand setup. No-op when the brand dataset is not configured.
+   */
+  private async fireBrandRegistrationMetaEvent(params: {
+    brandProfileId: string;
+    brandName: string | null;
+    email: string | null;
+    phone: string | null;
+    contactFullName: string;
+    meta?: MetaBrowserAttribution;
+  }): Promise<void> {
+    if (!this.metaCapi.enabledFor('brand')) return;
+    try {
+      // The browser pixel builds the same id, so Meta counts the pair once.
+      await this.metaCapi.sendEvent({
+        audience: 'brand',
+        eventName: 'BrandRegistration',
+        eventId: brandRegistrationEventId(params.brandProfileId),
+        // The browser fires this too, from the page the request came from.
+        actionSource: 'website',
+        ...(params.meta?.sourceUrl
+          ? { eventSourceUrl: params.meta.sourceUrl }
+          : {}),
+        userData: {
+          email: params.email,
+          phone: params.phone,
+          ...splitFullName(params.contactFullName),
+          fbp: params.meta?.fbp,
+          fbc: params.meta?.fbc,
+          clientIpAddress: params.meta?.ipAddress,
+          clientUserAgent: params.meta?.userAgent,
+        },
+        customData: {
+          ...(params.brandName ? { brand_name: params.brandName } : {}),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send BrandRegistration Meta event for ${params.brandProfileId}: ${(error as Error).message}`,
+      );
+    }
   }
 
   async listBrands(query: ListBrandsQueryDto): Promise<BrandsListResponseDto> {

@@ -15,6 +15,7 @@ import { CreatorDemoVideosModule } from './creator-demo-videos/creator-demo-vide
 import { BrandProfileModule } from './brand-profile/brand-profile.module';
 import { OrdersModule } from './orders/orders.module';
 import { CouponsModule } from './coupons/coupons.module';
+import { WalletModule } from './wallet/wallet.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -63,6 +64,7 @@ import { WhatsAppModule } from './whatsapp/whatsapp.module';
     AgencyModule,
     OrdersModule,
     CouponsModule,
+    WalletModule,
     BriefsModule,
     WishlistsModule,
     OrderChatModule,

@@ -173,7 +173,7 @@ function buildTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] {
   });
 
   const isCancelled =
-    order.status === "REJECTED" || order.status === "REFUNDED";
+    order.status === "REJECTED" || order.status === "REFUNDED" || order.status === "CANCELLED_CREDITED";
   if (!isCancelled) return events;
 
   const cancelledByCreator = order.cancelledBy === "CREATOR";

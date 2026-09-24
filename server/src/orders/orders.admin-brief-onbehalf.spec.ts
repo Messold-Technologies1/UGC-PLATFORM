@@ -24,6 +24,7 @@ describe('OrdersService admin brief actions on behalf', () => {
         update: orderUpdate,
       },
       creatorProfile: { findUnique: creatorFindUnique },
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     const orderRealtime = {
       emitOrderCancelled: jest.fn().mockResolvedValue(undefined),
@@ -41,6 +42,12 @@ describe('OrdersService admin brief actions on behalf', () => {
         .mockResolvedValue({ brand: { id: 'brand-1' } }),
     };
 
+    const wallet = {
+      creditOrderCancellation: jest.fn().mockResolvedValue({
+        balanceAfterPaise: 0,
+      }),
+    };
+
     const service = new OrdersService(
       prisma as never,
       {} as never,
@@ -51,8 +58,9 @@ describe('OrdersService admin brief actions on behalf', () => {
       {} as never,
       {} as never,
       {} as never,
+      wallet as never,
     );
-    return { service, orderUpdate, orderRealtime, orderMail };
+    return { service, orderUpdate, orderRealtime, orderMail, wallet };
   }
 
   const awaitingAcceptance = {
@@ -170,6 +178,57 @@ describe('OrdersService admin brief actions on behalf', () => {
       }),
     ).rejects.toThrow(/before the creator accepts/i);
     expect(orderUpdate).not.toHaveBeenCalled();
+  });
+
+  it('cancelling a PAID order credits the brand and moves it to CANCELLED_CREDITED', async () => {
+    const { service, orderUpdate, wallet } = makeService({
+      ...awaitingAcceptance,
+      paidAt: new Date(),
+      creatorPaidAt: null,
+      expectedAmountPaise: 500000,
+    });
+
+    await service.adminCancelOrderOnBehalf({
+      orderId: 'order-1',
+      adminUserId: 'admin-9',
+      note: 'Cancelled after payment.',
+    });
+
+    expect(wallet.creditOrderCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 'brand-1',
+        orderId: 'order-1',
+        amountPaise: 500000,
+      }),
+      expect.anything(),
+    );
+    expect(orderUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'CANCELLED_CREDITED' }),
+      }),
+    );
+  });
+
+  it('cancelling an UNPAID order does not credit and stays REJECTED', async () => {
+    const { service, orderUpdate, wallet } = makeService({
+      ...awaitingAcceptance,
+      paidAt: null,
+      creatorPaidAt: null,
+      expectedAmountPaise: 500000,
+    });
+
+    await service.adminCancelOrderOnBehalf({
+      orderId: 'order-1',
+      adminUserId: 'admin-9',
+      note: 'Never paid.',
+    });
+
+    expect(wallet.creditOrderCancellation).not.toHaveBeenCalled();
+    expect(orderUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'REJECTED' }),
+      }),
+    );
   });
 
   it('self-serve creator reject records the creator as actor (not support)', async () => {

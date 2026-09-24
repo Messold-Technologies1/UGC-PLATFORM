@@ -13,6 +13,7 @@ export const STATUS_COLORS: Record<string, string> = {
   DISPUTED: "bg-red-500/10 text-red-500 border-red-500/20",
   REJECTED: "bg-red-500/10 text-red-500 border-red-500/20",
   REFUNDED: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+  CANCELLED_CREDITED: "bg-slate-500/10 text-slate-500 border-slate-500/20",
 };
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ export const STATUS_LABELS: Record<string, string> = {
   DISPUTED: "Disputed",
   REJECTED: "Rejected",
   REFUNDED: "Refunded",
+  CANCELLED_CREDITED: "Cancelled (Credited)",
 };
 
 export const STATUS_TAB_GROUPS: Record<string, string[]> = {
@@ -45,7 +47,7 @@ export const STATUS_TAB_GROUPS: Record<string, string[]> = {
   review: ["DELIVERED", "REVISION_REQUESTED", "REVISION_SUBMITTED"],
   dispute: ["DISPUTED"],
   completed: ["ACCEPTED", "CREATOR_PAYMENT_DONE"],
-  cancelled: ["REJECTED", "REFUNDED"],
+  cancelled: ["REJECTED", "REFUNDED", "CANCELLED_CREDITED"],
 };
 
 export const STATUS_TABS = [
@@ -74,7 +76,7 @@ export const ADMIN_STATUS_TAB_GROUPS: Record<string, string[]> = {
   dispute: ["DISPUTED"],
   completed: ["ACCEPTED"],
   paidOut: ["CREATOR_PAYMENT_DONE"],
-  rejected: ["REJECTED"],
+  rejected: ["REJECTED", "CANCELLED_CREDITED"],
   refunded: ["REFUNDED"],
 };
 

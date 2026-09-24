@@ -62,6 +62,7 @@ import { WatermarkQueueService } from '../jobs/watermark-queue.service';
 import { OrderPortfolioSyncService } from '../creator-portfolio/order-portfolio-sync.service';
 import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
 import { CouponsService } from '../coupons/coupons.service';
+import { WalletService } from '../wallet/wallet.service';
 
 /**
  * Nested `BrandProfile` fields for order API brand snapshots.
@@ -163,6 +164,13 @@ export const BASE_USAGE_RIGHTS_DAYS = 30;
  * add-on (`CreatorAddOn` has no slug column).
  */
 const EXTRA_USAGE_RIGHTS_OPTION_SLUG = 'paid_ads_usage_30_days';
+
+/**
+ * Razorpay rejects charges below ₹1. When store credit covers all but a tiny
+ * remainder, credit absorbs that remainder so the Razorpay charge is either ₹0
+ * (fully credit-paid) or at least ₹1. Mirrors coupons' MIN_NET_PAISE.
+ */
+const RAZORPAY_MIN_CHARGE_PAISE = 100;
 
 // ─── Razorpay-driven refund flow (disabled — kept for reference) ──────────
 // Refunds are now issued manually by an admin (see adminTriggerRefund
@@ -387,6 +395,14 @@ type CheckoutSessionResult = {
    * no Razorpay payment is needed. The client skips the gateway and redirects.
    */
   free?: boolean;
+  /** Store credit applied to this order at checkout, in paise (0 when none). */
+  creditsAppliedPaise?: number;
+  /**
+   * True when store credit fully covered the order: it is already placed and
+   * paid, no Razorpay payment is needed. The client skips the gateway like
+   * `free`, but shows "paid from credits" rather than "free".
+   */
+  paidFromCredits?: boolean;
 };
 
 type BulkCheckoutSkippedItem = {
@@ -454,6 +470,7 @@ export class OrdersService {
     private readonly watermarkQueue: WatermarkQueueService,
     private readonly orderPortfolioSync: OrderPortfolioSyncService,
     private readonly coupons: CouponsService,
+    private readonly wallet: WalletService,
   ) {}
 
   private async resolveBrandActor(params: {
@@ -478,8 +495,11 @@ export class OrdersService {
     discountAmountPaise?: number;
     couponCode?: string;
     free?: boolean;
+    creditsAppliedPaise?: number;
+    paidFromCredits?: boolean;
   }): CheckoutSessionResult {
     const discountAmountPaise = params.discountAmountPaise ?? 0;
+    const creditsAppliedPaise = params.creditsAppliedPaise ?? 0;
     return {
       orderId: params.orderId,
       razorpayOrderId: params.razorpayOrderId,
@@ -490,10 +510,13 @@ export class OrdersService {
       addOnsAmountPaise: params.addOnsAmountPaise,
       addOnsCount: params.addOnsCount,
       grossAmountPaise:
-        params.grossAmountPaise ?? params.amountPaise + discountAmountPaise,
+        params.grossAmountPaise ??
+        params.amountPaise + creditsAppliedPaise + discountAmountPaise,
       discountAmountPaise,
+      creditsAppliedPaise,
       ...(params.couponCode ? { couponCode: params.couponCode } : {}),
       ...(params.free ? { free: true } : {}),
+      ...(params.paidFromCredits ? { paidFromCredits: true } : {}),
     };
   }
 
@@ -564,20 +587,44 @@ export class OrdersService {
     return new Set(enabledIds.filter((id) => !usedIds.has(id)));
   }
 
-  /** Reject other awaiting-payment orders for the same brand+creator pair. */
+  /**
+   * Reject other awaiting-payment orders for the same brand+creator pair. Any
+   * store credit those superseded orders had reserved is returned to the brand
+   * before they are rejected.
+   */
   private async rejectOtherPendingOrdersForBrandCreator(
     brandId: string,
     creatorId: string,
     keepOrderId: string,
   ): Promise<void> {
-    await this.prisma.order.updateMany({
+    const others = await this.prisma.order.findMany({
       where: {
         brandId,
         creatorId,
         status: 'PENDING_PAYMENT',
         NOT: { id: keepOrderId },
       },
-      data: { status: 'REJECTED' },
+      select: { id: true, creditsAppliedPaise: true },
+    });
+    if (others.length === 0) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const other of others) {
+        if (other.creditsAppliedPaise > 0) {
+          await this.wallet.releaseCheckoutReservation(
+            {
+              brandId,
+              orderId: other.id,
+              amountPaise: other.creditsAppliedPaise,
+            },
+            tx,
+          );
+        }
+      }
+      await tx.order.updateMany({
+        where: { id: { in: others.map((o) => o.id) } },
+        data: { status: 'REJECTED', creditsAppliedPaise: 0 },
+      });
     });
   }
 
@@ -733,6 +780,8 @@ export class OrdersService {
     packageId: string;
     addOnIds?: string[];
     couponCode?: string | null;
+    /** Apply the brand's store credit ("Credits") toward this order. */
+    useCredits?: boolean;
   }): Promise<CheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -849,6 +898,133 @@ export class OrdersService {
       });
     }
 
+    // Store credit ("Credits") applied after any coupon, to the net payable.
+    // creditsToApply is bounded by the available balance and the net, and never
+    // leaves a Razorpay charge in the impossible (₹0, ₹1) range.
+    let creditsToApply = 0;
+    if (params.useCredits && netAmountPaise > 0) {
+      const { balancePaise } = await this.wallet.getBalance(brand.id);
+      creditsToApply = Math.min(balancePaise, netAmountPaise);
+      const remainder = netAmountPaise - creditsToApply;
+      if (remainder > 0 && remainder < RAZORPAY_MIN_CHARGE_PAISE) {
+        creditsToApply = netAmountPaise - RAZORPAY_MIN_CHARGE_PAISE;
+      }
+    }
+    const razorpayChargePaise = netAmountPaise - creditsToApply;
+
+    if (creditsToApply > 0) {
+      // Fresh order + reserve credit atomically; no pending-order reuse for
+      // credit checkouts (simpler and avoids re-reservation bookkeeping).
+      const created = await this.prisma.$transaction(async (tx) => {
+        const order = await tx.order.create({
+          data: {
+            brandId: brand.id,
+            creatorId: pkg.creatorId,
+            creatorPackageId: pkg.id,
+            status:
+              razorpayChargePaise === 0
+                ? 'BRIEF_SUBMISSION_PENDING'
+                : 'PENDING_PAYMENT',
+            ...(razorpayChargePaise === 0 ? { paidAt: new Date() } : {}),
+            packageNameSnapshot: pkg.name,
+            deliverablesSnapshot:
+              pkg.deliverables as unknown as Prisma.InputJsonValue,
+            priceAmountSnapshot: pkg.priceAmount,
+            currency: 'INR',
+            deliveryDaysSnapshot: effectiveDeliveryDays,
+            maxRevisionsSnapshot,
+            addOnsSnapshot,
+            addOnsTotalSnapshot: addOnsTotalDecimal,
+            expectedAmountPaise: netAmountPaise,
+            creditsAppliedPaise: creditsToApply,
+            ...couponWriteData,
+          },
+          select: { id: true, currency: true },
+        });
+        // Reserve (debit) the credit against this order; throws if the balance
+        // moved below creditsToApply since we read it, rolling back the order.
+        await this.wallet.reserveForCheckout(
+          {
+            brandId: brand.id,
+            orderId: order.id,
+            amountPaise: creditsToApply,
+            createdByUserId: params.actorUserId,
+          },
+          tx,
+        );
+        // Full coverage → payment "succeeded" via credit; consume the coupon now.
+        if (razorpayChargePaise === 0 && resolvedCoupon?.couponId) {
+          await this.coupons.recordRedemption(
+            {
+              couponId: resolvedCoupon.couponId,
+              brandId: brand.id,
+              orderId: order.id,
+              discountAmountPaise,
+            },
+            tx,
+          );
+        }
+        return order;
+      });
+
+      await this.rejectOtherPendingOrdersForBrandCreator(
+        brand.id,
+        pkg.creatorId,
+        created.id,
+      );
+
+      if (razorpayChargePaise === 0) {
+        await this.orderRealtime.emitOrderPayment({
+          orderId: created.id,
+          kind: 'captured',
+          audience: 'brand_and_creator',
+          meta: { creditPaid: true },
+        });
+        this.logger.log(
+          `[checkout] credit-paid order placed order=${created.id} credits=${creditsToApply} (no Razorpay)`,
+        );
+        return this.buildCheckoutSessionResult({
+          orderId: created.id,
+          razorpayOrderId: '',
+          amountPaise: 0,
+          currency: created.currency,
+          packageAmountPaise,
+          addOnsAmountPaise,
+          addOnsCount: addOnRows.length,
+          ...couponResultData,
+          creditsAppliedPaise: creditsToApply,
+          paidFromCredits: true,
+        });
+      }
+
+      const razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
+        orderId: created.id,
+        amountPaise: razorpayChargePaise,
+        currency: created.currency,
+        brandProfileId: brand.id,
+        creatorProfileId: pkg.creatorId,
+        creatorPackageId: pkg.id,
+      });
+      await this.updateOrder({
+        where: { id: created.id },
+        data: { razorpayOrderId },
+      });
+      this.logger.log(
+        `[checkout] partial credit order=${created.id} credits=${creditsToApply} razorpayCharge=${razorpayChargePaise}`,
+      );
+      return this.buildCheckoutSessionResult({
+        orderId: created.id,
+        razorpayOrderId,
+        amountPaise: razorpayChargePaise,
+        currency: created.currency,
+        packageAmountPaise,
+        addOnsAmountPaise,
+        addOnsCount: addOnRows.length,
+        ...couponResultData,
+        creditsAppliedPaise: creditsToApply,
+      });
+    }
+
     const sortedAddOnIds = [...addOnRows.map((a) => a.id)].sort();
 
     const pendingForCreator = await this.prisma.order.findMany({
@@ -866,6 +1042,7 @@ export class OrdersService {
         currency: true,
         razorpayOrderId: true,
         couponId: true,
+        creditsAppliedPaise: true,
       },
     });
 
@@ -881,7 +1058,11 @@ export class OrdersService {
         sortedAddOnIdsEqual(existingAddOnIds, sortedAddOnIds) &&
         matchingPackageOrder.expectedAmountPaise === netAmountPaise &&
         (matchingPackageOrder.couponId ?? null) ===
-          (resolvedCoupon?.couponId ?? null);
+          (resolvedCoupon?.couponId ?? null) &&
+        // This branch is only reached when no credit is being applied
+        // (credit checkouts return above), so never reuse a credit-reserved
+        // pending order as-is — its Razorpay charge was for the reduced amount.
+        (matchingPackageOrder.creditsAppliedPaise ?? 0) === 0;
 
       if (sameCart) {
         let razorpayOrderId = matchingPackageOrder.razorpayOrderId;
@@ -922,6 +1103,17 @@ export class OrdersService {
         });
       }
 
+      // Re-pricing a pending order that previously reserved credit (brand toggled
+      // credit off, or changed the cart): return that reservation before the
+      // order is refreshed to a full-cash charge.
+      if ((matchingPackageOrder.creditsAppliedPaise ?? 0) > 0) {
+        await this.wallet.releaseCheckoutReservation({
+          brandId: brand.id,
+          orderId: matchingPackageOrder.id,
+          amountPaise: matchingPackageOrder.creditsAppliedPaise,
+        });
+      }
+
       const razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
         orderId: matchingPackageOrder.id,
         amountPaise: netAmountPaise,
@@ -943,6 +1135,7 @@ export class OrdersService {
           addOnsSnapshot: addOnsSnapshot,
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: netAmountPaise,
+          creditsAppliedPaise: 0,
           ...couponWriteData,
           razorpayOrderId,
         },
@@ -1326,6 +1519,7 @@ export class OrdersService {
         status: true,
         currency: true,
         expectedAmountPaise: true,
+        creditsAppliedPaise: true,
         priceAmountSnapshot: true,
         addOnsTotalSnapshot: true,
         addOnsSnapshot: true,
@@ -1348,6 +1542,13 @@ export class OrdersService {
       throw new BadRequestException('Invalid checkout amount');
     }
 
+    // Razorpay only charges the portion not covered by reserved store credit.
+    const razorpayChargePaise =
+      order.expectedAmountPaise - order.creditsAppliedPaise;
+    if (razorpayChargePaise <= 0) {
+      throw new BadRequestException('Invalid checkout amount');
+    }
+
     const packageAmountPaise = toPaise(order.priceAmountSnapshot);
     const addOnsAmountPaise =
       order.addOnsTotalSnapshot === null
@@ -1361,7 +1562,7 @@ export class OrdersService {
     if (!razorpayOrderId) {
       razorpayOrderId = await this.createRazorpayOrderForPlatformOrder({
         orderId: order.id,
-        amountPaise: order.expectedAmountPaise,
+        amountPaise: razorpayChargePaise,
         currency: order.currency,
         brandProfileId: brand.id,
         creatorProfileId: order.creatorId,
@@ -1376,11 +1577,12 @@ export class OrdersService {
     return this.buildCheckoutSessionResult({
       orderId: order.id,
       razorpayOrderId,
-      amountPaise: order.expectedAmountPaise,
+      amountPaise: razorpayChargePaise,
       currency: order.currency,
       packageAmountPaise,
       addOnsAmountPaise,
       addOnsCount,
+      creditsAppliedPaise: order.creditsAppliedPaise,
     });
   }
 
@@ -1397,6 +1599,7 @@ export class OrdersService {
         id: true,
         status: true,
         expectedAmountPaise: true,
+        creditsAppliedPaise: true,
         brandId: true,
         couponId: true,
         discountAmountPaise: true,
@@ -1407,13 +1610,18 @@ export class OrdersService {
     // idempotent: if already paid, do nothing
     if (order.status !== 'PENDING_PAYMENT') return null;
 
+    // Razorpay only charged the portion NOT covered by store credit. The credit
+    // was already reserved (debited) at checkout, so verify the captured amount
+    // against the remainder and do not touch the wallet here.
+    const razorpayChargePaise =
+      order.expectedAmountPaise - order.creditsAppliedPaise;
     if (
-      order.expectedAmountPaise > 0 &&
+      razorpayChargePaise > 0 &&
       params.amountPaise != null &&
-      order.expectedAmountPaise !== params.amountPaise
+      razorpayChargePaise !== params.amountPaise
     ) {
       this.logger.warn(
-        `payment.captured amount mismatch order=${order.id} expectedPaise=${order.expectedAmountPaise} gotPaise=${params.amountPaise} — not marking paid`,
+        `payment.captured amount mismatch order=${order.id} expectedChargePaise=${razorpayChargePaise} gotPaise=${params.amountPaise} — not marking paid`,
       );
       return null;
     }
@@ -1910,7 +2118,15 @@ export class OrdersService {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true, creatorId: true, status: true },
+      select: {
+        id: true,
+        brandId: true,
+        creatorId: true,
+        status: true,
+        paidAt: true,
+        creatorPaidAt: true,
+        expectedAmountPaise: true,
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (params.requireCreatorId && order.creatorId !== params.requireCreatorId)
@@ -1921,17 +2137,49 @@ export class OrdersService {
       throw new BadRequestException(params.notAllowedMessage);
     }
 
+    // A paid order (net > 0) whose creator has not been paid out gets its full
+    // net amount credited to the brand's store credit ("Credits"), and moves to
+    // CANCELLED_CREDITED. Everything else (unpaid, or a ₹0 free order) keeps the
+    // legacy REJECTED terminal state — there is no money to credit. Termination
+    // here is always pre-acceptance, so the creator-paid guard is defensive.
+    const shouldCredit =
+      order.paidAt != null &&
+      order.creatorPaidAt == null &&
+      order.expectedAmountPaise > 0;
+
     const now = new Date();
-    await this.updateOrder({
-      where: { id: order.id },
-      data: {
-        status: 'REJECTED',
-        cancellationReason: params.note,
-        cancelledAt: now,
-        cancelledByUserId: params.actorUserId,
-        cancelledOnBehalfOf: params.onBehalfOf,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      if (shouldCredit) {
+        await this.wallet.creditOrderCancellation(
+          {
+            brandId: order.brandId,
+            orderId: order.id,
+            amountPaise: order.expectedAmountPaise,
+            reason: params.note,
+          },
+          tx,
+        );
+      }
+      await this.updateOrder(
+        {
+          where: { id: order.id },
+          data: {
+            status: shouldCredit ? 'CANCELLED_CREDITED' : 'REJECTED',
+            cancellationReason: params.note,
+            cancelledAt: now,
+            cancelledByUserId: params.actorUserId,
+            cancelledOnBehalfOf: params.onBehalfOf,
+          },
+        },
+        tx,
+      );
     });
+
+    if (shouldCredit) {
+      this.logger.log(
+        `[credits] order=${order.id} cancelled → credited ${order.expectedAmountPaise} paise to brand=${order.brandId}`,
+      );
+    }
 
     await this.orderRealtime.emitOrderCancelled({
       orderId: order.id,
@@ -3840,7 +4088,9 @@ export class OrdersService {
         paidAt: p.paidAt,
       })),
       fullRefundToBrand:
-        order.status === 'REJECTED' || order.status === 'REFUNDED',
+        order.status === 'REJECTED' ||
+        order.status === 'REFUNDED' ||
+        order.status === 'CANCELLED_CREDITED',
       // "No platform fee" coupon: creator is paid in full, platform fee is 0.
       waivePlatformFee: order.discountTypeSnapshot === 'PLATFORM_FEE_WAIVER',
       // Charge the platform fee on the pre-coupon (gross) base when a coupon
@@ -4359,6 +4609,7 @@ export class OrdersService {
       'CREATOR_PAYMENT_DONE',
       'REFUNDED',
       'REJECTED',
+      'CANCELLED_CREDITED',
     ]);
     if (noDisputeStatuses.has(String(order.status))) {
       throw new BadRequestException(
@@ -4618,13 +4869,37 @@ export class OrdersService {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        brandId: true,
+        paidAt: true,
+        creatorPaidAt: true,
+        expectedAmountPaise: true,
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
 
     if (String(order.status) !== 'DISPUTED') {
       throw new BadRequestException(
         'Order must be DISPUTED before admin can mark it rejected (refund path)',
+      );
+    }
+
+    // A dispute resolved in the brand's favour credits the full net amount to
+    // the brand's store credit ("Credits"), exactly like a normal cancellation.
+    // Guard: only when the order was paid and the creator has NOT already been
+    // paid out — otherwise auto-crediting the full amount would be a platform
+    // loss, so fall back to the legacy manual REJECTED path and warn.
+    const shouldCredit =
+      order.paidAt != null &&
+      order.creatorPaidAt == null &&
+      order.expectedAmountPaise > 0;
+    const nextStatus = shouldCredit ? 'CANCELLED_CREDITED' : 'REJECTED';
+
+    if (!shouldCredit && order.creatorPaidAt != null) {
+      this.logger.warn(
+        `[credits] dispute-reject order=${order.id}: creator already paid — not auto-crediting; left on manual REJECTED path`,
       );
     }
 
@@ -4638,10 +4913,21 @@ export class OrdersService {
           resolutionNotes: params.resolutionNotes ?? null,
         },
       });
+      if (shouldCredit) {
+        await this.wallet.creditOrderCancellation(
+          {
+            brandId: order.brandId,
+            orderId: order.id,
+            amountPaise: order.expectedAmountPaise,
+            reason: params.resolutionNotes ?? 'Dispute resolved in brand favour',
+          },
+          tx,
+        );
+      }
       await this.updateOrder(
         {
           where: { id: order.id },
-          data: { status: 'REJECTED' as any },
+          data: { status: nextStatus as any },
         },
         tx,
       );
@@ -4659,7 +4945,7 @@ export class OrdersService {
       .emitOrderDisputeResolved({
         orderId: order.id,
         outcome: 'REJECTED',
-        restoredStatus: 'REJECTED',
+        restoredStatus: nextStatus,
         resolutionNotes: params.resolutionNotes,
       })
       .catch((err) =>

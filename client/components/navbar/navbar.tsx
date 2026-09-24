@@ -24,6 +24,7 @@ import {
   Heart,
   Video,
   Ticket,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -87,6 +88,12 @@ const roleConfigs: Record<string, NavItem[]> = {
       icon: Heart,
       tourId: "nav-brand-wishlists",
     },
+    {
+      href: "/brand/credits",
+      label: "Credits",
+      icon: Wallet,
+      tourId: "nav-brand-credits",
+    },
   ],
   creator: [
     {
@@ -115,6 +122,7 @@ const roleConfigs: Record<string, NavItem[]> = {
     { href: "/admin/legal", label: "Legal", icon: FileText },
     { href: "/admin/demo-videos", label: "Demo Videos", icon: Video },
     { href: "/admin/coupons", label: "Coupons", icon: Ticket },
+    { href: "/admin/refunds", label: "Refunds", icon: Wallet },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ],
 };
@@ -123,8 +131,12 @@ function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
   const segment = pathname.split("/")[1];
   const items = roleConfigs[segment] ?? [];
   if (segment === "admin" && !user?.canManageAdmins) {
-    // Settings (create admins) and Coupons are super-admin only.
-    const superAdminOnly = new Set(["/admin/settings", "/admin/coupons"]);
+    // Settings (create admins), Coupons and Refunds are super-admin only.
+    const superAdminOnly = new Set([
+      "/admin/settings",
+      "/admin/coupons",
+      "/admin/refunds",
+    ]);
     return items.filter((item) => !superAdminOnly.has(item.href ?? ""));
   }
   return items;

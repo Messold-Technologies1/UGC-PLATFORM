@@ -114,6 +114,11 @@ enum OrderStatus {
   DISPUTED
   REJECTED
   REFUNDED
+  /// Paid order was cancelled (brand/creator termination or a dispute resolved
+  /// in the brand's favour) and its full net amount was credited to the brand's
+  /// store-credit wallet. Terminal state; the brand spends or withdraws the
+  /// credit from the Credits section, never per-order.
+  CANCELLED_CREDITED
 }
 
 enum OrderDisputeStatus {
@@ -712,6 +717,13 @@ model Order {
   discountTypeSnapshot DiscountType?
   discountAmountPaise  Int           @default(0)
   grossAmountPaise     Int           @default(0)
+  /// Store credit applied to this order at checkout, in paise. The brand pays
+  /// expectedAmountPaise in total; creditsAppliedPaise of it comes from their
+  /// wallet and the remainder (expectedAmountPaise - creditsAppliedPaise) is the
+  /// Razorpay charge. Credits are reserved (debited) when checkout creates the
+  /// Razorpay order and released if the order is abandoned/rejected before
+  /// payment. Applied AFTER any coupon discount.
+  creditsAppliedPaise  Int           @default(0)
   /// True when this order was placed under the creator's "first order free"
   /// promo: brand paid ₹0, no Razorpay, and the creator is paid ₹0. Shown as a
   /// "Free order" line in the admin pricing ledger.
@@ -748,6 +760,7 @@ model Order {
   chatMessages         OrderChatMessage[]
   chatReadStates       OrderChatReadState[]
   ratingReview         CreatorRatingReview?
+  walletTransactions   WalletTransaction[]
   /// Collab portfolio tiles auto-published from this order's approved final.
   portfolioVideos      CreatorPortfolioVideo[]    @relation("OrderPortfolioVideos")
 
@@ -1292,6 +1305,7 @@ model BrandProfile {
   orders              Order[]
   checkoutBatches     OrderCheckoutBatch[]
   briefs              Brief[]
+  wallet              BrandWallet?
   wishlists           BrandWishlist[]
   brandCategories     BrandProfileBrandCategory[]
   ratingReviews       CreatorRatingReview[]
@@ -1745,4 +1759,116 @@ model CouponRedemption {
 
   @@unique([couponId, brandId])
   @@index([brandId])
+}
+
+// ─── Store-credit wallet ("Credits" in the UI) ───────────────────────────────
+// A brand's store-credit balance. Money enters when a paid order is cancelled
+// (ORDER_CANCELLATION_CREDIT) and leaves when the brand spends it at checkout
+// (ORDER_CHECKOUT_DEBIT) or withdraws it to their bank (WITHDRAWAL_DEBIT, paid
+// off-platform by an admin). Amounts are integer paise, INR, matching
+// Order.expectedAmountPaise. The balance is a cached convenience value; the
+// WalletTransaction ledger is the source of truth (balancePaise always equals
+// the sum of the ledger). Enforced non-negative by a CHECK constraint plus an
+// atomic conditional debit in WalletService.
+
+enum WalletTransactionType {
+  /// Paid order cancelled → its net amount credited to the brand.
+  ORDER_CANCELLATION_CREDIT
+  /// Store credit reserved to pay (part of) an order at checkout.
+  ORDER_CHECKOUT_DEBIT
+  /// A reserved checkout debit returned because the order was abandoned/rejected
+  /// before payment.
+  CHECKOUT_REVERSAL_CREDIT
+  /// Credit moved out of the spendable balance when a withdrawal is requested.
+  WITHDRAWAL_DEBIT
+  /// A requested withdrawal was rejected/cancelled → the money is returned.
+  WITHDRAWAL_REVERSAL_CREDIT
+  /// Manual admin correction adding credit.
+  ADMIN_ADJUSTMENT_CREDIT
+  /// Manual admin correction removing credit.
+  ADMIN_ADJUSTMENT_DEBIT
+}
+
+enum WalletWithdrawalStatus {
+  REQUESTED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+model BrandWallet {
+  id           String   @id @default(uuid()) @db.Uuid
+  brandId      String   @unique @db.Uuid
+  /// Cached spendable balance in paise; always equals the sum of the ledger.
+  balancePaise Int      @default(0)
+  currency     String   @default("INR")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  brand        BrandProfile        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+  withdrawals  WalletWithdrawal[]
+
+  @@index([brandId])
+}
+
+/// Append-only ledger. One row per balance movement; never updated or deleted.
+model WalletTransaction {
+  id String @id @default(uuid()) @db.Uuid
+
+  walletId String @db.Uuid
+  /// Signed: positive = credit into the wallet, negative = debit out.
+  amountPaise       Int
+  type              WalletTransactionType
+  /// Wallet balance immediately after this row was applied (audit snapshot).
+  balanceAfterPaise Int
+  /// Human-readable reason (cancellation note, admin adjustment reason, etc.).
+  reason            String?
+  /// The order this movement relates to (cancellation credit, checkout debit,
+  /// checkout reversal), when applicable.
+  orderId           String? @db.Uuid
+  /// The withdrawal this movement relates to (withdrawal debit/reversal).
+  withdrawalId      String? @db.Uuid
+  /// The user who caused this movement (admin for adjustments/withdrawal
+  /// processing, brand user for a self-serve withdrawal request); null for
+  /// system-generated rows like an automatic cancellation credit.
+  createdByUserId   String? @db.Uuid
+  createdAt         DateTime @default(now())
+
+  wallet     BrandWallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  order      Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  withdrawal WalletWithdrawal? @relation(fields: [withdrawalId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@index([orderId])
+  @@index([withdrawalId])
+}
+
+/// A brand's request to take store credit back out as real money. The amount is
+/// debited from the spendable balance the moment the request is created (so it
+/// cannot also be spent at checkout); an admin pays it off-platform and marks it
+/// COMPLETED, or REJECTED/CANCELLED returns the money to the balance. Decoupled
+/// from any specific order — store credit is fungible.
+model WalletWithdrawal {
+  id                String                 @id @default(uuid()) @db.Uuid
+  walletId          String                 @db.Uuid
+  brandId           String                 @db.Uuid
+  amountPaise       Int
+  status            WalletWithdrawalStatus @default(REQUESTED)
+  /// Payout details / note supplied by the brand.
+  brandNote         String?
+  /// Admin note recorded when the request is completed or rejected.
+  adminNote         String?
+  requestedByUserId String                 @db.Uuid
+  processedByUserId String?                @db.Uuid
+  processedAt       DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  wallet       BrandWallet         @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@index([status, createdAt])
+  @@index([brandId, createdAt])
+  @@index([walletId])
 }

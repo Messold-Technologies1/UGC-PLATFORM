@@ -295,9 +295,27 @@ export const ENDPOINTS = {
       UPDATE: (id: string) => `/api/admin/coupons/${encodeURIComponent(id)}`,
       DELETE: (id: string) => `/api/admin/coupons/${encodeURIComponent(id)}`,
     },
+    WALLET: {
+      WITHDRAWALS: "/api/admin/wallet/withdrawals",
+      COMPLETE_WITHDRAWAL: (id: string) =>
+        `/api/admin/wallet/withdrawals/${encodeURIComponent(id)}/complete`,
+      REJECT_WITHDRAWAL: (id: string) =>
+        `/api/admin/wallet/withdrawals/${encodeURIComponent(id)}/reject`,
+      BRAND_LEDGER: (brandId: string) =>
+        `/api/admin/wallet/brands/${encodeURIComponent(brandId)}`,
+      BRAND_ADJUST: (brandId: string) =>
+        `/api/admin/wallet/brands/${encodeURIComponent(brandId)}/adjust`,
+    },
   },
   COUPONS: {
     AVAILABLE: "/api/coupons/available",
+  },
+  WALLET: {
+    BALANCE: "/api/wallet",
+    TRANSACTIONS: "/api/wallet/transactions",
+    WITHDRAWALS: "/api/wallet/withdrawals",
+    CANCEL_WITHDRAWAL: (id: string) =>
+      `/api/wallet/withdrawals/${encodeURIComponent(id)}/cancel`,
   },
   CONTACT_US: "/api/contact-us",
 } as const;

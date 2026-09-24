@@ -350,7 +350,7 @@ const OrderModalContent = React.memo(function OrderModalContent({
 
   const { data: walletBalance } = useWalletBalance(true);
   const creditsAvailableRupees = Math.floor(
-    (walletBalance?.balancePaise ?? 0) / 100,
+    (walletBalance?.availablePaise ?? 0) / 100,
   );
   const canUseCredits = !isFirstOrderFree && creditsAvailableRupees > 0;
   const creditsAppliedRupees =

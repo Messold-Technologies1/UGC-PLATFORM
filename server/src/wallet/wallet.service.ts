@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -18,15 +19,19 @@ import { PrismaService } from '../prisma/prisma.service';
  * matching Order.expectedAmountPaise.
  *
  * Invariants (money-critical):
- *  - The WalletTransaction ledger is append-only and is the source of truth;
- *    BrandWallet.balancePaise is a cached mirror that always equals the sum of
- *    the ledger.
- *  - The balance may never go negative. Every debit uses an atomic conditional
- *    UPDATE (decrement only when balance >= amount) so concurrent debits cannot
- *    race the balance below zero; a DB CHECK constraint backs this up.
- *  - Every public mutation runs in a transaction and can be composed into a
- *    caller's transaction by passing `tx` (e.g. crediting a brand atomically
- *    with flipping their cancelled order to CANCELLED_CREDITED).
+ *  - The WalletTransaction ledger is append-only and is the source of truth for
+ *    the TOTAL balance; BrandWallet.balancePaise always equals the sum of the
+ *    ledger. `heldPaise` is money inside balancePaise that is locked by pending
+ *    withdrawal requests. Spendable = balancePaise - heldPaise, and neither the
+ *    balance nor the held amount may go negative (DB CHECK constraints back this
+ *    up).
+ *  - Withdrawals use a HOLD model: requesting a refund LOCKS the amount (held++,
+ *    no ledger movement); rejecting/cancelling RELEASES the hold (held--, no
+ *    ledger movement); only COMPLETING it deducts the money (balance-- and
+ *    held--, one WITHDRAWAL_DEBIT ledger row). So a rejected withdrawal leaves
+ *    no ledger churn and never inflates "credited" totals.
+ *  - Balance/held changes use an optimistic compare-and-set (retry on a
+ *    concurrent change) so two operations cannot race the numbers out of range.
  *
  * Note: internally the model is called "wallet"; it is always surfaced to users
  * as "Credits". Do not rename the columns/models to match the UI wording.
@@ -53,11 +58,18 @@ export type WalletMovementMeta = {
 };
 
 export type WalletBalance = {
+  /** Total credit owned (spendable + held). */
   balancePaise: number;
+  /** Portion locked by pending withdrawal requests. */
+  heldPaise: number;
+  /** Spendable now (balancePaise - heldPaise). */
+  availablePaise: number;
   currency: string;
-  /** Sum of REQUESTED withdrawals (already debited from balancePaise). */
+  /** Alias of heldPaise, kept for existing callers. */
   pendingWithdrawalPaise: number;
 };
+
+type WalletAmounts = { balancePaise: number; heldPaise: number };
 
 @Injectable()
 export class WalletService {
@@ -65,13 +77,11 @@ export class WalletService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  private db(tx?: Prisma.TransactionClient) {
-    return tx ?? this.prisma;
-  }
-
   private assertPositive(amountPaise: number): number {
     if (!Number.isInteger(amountPaise) || amountPaise <= 0) {
-      throw new BadRequestException('Amount must be a positive whole number of paise');
+      throw new BadRequestException(
+        'Amount must be a positive whole number of paise',
+      );
     }
     return amountPaise;
   }
@@ -92,7 +102,6 @@ export class WalletService {
         select: { id: true },
       });
     } catch (err) {
-      // A concurrent request created it first — reload.
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
@@ -107,41 +116,54 @@ export class WalletService {
   }
 
   /**
-   * Apply one signed movement to a wallet and append the ledger row, atomically.
-   * Positive credits, negative debits. Debits use a conditional decrement so the
-   * balance can never go below zero (throws BadRequestException otherwise).
+   * Apply a balance/held change with optimistic concurrency: read the current
+   * amounts, let `compute` derive the next amounts (throwing if an invariant
+   * would break), then update only if the row still holds the values we read.
+   * Retries a few times if a concurrent change slips in between.
    */
-  private async applyMovement(
+  private async applyWalletMutation(
+    walletId: string,
+    compute: (cur: WalletAmounts) => WalletAmounts,
+    tx: Prisma.TransactionClient,
+  ): Promise<WalletAmounts> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const cur = await tx.brandWallet.findUniqueOrThrow({
+        where: { id: walletId },
+        select: { balancePaise: true, heldPaise: true },
+      });
+      const next = compute(cur);
+      if (
+        next.balancePaise < 0 ||
+        next.heldPaise < 0 ||
+        next.heldPaise > next.balancePaise
+      ) {
+        // compute() should throw a friendlier error before this, but never let
+        // an out-of-range value through.
+        throw new BadRequestException('Insufficient credit balance');
+      }
+      const res = await tx.brandWallet.updateMany({
+        where: {
+          id: walletId,
+          balancePaise: cur.balancePaise,
+          heldPaise: cur.heldPaise,
+        },
+        data: { balancePaise: next.balancePaise, heldPaise: next.heldPaise },
+      });
+      if (res.count === 1) return next;
+    }
+    throw new ConflictException(
+      'Credits were being modified concurrently — please retry',
+    );
+  }
+
+  private async writeLedger(
     tx: Prisma.TransactionClient,
     walletId: string,
     signedAmountPaise: number,
     type: WalletTransactionType,
+    balanceAfterPaise: number,
     meta: WalletMovementMeta,
-  ): Promise<{ balanceAfterPaise: number }> {
-    let balanceAfterPaise: number;
-    if (signedAmountPaise < 0) {
-      const need = -signedAmountPaise;
-      const res = await tx.brandWallet.updateMany({
-        where: { id: walletId, balancePaise: { gte: need } },
-        data: { balancePaise: { decrement: need } },
-      });
-      if (res.count !== 1) {
-        throw new BadRequestException('Insufficient credit balance');
-      }
-      const wallet = await tx.brandWallet.findUniqueOrThrow({
-        where: { id: walletId },
-        select: { balancePaise: true },
-      });
-      balanceAfterPaise = wallet.balancePaise;
-    } else {
-      const wallet = await tx.brandWallet.update({
-        where: { id: walletId },
-        data: { balancePaise: { increment: signedAmountPaise } },
-        select: { balancePaise: true },
-      });
-      balanceAfterPaise = wallet.balancePaise;
-    }
-
+  ): Promise<void> {
     await tx.walletTransaction.create({
       data: {
         walletId,
@@ -154,8 +176,13 @@ export class WalletService {
         createdByUserId: meta.createdByUserId ?? null,
       },
     });
+  }
 
-    return { balanceAfterPaise };
+  private run<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    tx?: Prisma.TransactionClient,
+  ): Promise<T> {
+    return tx ? fn(tx) : this.prisma.$transaction(fn);
   }
 
   /** Add credit to a brand's wallet. Composable via `tx`. */
@@ -171,16 +198,25 @@ export class WalletService {
     if (!CREDIT_TYPES.has(params.type)) {
       throw new BadRequestException(`${params.type} is not a credit type`);
     }
-    const run = async (t: Prisma.TransactionClient) => {
+    return this.run(async (t) => {
       const wallet = await this.ensureWallet(params.brandId, t);
-      return this.applyMovement(t, wallet.id, amount, params.type, params);
-    };
-    return tx ? run(tx) : this.prisma.$transaction(run);
+      const next = await this.applyWalletMutation(
+        wallet.id,
+        (cur) => ({
+          balancePaise: cur.balancePaise + amount,
+          heldPaise: cur.heldPaise,
+        }),
+        t,
+      );
+      await this.writeLedger(t, wallet.id, amount, params.type, next.balancePaise, params);
+      return { balanceAfterPaise: next.balancePaise };
+    }, tx);
   }
 
   /**
-   * Remove credit from a brand's wallet. Throws BadRequestException if the
-   * balance would go negative. Composable via `tx`.
+   * Remove credit from a brand's wallet (respecting held funds — you can never
+   * spend money reserved for a pending withdrawal). Throws BadRequestException
+   * if the SPENDABLE balance is short. Composable via `tx`.
    */
   async debit(
     params: {
@@ -194,16 +230,28 @@ export class WalletService {
     if (!DEBIT_TYPES.has(params.type)) {
       throw new BadRequestException(`${params.type} is not a debit type`);
     }
-    const run = async (t: Prisma.TransactionClient) => {
+    return this.run(async (t) => {
       const wallet = await this.ensureWallet(params.brandId, t);
-      return this.applyMovement(t, wallet.id, -amount, params.type, params);
-    };
-    return tx ? run(tx) : this.prisma.$transaction(run);
+      const next = await this.applyWalletMutation(
+        wallet.id,
+        (cur) => {
+          if (cur.balancePaise - cur.heldPaise < amount) {
+            throw new BadRequestException('Insufficient credit balance');
+          }
+          return {
+            balancePaise: cur.balancePaise - amount,
+            heldPaise: cur.heldPaise,
+          };
+        },
+        t,
+      );
+      await this.writeLedger(t, wallet.id, -amount, params.type, next.balancePaise, params);
+      return { balanceAfterPaise: next.balancePaise };
+    }, tx);
   }
 
   // ── Order integration helpers ──────────────────────────────────────────────
 
-  /** Credit a cancelled paid order's full net back to the brand. */
   async creditOrderCancellation(
     params: {
       brandId: string;
@@ -225,10 +273,6 @@ export class WalletService {
     );
   }
 
-  /**
-   * Reserve store credit to pay part/all of an order at checkout (debit). Throws
-   * if the brand no longer has enough credit.
-   */
   async reserveForCheckout(
     params: {
       brandId: string;
@@ -250,7 +294,6 @@ export class WalletService {
     );
   }
 
-  /** Return a reserved checkout debit (order abandoned/rejected before payment). */
   async releaseCheckoutReservation(
     params: { brandId: string; orderId: string; amountPaise: number },
     tx?: Prisma.TransactionClient,
@@ -271,16 +314,16 @@ export class WalletService {
   async getBalance(brandId: string): Promise<WalletBalance> {
     const wallet = await this.prisma.brandWallet.findUnique({
       where: { brandId },
-      select: { balancePaise: true, currency: true },
+      select: { balancePaise: true, heldPaise: true, currency: true },
     });
-    const pending = await this.prisma.walletWithdrawal.aggregate({
-      where: { brandId, status: WalletWithdrawalStatus.REQUESTED },
-      _sum: { amountPaise: true },
-    });
+    const balancePaise = wallet?.balancePaise ?? 0;
+    const heldPaise = wallet?.heldPaise ?? 0;
     return {
-      balancePaise: wallet?.balancePaise ?? 0,
+      balancePaise,
+      heldPaise,
+      availablePaise: balancePaise - heldPaise,
       currency: wallet?.currency ?? 'INR',
-      pendingWithdrawalPaise: pending._sum.amountPaise ?? 0,
+      pendingWithdrawalPaise: heldPaise,
     };
   }
 
@@ -304,12 +347,12 @@ export class WalletService {
     });
   }
 
-  // ── Withdrawals (brand-initiated) ────────────────────────────────────────────
+  // ── Withdrawals (hold model) ─────────────────────────────────────────────────
 
   /**
-   * Brand requests to withdraw store credit to real money. The amount is debited
-   * from the spendable balance immediately (so it cannot also be spent at
-   * checkout) and a REQUESTED withdrawal is created for an admin to pay out.
+   * Brand requests to withdraw store credit. The amount is LOCKED (held) so it
+   * cannot also be spent at checkout, but it is NOT removed from the balance —
+   * that only happens when an admin completes the withdrawal.
    */
   async requestWithdrawal(params: {
     brandId: string;
@@ -326,23 +369,72 @@ export class WalletService {
           brandId: params.brandId,
           amountPaise: amount,
           status: WalletWithdrawalStatus.REQUESTED,
+          holdModel: true,
           brandNote: params.brandNote?.trim() || null,
           requestedByUserId: params.requestedByUserId,
         },
       });
-      // Debits atomically; rolls back the withdrawal row if credit is short.
-      await this.applyMovement(
-        tx,
+      // Lock the funds (rolls back the withdrawal row if spendable is short).
+      await this.applyWalletMutation(
         wallet.id,
-        -amount,
-        WalletTransactionType.WITHDRAWAL_DEBIT,
-        { withdrawalId: withdrawal.id, createdByUserId: params.requestedByUserId },
+        (cur) => {
+          if (cur.balancePaise - cur.heldPaise < amount) {
+            throw new BadRequestException('Insufficient credit balance');
+          }
+          return {
+            balancePaise: cur.balancePaise,
+            heldPaise: cur.heldPaise + amount,
+          };
+        },
+        tx,
       );
       return withdrawal;
     });
   }
 
-  /** Brand cancels their own still-pending withdrawal → money returns to credits. */
+  /** Release a pending withdrawal's lock (or, for a legacy row, credit it back). */
+  private async unwindPendingWithdrawal(
+    tx: Prisma.TransactionClient,
+    withdrawal: {
+      id: string;
+      walletId: string;
+      brandId: string;
+      amountPaise: number;
+      holdModel: boolean;
+    },
+    reason: string,
+  ): Promise<void> {
+    if (withdrawal.holdModel) {
+      // Just release the hold — the money never left the balance.
+      await this.applyWalletMutation(
+        withdrawal.walletId,
+        (cur) => ({
+          balancePaise: cur.balancePaise,
+          heldPaise: cur.heldPaise - withdrawal.amountPaise,
+        }),
+        tx,
+      );
+      return;
+    }
+    // Legacy debit-on-request row: credit the money back to the balance.
+    const next = await this.applyWalletMutation(
+      withdrawal.walletId,
+      (cur) => ({
+        balancePaise: cur.balancePaise + withdrawal.amountPaise,
+        heldPaise: cur.heldPaise,
+      }),
+      tx,
+    );
+    await this.writeLedger(
+      tx,
+      withdrawal.walletId,
+      withdrawal.amountPaise,
+      WalletTransactionType.WITHDRAWAL_REVERSAL_CREDIT,
+      next.balancePaise,
+      { withdrawalId: withdrawal.id, reason },
+    );
+  }
+
   async cancelWithdrawalByBrand(params: {
     withdrawalId: string;
     brandId: string;
@@ -360,13 +452,7 @@ export class WalletService {
           'Only a pending withdrawal can be cancelled',
         );
       }
-      await this.applyMovement(
-        tx,
-        withdrawal.walletId,
-        withdrawal.amountPaise,
-        WalletTransactionType.WITHDRAWAL_REVERSAL_CREDIT,
-        { withdrawalId: withdrawal.id, reason: 'Cancelled by brand' },
-      );
+      await this.unwindPendingWithdrawal(tx, withdrawal, 'Cancelled by brand');
       return tx.walletWithdrawal.update({
         where: { id: withdrawal.id },
         data: {
@@ -384,7 +470,7 @@ export class WalletService {
     take?: number;
     skip?: number;
   }) {
-    const withdrawals = await this.prisma.walletWithdrawal.findMany({
+    return this.prisma.walletWithdrawal.findMany({
       where: params.status ? { status: params.status } : undefined,
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
       take: Math.min(Math.max(1, params.take ?? 50), 200),
@@ -393,41 +479,66 @@ export class WalletService {
         wallet: {
           select: {
             balancePaise: true,
+            heldPaise: true,
             brand: { select: { id: true, brandName: true } },
           },
         },
       },
     });
-    return withdrawals;
   }
 
-  /** Admin marks a requested withdrawal as paid off-platform. No money moves. */
+  /**
+   * Admin marks a requested withdrawal as paid off-platform. For a hold-model
+   * withdrawal this is where the money actually leaves the balance (held is
+   * released and the balance is debited, one WITHDRAWAL_DEBIT ledger row). A
+   * legacy row already debited on request, so this only flips the status.
+   */
   async completeWithdrawal(params: {
     withdrawalId: string;
     processedByUserId: string;
     adminNote?: string | null;
   }) {
-    const withdrawal = await this.prisma.walletWithdrawal.findUnique({
-      where: { id: params.withdrawalId },
-    });
-    if (!withdrawal) throw new NotFoundException('Withdrawal not found');
-    if (withdrawal.status !== WalletWithdrawalStatus.REQUESTED) {
-      throw new BadRequestException(
-        'Only a pending withdrawal can be completed',
-      );
-    }
-    return this.prisma.walletWithdrawal.update({
-      where: { id: withdrawal.id },
-      data: {
-        status: WalletWithdrawalStatus.COMPLETED,
-        processedByUserId: params.processedByUserId,
-        processedAt: new Date(),
-        adminNote: params.adminNote?.trim() || null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const withdrawal = await tx.walletWithdrawal.findUnique({
+        where: { id: params.withdrawalId },
+      });
+      if (!withdrawal) throw new NotFoundException('Withdrawal not found');
+      if (withdrawal.status !== WalletWithdrawalStatus.REQUESTED) {
+        throw new BadRequestException(
+          'Only a pending withdrawal can be completed',
+        );
+      }
+      if (withdrawal.holdModel) {
+        const next = await this.applyWalletMutation(
+          withdrawal.walletId,
+          (cur) => ({
+            balancePaise: cur.balancePaise - withdrawal.amountPaise,
+            heldPaise: cur.heldPaise - withdrawal.amountPaise,
+          }),
+          tx,
+        );
+        await this.writeLedger(
+          tx,
+          withdrawal.walletId,
+          -withdrawal.amountPaise,
+          WalletTransactionType.WITHDRAWAL_DEBIT,
+          next.balancePaise,
+          { withdrawalId: withdrawal.id, createdByUserId: params.processedByUserId },
+        );
+      }
+      return tx.walletWithdrawal.update({
+        where: { id: withdrawal.id },
+        data: {
+          status: WalletWithdrawalStatus.COMPLETED,
+          processedByUserId: params.processedByUserId,
+          processedAt: new Date(),
+          adminNote: params.adminNote?.trim() || null,
+        },
+      });
     });
   }
 
-  /** Admin rejects a requested withdrawal → the money returns to the brand. */
+  /** Admin rejects a requested withdrawal → the money is released back. */
   async rejectWithdrawal(params: {
     withdrawalId: string;
     processedByUserId: string;
@@ -443,13 +554,7 @@ export class WalletService {
           'Only a pending withdrawal can be rejected',
         );
       }
-      await this.applyMovement(
-        tx,
-        withdrawal.walletId,
-        withdrawal.amountPaise,
-        WalletTransactionType.WITHDRAWAL_REVERSAL_CREDIT,
-        { withdrawalId: withdrawal.id, reason: 'Rejected by admin' },
-      );
+      await this.unwindPendingWithdrawal(tx, withdrawal, 'Rejected by admin');
       return tx.walletWithdrawal.update({
         where: { id: withdrawal.id },
         data: {
@@ -462,10 +567,6 @@ export class WalletService {
     });
   }
 
-  /**
-   * Admin manual correction. Positive amount adds credit, negative removes it
-   * (the support "pay them out off-platform then zero their credit" path).
-   */
   async adminAdjust(params: {
     brandId: string;
     amountPaise: number;
@@ -473,10 +574,14 @@ export class WalletService {
     adminUserId: string;
   }): Promise<{ balanceAfterPaise: number }> {
     if (!Number.isInteger(params.amountPaise) || params.amountPaise === 0) {
-      throw new BadRequestException('Adjustment amount must be a non-zero whole number of paise');
+      throw new BadRequestException(
+        'Adjustment amount must be a non-zero whole number of paise',
+      );
     }
     if (!params.reason?.trim()) {
-      throw new BadRequestException('A reason is required for a manual adjustment');
+      throw new BadRequestException(
+        'A reason is required for a manual adjustment',
+      );
     }
     if (params.amountPaise > 0) {
       return this.credit({

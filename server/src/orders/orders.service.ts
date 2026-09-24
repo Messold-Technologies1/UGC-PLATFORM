@@ -903,8 +903,9 @@ export class OrdersService {
     // leaves a Razorpay charge in the impossible (₹0, ₹1) range.
     let creditsToApply = 0;
     if (params.useCredits && netAmountPaise > 0) {
-      const { balancePaise } = await this.wallet.getBalance(brand.id);
-      creditsToApply = Math.min(balancePaise, netAmountPaise);
+      // Only the SPENDABLE balance (excludes funds held for pending withdrawals).
+      const { availablePaise } = await this.wallet.getBalance(brand.id);
+      creditsToApply = Math.min(availablePaise, netAmountPaise);
       const remainder = netAmountPaise - creditsToApply;
       if (remainder > 0 && remainder < RAZORPAY_MIN_CHARGE_PAISE) {
         creditsToApply = netAmountPaise - RAZORPAY_MIN_CHARGE_PAISE;

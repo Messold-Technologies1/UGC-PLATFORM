@@ -95,6 +95,8 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       instagram?: boolean;
       portfolioVideos?: boolean;
       language?: boolean;
+      primaryNiche?: boolean;
+      secondaryNiches?: boolean;
     } = {},
   ) {
     const user = await prisma.user.create({
@@ -157,11 +159,19 @@ describe('Listed creators split by profile completeness (e2e)', () => {
         option(CreatorFacetDimension.LANGUAGE, 'lang'),
       ]);
 
+    // The niche is the one facet stored as ranks rather than dimensions:
+    // rank 0 is the primary category, rank > 0 the secondary ones.
     await prisma.creatorProfileFacetSelection.createMany({
       data: [
-        { creatorProfileId: profile.id, optionId: primary.id, rank: 0 },
-        { creatorProfileId: profile.id, optionId: second1.id, rank: 1 },
-        { creatorProfileId: profile.id, optionId: second2.id, rank: 2 },
+        ...(gaps.primaryNiche
+          ? []
+          : [{ creatorProfileId: profile.id, optionId: primary.id, rank: 0 }]),
+        ...(gaps.secondaryNiches
+          ? []
+          : [
+              { creatorProfileId: profile.id, optionId: second1.id, rank: 1 },
+              { creatorProfileId: profile.id, optionId: second2.id, rank: 2 },
+            ]),
         { creatorProfileId: profile.id, optionId: type.id, rank: 0 },
         { creatorProfileId: profile.id, optionId: occupation.id, rank: 0 },
         { creatorProfileId: profile.id, optionId: appearance.id, rank: 0 },
@@ -386,6 +396,66 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       expect(body.items[0]?.missingRequirements).toEqual(
         expect.arrayContaining(['At least one language', 'Intro video']),
       );
+    });
+
+    it('counts a missing primary category against a listed creator', async () => {
+      await seedListedCreator('no-primary', { primaryNiche: true });
+
+      const res = await listSegment('listed_incomplete').expect(200);
+      const body = res.body as ListBody;
+      expect(names(body)).toEqual(['no-primary']);
+      expect(body.items[0]?.missingRequirements).toEqual(['Primary niche']);
+    });
+
+    it('counts missing secondary niches against a listed creator', async () => {
+      await seedListedCreator('no-secondaries', { secondaryNiches: true });
+
+      const res = await listSegment('listed_incomplete').expect(200);
+      const body = res.body as ListBody;
+      expect(names(body)).toEqual(['no-secondaries']);
+      expect(body.items[0]?.missingRequirements).toEqual([
+        '2 secondary niches',
+      ]);
+    });
+
+    it('requires the full number of secondary niches, not just one', async () => {
+      // One secondary pick is still short of the two the checklist demands —
+      // the case a `some`-style relation filter would wrongly pass.
+      const creator = await seedListedCreator('one-secondary', {
+        secondaryNiches: true,
+      });
+      const lone = await prisma.creatorFacetOption.create({
+        data: {
+          dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+          slug: 'one-secondary-lone',
+          label: 'lone',
+          sortOrder: 0,
+        },
+      });
+      await prisma.creatorProfileFacetSelection.create({
+        data: { creatorProfileId: creator.id, optionId: lone.id, rank: 1 },
+      });
+
+      const res = await listSegment('listed_incomplete').expect(200);
+      const body = res.body as ListBody;
+      expect(names(body)).toEqual(['one-secondary']);
+      expect(body.items[0]?.missingRequirements).toEqual([
+        '2 secondary niches',
+      ]);
+    });
+
+    it('counts both niche gaps together', async () => {
+      await seedListedCreator('no-niche-at-all', {
+        primaryNiche: true,
+        secondaryNiches: true,
+      });
+
+      const res = await listSegment('listed_incomplete').expect(200);
+      const body = res.body as ListBody;
+      expect(body.items[0]?.missingRequirements).toEqual([
+        'Primary niche',
+        '2 secondary niches',
+      ]);
     });
 
     it('counts an unpriced mandatory add-on against a listed creator', async () => {

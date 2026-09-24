@@ -162,9 +162,17 @@ const ICON_STYLES = {
 
 export function OrderStatusBanner({ order, creator, isOrderCompleted = false }: OrderStatusBannerProps) {
   const creatorName = creator?.displayName ?? "Creator";
+  // A terminal cancelled/refunded/credited order also has briefSubmittedAt set
+  // and no briefAcceptedAt, so it must NOT be treated as "awaiting acceptance"
+  // (which would hide its banner).
+  const isTerminalCancelled =
+    order.status === "REJECTED" ||
+    order.status === "REFUNDED" ||
+    order.status === "CANCELLED_CREDITED";
   const isAwaitingAcceptance =
-    order.status === "BRIEF_SUBMITTED" ||
-    (!!order.briefSubmittedAt && !order.briefAcceptedAt);
+    !isTerminalCancelled &&
+    (order.status === "BRIEF_SUBMITTED" ||
+      (!!order.briefSubmittedAt && !order.briefAcceptedAt));
   const { isGatewayReady, isProcessing, resumePayment } = useResumeOrderCheckout(
     order.id,
     order.packageNameSnapshot,

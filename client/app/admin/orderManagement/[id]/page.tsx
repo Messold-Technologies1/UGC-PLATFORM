@@ -496,6 +496,36 @@ export default function AdminOrderDetailsPage() {
         </div>
       </motion.section>
 
+      {(order.status === "REJECTED" ||
+        order.status === "REFUNDED" ||
+        order.status === "CANCELLED_CREDITED") && (
+        <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5 dark:border-amber-500/20 dark:bg-amber-500/10">
+          <p className="text-[15px] font-bold text-foreground">
+            {order.status === "CANCELLED_CREDITED"
+              ? "Order cancelled — amount credited to the brand"
+              : order.status === "REFUNDED"
+                ? "Order refunded"
+                : cancelledByHeadline(order.cancelledBy)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {order.cancelledBy === "CREATOR"
+              ? "The creator rejected this order"
+              : order.cancelledBy === "BRAND"
+                ? "The brand cancelled this order"
+                : "This order was cancelled"}
+            {order.cancellationReason
+              ? ` — reason: “${order.cancellationReason}”`
+              : ""}
+            .
+            {order.status === "CANCELLED_CREDITED"
+              ? ` ₹${Math.round(
+                  (order.expectedAmountPaise ?? 0) / 100,
+                ).toLocaleString("en-IN")} was added to the brand's GoCollab credits.`
+              : ""}
+          </p>
+        </div>
+      )}
+
       <motion.div
         variants={containerVariants}
         initial="hidden"

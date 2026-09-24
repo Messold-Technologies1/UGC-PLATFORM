@@ -76,13 +76,11 @@ import {
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
-import {
-  getCreatorOnboardingMode,
-  isProfileFirstOnboardingMode,
-} from '../config/creator-onboarding-mode';
+import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
+  evaluateListedProfileCompleteness,
   evaluateProfileCompleteness,
   isIdentitySectionComplete,
 } from './creator-profile-completeness.util';
@@ -230,6 +228,23 @@ const pendingCreatorApprovalInclude = {
   },
 } as const;
 
+/**
+ * One LISTED creator who still has requirements outstanding, as returned by
+ * `listListedCreatorsWithIncompleteProfiles`. `missing` holds the same labels
+ * the admin list shows, each of which maps to a stable key in
+ * `LISTED_PROFILE_REQUIREMENTS` — so a nudge can name what is actually needed
+ * rather than sending a generic reminder.
+ */
+export type ListedCreatorProfileGap = {
+  creatorProfileId: string;
+  userId: string | null;
+  displayName: string;
+  phone: string | null;
+  phoneVerified: boolean;
+  contactEmail: string | null;
+  missing: string[];
+};
+
 /** Include for admin unified creator list (all segments). */
 const adminCreatorListInclude = {
   /**
@@ -251,7 +266,6 @@ const adminCreatorListInclude = {
   creatorApproval: {
     include: {
       approvedBy: { select: { name: true, email: true } },
-      shortlistedBy: { select: { name: true, email: true } },
       sentForReviewBy: { select: { name: true, email: true } },
     },
   },
@@ -1773,9 +1787,6 @@ export class CreatorProfileService {
       approvedByName: adminActorDisplayName(
         profile.creatorApproval?.approvedBy,
       ),
-      shortlistedByName: adminActorDisplayName(
-        profile.creatorApproval?.shortlistedBy,
-      ),
       reviewSentByName: adminActorDisplayName(
         profile.creatorApproval?.sentForReviewBy,
       ),
@@ -1794,10 +1805,7 @@ export class CreatorProfileService {
     status: ApprovalStatus,
     approval: { approvedAt?: Date | null; updatedAt?: Date | null } | null,
   ): Date | null {
-    if (
-      status === ApprovalStatus.APPROVED ||
-      status === ApprovalStatus.SHORTLISTED
-    ) {
+    if (status === ApprovalStatus.APPROVED) {
       return approval?.approvedAt ?? null;
     }
     if (status === ApprovalStatus.SELF_COMPLETED) {
@@ -1835,6 +1843,20 @@ export class CreatorProfileService {
       });
     }
 
+    if (
+      query.segment === AdminCreatorListSegment.LISTED_COMPLETE ||
+      query.segment === AdminCreatorListSegment.LISTED_INCOMPLETE
+    ) {
+      return this.listListedCreatorsByCompleteness({
+        page,
+        limit,
+        skip,
+        search: query.search,
+        wantComplete:
+          query.segment === AdminCreatorListSegment.LISTED_COMPLETE,
+      });
+    }
+
     const where = buildAdminCreatorsListWhere(query.segment, query.search);
 
     const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
@@ -1842,47 +1864,35 @@ export class CreatorProfileService {
         ? [{ createdAt: 'asc' }]
         : query.segment === AdminCreatorListSegment.NON_APPROVED
           ? [{ creatorApproval: { approvedAt: 'desc' } }]
-          : query.segment === AdminCreatorListSegment.SHORTLISTED
-            ? [
-                {
-                  creatorApproval: {
-                    approvedAt: { sort: 'desc', nulls: 'last' },
-                  },
-                },
-                { createdAt: 'desc' },
-              ]
-            : query.segment === AdminCreatorListSegment.SELF_COMPLETED
-              ? // Sort by when they actually completed (approval row updates on
-                // the PENDING -> SELF_COMPLETED flip). approvedAt is often null
-                // for older self-completes, so using it left Aug signups under
-                // Jul rows that happened to have a leftover approvedAt.
+          : query.segment === AdminCreatorListSegment.SELF_COMPLETED
+            ? // Sort by when they actually completed (approval row updates on
+              // the PENDING -> SELF_COMPLETED flip). approvedAt is often null
+              // for older self-completes, so using it left Aug signups under
+              // Jul rows that happened to have a leftover approvedAt.
+              [{ creatorApproval: { updatedAt: 'desc' } }, { createdAt: 'desc' }]
+            : query.segment === AdminCreatorListSegment.WITHDRAWN
+              ? // Most recently withdrawn first, so admins see fresh
+                // withdrawals at the top.
                 [
-                  { creatorApproval: { updatedAt: 'desc' } },
-                  { createdAt: 'desc' },
+                  {
+                    creatorApproval: {
+                      withdrawnAt: { sort: 'desc', nulls: 'last' },
+                    },
+                  },
+                  { updatedAt: 'desc' },
                 ]
-              : query.segment === AdminCreatorListSegment.WITHDRAWN
-                ? // Most recently withdrawn first, so admins see fresh
-                  // withdrawals at the top.
+              : query.segment === AdminCreatorListSegment.LISTED
+                ? // Newly listed creators must surface first. Sorting by
+                  // profile createdAt buried older signups after List.
                   [
                     {
                       creatorApproval: {
-                        withdrawnAt: { sort: 'desc', nulls: 'last' },
+                        approvedAt: { sort: 'desc', nulls: 'last' },
                       },
                     },
                     { updatedAt: 'desc' },
                   ]
-                : query.segment === AdminCreatorListSegment.LISTED
-                  ? // Newly listed creators must surface first. Sorting by
-                    // profile createdAt buried older signups after List.
-                    [
-                      {
-                        creatorApproval: {
-                          approvedAt: { sort: 'desc', nulls: 'last' },
-                        },
-                      },
-                      { updatedAt: 'desc' },
-                    ]
-                  : [{ createdAt: 'desc' }];
+                : [{ createdAt: 'desc' }];
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
@@ -2175,6 +2185,228 @@ export class CreatorProfileService {
     };
   }
 
+  /**
+   * Re-evaluates every LISTED creator against the full requirement set — the
+   * Go-Live checklist plus the intro video — and returns what each one is still
+   * missing.
+   *
+   * This has to happen in memory rather than in the `where`: Prisma cannot
+   * express "at least 3 portfolio videos" or "at least 2 secondary niches"
+   * (it has no count filter on relations), and "every mandatory add-on priced"
+   * is a comparison against the add-on catalog. Writing it as raw SQL would
+   * make a third copy of the checklist to keep in step with the server
+   * evaluator and its client mirror, so instead the one evaluator is reused and
+   * the cost is paid in a single lightweight pass.
+   *
+   * That pass selects only the columns the checklist reads, so it stays cheap;
+   * the expensive `adminCreatorListInclude` is loaded for one page of results
+   * afterwards. Callers get a Map keyed by creator id — empty array means the
+   * profile is complete.
+   */
+  private async evaluateListedCreatorsCompleteness(
+    search?: string,
+  ): Promise<Map<string, string[]>> {
+    const where: Prisma.CreatorProfileWhereInput = buildAdminCreatorsListWhere(
+      AdminCreatorListSegment.LISTED,
+      search,
+    );
+
+    const [profiles, mandatoryOptions] = await Promise.all([
+      this.prisma.creatorProfile.findMany({
+        where,
+        select: {
+          id: true,
+          introVideoUrl: true,
+          profileImageUrl: true,
+          displayName: true,
+          contactEmail: true,
+          bio: true,
+          countryName: true,
+          stateName: true,
+          city: true,
+          gender: true,
+          dateOfBirth: true,
+          shippingAddress: true,
+          facetSelections: {
+            select: { rank: true, option: { select: { dimension: true } } },
+          },
+          addOns: { select: { name: true } },
+          _count: {
+            select: { profileLanguages: true, packages: true, restrictions: true },
+          },
+          portfolioVideos: {
+            where: {
+              visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+              ...playableAssetWhere(),
+            },
+            select: { id: true },
+          },
+          socialConnections: {
+            where: {
+              platform: SocialPlatform.INSTAGRAM,
+              status: SocialConnectionStatus.ACTIVE,
+            },
+            select: { id: true },
+          },
+        },
+      }),
+      this.prisma.creatorAddOnOption.findMany({
+        where: { mandatory: true },
+        select: { name: true },
+      }),
+    ]);
+
+    const mandatoryAddOnNames = mandatoryOptions.map((o) => o.name);
+    const byCreatorId = new Map<string, string[]>();
+
+    for (const profile of profiles) {
+      const { missing } = evaluateListedProfileCompleteness({
+        introVideoUrl: profile.introVideoUrl,
+        profileImageUrl: profile.profileImageUrl,
+        displayName: profile.displayName,
+        contactEmail: profile.contactEmail,
+        bio: profile.bio,
+        countryName: profile.countryName,
+        stateName: profile.stateName,
+        city: profile.city,
+        gender: profile.gender,
+        dateOfBirth: profile.dateOfBirth,
+        shippingAddress: profile.shippingAddress,
+        selectedFacetDimensions: profile.facetSelections.map(
+          (selection) => selection.option.dimension,
+        ),
+        nichePrimaryCount: profile.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank === 0,
+        ).length,
+        nicheSecondaryCount: profile.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank > 0,
+        ).length,
+        restrictionCount: profile._count.restrictions,
+        languageCount: profile._count.profileLanguages,
+        packageCount: profile._count.packages,
+        publicVideoCount: profile.portfolioVideos.length,
+        mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
+          profile.addOns.some((addOn) => addOn.name === name),
+        ),
+        instagramConnected: profile.socialConnections.length > 0,
+      });
+      byCreatorId.set(profile.id, missing);
+    }
+
+    return byCreatorId;
+  }
+
+  /**
+   * The outreach cohort: every LISTED creator whose profile is not actually
+   * finished, with the contact details needed to reach them and the exact list
+   * of what they are still missing.
+   *
+   * Public because the admin list is not the only consumer — a WhatsApp/email
+   * nudge job, a one-off script or a CSV export all need the same cohort, and
+   * none of them can go through the paginated HTTP endpoint.
+   *
+   * Deliberately NOT backed by a stored column. A denormalized flag would have
+   * to be refreshed by every write that can change the answer, and one of them
+   * does not go through `recomputeCreatorListingState` at all: a creator's
+   * Instagram connection is parked as EXPIRED/REVOKED by the sync in
+   * `social-connections.service.ts`, which never touches listing state. A
+   * stored flag would therefore go quietly stale in exactly the way
+   * `completeProfile` already does — the bug this whole split exists to work
+   * around. Deriving it on read costs one extra query per run and cannot drift.
+   *
+   * Callers still need their own send-tracking (a stamp column per nudge
+   * stage, as `CreatorReminderService` does) so nobody is messaged twice;
+   * that is a separate concern from finding the cohort.
+   */
+  async listListedCreatorsWithIncompleteProfiles(): Promise<
+    ListedCreatorProfileGap[]
+  > {
+    const missingByCreatorId = await this.evaluateListedCreatorsCompleteness();
+
+    const incompleteIds = [...missingByCreatorId.entries()]
+      .filter(([, missing]) => missing.length > 0)
+      .map(([id]) => id);
+
+    if (incompleteIds.length === 0) return [];
+
+    const rows = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: incompleteIds } },
+      orderBy: { displayName: 'asc' },
+      select: {
+        id: true,
+        displayName: true,
+        contactEmail: true,
+        user: { select: { id: true, phone: true, phoneVerified: true } },
+      },
+    });
+
+    return rows.map((row) => ({
+      creatorProfileId: row.id,
+      userId: row.user?.id ?? null,
+      displayName: row.displayName,
+      // WhatsApp needs the account phone; WhatsAppService normalizes it to
+      // E.164 and silently skips a creator who has opted out of notifications.
+      phone: row.user?.phone ?? null,
+      phoneVerified: row.user?.phoneVerified ?? false,
+      contactEmail: row.contactEmail ?? null,
+      missing: missingByCreatorId.get(row.id) ?? [],
+    }));
+  }
+
+  /**
+   * The listed creators split by whether their profile is actually finished.
+   *
+   * Pagination is applied to the evaluated ids and only that page is loaded
+   * with the full admin include, so the heavy query stays one page wide however
+   * many creators are listed. Ordering matches the plain Listed tab (most
+   * recently listed first) so the two read consistently.
+   */
+  private async listListedCreatorsByCompleteness(query: {
+    page: number;
+    limit: number;
+    skip: number;
+    search?: string;
+    wantComplete: boolean;
+  }): Promise<AdminCreatorsListResponseDto> {
+    const { page, limit, skip, search, wantComplete } = query;
+
+    const missingByCreatorId =
+      await this.evaluateListedCreatorsCompleteness(search);
+
+    const matchingIds = [...missingByCreatorId.entries()]
+      .filter(([, missing]) =>
+        wantComplete ? missing.length === 0 : missing.length > 0,
+      )
+      .map(([id]) => id);
+
+    const total = matchingIds.length;
+    if (total === 0 || skip >= total) {
+      return { items: [], total, page, limit };
+    }
+
+    const rows = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: matchingIds } },
+      orderBy: [
+        { creatorApproval: { approvedAt: { sort: 'desc', nulls: 'last' } } },
+        { updatedAt: 'desc' },
+      ],
+      skip,
+      take: limit,
+      include: adminCreatorListInclude as any,
+    });
+
+    const items = rows.map((profile: CreatorProfileWithRelations) => ({
+      ...this.mapAdminCreatorListItem(profile),
+      missingRequirements: missingByCreatorId.get(profile.id) ?? [],
+    }));
+
+    return { items, total, page, limit };
+  }
+
   private async listFeaturedCreators(query: {
     page: number;
     limit: number;
@@ -2228,7 +2460,6 @@ export class CreatorProfileService {
       AdminCreatorListSegment.APPROVED,
       AdminCreatorListSegment.NON_APPROVED,
       AdminCreatorListSegment.INCOMPLETE,
-      AdminCreatorListSegment.SHORTLISTED,
       AdminCreatorListSegment.SELF_COMPLETED,
       AdminCreatorListSegment.WITHDRAWN,
       AdminCreatorListSegment.LISTED,
@@ -2236,7 +2467,7 @@ export class CreatorProfileService {
 
     const now = new Date();
 
-    const [counts, featuredCount] = await Promise.all([
+    const [counts, featuredCount, listedMissing] = await Promise.all([
       this.prisma.$transaction(
         segments.map((segment) =>
           this.prisma.creatorProfile.count({
@@ -2250,17 +2481,25 @@ export class CreatorProfileService {
           OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
         },
       }),
+      // Derived from the live checklist, so it cannot be a SQL count.
+      this.evaluateListedCreatorsCompleteness(),
     ]);
+
+    let listedComplete = 0;
+    for (const missing of listedMissing.values()) {
+      if (missing.length === 0) listedComplete += 1;
+    }
 
     return {
       pending: counts[0],
       approved: counts[1],
       nonApproved: counts[2],
       incomplete: counts[3],
-      shortlisted: counts[4],
-      selfCompleted: counts[5],
-      withdrawn: counts[6],
-      listed: counts[7],
+      selfCompleted: counts[4],
+      withdrawn: counts[5],
+      listed: counts[6],
+      listedComplete,
+      listedIncomplete: listedMissing.size - listedComplete,
       featured: featuredCount,
     };
   }
@@ -2482,12 +2721,6 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator not found');
     }
 
-    if (profile.creatorApproval?.status === ApprovalStatus.SHORTLISTED) {
-      throw new BadRequestException(
-        'Shortlisted creators cannot be approved until they complete their profile and enter awaiting review',
-      );
-    }
-
     if (profile.creatorApproval?.status === ApprovalStatus.SELF_COMPLETED) {
       throw new BadRequestException(
         'Self completed profiles must be sent for review before they can be listed',
@@ -2557,138 +2790,6 @@ export class CreatorProfileService {
     );
 
     this.creatorProfileMail.notifyApproved(creatorProfileId);
-
-    return this.mapCreatorProfileResponseDto(updated);
-  }
-
-  async shortlistCreatorProfile(
-    adminUserId: string,
-    creatorProfileId: string,
-  ): Promise<CreatorProfileResponseDto> {
-    const profile = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      select: {
-        id: true,
-        completeProfile: true,
-        creatorApproval: { select: { status: true } },
-      },
-    });
-    if (!profile) {
-      throw new NotFoundException('Creator not found');
-    }
-    if (profile.completeProfile) {
-      throw new BadRequestException(
-        'Only incomplete (building) profiles can be shortlisted',
-      );
-    }
-
-    const status = profile.creatorApproval?.status ?? ApprovalStatus.PENDING;
-    if (status === ApprovalStatus.REJECTED) {
-      throw new BadRequestException(
-        'Rejected creators cannot be shortlisted — shortlist only from Building profile',
-      );
-    }
-    if (status === ApprovalStatus.SHORTLISTED) {
-      throw new BadRequestException('Creator is already shortlisted');
-    }
-    if (
-      status !== ApprovalStatus.PENDING &&
-      status !== ApprovalStatus.APPROVED
-    ) {
-      throw new BadRequestException(
-        'Only building-profile creators can be shortlisted',
-      );
-    }
-
-    await this.prisma.creatorApproval.upsert({
-      where: { creatorId: creatorProfileId },
-      create: {
-        creatorId: creatorProfileId,
-        status: ApprovalStatus.SHORTLISTED,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-        shortlistedById: adminUserId,
-        wasShortlisted: true,
-      },
-      update: {
-        status: ApprovalStatus.SHORTLISTED,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-        shortlistedById: adminUserId,
-        rejectionReason: null,
-        wasShortlisted: true,
-      },
-    });
-
-    await recomputeCreatorListingState(this.prisma, creatorProfileId);
-
-    const updated = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      include: creatorProfileWithRelationsInclude as any,
-    });
-    if (!updated) {
-      throw new Error('Creator profile load failed');
-    }
-
-    this.logger.log(
-      `[admin-action] SHORTLIST creator=${creatorProfileId} by admin=${adminUserId} ` +
-        `from=${status} to=${ApprovalStatus.SHORTLISTED}`,
-    );
-
-    return this.mapCreatorProfileResponseDto(updated);
-  }
-
-  async unshortlistCreatorProfile(
-    adminUserId: string,
-    creatorProfileId: string,
-  ): Promise<CreatorProfileResponseDto> {
-    const profile = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      select: {
-        id: true,
-        creatorApproval: { select: { status: true } },
-      },
-    });
-    if (!profile) {
-      throw new NotFoundException('Creator not found');
-    }
-    if (profile.creatorApproval?.status !== ApprovalStatus.SHORTLISTED) {
-      throw new BadRequestException('Creator is not shortlisted');
-    }
-
-    // profile_first Building = PENDING incomplete; approval_first Incomplete = APPROVED incomplete
-    const unshortlistedStatus =
-      getCreatorOnboardingMode(process.env.CREATOR_ONBOARDING_MODE) ===
-      'profile_first'
-        ? ApprovalStatus.PENDING
-        : ApprovalStatus.APPROVED;
-
-    await this.prisma.creatorApproval.update({
-      where: { creatorId: creatorProfileId },
-      data: {
-        status: unshortlistedStatus,
-        approvedById: adminUserId,
-        approvedAt: new Date(),
-        rejectionReason: null,
-        wasShortlisted: false,
-      },
-    });
-
-    await recomputeCreatorListingState(this.prisma, creatorProfileId);
-
-    const updated = await this.prisma.creatorProfile.findUnique({
-      where: { id: creatorProfileId },
-      include: creatorProfileWithRelationsInclude as any,
-    });
-    if (!updated) {
-      throw new Error('Creator profile load failed');
-    }
-
-    this.logger.log(
-      `[admin-action] UNSHORTLIST creator=${creatorProfileId} by admin=${adminUserId} ` +
-        `from=${ApprovalStatus.SHORTLISTED} to=${unshortlistedStatus} ` +
-        `(back to Building profile)`,
-    );
 
     return this.mapCreatorProfileResponseDto(updated);
   }
@@ -2819,8 +2920,7 @@ export class CreatorProfileService {
       // reminder stamps so this withdraw starts a fresh reminder cycle. Un-latch
       // completeProfile so the profile is editable again. isListed is already
       // false and stays false. On the next Go Live the profile returns to
-      // SELF_COMPLETED (or Awaiting review for shortlisted creators) like a
-      // first submission.
+      // SELF_COMPLETED like a first submission.
       await tx.creatorApproval.update({
         where: { creatorId: creatorProfileId },
         data: {

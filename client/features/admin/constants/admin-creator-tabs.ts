@@ -1,10 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Bookmark,
+  BadgeCheck,
   CheckCircle2,
   Clock3,
   Globe,
   ListTodo,
+  OctagonAlert,
   SendHorizontal,
   Sparkles,
   Undo2,
@@ -61,21 +62,30 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
     badgeClassName: "bg-amber-100 text-amber-800",
   },
   {
-    value: "shortlisted",
-    label: "Shortlisted",
-    description:
-      "Promising incomplete profiles held for later review once they finish building.",
-    icon: Bookmark,
-    countKey: "shortlisted",
-    badgeClassName: "bg-indigo-100 text-indigo-700",
-  },
-  {
     value: "listed",
     label: "Listed",
     description: "Live on the marketplace — visible to brands.",
     icon: Globe,
     countKey: "listed",
     badgeClassName: "bg-violet-100 text-violet-700",
+  },
+  {
+    value: "listed_complete",
+    label: "Listed · complete",
+    description:
+      "Listed and nothing left to do — every go-live requirement met, intro video included.",
+    icon: BadgeCheck,
+    countKey: "listedComplete",
+    badgeClassName: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    value: "listed_incomplete",
+    label: "Listed · incomplete",
+    description:
+      "Live on the marketplace but still missing something — most often the intro video, which is only asked for after listing.",
+    icon: OctagonAlert,
+    countKey: "listedIncomplete",
+    badgeClassName: "bg-rose-100 text-rose-700",
   },
   {
     value: "featured",
@@ -92,25 +102,16 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "incomplete",
     label: "Building profile",
     description:
-      "After registration. Shortlist a creator to watch them, or wait until they finish on their own.",
+      "After registration. They move to Self complete once they finish their go-live checklist.",
     icon: ListTodo,
     countKey: "incomplete",
     badgeClassName: "bg-amber-100 text-amber-800",
   },
   {
-    value: "shortlisted",
-    label: "Shortlisted",
-    description:
-      "Picked from Building profile. When they complete, they move to Awaiting review automatically.",
-    icon: Bookmark,
-    countKey: "shortlisted",
-    badgeClassName: "bg-indigo-100 text-indigo-700",
-  },
-  {
     value: "self_completed",
     label: "Self complete",
     description:
-      "Finished without being shortlisted. Send the relevant ones to Awaiting review.",
+      "Finished their profile on their own. Send the relevant ones to Awaiting review.",
     icon: SendHorizontal,
     countKey: "selfCompleted",
     badgeClassName: "bg-teal-100 text-teal-700",
@@ -128,7 +129,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "pending",
     label: "Awaiting review",
     description:
-      "Ready to list. Shortlisted completions and profiles sent from Self complete land here.",
+      "Ready to list. Profiles sent from Self complete land here.",
     icon: Clock3,
     countKey: "pending",
     badgeClassName: "bg-sky-100 text-sky-700",
@@ -139,6 +140,24 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     description: "Listed after review — live on the marketplace for brands.",    icon: Globe,
     countKey: "listed",
     badgeClassName: "bg-violet-100 text-violet-700",
+  },
+  {
+    value: "listed_complete",
+    label: "Listed · complete",
+    description:
+      "Listed and nothing left to do — every go-live requirement met, intro video included.",
+    icon: BadgeCheck,
+    countKey: "listedComplete",
+    badgeClassName: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    value: "listed_incomplete",
+    label: "Listed · incomplete",
+    description:
+      "Live on the marketplace but still missing something — most often the intro video, which is only asked for after listing.",
+    icon: OctagonAlert,
+    countKey: "listedIncomplete",
+    badgeClassName: "bg-rose-100 text-rose-700",
   },
   {
     value: "non_approved",
@@ -215,8 +234,10 @@ export function getAdminCreatorEmptyMessage(
       return profileFirst
         ? "No creators are still building their profile."
         : "No approved creators with incomplete profiles at the moment.";
-    case "shortlisted":
-      return "No shortlisted creators yet.";
+    case "listed_complete":
+      return "No listed creators have a fully complete profile yet.";
+    case "listed_incomplete":
+      return "Every listed creator has a complete profile — nothing to chase.";
     case "featured":
       return "No featured creators yet. Feature a listed creator to pin them to the top of browse results.";
     default:

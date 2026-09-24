@@ -10,7 +10,6 @@ export type ApprovalStatus =
   | "PENDING"
   | "APPROVED"
   | "REJECTED"
-  | "SHORTLISTED"
   | "SELF_COMPLETED"
   | "WITHDRAWN";
 
@@ -185,10 +184,11 @@ export type AdminCreatorListSegment =
   | "approved"
   | "non_approved"
   | "incomplete"
-  | "shortlisted"
   | "self_completed"
   | "withdrawn"
   | "listed"
+  | "listed_complete"
+  | "listed_incomplete"
   | "featured";
 
 export interface AdminCreatorsListQueryDto extends PendingApprovalsQueryDto {
@@ -200,10 +200,11 @@ export interface AdminCreatorSegmentCountsDto {
   approved: number;
   nonApproved: number;
   incomplete: number;
-  shortlisted: number;
   selfCompleted: number;
   withdrawn: number;
   listed: number;
+  listedComplete: number;
+  listedIncomplete: number;
   featured: number;
 }
 
@@ -236,8 +237,13 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   startingPrice?: string | null;
   onLocationAvailable: boolean;
   approvedByName?: string | null;
-  shortlistedByName?: string | null;
   reviewSentByName?: string | null;
+  /**
+   * Requirements this listed creator is still missing, re-evaluated live by the
+   * server (Go-Live checklist + the intro video). Only sent for the
+   * listed_complete / listed_incomplete segments.
+   */
+  missingRequirements?: string[];
   /**
    * Follower count from the creator's live Instagram connection. Null when none
    * is connected, when the connection has expired or been revoked, or when the

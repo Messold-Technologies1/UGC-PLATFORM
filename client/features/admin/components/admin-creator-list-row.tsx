@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Banknote,
-  Bookmark,
-  BookmarkX,
   MapPin,
   Pencil,
   Play,
@@ -30,9 +28,7 @@ import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-cr
 import { useFeatureCreatorMutation } from "@/features/admin/hooks/use-feature-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { useSendCreatorForReviewMutation } from "@/features/admin/hooks/use-send-creator-for-review-mutation";
-import { useShortlistCreatorMutation } from "@/features/admin/hooks/use-shortlist-creator-mutation";
 import { useUnfeatureCreatorMutation } from "@/features/admin/hooks/use-unfeature-creator-mutation";
-import { useUnshortlistCreatorMutation } from "@/features/admin/hooks/use-unshortlist-creator-mutation";
 import { RejectDialog } from "@/components/admin/RejectDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,12 +71,6 @@ function getRowDateColumn(
   if (creator.approvalStatus === "APPROVED") {
     return {
       label: "Approved",
-      value: formatRowDate(creator.approvedAt),
-    };
-  }
-  if (creator.approvalStatus === "SHORTLISTED") {
-    return {
-      label: "Shortlisted",
       value: formatRowDate(creator.approvedAt),
     };
   }
@@ -298,11 +288,6 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
               : "Pending"}
         </Badge>
       ) : null}
-      {creator.approvalStatus === "SHORTLISTED" ? (
-        <Badge className="border-indigo-500/20 bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20">
-          Shortlisted
-        </Badge>
-      ) : null}
       {creator.approvalStatus === "SELF_COMPLETED" ? (
         <Badge className="border-teal-500/20 bg-teal-500/10 text-teal-700 hover:bg-teal-500/20">
           Self complete
@@ -346,6 +331,37 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
   );
 }
 
+/**
+ * What a listed creator still owes, as sent by the server for the
+ * listed_complete / listed_incomplete segments. Shown in full rather than
+ * truncated to one item: the whole point of the segment is knowing what to
+ * chase each creator for.
+ */
+function MissingRequirements({
+  missing,
+}: {
+  missing: string[] | undefined;
+}) {
+  if (!missing?.length) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+        Still missing
+      </span>
+      {missing.map((item) => (
+        <Badge
+          key={item}
+          variant="outline"
+          className="border-rose-500/30 bg-rose-500/10 text-[10px] font-semibold text-rose-700"
+        >
+          {item}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 function RowMetric({
   label,
   children,
@@ -378,12 +394,8 @@ export function AdminCreatorListRow({
     useApproveCreatorMutation();
   const { mutate: reject, isPending: isRejecting } =
     useRejectCreatorMutation();
-  const { mutate: shortlist, isPending: isShortlisting } =
-    useShortlistCreatorMutation();
   const { mutate: sendForReview, isPending: isSendingForReview } =
     useSendCreatorForReviewMutation();
-  const { mutate: unshortlist, isPending: isUnshortlisting } =
-    useUnshortlistCreatorMutation();
   const { mutate: featureCreator, isPending: isFeaturing } =
     useFeatureCreatorMutation();
   const { mutate: unfeatureCreator, isPending: isUnfeaturing } =
@@ -398,7 +410,6 @@ export function AdminCreatorListRow({
   const isApproved = creator.approvalStatus === "APPROVED";
   const isSelfCompleted = creator.approvalStatus === "SELF_COMPLETED";
   const isIncompleteSegment = segment === "incomplete";
-  const isShortlistedSegment = segment === "shortlisted";
   const isSelfCompletedSegment = segment === "self_completed";
   const isListedSegment = segment === "listed";
   const isFeaturedSegment = segment === "featured";
@@ -410,9 +421,7 @@ export function AdminCreatorListRow({
   const isWorking =
     isApproving ||
     isRejecting ||
-    isShortlisting ||
     isSendingForReview ||
-    isUnshortlisting ||
     isFeaturing ||
     isUnfeaturing;
   const dateColumn = getRowDateColumn(creator, segment);
@@ -434,16 +443,6 @@ export function AdminCreatorListRow({
   const handleConfirmReject = (reason: string) => {
     setIsRejectOpen(false);
     reject({ id: creator.id, rejectionReason: reason });
-  };
-
-  const handleShortlistClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    shortlist(creator.id);
-  };
-
-  const handleUnshortlistClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    unshortlist(creator.id);
   };
 
   const handleSendForReviewClick = (event: React.MouseEvent) => {
@@ -483,6 +482,7 @@ export function AdminCreatorListRow({
                 </div>
               </div>
               <StatusBadges creator={creator} />
+              <MissingRequirements missing={creator.missingRequirements} />
               {creator.rejectionReason ? (
                 <p className="line-clamp-2 text-sm text-muted-foreground">
                   {creator.rejectionReason}
@@ -531,24 +531,9 @@ export function AdminCreatorListRow({
             </RowMetric>
 
             {isAwaitingReviewSegment ? (
-              <>
-                <RowMetric label="Review sent by" className="min-w-[130px]">
-                  <span className="truncate" title={creator.reviewSentByName ?? undefined}>
-                    {creator.reviewSentByName ?? "—"}
-                  </span>
-                </RowMetric>
-                <RowMetric label="Shortlisted by" className="min-w-[130px]">
-                  <span className="truncate" title={creator.shortlistedByName ?? undefined}>
-                    {creator.shortlistedByName ?? "—"}
-                  </span>
-                </RowMetric>
-              </>
-            ) : null}
-
-            {isShortlistedSegment ? (
-              <RowMetric label="Shortlisted by" className="min-w-[130px]">
-                <span className="truncate" title={creator.shortlistedByName ?? undefined}>
-                  {creator.shortlistedByName ?? "—"}
+              <RowMetric label="Review sent by" className="min-w-[130px]">
+                <span className="truncate" title={creator.reviewSentByName ?? undefined}>
+                  {creator.reviewSentByName ?? "—"}
                 </span>
               </RowMetric>
             ) : null}
@@ -621,53 +606,16 @@ export function AdminCreatorListRow({
               </Button>
 
               {isIncompleteSegment ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-9 text-muted-foreground hover:text-destructive"
-                    onClick={handleRejectClick}
-                    disabled={isWorking}
-                    aria-label="Reject creator"
-                  >
-                    <UserX className="size-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={handleShortlistClick}
-                    disabled={isWorking}
-                  >
-                    <Bookmark className="size-3.5" />
-                    {isShortlisting ? "Shortlisting…" : "Shortlist"}
-                  </Button>
-                </>
-              ) : null}
-
-              {isShortlistedSegment ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-9 text-muted-foreground hover:text-destructive"
-                    onClick={handleRejectClick}
-                    disabled={isWorking}
-                    aria-label="Reject creator"
-                  >
-                    <UserX className="size-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={handleUnshortlistClick}
-                    disabled={isWorking}
-                  >
-                    <BookmarkX className="size-3.5" />
-                    {isUnshortlisting ? "Removing…" : "Remove"}
-                  </Button>
-                </>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-9 text-muted-foreground hover:text-destructive"
+                  onClick={handleRejectClick}
+                  disabled={isWorking}
+                  aria-label="Reject creator"
+                >
+                  <UserX className="size-4" />
+                </Button>
               ) : null}
 
               {isSelfCompletedSegment ? (
@@ -694,9 +642,7 @@ export function AdminCreatorListRow({
                 </>
               ) : null}
 
-              {canModeratePending &&
-              !isIncompleteSegment &&
-              !isShortlistedSegment ? (
+              {canModeratePending && !isIncompleteSegment ? (
                 <>
                   <Button
                     variant="ghost"
@@ -726,8 +672,7 @@ export function AdminCreatorListRow({
 
               {isRejected &&
               creator.completeProfile &&
-              !isIncompleteSegment &&
-              !isShortlistedSegment ? (
+              !isIncompleteSegment ? (
                 <Button
                   size="sm"
                   className="rounded-full"
@@ -738,9 +683,7 @@ export function AdminCreatorListRow({
                 </Button>
               ) : null}
 
-              {isApproved &&
-              !isIncompleteSegment &&
-              !isShortlistedSegment ? (
+              {isApproved && !isIncompleteSegment ? (
                 <Button
                   variant="ghost"
                   size="icon"

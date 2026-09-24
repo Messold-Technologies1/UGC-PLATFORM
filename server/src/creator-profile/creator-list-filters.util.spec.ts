@@ -323,17 +323,23 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('filters shortlisted incomplete profiles', () => {
-      expect(
-        buildAdminCreatorsListWhere(
-          AdminCreatorListSegment.SHORTLISTED,
-          undefined,
-          'profile_first',
-        ),
-      ).toEqual({
+    it('keeps every incomplete non-rejected profile in Building profile', () => {
+      // The Shortlisted segment is gone, so a creator an admin used to hold
+      // there is a plain PENDING incomplete profile and belongs in this list.
+      const where = buildAdminCreatorsListWhere(
+        AdminCreatorListSegment.INCOMPLETE,
+        undefined,
+        'profile_first',
+      );
+      expect(where).toEqual({
         completeProfile: false,
-        creatorApproval: { status: ApprovalStatus.SHORTLISTED },
+        creatorApproval: {
+          status: {
+            in: [ApprovalStatus.PENDING, ApprovalStatus.APPROVED],
+          },
+        },
       });
+      expect(JSON.stringify(where)).not.toContain('SHORTLISTED');
     });
 
     it('filters self completed profiles awaiting a send-for-review', () => {

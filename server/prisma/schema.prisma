@@ -42,12 +42,11 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
-  SHORTLISTED
   SELF_COMPLETED
   /// A previously-submitted profile the creator pulled back to edit. Distinct
   /// from Building (PENDING + incomplete) so a withdraw is tracked as its own
-  /// stage. On the next Go Live it returns to SELF_COMPLETED (or Awaiting
-  /// review for shortlisted creators) like a first submission.
+  /// stage. On the next Go Live it returns to SELF_COMPLETED like a first
+  /// submission.
   WITHDRAWN
 }
 
@@ -228,7 +227,6 @@ model User {
   brandProfile                BrandProfile?
   ownedAgency                 Agency?
   approvedCreatorRecords      CreatorApproval[]          @relation("CreatorApprovedBy")
-  shortlistedCreatorRecords   CreatorApproval[]          @relation("CreatorShortlistedBy")
   sentForReviewCreatorRecords CreatorApproval[]          @relation("CreatorSentForReviewBy")
   featuredCreatorRecords      CreatorFeature[]           @relation("CreatorFeaturedBy")
   cancelledOrders             Order[]                    @relation("OrderCancelledBy")
@@ -1196,8 +1194,6 @@ model CreatorApproval {
   status            ApprovalStatus @default(PENDING)
   approvedById      String?        @db.Uuid
   approvedAt        DateTime?
-  /// Admin who last shortlisted this creator. Kept after they leave the list.
-  shortlistedById   String?        @db.Uuid
   /// Admin who sent a self-complete profile into Awaiting review.
   sentForReviewById String?        @db.Uuid
   /// When the creator (or an admin on their behalf) last withdrew a submitted
@@ -1212,20 +1208,15 @@ model CreatorApproval {
   resubmitReminder24hAt DateTime?
   resubmitReminder48hAt DateTime?
   rejectionReason   String?
-  // True while Sakshi has this creator on the shortlist. Cleared on unshortlist
-  // so a later go-live lands in Self complete instead of skipping the queue.
-  wasShortlisted    Boolean        @default(false)
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
   creator         CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   approvedBy      User?          @relation("CreatorApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
-  shortlistedBy   User?          @relation("CreatorShortlistedBy", fields: [shortlistedById], references: [id], onDelete: SetNull)
   sentForReviewBy User?          @relation("CreatorSentForReviewBy", fields: [sentForReviewById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([approvedById])
-  @@index([shortlistedById])
   @@index([sentForReviewById])
 }
 

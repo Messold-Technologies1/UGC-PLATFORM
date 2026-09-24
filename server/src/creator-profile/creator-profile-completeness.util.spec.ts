@@ -1,11 +1,15 @@
 import { CreatorFacetDimension, CreatorGender } from '@prisma/client';
 import {
+  evaluateListedProfileCompleteness,
   evaluateProfileCompleteness,
   GO_LIVE_REQUIREMENTS,
+  INTRO_VIDEO_REQUIREMENT,
+  LISTED_PROFILE_REQUIREMENTS,
   isIdentitySectionComplete,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_FACET_DIMENSIONS,
   REQUIRED_SECONDARY_NICHES,
+  type ListedProfileCompletenessInput,
   type ProfileCompletenessInput,
 } from './creator-profile-completeness.util';
 
@@ -221,5 +225,97 @@ describe('isIdentitySectionComplete', () => {
         nicheSecondaryCount: REQUIRED_SECONDARY_NICHES,
       }),
     ).toBe(false);
+  });
+});
+
+describe('evaluateListedProfileCompleteness', () => {
+  const listedInput = (
+    overrides: Partial<ListedProfileCompletenessInput> = {},
+  ): ListedProfileCompletenessInput => ({
+    ...completeInput(),
+    introVideoUrl: 'https://cdn/intro.mp4',
+    ...overrides,
+  });
+
+  it('is complete when the go-live checklist is met and an intro video exists', () => {
+    const { complete, missing } =
+      evaluateListedProfileCompleteness(listedInput());
+    expect(complete).toBe(true);
+    expect(missing).toEqual([]);
+  });
+
+  it.each([[null], [undefined], [''], ['   ']])(
+    'flags a missing intro video (%p)',
+    (introVideoUrl) => {
+      const { complete, missing } = evaluateListedProfileCompleteness(
+        listedInput({ introVideoUrl }),
+      );
+      expect(complete).toBe(false);
+      expect(missing).toEqual([INTRO_VIDEO_REQUIREMENT.label]);
+    },
+  );
+
+  it('does NOT change the go-live gate — the same profile can still go live', () => {
+    // The intro video is not asked for at registration, so requiring it here
+    // must never leak into the Go-Live checklist.
+    const input = listedInput({ introVideoUrl: null });
+    expect(evaluateProfileCompleteness(input).complete).toBe(true);
+    expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
+  });
+
+  it('reports checklist gaps alongside the intro video', () => {
+    const { complete, missing } = evaluateListedProfileCompleteness(
+      listedInput({
+        introVideoUrl: null,
+        instagramConnected: false,
+        publicVideoCount: 0,
+      }),
+    );
+    expect(complete).toBe(false);
+    expect(missing).toEqual(
+      expect.arrayContaining([
+        `At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`,
+        'Instagram connected',
+        INTRO_VIDEO_REQUIREMENT.label,
+      ]),
+    );
+  });
+
+  it('keeps every go-live requirement, plus the intro video, in the catalog', () => {
+    expect(LISTED_PROFILE_REQUIREMENTS).toEqual([
+      ...GO_LIVE_REQUIREMENTS,
+      INTRO_VIDEO_REQUIREMENT,
+    ]);
+  });
+
+  it('every label it can emit maps back to a catalog entry', () => {
+    // Guards the WhatsApp templating: a label with no stable key is unusable.
+    const { missing } = evaluateListedProfileCompleteness({
+      ...listedInput({ introVideoUrl: null }),
+      profileImageUrl: null,
+      displayName: '',
+      contactEmail: '',
+      bio: '',
+      countryName: '',
+      stateName: '',
+      city: '',
+      gender: null,
+      dateOfBirth: null,
+      shippingAddress: '',
+      selectedFacetDimensions: [],
+      nichePrimaryCount: 0,
+      nicheSecondaryCount: 0,
+      languageCount: 0,
+      packageCount: 0,
+      publicVideoCount: 0,
+      mandatoryAddOnsPriced: false,
+      instagramConnected: false,
+    });
+
+    const catalogLabels = LISTED_PROFILE_REQUIREMENTS.map((r) => r.label);
+    expect(missing.length).toBe(LISTED_PROFILE_REQUIREMENTS.length);
+    for (const label of missing) {
+      expect(catalogLabels).toContain(label);
+    }
   });
 });

@@ -331,6 +331,37 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
   );
 }
 
+/**
+ * What a listed creator still owes, as sent by the server for the
+ * listed_complete / listed_incomplete segments. Shown in full rather than
+ * truncated to one item: the whole point of the segment is knowing what to
+ * chase each creator for.
+ */
+function MissingRequirements({
+  missing,
+}: {
+  missing: string[] | undefined;
+}) {
+  if (!missing?.length) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+        Still missing
+      </span>
+      {missing.map((item) => (
+        <Badge
+          key={item}
+          variant="outline"
+          className="border-rose-500/30 bg-rose-500/10 text-[10px] font-semibold text-rose-700"
+        >
+          {item}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 function RowMetric({
   label,
   children,
@@ -451,6 +482,7 @@ export function AdminCreatorListRow({
                 </div>
               </div>
               <StatusBadges creator={creator} />
+              <MissingRequirements missing={creator.missingRequirements} />
               {creator.rejectionReason ? (
                 <p className="line-clamp-2 text-sm text-muted-foreground">
                   {creator.rejectionReason}

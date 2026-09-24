@@ -80,6 +80,7 @@ import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode'
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
+  evaluateListedProfileCompleteness,
   evaluateProfileCompleteness,
   isIdentitySectionComplete,
 } from './creator-profile-completeness.util';
@@ -1825,6 +1826,20 @@ export class CreatorProfileService {
       });
     }
 
+    if (
+      query.segment === AdminCreatorListSegment.LISTED_COMPLETE ||
+      query.segment === AdminCreatorListSegment.LISTED_INCOMPLETE
+    ) {
+      return this.listListedCreatorsByCompleteness({
+        page,
+        limit,
+        skip,
+        search: query.search,
+        wantComplete:
+          query.segment === AdminCreatorListSegment.LISTED_COMPLETE,
+      });
+    }
+
     const where = buildAdminCreatorsListWhere(query.segment, query.search);
 
     const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
@@ -2153,6 +2168,171 @@ export class CreatorProfileService {
     };
   }
 
+  /**
+   * Re-evaluates every LISTED creator against the full requirement set — the
+   * Go-Live checklist plus the intro video — and returns what each one is still
+   * missing.
+   *
+   * This has to happen in memory rather than in the `where`: Prisma cannot
+   * express "at least 3 portfolio videos" or "at least 2 secondary niches"
+   * (it has no count filter on relations), and "every mandatory add-on priced"
+   * is a comparison against the add-on catalog. Writing it as raw SQL would
+   * make a third copy of the checklist to keep in step with the server
+   * evaluator and its client mirror, so instead the one evaluator is reused and
+   * the cost is paid in a single lightweight pass.
+   *
+   * That pass selects only the columns the checklist reads, so it stays cheap;
+   * the expensive `adminCreatorListInclude` is loaded for one page of results
+   * afterwards. Callers get a Map keyed by creator id — empty array means the
+   * profile is complete.
+   */
+  private async evaluateListedCreatorsCompleteness(
+    search?: string,
+  ): Promise<Map<string, string[]>> {
+    const where: Prisma.CreatorProfileWhereInput = buildAdminCreatorsListWhere(
+      AdminCreatorListSegment.LISTED,
+      search,
+    );
+
+    const [profiles, mandatoryOptions] = await Promise.all([
+      this.prisma.creatorProfile.findMany({
+        where,
+        select: {
+          id: true,
+          introVideoUrl: true,
+          profileImageUrl: true,
+          displayName: true,
+          contactEmail: true,
+          bio: true,
+          countryName: true,
+          stateName: true,
+          city: true,
+          gender: true,
+          dateOfBirth: true,
+          shippingAddress: true,
+          facetSelections: {
+            select: { rank: true, option: { select: { dimension: true } } },
+          },
+          addOns: { select: { name: true } },
+          _count: {
+            select: { profileLanguages: true, packages: true, restrictions: true },
+          },
+          portfolioVideos: {
+            where: {
+              visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+              ...playableAssetWhere(),
+            },
+            select: { id: true },
+          },
+          socialConnections: {
+            where: {
+              platform: SocialPlatform.INSTAGRAM,
+              status: SocialConnectionStatus.ACTIVE,
+            },
+            select: { id: true },
+          },
+        },
+      }),
+      this.prisma.creatorAddOnOption.findMany({
+        where: { mandatory: true },
+        select: { name: true },
+      }),
+    ]);
+
+    const mandatoryAddOnNames = mandatoryOptions.map((o) => o.name);
+    const byCreatorId = new Map<string, string[]>();
+
+    for (const profile of profiles) {
+      const { missing } = evaluateListedProfileCompleteness({
+        introVideoUrl: profile.introVideoUrl,
+        profileImageUrl: profile.profileImageUrl,
+        displayName: profile.displayName,
+        contactEmail: profile.contactEmail,
+        bio: profile.bio,
+        countryName: profile.countryName,
+        stateName: profile.stateName,
+        city: profile.city,
+        gender: profile.gender,
+        dateOfBirth: profile.dateOfBirth,
+        shippingAddress: profile.shippingAddress,
+        selectedFacetDimensions: profile.facetSelections.map(
+          (selection) => selection.option.dimension,
+        ),
+        nichePrimaryCount: profile.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank === 0,
+        ).length,
+        nicheSecondaryCount: profile.facetSelections.filter(
+          (s) =>
+            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
+            s.rank > 0,
+        ).length,
+        restrictionCount: profile._count.restrictions,
+        languageCount: profile._count.profileLanguages,
+        packageCount: profile._count.packages,
+        publicVideoCount: profile.portfolioVideos.length,
+        mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
+          profile.addOns.some((addOn) => addOn.name === name),
+        ),
+        instagramConnected: profile.socialConnections.length > 0,
+      });
+      byCreatorId.set(profile.id, missing);
+    }
+
+    return byCreatorId;
+  }
+
+  /**
+   * The listed creators split by whether their profile is actually finished.
+   *
+   * Pagination is applied to the evaluated ids and only that page is loaded
+   * with the full admin include, so the heavy query stays one page wide however
+   * many creators are listed. Ordering matches the plain Listed tab (most
+   * recently listed first) so the two read consistently.
+   */
+  private async listListedCreatorsByCompleteness(query: {
+    page: number;
+    limit: number;
+    skip: number;
+    search?: string;
+    wantComplete: boolean;
+  }): Promise<AdminCreatorsListResponseDto> {
+    const { page, limit, skip, search, wantComplete } = query;
+
+    const missingByCreatorId =
+      await this.evaluateListedCreatorsCompleteness(search);
+
+    const matchingIds = [...missingByCreatorId.entries()]
+      .filter(([, missing]) =>
+        wantComplete ? missing.length === 0 : missing.length > 0,
+      )
+      .map(([id]) => id);
+
+    const total = matchingIds.length;
+    if (total === 0 || skip >= total) {
+      return { items: [], total, page, limit };
+    }
+
+    const rows = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: matchingIds } },
+      orderBy: [
+        { creatorApproval: { approvedAt: { sort: 'desc', nulls: 'last' } } },
+        { updatedAt: 'desc' },
+      ],
+      skip,
+      take: limit,
+      include: adminCreatorListInclude as any,
+    });
+
+    const items = rows.map((profile: CreatorProfileWithRelations) => ({
+      ...this.mapAdminCreatorListItem(profile),
+      missingRequirements: missingByCreatorId.get(profile.id) ?? [],
+    }));
+
+    return { items, total, page, limit };
+  }
+
   private async listFeaturedCreators(query: {
     page: number;
     limit: number;
@@ -2213,7 +2393,7 @@ export class CreatorProfileService {
 
     const now = new Date();
 
-    const [counts, featuredCount] = await Promise.all([
+    const [counts, featuredCount, listedMissing] = await Promise.all([
       this.prisma.$transaction(
         segments.map((segment) =>
           this.prisma.creatorProfile.count({
@@ -2227,7 +2407,14 @@ export class CreatorProfileService {
           OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
         },
       }),
+      // Derived from the live checklist, so it cannot be a SQL count.
+      this.evaluateListedCreatorsCompleteness(),
     ]);
+
+    let listedComplete = 0;
+    for (const missing of listedMissing.values()) {
+      if (missing.length === 0) listedComplete += 1;
+    }
 
     return {
       pending: counts[0],
@@ -2237,6 +2424,8 @@ export class CreatorProfileService {
       selfCompleted: counts[4],
       withdrawn: counts[5],
       listed: counts[6],
+      listedComplete,
+      listedIncomplete: listedMissing.size - listedComplete,
       featured: featuredCount,
     };
   }

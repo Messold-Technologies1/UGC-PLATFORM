@@ -23,6 +23,10 @@ export enum AdminCreatorListSegment {
   SELF_COMPLETED = 'self_completed',
   WITHDRAWN = 'withdrawn',
   LISTED = 'listed',
+  /// Listed AND every requirement met, including the post-listing intro video.
+  LISTED_COMPLETE = 'listed_complete',
+  /// Listed but still missing something — the outreach cohort.
+  LISTED_INCOMPLETE = 'listed_incomplete',
   FEATURED = 'featured',
 }
 
@@ -192,6 +196,16 @@ export class AdminCreatorListItemDto {
   })
   instagramUsername?: string | null;
 
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Requirements this LISTED creator is still missing, re-evaluated live ' +
+      '(Go-Live checklist + the intro video). Empty when nothing is missing. ' +
+      'Only populated for the listed_complete / listed_incomplete segments.',
+    example: ['Intro video'],
+  })
+  missingRequirements?: string[];
+
   @ApiProperty()
   submittedAt!: Date;
 }
@@ -259,6 +273,12 @@ export class AdminCreatorSegmentCountsDto {
 
   @ApiProperty({ example: 30 })
   listed!: number;
+
+  @ApiProperty({ example: 18 })
+  listedComplete!: number;
+
+  @ApiProperty({ example: 12 })
+  listedIncomplete!: number;
 
   @ApiProperty({ example: 5 })
   featured!: number;

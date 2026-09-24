@@ -82,16 +82,23 @@ export default function BrandCreditsPage() {
   const [note, setNote] = useState("");
   const [refundFull, setRefundFull] = useState(false);
 
-  const availablePaise =
-    transactions[0]?.balanceAfterPaise ?? balance?.balancePaise ?? 0;
+  // Spendable now = total balance minus funds held for pending withdrawals.
+  const availablePaise = balance?.availablePaise ?? 0;
   const availableRupees = Math.floor(availablePaise / 100);
-  const pendingPaise = balance?.pendingWithdrawalPaise ?? 0;
+  const heldPaise = balance?.heldPaise ?? 0;
 
   const pending = withdrawals.filter((w) => w.status === "REQUESTED");
   const history = withdrawals.filter((w) => w.status !== "REQUESTED");
 
+  // Genuine credit received all-time — cancellation credits and admin top-ups
+  // only (not withdrawal releases or checkout reversals, which are just money
+  // coming back).
   const lifetimeCreditedPaise = transactions
-    .filter((t) => t.amountPaise > 0)
+    .filter(
+      (t) =>
+        t.type === "ORDER_CANCELLATION_CREDIT" ||
+        t.type === "ADMIN_ADJUSTMENT_CREDIT",
+    )
     .reduce((sum, t) => sum + t.amountPaise, 0);
 
   const enteredRupees = Number(amount);
@@ -152,10 +159,9 @@ export default function BrandCreditsPage() {
                 : inr(availablePaise)}
             </p>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/70">
-              {pendingPaise > 0 && (
+              {heldPaise > 0 && (
                 <span className="inline-flex items-center gap-1.5">
-                  <Clock className="size-3.5" /> {inr(pendingPaise)} pending
-                  withdrawal
+                  <Clock className="size-3.5" /> {inr(heldPaise)} on hold
                 </span>
               )}
               {lifetimeCreditedPaise > 0 && (

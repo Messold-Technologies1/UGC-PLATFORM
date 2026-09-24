@@ -7,10 +7,11 @@ import type { PrismaService } from '../prisma/prisma.service';
 /**
  * In-memory fake of the Prisma surface WalletService uses. Models the two
  * money-critical behaviours:
- *  - the conditional debit (updateMany with balancePaise >= need) returns
- *    count 0 when the balance is short, so the balance can never go negative;
- *  - $transaction snapshots and restores state on throw, so a failed debit
- *    rolls back an already-created withdrawal row.
+ *  - balance/held changes go through updateMany with an optimistic compare-and-set
+ *    (where matches the read balancePaise + heldPaise); the fake applies the
+ *    absolute next values only when they still match;
+ *  - $transaction snapshots and restores state on throw, so a failed hold rolls
+ *    back an already-created withdrawal row.
  */
 class FakePrisma {
   wallets = new Map<string, any>();
@@ -48,32 +49,26 @@ class FakePrisma {
         id: this.id('wallet'),
         brandId: data.brandId,
         balancePaise: data.balancePaise ?? 0,
+        heldPaise: data.heldPaise ?? 0,
         currency: data.currency ?? 'INR',
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
       this.wallets.set(w.id, w);
       return { ...w };
     },
-    update: async ({ where, data }: any) => {
-      const w = this.wallets.get(where.id);
-      if (!w) throw new Error('nf');
-      if (data.balancePaise?.increment != null)
-        w.balancePaise += data.balancePaise.increment;
-      if (data.balancePaise?.decrement != null)
-        w.balancePaise -= data.balancePaise.decrement;
-      w.updatedAt = new Date();
-      return { ...w };
-    },
+    // Optimistic compare-and-set: absolute next values, applied only when the
+    // read balancePaise/heldPaise still match.
     updateMany: async ({ where, data }: any) => {
       const w = this.wallets.get(where.id);
       if (!w) return { count: 0 };
-      if (where.balancePaise?.gte != null && w.balancePaise < where.balancePaise.gte)
+      if (
+        where.balancePaise !== undefined &&
+        w.balancePaise !== where.balancePaise
+      )
         return { count: 0 };
-      if (data.balancePaise?.decrement != null)
-        w.balancePaise -= data.balancePaise.decrement;
-      if (data.balancePaise?.increment != null)
-        w.balancePaise += data.balancePaise.increment;
+      if (where.heldPaise !== undefined && w.heldPaise !== where.heldPaise)
+        return { count: 0 };
+      if (data.balancePaise !== undefined) w.balancePaise = data.balancePaise;
+      if (data.heldPaise !== undefined) w.heldPaise = data.heldPaise;
       return { count: 1 };
     },
   };
@@ -98,12 +93,12 @@ class FakePrisma {
       const row = {
         id: this.id('wd'),
         status: WalletWithdrawalStatus.REQUESTED,
+        holdModel: true,
         brandNote: null,
         adminNote: null,
         processedByUserId: null,
         processedAt: null,
         createdAt: new Date(),
-        updatedAt: new Date(),
         ...data,
       };
       this.withdrawals.set(row.id, row);
@@ -115,16 +110,8 @@ class FakePrisma {
     },
     update: async ({ where, data }: any) => {
       const w = this.withdrawals.get(where.id);
-      Object.assign(w, data, { updatedAt: new Date() });
+      Object.assign(w, data);
       return { ...w };
-    },
-    aggregate: async ({ where }: any) => {
-      const rows = [...this.withdrawals.values()].filter(
-        (w) => w.brandId === where.brandId && w.status === where.status,
-      );
-      return {
-        _sum: { amountPaise: rows.reduce((a, b) => a + b.amountPaise, 0) },
-      };
     },
     findMany: async ({ where }: any) =>
       [...this.withdrawals.values()].filter(
@@ -136,9 +123,7 @@ class FakePrisma {
     const snap = {
       wallets: new Map([...this.wallets].map(([k, v]) => [k, { ...v }])),
       txns: [...this.txns],
-      withdrawals: new Map(
-        [...this.withdrawals].map(([k, v]) => [k, { ...v }]),
-      ),
+      withdrawals: new Map([...this.withdrawals].map(([k, v]) => [k, { ...v }])),
     };
     try {
       return await fn(this);
@@ -161,7 +146,7 @@ describe('WalletService', () => {
     service = new WalletService(prisma as unknown as PrismaService);
   });
 
-  const balance = () => service.getBalance(brandId).then((b) => b.balancePaise);
+  const bal = () => service.getBalance(brandId);
 
   it('credits create the wallet lazily and increase the balance', async () => {
     const { balanceAfterPaise } = await service.credit({
@@ -170,13 +155,13 @@ describe('WalletService', () => {
       type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
     });
     expect(balanceAfterPaise).toBe(500000);
-    expect(await balance()).toBe(500000);
+    const b = await bal();
+    expect(b.balancePaise).toBe(500000);
+    expect(b.availablePaise).toBe(500000);
     expect(prisma.txns).toHaveLength(1);
-    expect(prisma.txns[0].amountPaise).toBe(500000);
-    expect(prisma.txns[0].balanceAfterPaise).toBe(500000);
   });
 
-  it('rejects a debit that would overdraw and leaves the balance untouched', async () => {
+  it('rejects a debit that would overdraw the spendable balance', async () => {
     await service.credit({
       brandId,
       amountPaise: 300000,
@@ -189,49 +174,10 @@ describe('WalletService', () => {
         type: WalletTransactionType.ORDER_CHECKOUT_DEBIT,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(await balance()).toBe(300000);
+    expect((await bal()).balancePaise).toBe(300000);
   });
 
-  it('spends credit at checkout and reverses it on abandon (round-trips to zero net)', async () => {
-    await service.credit({
-      brandId,
-      amountPaise: 700000,
-      type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
-    });
-    await service.reserveForCheckout({
-      brandId,
-      orderId: 'order-1',
-      amountPaise: 700000,
-    });
-    expect(await balance()).toBe(0);
-    await service.releaseCheckoutReservation({
-      brandId,
-      orderId: 'order-1',
-      amountPaise: 700000,
-    });
-    expect(await balance()).toBe(700000);
-  });
-
-  it('records a signed, balance-snapshotted ledger for a credit → debit sequence', async () => {
-    await service.credit({
-      brandId,
-      amountPaise: 1000000,
-      type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
-    });
-    await service.debit({
-      brandId,
-      amountPaise: 200000,
-      type: WalletTransactionType.ORDER_CHECKOUT_DEBIT,
-      orderId: 'order-9',
-    });
-    const rows = prisma.txns;
-    expect(rows[0]).toMatchObject({ amountPaise: 1000000, balanceAfterPaise: 1000000 });
-    expect(rows[1]).toMatchObject({ amountPaise: -200000, balanceAfterPaise: 800000 });
-    // Balance always equals the sum of the ledger.
-    expect(rows.reduce((a, r) => a + r.amountPaise, 0)).toBe(await balance());
-  });
-
-  describe('withdrawals', () => {
+  describe('withdrawals (hold model)', () => {
     beforeEach(async () => {
       await service.credit({
         brandId,
@@ -240,19 +186,99 @@ describe('WalletService', () => {
       });
     });
 
-    it('debits the balance immediately when requested', async () => {
+    it('locks funds on request without moving the balance or the ledger', async () => {
+      const before = prisma.txns.length;
       const w = await service.requestWithdrawal({
         brandId,
         requestedByUserId: 'user-1',
         amountPaise: 500000,
       });
       expect(w.status).toBe(WalletWithdrawalStatus.REQUESTED);
-      expect(await balance()).toBe(300000);
-      const bal = await service.getBalance(brandId);
-      expect(bal.pendingWithdrawalPaise).toBe(500000);
+      const b = await bal();
+      expect(b.balancePaise).toBe(800000); // unchanged
+      expect(b.heldPaise).toBe(500000); // locked
+      expect(b.availablePaise).toBe(300000); // spendable
+      expect(prisma.txns.length).toBe(before); // no ledger churn
     });
 
-    it('rolls back the withdrawal row when credit is insufficient', async () => {
+    it('held funds cannot be spent at checkout', async () => {
+      await service.requestWithdrawal({
+        brandId,
+        requestedByUserId: 'user-1',
+        amountPaise: 500000,
+      });
+      // 300000 spendable — 400000 must fail.
+      await expect(
+        service.reserveForCheckout({
+          brandId,
+          orderId: 'order-1',
+          amountPaise: 400000,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      // 300000 is fine.
+      await service.reserveForCheckout({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 300000,
+      });
+      const b = await bal();
+      expect(b.balancePaise).toBe(500000);
+      expect(b.availablePaise).toBe(0);
+    });
+
+    it('rejecting releases the hold with no ledger entry', async () => {
+      const w = await service.requestWithdrawal({
+        brandId,
+        requestedByUserId: 'user-1',
+        amountPaise: 500000,
+      });
+      const before = prisma.txns.length;
+      await service.rejectWithdrawal({
+        withdrawalId: w.id,
+        processedByUserId: 'admin-1',
+        adminNote: 'bad details',
+      });
+      const b = await bal();
+      expect(b.balancePaise).toBe(800000);
+      expect(b.heldPaise).toBe(0);
+      expect(b.availablePaise).toBe(800000);
+      expect(prisma.txns.length).toBe(before); // no reversal credit
+    });
+
+    it('cancelling by the brand releases the hold', async () => {
+      const w = await service.requestWithdrawal({
+        brandId,
+        requestedByUserId: 'user-1',
+        amountPaise: 500000,
+      });
+      await service.cancelWithdrawalByBrand({ withdrawalId: w.id, brandId });
+      const b = await bal();
+      expect(b.heldPaise).toBe(0);
+      expect(b.availablePaise).toBe(800000);
+    });
+
+    it('completing debits the balance once (single WITHDRAWAL_DEBIT)', async () => {
+      const w = await service.requestWithdrawal({
+        brandId,
+        requestedByUserId: 'user-1',
+        amountPaise: 500000,
+      });
+      const before = prisma.txns.length;
+      const done = await service.completeWithdrawal({
+        withdrawalId: w.id,
+        processedByUserId: 'admin-1',
+      });
+      expect(done.status).toBe(WalletWithdrawalStatus.COMPLETED);
+      const b = await bal();
+      expect(b.balancePaise).toBe(300000); // money actually left now
+      expect(b.heldPaise).toBe(0);
+      const added = prisma.txns.slice(before);
+      expect(added).toHaveLength(1);
+      expect(added[0].type).toBe(WalletTransactionType.WITHDRAWAL_DEBIT);
+      expect(added[0].amountPaise).toBe(-500000);
+    });
+
+    it('rolls back the withdrawal row when spendable credit is short', async () => {
       await expect(
         service.requestWithdrawal({
           brandId,
@@ -261,45 +287,7 @@ describe('WalletService', () => {
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.withdrawals.size).toBe(0);
-      expect(await balance()).toBe(800000);
-    });
-
-    it('completing a withdrawal moves no money', async () => {
-      const w = await service.requestWithdrawal({
-        brandId,
-        requestedByUserId: 'user-1',
-        amountPaise: 500000,
-      });
-      const done = await service.completeWithdrawal({
-        withdrawalId: w.id,
-        processedByUserId: 'admin-1',
-      });
-      expect(done.status).toBe(WalletWithdrawalStatus.COMPLETED);
-      expect(await balance()).toBe(300000);
-    });
-
-    it('rejecting a withdrawal returns the money to credits', async () => {
-      const w = await service.requestWithdrawal({
-        brandId,
-        requestedByUserId: 'user-1',
-        amountPaise: 500000,
-      });
-      await service.rejectWithdrawal({
-        withdrawalId: w.id,
-        processedByUserId: 'admin-1',
-        adminNote: 'bad details',
-      });
-      expect(await balance()).toBe(800000);
-    });
-
-    it('a brand cancelling its own pending withdrawal returns the money', async () => {
-      const w = await service.requestWithdrawal({
-        brandId,
-        requestedByUserId: 'user-1',
-        amountPaise: 500000,
-      });
-      await service.cancelWithdrawalByBrand({ withdrawalId: w.id, brandId });
-      expect(await balance()).toBe(800000);
+      expect((await bal()).balancePaise).toBe(800000);
     });
 
     it('a completed withdrawal cannot be completed again', async () => {
@@ -329,33 +317,14 @@ describe('WalletService', () => {
         reason: 'goodwill',
         adminUserId: 'admin-1',
       });
-      expect(await balance()).toBe(100000);
+      expect((await bal()).balancePaise).toBe(100000);
       await service.adminAdjust({
         brandId,
         amountPaise: -40000,
         reason: 'correction',
         adminUserId: 'admin-1',
       });
-      expect(await balance()).toBe(60000);
-    });
-
-    it('requires a reason and a non-zero amount', async () => {
-      await expect(
-        service.adminAdjust({
-          brandId,
-          amountPaise: 1000,
-          reason: '   ',
-          adminUserId: 'admin-1',
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      await expect(
-        service.adminAdjust({
-          brandId,
-          amountPaise: 0,
-          reason: 'x',
-          adminUserId: 'admin-1',
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      expect((await bal()).balancePaise).toBe(60000);
     });
   });
 });

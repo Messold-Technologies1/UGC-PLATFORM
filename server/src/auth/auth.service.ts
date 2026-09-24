@@ -14,10 +14,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
-import {
-  SignupRegistrationService,
-  type MetaSignupAttribution,
-} from './signup-registration.service';
+import { SignupRegistrationService } from './signup-registration.service';
+import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { PhoneVerificationService } from './phone-verification.service';
 import { isSuperAdminEmail } from './super-admin';
 
@@ -314,14 +312,15 @@ export class AuthService {
    * email = one workspace role rule is enforced (a cross-role attempt throws
    * ConflictException). Returns the refreshed `me` payload.
    *
-   * `meta` carries the Meta attribution identifiers captured in the creator's
-   * browser at this step (plus request IP / user-agent); they are stored on the
-   * new creator profile for later Conversions API events.
+   * `meta` carries the Meta attribution identifiers captured in the user's own
+   * browser at this step (plus request IP / user-agent). For a creator they are
+   * stored on the new profile for later Conversions API events; for a brand
+   * they match the BrandRegistration conversion sent from here.
    */
   async onboardWorkspaceRole(
     userId: string,
     role: Extract<RoleName, 'CREATOR' | 'BRAND'>,
-    meta?: MetaSignupAttribution,
+    meta?: MetaBrowserAttribution,
   ): Promise<MeUser> {
     if (role === RoleName.CREATOR) {
       await this.signupRegistration.onboardExistingUserAsCreator(userId, meta);
@@ -342,7 +341,7 @@ export class AuthService {
         // verified at signup, so create the brand profile now and skip the
         // /onboarding/brand step. createOwnedBrandProfileForUser attaches the
         // BRAND role (forcePrimaryBrandRole) itself.
-        await this.signupRegistration.onboardExistingUserAsBrand(userId);
+        await this.signupRegistration.onboardExistingUserAsBrand(userId, meta);
       } else {
         // Google brand (no verified phone yet) — attach the role only; the
         // client routes to /onboarding/brand to add + verify a phone.

@@ -55,8 +55,44 @@ export interface MetaCapiUserData {
   clientUserAgent?: string | null;
 }
 
+/**
+ * Which Meta dataset an event belongs to — the mirror of the browser pixel's
+ * audience split (see `client/lib/meta-pixel.ts`):
+ *
+ * - `creator` — the main dataset (META_CAPI_DATASET_ID).
+ * - `brand` — the brand dataset (META_CAPI_BRAND_DATASET_ID).
+ */
+export type MetaCapiAudience = 'creator' | 'brand';
+
+/**
+ * Meta attribution read in the user's own browser (`_fbp` / `_fbc` cookies)
+ * plus what the request itself carries. Passed to events that fire during the
+ * user's own request, and persisted on the creator profile for events that
+ * fire out-of-band later.
+ */
+/**
+ * Event id shared by the browser pixel and the server copy of
+ * `BrandRegistration`, so Meta counts the pair once. Derived from the brand
+ * profile, which both sides know: the client mirrors this in
+ * `client/features/auth/lib/track-signup-events.ts`.
+ */
+export function brandRegistrationEventId(brandProfileId: string): string {
+  return `brand-registration-${brandProfileId}`;
+}
+
+export type MetaBrowserAttribution = {
+  fbp?: string | null;
+  fbc?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  /** The page the user was on, taken from the request Referer. */
+  sourceUrl?: string | null;
+};
+
 export interface MetaCapiEvent {
   eventName: string;
+  /** Dataset to report to. Defaults to `creator`. */
+  audience?: MetaCapiAudience;
   /** Stable id for browser/server deduplication. */
   eventId?: string;
   /** Unix seconds. Defaults to now. Must be within the last 7 days. */
@@ -73,38 +109,62 @@ export interface MetaCapiEvent {
   customData?: Record<string, unknown>;
 }
 
+type DatasetCredentials = { datasetId: string; accessToken: string };
+
 /**
- * Server-side Meta (Facebook) Conversions API client.
+ * Server-side Meta (Facebook) Conversions API client, one credential set per
+ * dataset (see {@link MetaCapiAudience}).
  *
- * Self-contained and best-effort: when META_CAPI_ACCESS_TOKEN or
- * META_CAPI_DATASET_ID is unset the service is disabled and every call is a
- * silent no-op (the server-side kill switch). Callers should fire-and-forget —
- * `sendEvent` never throws.
+ * Self-contained and best-effort: a dataset with no ID or no token is disabled
+ * and every call for it is a silent no-op (the server-side kill switch).
+ * Callers should fire-and-forget — `sendEvent` never throws.
+ *
+ * The brand dataset falls back to META_CAPI_ACCESS_TOKEN when
+ * META_CAPI_BRAND_ACCESS_TOKEN is unset: a System User token assigned to both
+ * datasets can post to either, so one token often covers both.
  *
  * Removal later: delete this module, drop the MetaCapiModule import in
- * app.module.ts, and remove the single call site in creator-profile.service.ts.
+ * app.module.ts, and remove the call sites in creator-profile.service.ts and
+ * brand-profile.service.ts.
  */
 @Injectable()
 export class MetaCapiService {
   private readonly logger = new Logger(MetaCapiService.name);
-  private readonly accessToken: string;
-  private readonly datasetId: string;
+  private readonly datasets: Record<MetaCapiAudience, DatasetCredentials>;
   private readonly apiVersion: string;
   private readonly testEventCode?: string;
 
   constructor(private readonly config: ConfigService) {
-    this.accessToken =
+    const accessToken =
       this.config.get<string>('META_CAPI_ACCESS_TOKEN')?.trim() ?? '';
-    this.datasetId =
-      this.config.get<string>('META_CAPI_DATASET_ID')?.trim() ?? '';
+    this.datasets = {
+      creator: {
+        datasetId: this.config.get<string>('META_CAPI_DATASET_ID')?.trim() ?? '',
+        accessToken,
+      },
+      brand: {
+        datasetId:
+          this.config.get<string>('META_CAPI_BRAND_DATASET_ID')?.trim() ?? '',
+        accessToken:
+          this.config.get<string>('META_CAPI_BRAND_ACCESS_TOKEN')?.trim() ||
+          accessToken,
+      },
+    };
     this.apiVersion =
       this.config.get<string>('META_CAPI_API_VERSION')?.trim() || 'v21.0';
     this.testEventCode =
       this.config.get<string>('META_CAPI_TEST_EVENT_CODE')?.trim() || undefined;
   }
 
+  /** Whether a dataset has both an ID and a token, i.e. can receive events. */
+  enabledFor(audience: MetaCapiAudience): boolean {
+    const creds = this.datasets[audience];
+    return Boolean(creds.datasetId && creds.accessToken);
+  }
+
+  /** Whether the main (creator) dataset is configured. */
   get enabled(): boolean {
-    return Boolean(this.accessToken && this.datasetId);
+    return this.enabledFor('creator');
   }
 
   /** SHA-256 of a normalized (trimmed, lowercased) value, per Meta's spec. */
@@ -166,7 +226,9 @@ export class MetaCapiService {
    * all errors so it can never break the caller's flow.
    */
   async sendEvent(event: MetaCapiEvent): Promise<void> {
-    if (!this.enabled) return;
+    const audience = event.audience ?? 'creator';
+    if (!this.enabledFor(audience)) return;
+    const { datasetId, accessToken } = this.datasets[audience];
 
     const payload = {
       data: [
@@ -185,8 +247,8 @@ export class MetaCapiService {
       ...(this.testEventCode ? { test_event_code: this.testEventCode } : {}),
     };
 
-    const url = `https://graph.facebook.com/${this.apiVersion}/${this.datasetId}/events?access_token=${encodeURIComponent(
-      this.accessToken,
+    const url = `https://graph.facebook.com/${this.apiVersion}/${datasetId}/events?access_token=${encodeURIComponent(
+      accessToken,
     )}`;
 
     try {
@@ -198,18 +260,18 @@ export class MetaCapiService {
       const body: unknown = await res.json().catch(() => ({}));
       if (!res.ok) {
         this.logger.warn(
-          `Meta CAPI ${event.eventName} rejected (${res.status}): ${JSON.stringify(body)}`,
+          `Meta CAPI ${event.eventName} (${audience}) rejected (${res.status}): ${JSON.stringify(body)}`,
         );
         return;
       }
       const received = (body as { events_received?: number }).events_received;
       const trace = (body as { fbtrace_id?: string }).fbtrace_id;
       this.logger.log(
-        `Meta CAPI ${event.eventName} accepted: events_received=${received} fbtrace_id=${trace}`,
+        `Meta CAPI ${event.eventName} (${audience}) accepted: events_received=${received} fbtrace_id=${trace}`,
       );
     } catch (error) {
       this.logger.warn(
-        `Meta CAPI ${event.eventName} request failed: ${(error as Error).message}`,
+        `Meta CAPI ${event.eventName} (${audience}) request failed: ${(error as Error).message}`,
       );
     }
   }

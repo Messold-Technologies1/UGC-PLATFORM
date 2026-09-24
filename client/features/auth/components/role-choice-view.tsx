@@ -21,7 +21,6 @@ import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immedi
 import {
   PIXEL_FLUSH_MS,
   trackBrandRegistration,
-  trackCreatorRegistration,
 } from "@/features/auth/lib/track-signup-events";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 
@@ -101,27 +100,23 @@ export function RoleChoiceView() {
     mutationFn: chooseWorkspaceRole,
     onSuccess: (updated: AuthUser, role: OnboardingRole) => {
       queryClient.setQueryData(authMeQueryKey, updated);
-      // Signup conversions. This step is where a creator account is actually
-      // created (for both the Google and email+password routes), and where an
-      // email+password brand gets its profile — that signup carries an
-      // OTP-verified phone, so the server creates the brand profile here and
-      // the /onboarding/brand setup screen is skipped. A Google brand has no
-      // profile yet; that screen reports the conversion instead.
+      // Brand signup conversion. An email+password brand carries an
+      // OTP-verified phone, so the server creates the brand profile at this
+      // step and the /onboarding/brand setup screen is skipped — this is the
+      // moment to report it. A Google brand has no profile yet; that screen
+      // reports the conversion instead. Creators are not tracked at signup:
+      // their conversion is CreatorProfileListed, sent server-side on listing.
+      const brand = updated.accessibleBrands[0];
       const tracked =
-        role === "CREATOR"
-          ? trackCreatorRegistration({
+        role === "BRAND" && updated.hasBrandProfile && brand
+          ? trackBrandRegistration({
+              brandProfileId: brand.id,
               email: updated.email,
               name: updated.name,
               phone: updated.phone,
+              brandName: brand.brandName,
             })
-          : updated.hasBrandProfile
-            ? trackBrandRegistration({
-                email: updated.email,
-                name: updated.name,
-                phone: updated.phone,
-                brandName: updated.accessibleBrands[0]?.brandName ?? null,
-              })
-            : false;
+          : false;
       // Creator → straight into Edit Profile to fill in the rest (name, phone,
       // categories, portfolio…). Brand → resolveImmediatePostAuthPath sends a
       // BRAND-without-profile account to the brand setup screen.

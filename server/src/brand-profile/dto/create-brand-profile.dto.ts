@@ -14,6 +14,22 @@ import {
 } from 'class-validator';
 
 export class CreateBrandProfileDto {
+  /**
+   * Meta attribution cookies read in the user's own browser. Used only to match
+   * the BrandRegistration conversion; never stored.
+   */
+  @ApiPropertyOptional({ description: 'Meta _fbp browser cookie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  metaFbp?: string;
+
+  @ApiPropertyOptional({ description: 'Meta _fbc ad-click cookie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  metaFbc?: string;
+
   @ApiProperty({ example: 'Jane Doe', description: 'Primary contact name' })
   @IsString()
   @MinLength(1)

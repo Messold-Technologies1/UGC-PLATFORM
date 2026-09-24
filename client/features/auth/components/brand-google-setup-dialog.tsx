@@ -94,15 +94,17 @@ export function BrandGoogleSetupDialog({
 
   const mutation = useMutation({
     mutationFn: completeBrandSetup,
-    onSuccess: async (_data, variables) => {
+    onSuccess: async (profile, variables) => {
       // Brand signup conversion (brand dataset). This is the Google route —
       // the email+password route creates the brand profile at role choice and
-      // reports it from there.
+      // reports it from there. The server sends the same event with the same
+      // id, derived from the profile, so Meta counts the pair once.
       trackBrandRegistration({
+        brandProfileId: profile.id,
         email: user.email,
         name: user.name ?? variables.contactFullName,
         phone: variables.contactPhone,
-        ...(variables.brandName ? { brandName: variables.brandName } : {}),
+        brandName: profile.brandName ?? variables.brandName ?? null,
         ...(variables.website ? { website: variables.website } : {}),
       });
       toast.success("Brand profile ready");

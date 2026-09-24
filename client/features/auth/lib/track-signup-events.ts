@@ -1,77 +1,67 @@
-import {
-  identifyPixelUser,
-  splitFullName,
-  trackPixelCustom,
-} from "@/lib/meta-pixel";
+import { identifyPixelUser, splitFullName, trackPixelCustom } from "@/lib/meta-pixel";
 
 /**
- * The identity we can attach to a signup conversion. Name/email/phone are the
- * Advanced Matching keys Meta uses to match the event to a person — they are
- * normalized and SHA-256 hashed by the pixel SDK in the browser, so raw values
- * are passed here and never leave the page unhashed.
+ * Event id shared by this browser event and the server's Conversions API copy,
+ * so Meta counts the pair once. Derived from the brand profile, which both
+ * sides know. Mirrors `brandRegistrationEventId` in
+ * `server/src/meta-capi/meta-capi.service.ts` — keep the two in step.
  */
-export type SignupIdentity = {
+export function brandRegistrationEventId(brandProfileId: string): string {
+  return `brand-registration-${brandProfileId}`;
+}
+
+/**
+ * Report a brand signup conversion to the brand dataset, from the user's own
+ * browser, at the moment the brand profile is created. Both signup routes call
+ * this:
+ *
+ * - email + password → the role-choice step, where the server creates the
+ *   profile straight away (that signup carries an OTP-verified phone, so the
+ *   brand setup screen is skipped).
+ * - Google → the /onboarding/brand setup screen, once the phone is verified.
+ *
+ * The server sends the same event with the same id, so an ad-blocked browser
+ * still converts and a working one is not double-counted.
+ *
+ * Name, email and phone go out as Advanced Matching — normalized and SHA-256
+ * hashed by the pixel SDK in the browser, so raw values are passed here and
+ * never leave the page unhashed. `custom_data` deliberately carries no PII.
+ *
+ * Returns whether the event was dispatched, so a caller about to navigate away
+ * can wait for the beacon (see {@link PIXEL_FLUSH_MS}).
+ */
+export function trackBrandRegistration(brand: {
+  /** Drives the dedup id; omit only if the profile id isn't known. */
+  brandProfileId?: string | null;
   email?: string | null;
   /** Full name; split into first/last for matching. */
   name?: string | null;
   /** E.164 phone (e.g. +919876543210). */
   phone?: string | null;
-};
-
-/**
- * Meta signup conversions, one helper per audience so every call site reports
- * the same shape to the same dataset.
- *
- * Both fire from the user's own browser at the moment their account becomes
- * usable, and both cover the Google and email+password signup routes:
- *
- * - creator → the role-choice step, which is where a creator profile is
- *   created for either route.
- * - brand → the role-choice step when the brand profile is created there
- *   (email+password signup carries an OTP-verified phone, so setup is skipped),
- *   otherwise the /onboarding/brand setup screen (the Google route).
- *
- * `custom_data` deliberately carries no PII — identifiers travel through
- * Advanced Matching, which is hashed. Each helper returns whether the event was
- * dispatched, so a caller about to navigate away can wait for the beacon
- * (see {@link PIXEL_FLUSH_MS}).
- */
-export function trackCreatorRegistration(identity: SignupIdentity): boolean {
+  /** Reporting/segmentation metadata — not a matching identifier. */
+  brandName?: string | null;
+  website?: string | null;
+}): boolean {
   identifyPixelUser(
     {
-      email: identity.email,
-      ...splitFullName(identity.name),
-      phone: identity.phone,
-    },
-    "creator",
-  );
-  return trackPixelCustom("CreatorRegistration", undefined, {
-    audience: "creator",
-  });
-}
-
-export function trackBrandRegistration(
-  identity: SignupIdentity & {
-    /** Reporting/segmentation metadata — not a matching identifier. */
-    brandName?: string | null;
-    website?: string | null;
-  },
-): boolean {
-  identifyPixelUser(
-    {
-      email: identity.email,
-      ...splitFullName(identity.name),
-      phone: identity.phone,
+      email: brand.email,
+      ...splitFullName(brand.name),
+      phone: brand.phone,
     },
     "brand",
   );
   return trackPixelCustom(
     "BrandRegistration",
     {
-      ...(identity.brandName ? { brand_name: identity.brandName } : {}),
-      ...(identity.website ? { website: identity.website } : {}),
+      ...(brand.brandName ? { brand_name: brand.brandName } : {}),
+      ...(brand.website ? { website: brand.website } : {}),
     },
-    { audience: "brand" },
+    {
+      audience: "brand",
+      ...(brand.brandProfileId
+        ? { eventId: brandRegistrationEventId(brand.brandProfileId) }
+        : {}),
+    },
   );
 }
 

@@ -12,23 +12,10 @@ import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.serv
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
+import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { PhoneVerificationService } from './phone-verification.service';
 
 const SALT_ROUNDS = 10;
-
-/**
- * Meta attribution captured at the moment a profile is created: the `_fbp` /
- * `_fbc` cookies read in the user's own browser, plus the request IP and
- * user-agent. Stored on the creator profile so the Conversions API can replay
- * them on events that fire out-of-band later (e.g. CreatorProfileListed, sent
- * when an admin approves the creator days after signup).
- */
-export type MetaSignupAttribution = {
-  metaFbp?: string;
-  metaFbc?: string;
-  ipAddress?: string;
-  userAgent?: string;
-};
 
 @Injectable()
 export class SignupRegistrationService {
@@ -49,7 +36,10 @@ export class SignupRegistrationService {
    * /onboarding/brand setup step entirely. Attaches the BRAND role
    * (forcePrimaryBrandRole) and sends the brand welcome mail.
    */
-  async onboardExistingUserAsBrand(userId: string): Promise<void> {
+  async onboardExistingUserAsBrand(
+    userId: string,
+    meta?: MetaBrowserAttribution,
+  ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, phone: true },
@@ -57,10 +47,14 @@ export class SignupRegistrationService {
     if (!user) {
       throw new BadRequestException('User not found');
     }
-    await this.brandProfileService.createOwnedBrandProfileForUser(userId, {
-      contactFullName: user.name?.trim() || '',
-      ...(user.phone ? { contactPhone: user.phone } : {}),
-    } as CreateBrandProfileDto);
+    await this.brandProfileService.createOwnedBrandProfileForUser(
+      userId,
+      {
+        contactFullName: user.name?.trim() || '',
+        ...(user.phone ? { contactPhone: user.phone } : {}),
+      } as CreateBrandProfileDto,
+      meta,
+    );
   }
 
   private async assertSignupPhoneOtpApproved(
@@ -86,7 +80,7 @@ export class SignupRegistrationService {
    */
   async onboardExistingUserAsCreator(
     userId: string,
-    meta?: MetaSignupAttribution,
+    meta?: MetaBrowserAttribution,
   ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -119,8 +113,8 @@ export class SignupRegistrationService {
           {
             displayName,
             contactEmail: user.email,
-            metaFbp: meta?.metaFbp ?? null,
-            metaFbc: meta?.metaFbc ?? null,
+            metaFbp: meta?.fbp ?? null,
+            metaFbc: meta?.fbc ?? null,
             metaSignupIp: meta?.ipAddress ?? null,
             metaSignupUserAgent: meta?.userAgent ?? null,
           },

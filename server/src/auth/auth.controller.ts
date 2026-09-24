@@ -353,9 +353,11 @@ export class AuthController {
       req.user.id,
       dto.role,
       {
-        ...this.registerMeta(req),
-        ...(dto.metaFbp ? { metaFbp: dto.metaFbp } : {}),
-        ...(dto.metaFbc ? { metaFbc: dto.metaFbc } : {}),
+        fbp: dto.metaFbp,
+        fbc: dto.metaFbc,
+        ipAddress: req.ip,
+        userAgent: req.headers?.['user-agent'],
+        sourceUrl: req.headers?.referer,
       },
     );
     return { user };

@@ -352,6 +352,11 @@ export class AuthController {
     const user = await this.authService.onboardWorkspaceRole(
       req.user.id,
       dto.role,
+      {
+        ...this.registerMeta(req),
+        ...(dto.metaFbp ? { metaFbp: dto.metaFbp } : {}),
+        ...(dto.metaFbc ? { metaFbc: dto.metaFbc } : {}),
+      },
     );
     return { user };
   }

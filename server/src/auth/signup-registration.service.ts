@@ -16,6 +16,20 @@ import { PhoneVerificationService } from './phone-verification.service';
 
 const SALT_ROUNDS = 10;
 
+/**
+ * Meta attribution captured at the moment a profile is created: the `_fbp` /
+ * `_fbc` cookies read in the user's own browser, plus the request IP and
+ * user-agent. Stored on the creator profile so the Conversions API can replay
+ * them on events that fire out-of-band later (e.g. CreatorProfileListed, sent
+ * when an admin approves the creator days after signup).
+ */
+export type MetaSignupAttribution = {
+  metaFbp?: string;
+  metaFbc?: string;
+  ipAddress?: string;
+  userAgent?: string;
+};
+
 @Injectable()
 export class SignupRegistrationService {
   constructor(
@@ -70,7 +84,10 @@ export class SignupRegistrationService {
    * transactional profile creation, which also enforces the one-email-one-role
    * rule.
    */
-  async onboardExistingUserAsCreator(userId: string): Promise<void> {
+  async onboardExistingUserAsCreator(
+    userId: string,
+    meta?: MetaSignupAttribution,
+  ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, name: true },
@@ -102,6 +119,10 @@ export class SignupRegistrationService {
           {
             displayName,
             contactEmail: user.email,
+            metaFbp: meta?.metaFbp ?? null,
+            metaFbc: meta?.metaFbc ?? null,
+            metaSignupIp: meta?.ipAddress ?? null,
+            metaSignupUserAgent: meta?.userAgent ?? null,
           },
         ),
       { timeout: 30_000, maxWait: 10_000 },

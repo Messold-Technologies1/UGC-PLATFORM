@@ -18,6 +18,11 @@ import {
   type OnboardingRole,
 } from "@/features/auth/api/onboarding";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
+import {
+  PIXEL_FLUSH_MS,
+  trackBrandRegistration,
+  trackCreatorRegistration,
+} from "@/features/auth/lib/track-signup-events";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 
 const AURORA_BG: CSSProperties = {
@@ -94,8 +99,29 @@ export function RoleChoiceView() {
 
   const mutation = useMutation({
     mutationFn: chooseWorkspaceRole,
-    onSuccess: (updated: AuthUser) => {
+    onSuccess: (updated: AuthUser, role: OnboardingRole) => {
       queryClient.setQueryData(authMeQueryKey, updated);
+      // Signup conversions. This step is where a creator account is actually
+      // created (for both the Google and email+password routes), and where an
+      // email+password brand gets its profile — that signup carries an
+      // OTP-verified phone, so the server creates the brand profile here and
+      // the /onboarding/brand setup screen is skipped. A Google brand has no
+      // profile yet; that screen reports the conversion instead.
+      const tracked =
+        role === "CREATOR"
+          ? trackCreatorRegistration({
+              email: updated.email,
+              name: updated.name,
+              phone: updated.phone,
+            })
+          : updated.hasBrandProfile
+            ? trackBrandRegistration({
+                email: updated.email,
+                name: updated.name,
+                phone: updated.phone,
+                brandName: updated.accessibleBrands[0]?.brandName ?? null,
+              })
+            : false;
       // Creator → straight into Edit Profile to fill in the rest (name, phone,
       // categories, portfolio…). Brand → resolveImmediatePostAuthPath sends a
       // BRAND-without-profile account to the brand setup screen.
@@ -104,7 +130,13 @@ export function RoleChoiceView() {
           ? "/creator/settings/profile"
           : resolveImmediatePostAuthPath(updated, callbackUrl);
       beginClientNavigation();
-      window.location.replace(target);
+      // Let the conversion beacon leave the browser before the hard redirect
+      // tears the page down.
+      if (tracked) {
+        window.setTimeout(() => window.location.replace(target), PIXEL_FLUSH_MS);
+      } else {
+        window.location.replace(target);
+      }
     },
     onError: (error) => toast.error(readError(error)),
   });

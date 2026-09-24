@@ -83,6 +83,7 @@ describe('AuthService', () => {
       id: 'user-1',
       email: 'creator@example.com',
       name: 'Creator User',
+      phone: null,
       roles: ['CREATOR'],
       primaryRole: 'CREATOR',
       hasCreatorProfile: true,

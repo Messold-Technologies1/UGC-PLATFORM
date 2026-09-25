@@ -3272,7 +3272,11 @@ export class OrdersService {
     cancellationReason?: string | null;
     cancelledAt?: Date | null;
     cancelledOnBehalfOf?: string | null;
-    disputes?: Array<{ openedAt: Date; resolvedAt: Date | null }>;
+    disputes?: Array<{
+      openedAt: Date;
+      resolvedAt: Date | null;
+      openedBy: OrderDisputeOpenedBy;
+    }>;
   }): OrderListSummaryDto {
     const hasBrief = order.briefSubmittedAt != null;
     const latestDispute = order.disputes?.[0];
@@ -3300,6 +3304,7 @@ export class OrdersService {
       cancelledBy: order.cancelledOnBehalfOf ?? null,
       disputeOpenedAt: latestDispute?.openedAt ?? null,
       disputeResolvedAt: latestDispute?.resolvedAt ?? null,
+      disputeOpenedBy: latestDispute?.openedBy ?? null,
     };
   }
 
@@ -4246,7 +4251,7 @@ export class OrdersService {
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
-            select: { openedAt: true, resolvedAt: true },
+            select: { openedAt: true, resolvedAt: true, openedBy: true },
           },
           creator: {
             select: {
@@ -4332,7 +4337,7 @@ export class OrdersService {
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
-            select: { openedAt: true, resolvedAt: true },
+            select: { openedAt: true, resolvedAt: true, openedBy: true },
           },
           brand: {
             select: orderBrandSnapshotSelect,
@@ -4410,7 +4415,7 @@ export class OrdersService {
           disputes: {
             orderBy: { openedAt: 'desc' },
             take: 1,
-            select: { openedAt: true, resolvedAt: true },
+            select: { openedAt: true, resolvedAt: true, openedBy: true },
           },
           creator: {
             select: {

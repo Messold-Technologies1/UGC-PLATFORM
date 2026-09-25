@@ -15,6 +15,7 @@ import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import { SignupRegistrationService } from './signup-registration.service';
+import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { PhoneVerificationService } from './phone-verification.service';
 import { isSuperAdminEmail } from './super-admin';
 
@@ -38,6 +39,8 @@ export type MeUser = {
   id: string;
   email: string;
   name: string | null;
+  /** E.164 phone when one was collected + verified at signup; null otherwise. */
+  phone: string | null;
   roles: ('CREATOR' | 'BRAND' | 'ADMIN' | 'AGENCY')[];
   primaryRole: 'CREATOR' | 'BRAND' | 'ADMIN' | 'AGENCY' | null;
   hasCreatorProfile: boolean;
@@ -72,6 +75,7 @@ type MeLookupUser = {
   id: string;
   email: string;
   name: string | null;
+  phone: string | null;
   status: string;
   primaryRole: { name: RoleName | null } | null;
   userRoles: Array<{ role: { name: RoleName | null } }>;
@@ -307,13 +311,19 @@ export class AuthService {
    * routes to the brand setup screen to collect brand details. The one
    * email = one workspace role rule is enforced (a cross-role attempt throws
    * ConflictException). Returns the refreshed `me` payload.
+   *
+   * `meta` carries the Meta attribution identifiers captured in the user's own
+   * browser at this step (plus request IP / user-agent). For a creator they are
+   * stored on the new profile for later Conversions API events; for a brand
+   * they match the BrandRegistration conversion sent from here.
    */
   async onboardWorkspaceRole(
     userId: string,
     role: Extract<RoleName, 'CREATOR' | 'BRAND'>,
+    meta?: MetaBrowserAttribution,
   ): Promise<MeUser> {
     if (role === RoleName.CREATOR) {
-      await this.signupRegistration.onboardExistingUserAsCreator(userId);
+      await this.signupRegistration.onboardExistingUserAsCreator(userId, meta);
     } else {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -331,7 +341,7 @@ export class AuthService {
         // verified at signup, so create the brand profile now and skip the
         // /onboarding/brand step. createOwnedBrandProfileForUser attaches the
         // BRAND role (forcePrimaryBrandRole) itself.
-        await this.signupRegistration.onboardExistingUserAsBrand(userId);
+        await this.signupRegistration.onboardExistingUserAsBrand(userId, meta);
       } else {
         // Google brand (no verified phone yet) — attach the role only; the
         // client routes to /onboarding/brand to add + verify a phone.
@@ -848,6 +858,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         status: true,
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
@@ -925,6 +936,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
+      phone: user.phone ?? null,
       roles,
       primaryRole,
       hasCreatorProfile: !!user.creatorProfile,

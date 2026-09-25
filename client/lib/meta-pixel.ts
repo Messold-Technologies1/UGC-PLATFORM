@@ -20,20 +20,42 @@ export function countryToIso2(
 /**
  * Thin, self-contained wrapper around the Meta (Facebook) Pixel `fbq` global.
  *
- * Everything here is a no-op when {@link env.metaPixelId} is empty or when
- * `window.fbq` has not loaded yet, so callers never have to guard. Removal
+ * Everything here is a no-op when the target dataset's pixel ID is empty or
+ * when `window.fbq` has not loaded yet, so callers never have to guard. Removal
  * later is just: delete this file, the `<Script>` block in `app/layout.tsx`,
  * and the handful of `trackPixel*` call sites.
  *
- * The base pixel (init + PageView) is injected in `app/layout.tsx`; this module
- * only fires additional events and reads the Meta attribution cookies.
+ * The base pixels (init + PageView) are injected in `app/layout.tsx`; this
+ * module only fires additional events and reads the Meta attribution cookies.
  */
 
+/**
+ * Which dataset an event belongs to. The platform runs two Meta pixels so the
+ * creator-side and brand-side ad campaigns each optimize on their own dataset:
+ *
+ * - `creator` — the original pixel (`NEXT_PUBLIC_META_PIXEL_ID`).
+ * - `brand` — the brand dataset (`NEXT_PUBLIC_META_BRAND_PIXEL_ID`), falling
+ *   back to the creator pixel when the brand one isn't configured.
+ *
+ * Both pixels are initialized by the loader in `app/layout.tsx`, so every event
+ * fired from here is sent with `trackSingle*` to exactly one of them — a plain
+ * `fbq('track', …)` would report to *both* datasets.
+ */
+export type MetaPixelAudience = "creator" | "brand";
+
+/** The pixel ID an audience reports to, or "" when tracking is switched off. */
+export function pixelIdFor(audience: MetaPixelAudience): string {
+  if (audience === "brand") {
+    return env.metaBrandPixelId || env.metaPixelId;
+  }
+  return env.metaPixelId;
+}
+
 /** True only in the browser once the pixel loader has installed `fbq`. */
-function pixelReady(): boolean {
+function pixelReady(audience: MetaPixelAudience = "creator"): boolean {
   return (
     typeof window !== "undefined" &&
-    Boolean(env.metaPixelId) &&
+    Boolean(pixelIdFor(audience)) &&
     typeof window.fbq === "function"
   );
 }
@@ -45,16 +67,19 @@ function pixelReady(): boolean {
  * pixel SDK normalizes and SHA-256 hashes the values in the browser before they
  * are sent. Pass raw values. No-op when the pixel isn't ready.
  */
-export function identifyPixelUser(data: {
-  email?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-  phone?: string | null;
-}): void {
-  if (!pixelReady()) return;
+export function identifyPixelUser(
+  data: {
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    city?: string | null;
+    state?: string | null;
+    country?: string | null;
+    phone?: string | null;
+  },
+  audience: MetaPixelAudience = "creator",
+): void {
+  if (!pixelReady(audience)) return;
   const userData: Record<string, string> = {};
   if (data.email) userData.em = data.email;
   if (data.firstName) userData.fn = data.firstName;
@@ -66,7 +91,7 @@ export function identifyPixelUser(data: {
   if (data.phone) userData.ph = data.phone;
   if (Object.keys(userData).length === 0) return;
   try {
-    window.fbq?.("init", env.metaPixelId, userData);
+    window.fbq?.("init", pixelIdFor(audience), userData);
   } catch {
     // Never let analytics break a user flow.
   }
@@ -83,27 +108,59 @@ export function splitFullName(name: string | null | undefined): {
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
+/** Options shared by {@link trackPixelEvent} and {@link trackPixelCustom}. */
+export type MetaPixelEventOptions = {
+  /** Shared id for browser/server deduplication. */
+  eventId?: string;
+  /** Which dataset the event reports to. Defaults to the creator pixel. */
+  audience?: MetaPixelAudience;
+};
+
+/**
+ * Send one event to exactly one pixel. `trackSingle`/`trackSingleCustom` are
+ * Meta's per-pixel variants — required here because more than one pixel can be
+ * initialized on the page and a plain `track` would report to all of them.
+ *
+ * Returns whether the event was handed to the pixel, so a caller that is about
+ * to navigate away can give the beacon a moment to leave the browser.
+ */
+function trackOnPixel(
+  method: "trackSingle" | "trackSingleCustom",
+  event: string,
+  params?: Record<string, unknown>,
+  options?: MetaPixelEventOptions,
+): boolean {
+  const audience = options?.audience ?? "creator";
+  if (!pixelReady(audience)) return false;
+  const pixelId = pixelIdFor(audience);
+  try {
+    if (options?.eventId) {
+      window.fbq?.(method, pixelId, event, params, {
+        eventID: options.eventId,
+      });
+    } else {
+      window.fbq?.(method, pixelId, event, params);
+    }
+    return true;
+  } catch {
+    // Never let analytics break a user flow.
+    return false;
+  }
+}
+
 /**
  * Fire a Meta *standard* event (e.g. "CompleteRegistration", "Lead").
  *
- * Pass `eventId` to deduplicate against a matching server-side Conversions API
- * event (same event name + id → Meta counts them once).
+ * Pass `options.eventId` to deduplicate against a matching server-side
+ * Conversions API event (same event name + id → Meta counts them once), and
+ * `options.audience` to pick the dataset it reports to.
  */
 export function trackPixelEvent(
   event: string,
   params?: Record<string, unknown>,
-  eventId?: string,
-): void {
-  if (!pixelReady()) return;
-  try {
-    if (eventId) {
-      window.fbq?.("track", event, params, { eventID: eventId });
-    } else {
-      window.fbq?.("track", event, params);
-    }
-  } catch {
-    // Never let analytics break a user flow.
-  }
+  options?: MetaPixelEventOptions,
+): boolean {
+  return trackOnPixel("trackSingle", event, params, options);
 }
 
 /** Generate a unique id for browser/server event deduplication. */
@@ -115,26 +172,16 @@ export function newMetaEventId(): string {
 }
 
 /**
- * Fire a Meta *custom* event (anything not in the standard event list).
- *
- * Pass `eventId` to deduplicate against a matching server-side Conversions API
- * event (same event name + id → Meta counts them once).
+ * Fire a Meta *custom* event (anything not in the standard event list), e.g.
+ * `CreatorRegistration` / `BrandRegistration`. Same options as
+ * {@link trackPixelEvent}.
  */
 export function trackPixelCustom(
   event: string,
   params?: Record<string, unknown>,
-  eventId?: string,
-): void {
-  if (!pixelReady()) return;
-  try {
-    if (eventId) {
-      window.fbq?.("trackCustom", event, params, { eventID: eventId });
-    } else {
-      window.fbq?.("trackCustom", event, params);
-    }
-  } catch {
-    // Never let analytics break a user flow.
-  }
+  options?: MetaPixelEventOptions,
+): boolean {
+  return trackOnPixel("trackSingleCustom", event, params, options);
 }
 
 /** Read a single cookie value in the browser, or undefined. */

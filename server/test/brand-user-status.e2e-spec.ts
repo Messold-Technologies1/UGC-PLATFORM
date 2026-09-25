@@ -93,7 +93,13 @@ describe('Admin brand deactivate/activate (e2e)', () => {
       .overrideProvider(BrandProfileService)
       .useFactory({
         factory: (p: PrismaService) =>
-          new BrandProfileService(p, {} as never, {} as never, {} as never),
+          new BrandProfileService(
+            p,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+          ),
         inject: [PrismaService],
       })
       .overrideProvider(AuthService)

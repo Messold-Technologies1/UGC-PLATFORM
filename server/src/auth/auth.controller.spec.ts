@@ -38,6 +38,7 @@ describe('AuthController', () => {
     id: 'user-1',
     email: 'user@example.com',
     name: 'Test User',
+    phone: null,
     roles: ['CREATOR'],
     primaryRole: 'CREATOR',
     hasCreatorProfile: true,

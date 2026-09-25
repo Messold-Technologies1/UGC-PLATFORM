@@ -21,11 +21,21 @@ try {
 } catch {}
 `;
 
-// Meta (Facebook) Pixel base loader. Only injected when NEXT_PUBLIC_META_PIXEL_ID
-// is set (see lib/env.ts) — leaving it empty is the kill switch. Initializes the
-// pixel and fires PageView; all other events are fired via lib/meta-pixel.ts.
-const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
-const metaPixelScript = metaPixelId
+// Meta (Facebook) Pixel base loader. The platform runs two datasets — the
+// creator pixel (NEXT_PUBLIC_META_PIXEL_ID) and the brand pixel
+// (NEXT_PUBLIC_META_BRAND_PIXEL_ID) — so both are initialized here and both
+// receive PageView. Clearing an ID is the kill switch for that dataset;
+// clearing both means the loader is never injected at all. Signup events are
+// routed to a single dataset via lib/meta-pixel.ts.
+const metaPixelIds = Array.from(
+  new Set(
+    [
+      process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim(),
+      process.env.NEXT_PUBLIC_META_BRAND_PIXEL_ID?.trim(),
+    ].filter((id): id is string => Boolean(id)),
+  ),
+);
+const metaPixelScript = metaPixelIds.length
   ? `
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -35,7 +45,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${metaPixelId}');
+${metaPixelIds.map((id) => `fbq('init', '${id}');`).join("\n")}
 fbq('track', 'PageView');
 `
   : null;
@@ -109,14 +119,17 @@ export default function RootLayout({
               dangerouslySetInnerHTML={{ __html: metaPixelScript }}
             />
             <noscript>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                height="1"
-                width="1"
-                style={{ display: "none" }}
-                alt=""
-                src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
-              />
+              {metaPixelIds.map((id) => (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  key={id}
+                  height="1"
+                  width="1"
+                  style={{ display: "none" }}
+                  alt=""
+                  src={`https://www.facebook.com/tr?id=${id}&ev=PageView&noscript=1`}
+                />
+              ))}
             </noscript>
           </>
         ) : null}

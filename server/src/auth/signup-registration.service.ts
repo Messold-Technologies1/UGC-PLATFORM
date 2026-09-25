@@ -12,6 +12,7 @@ import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.serv
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
+import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { PhoneVerificationService } from './phone-verification.service';
 
 const SALT_ROUNDS = 10;
@@ -35,7 +36,10 @@ export class SignupRegistrationService {
    * /onboarding/brand setup step entirely. Attaches the BRAND role
    * (forcePrimaryBrandRole) and sends the brand welcome mail.
    */
-  async onboardExistingUserAsBrand(userId: string): Promise<void> {
+  async onboardExistingUserAsBrand(
+    userId: string,
+    meta?: MetaBrowserAttribution,
+  ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, name: true, phone: true },
@@ -43,10 +47,14 @@ export class SignupRegistrationService {
     if (!user) {
       throw new BadRequestException('User not found');
     }
-    await this.brandProfileService.createOwnedBrandProfileForUser(userId, {
-      contactFullName: user.name?.trim() || '',
-      ...(user.phone ? { contactPhone: user.phone } : {}),
-    } as CreateBrandProfileDto);
+    await this.brandProfileService.createOwnedBrandProfileForUser(
+      userId,
+      {
+        contactFullName: user.name?.trim() || '',
+        ...(user.phone ? { contactPhone: user.phone } : {}),
+      } as CreateBrandProfileDto,
+      meta,
+    );
   }
 
   private async assertSignupPhoneOtpApproved(
@@ -70,7 +78,10 @@ export class SignupRegistrationService {
    * transactional profile creation, which also enforces the one-email-one-role
    * rule.
    */
-  async onboardExistingUserAsCreator(userId: string): Promise<void> {
+  async onboardExistingUserAsCreator(
+    userId: string,
+    meta?: MetaBrowserAttribution,
+  ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, name: true },
@@ -102,6 +113,10 @@ export class SignupRegistrationService {
           {
             displayName,
             contactEmail: user.email,
+            metaFbp: meta?.fbp ?? null,
+            metaFbc: meta?.fbc ?? null,
+            metaSignupIp: meta?.ipAddress ?? null,
+            metaSignupUserAgent: meta?.userAgent ?? null,
           },
         ),
       { timeout: 30_000, maxWait: 10_000 },

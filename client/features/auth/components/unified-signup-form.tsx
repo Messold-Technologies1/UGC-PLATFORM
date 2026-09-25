@@ -10,7 +10,6 @@ import { z } from "zod";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { registerAccount } from "@/features/auth/api/signup-account";
@@ -38,9 +37,6 @@ const signupSchema = z.object({
   phoneOtpCode: z
     .string()
     .regex(/^\d{4,10}$/, "Enter the code sent to your phone"),
-  termsAccepted: z.boolean().refine((v) => v === true, {
-    message: "Please accept the terms to continue",
-  }),
 });
 
 type SignupData = z.infer<typeof signupSchema>;
@@ -64,7 +60,6 @@ export function UnifiedSignupForm() {
   const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleTermsWarned, setGoogleTermsWarned] = useState(false);
 
   const callbackUrl = searchParams.get("callbackUrl");
   const loginHref = callbackUrl
@@ -80,10 +75,8 @@ export function UnifiedSignupForm() {
       password: "",
       phone: "",
       phoneOtpCode: "",
-      termsAccepted: false,
     },
   });
-  const termsAccepted = form.watch("termsAccepted");
   const phoneValue = form.watch("phone");
   const phoneDigits = phoneValue?.startsWith("+91")
     ? phoneValue.slice(3)
@@ -147,19 +140,11 @@ export function UnifiedSignupForm() {
   const pending = registerMutation.isPending || googleLoading;
 
   const handleGoogle = useCallback(() => {
-    if (!form.getValues("termsAccepted")) {
-      setGoogleTermsWarned(true);
-      form.setError("termsAccepted", {
-        message: "Please accept the terms to continue",
-      });
-      document.getElementById("signup-terms")?.focus();
-      return;
-    }
-    setGoogleTermsWarned(false);
     setGoogleLoading(true);
-    // No role param: the user chooses creator/brand after Google returns.
+    // No role param: the user chooses creator/brand after Google returns. The
+    // Terms of Service / Privacy Policy consent is collected on that screen.
     startGoogleOAuth({ callbackUrl });
-  }, [callbackUrl, form]);
+  }, [callbackUrl]);
 
   const onSubmit = (data: SignupData) => {
     registerMutation.mutate({
@@ -377,56 +362,11 @@ export function UnifiedSignupForm() {
           </div>
         ) : null}
 
-        {/* Terms — required for BOTH email and Google signup. */}
-        <div className="mb-4 mt-0.5 flex items-start gap-3">
-          <Checkbox
-            id="signup-terms"
-            checked={termsAccepted}
-            disabled={pending}
-            onCheckedChange={(checked) => {
-              const accepted = checked === true;
-              form.setValue("termsAccepted", accepted, {
-                shouldValidate: true,
-              });
-              if (accepted) setGoogleTermsWarned(false);
-            }}
-            className={cn(
-              "mt-0.5 size-4 shrink-0 rounded-[4px] border shadow-none data-[state=checked]:border-deep-pink data-[state=checked]:bg-deep-pink data-[state=checked]:text-white",
-              form.formState.errors.termsAccepted
-                ? "border-amber-500"
-                : "border-neutral-300",
-            )}
-          />
-          <div className="min-w-0 flex-1">
-            <label
-              htmlFor="signup-terms"
-              className="block text-[12.5px] font-normal leading-normal text-[#8B8489]"
-            >
-              I agree to the{" "}
-              <Link
-                href="/legal/terms"
-                className="font-medium text-deep-pink hover:underline"
-              >
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/legal/privacy"
-                className="font-medium text-deep-pink hover:underline"
-              >
-                Privacy Policy
-              </Link>
-              , and confirm I’m over 13.
-            </label>
-            {form.formState.errors.termsAccepted ? (
-              <FieldWarn>
-                {form.formState.errors.termsAccepted.message}
-              </FieldWarn>
-            ) : null}
-          </div>
-        </div>
-
-        <button type="submit" disabled={pending} className={authCtaClass}>
+        <button
+          type="submit"
+          disabled={pending}
+          className={cn(authCtaClass, "mt-1")}
+        >
           {registerMutation.isPending ? (
             <>
               <Spinner className="size-4" aria-hidden /> Creating account…
@@ -452,9 +392,6 @@ export function UnifiedSignupForm() {
         )}
         Continue with Google
       </button>
-      {googleTermsWarned ? (
-        <FieldWarn>Please accept the terms to continue</FieldWarn>
-      ) : null}
 
       <p className="mt-4 text-center text-[13px] text-[#8B8489]">
         Already have an account?{" "}

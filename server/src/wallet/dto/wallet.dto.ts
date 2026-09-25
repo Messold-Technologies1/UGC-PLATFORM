@@ -57,9 +57,14 @@ export class AdjustWalletDto {
 // ── Responses ────────────────────────────────────────────────────────────────
 
 export class WalletBalanceDto {
-  @ApiProperty() balancePaise!: number;
+  @ApiProperty({ description: 'Total credit owned (spendable + held), in paise.' })
+  balancePaise!: number;
+  @ApiProperty({ description: 'Locked by pending withdrawal requests, in paise.' })
+  heldPaise!: number;
+  @ApiProperty({ description: 'Spendable now (balance - held), in paise.' })
+  availablePaise!: number;
   @ApiProperty() currency!: string;
-  @ApiProperty({ description: 'Sum of pending withdrawal requests, in paise.' })
+  @ApiProperty({ description: 'Alias of heldPaise, kept for existing callers.' })
   pendingWithdrawalPaise!: number;
 }
 

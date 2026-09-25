@@ -1799,8 +1799,12 @@ enum WalletWithdrawalStatus {
 model BrandWallet {
   id           String   @id @default(uuid()) @db.Uuid
   brandId      String   @unique @db.Uuid
-  /// Cached spendable balance in paise; always equals the sum of the ledger.
+  /// Cached total credit in paise; always equals the sum of the ledger.
   balancePaise Int      @default(0)
+  /// Portion of balancePaise locked by pending withdrawal requests. The money
+  /// stays in balancePaise (it is only deducted when a withdrawal is completed)
+  /// but cannot be spent while held. Spendable = balancePaise - heldPaise.
+  heldPaise    Int      @default(0)
   currency     String   @default("INR")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1855,6 +1859,10 @@ model WalletWithdrawal {
   brandId           String                 @db.Uuid
   amountPaise       Int
   status            WalletWithdrawalStatus @default(REQUESTED)
+  /// True for the hold model (money locked on request via BrandWallet.heldPaise,
+  /// debited only on completion). Legacy rows are false (they debited the
+  /// balance on request and credit it back on rejection).
+  holdModel         Boolean                @default(true)
   /// Payout details / note supplied by the brand.
   brandNote         String?
   /// Admin note recorded when the request is completed or rejected.

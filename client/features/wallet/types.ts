@@ -17,9 +17,14 @@ export type WalletWithdrawalStatus =
   | "CANCELLED";
 
 export interface WalletBalance {
+  /** Total credit owned (spendable + held), in paise. */
   balancePaise: number;
+  /** Locked by pending withdrawal requests, in paise. */
+  heldPaise: number;
+  /** Spendable now (balance - held), in paise. */
+  availablePaise: number;
   currency: string;
-  /** Sum of pending withdrawal requests, in paise (already debited). */
+  /** Alias of heldPaise, kept for existing callers. */
   pendingWithdrawalPaise: number;
 }
 

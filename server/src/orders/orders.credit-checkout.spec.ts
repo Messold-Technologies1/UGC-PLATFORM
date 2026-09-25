@@ -66,6 +66,8 @@ describe('OrdersService credit checkout', () => {
       getBalance: jest.fn(() =>
         Promise.resolve({
           balancePaise,
+          heldPaise: 0,
+          availablePaise: balancePaise,
           currency: 'INR',
           pendingWithdrawalPaise: 0,
         }),

@@ -903,8 +903,9 @@ export class OrdersService {
     // leaves a Razorpay charge in the impossible (₹0, ₹1) range.
     let creditsToApply = 0;
     if (params.useCredits && netAmountPaise > 0) {
-      const { balancePaise } = await this.wallet.getBalance(brand.id);
-      creditsToApply = Math.min(balancePaise, netAmountPaise);
+      // Only the SPENDABLE balance (excludes funds held for pending withdrawals).
+      const { availablePaise } = await this.wallet.getBalance(brand.id);
+      creditsToApply = Math.min(availablePaise, netAmountPaise);
       const remainder = netAmountPaise - creditsToApply;
       if (remainder > 0 && remainder < RAZORPAY_MIN_CHARGE_PAISE) {
         creditsToApply = netAmountPaise - RAZORPAY_MIN_CHARGE_PAISE;
@@ -1757,7 +1758,12 @@ export class OrdersService {
   }): Promise<string | null> {
     const order = await this.prisma.order.findUnique({
       where: { razorpayOrderId: params.razorpayOrderId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        brandId: true,
+        creditsAppliedPaise: true,
+      },
     });
     if (!order) return null;
 
@@ -1766,6 +1772,40 @@ export class OrdersService {
         `payment.failed ignored for order ${order.id} status=${String(order.status)}`,
       );
       return null;
+    }
+
+    // Partial-credit checkout that failed at the gateway: return the reserved
+    // store credit to the brand. The Razorpay charge was only for the remainder
+    // (net − credit), so once the credit is returned the order can no longer be
+    // honoured for that reduced amount — it is closed (REJECTED) and the brand
+    // re-checks out fresh (which reserves credit again). Ordinary cash orders
+    // stay PENDING_PAYMENT so the brand can simply retry the same payment.
+    if (order.creditsAppliedPaise > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        await this.wallet.releaseCheckoutReservation(
+          {
+            brandId: order.brandId,
+            orderId: order.id,
+            amountPaise: order.creditsAppliedPaise,
+          },
+          tx,
+        );
+        await this.updateOrder(
+          {
+            where: { id: order.id },
+            data: {
+              status: 'REJECTED',
+              creditsAppliedPaise: 0,
+              cancellationReason: 'Payment failed — credit returned',
+            },
+          },
+          tx,
+        );
+      });
+      this.logger.log(
+        `[credits] payment.failed order=${order.id} → returned ${order.creditsAppliedPaise} paise credit to brand=${order.brandId} and closed the failed checkout`,
+      );
+      return order.id;
     }
 
     this.logger.log(

@@ -197,7 +197,7 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
   if (showAwaitingShipmentUI) {
     return (
       <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
-        <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
+        <OrderPageHeader orderId={orderId} paidAt={order.paidAt} order={order} />
 
         <OrderProgressStepper
           order={order}
@@ -251,6 +251,7 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
           orderId={orderId}
           paidAt={order.paidAt}
           completedAt={order.acceptedAt || order.createdAt}
+          order={order}
         />
 
         <OrderProgressStepper
@@ -295,6 +296,7 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
         <OrderPageHeader
           orderId={orderId}
           paidAt={order.paidAt}
+          order={order}
         />
 
         <OrderProgressStepper
@@ -356,7 +358,7 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
   if (showInProgressUI) {
     return (
       <div className="w-full min-w-0 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 flex flex-col gap-5">
-        <OrderPageHeader orderId={orderId} paidAt={order.paidAt} />
+        <OrderPageHeader orderId={orderId} paidAt={order.paidAt} order={order} />
         
         <OrderProgressStepper
           order={order}
@@ -408,6 +410,7 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
       <OrderPageHeader
         orderId={orderId}
         paidAt={order.paidAt}
+        order={order}
       />
 
       <OrderProgressStepper

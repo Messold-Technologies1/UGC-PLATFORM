@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { sendPhoneOtp, verifyPhoneOtp } from "@/features/auth/api/phone-otp";
+import { cn } from "@/lib/utils";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
 const PHONE_E164_REGEX = /^\+\d{8,15}$/;
@@ -55,7 +56,9 @@ function phoneOtpErrorMessage(error: unknown, fallback: string): string {
 export function PhoneVerificationField({
   idPrefix,
   disabled = false,
+  invalid = false,
   onVerifiedChange,
+  onOtpSentChange,
   onVerified,
   onVerifiedPhone,
   initialPhone,
@@ -63,7 +66,14 @@ export function PhoneVerificationField({
 }: {
   idPrefix: string;
   disabled?: boolean;
+  /**
+   * Highlights the field as needing attention — used when a parent form is
+   * submitted before the number has been OTP-verified.
+   */
+  invalid?: boolean;
   onVerifiedChange: (verified: boolean) => void;
+  /** Fires when a code is outstanding for the number currently typed in. */
+  onOtpSentChange?: (sent: boolean) => void;
   onVerified?: () => void | Promise<void>;
   /** Fires with the verified E.164 phone (e.g. "+919876543210") on success. */
   onVerifiedPhone?: (phone: string) => void;
@@ -129,6 +139,10 @@ export function PhoneVerificationField({
   useEffect(() => {
     onVerifiedChange(phoneVerified);
   }, [onVerifiedChange, phoneVerified]);
+
+  useEffect(() => {
+    onOtpSentChange?.(Boolean(activeOtpPhone) && !phoneVerified);
+  }, [activeOtpPhone, onOtpSentChange, phoneVerified]);
 
   useEffect(() => {
     if (!otpResendAvailableAt) return;
@@ -247,7 +261,14 @@ verifyPhoneOtpMutation.mutate({ phone, code });
 
   return (
     <div className="grid gap-2">
-      <div className="flex items-center h-10 rounded-lg border border-slate-200 bg-white overflow-hidden dark:bg-slate-950 dark:border-slate-800 focus-within:ring-2 focus-within:ring-slate-950 focus-within:ring-offset-2 dark:focus-within:ring-slate-300 w-full">
+      <div
+        className={cn(
+          "flex items-center h-10 rounded-lg border bg-white overflow-hidden dark:bg-slate-950 focus-within:ring-2 focus-within:ring-offset-2 w-full",
+          invalid && !phoneVerified
+            ? "border-amber-500 focus-within:ring-amber-500/40 dark:border-amber-500"
+            : "border-slate-200 dark:border-slate-800 focus-within:ring-slate-950 dark:focus-within:ring-slate-300",
+        )}
+      >
         <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-sm font-medium text-[#8b8489]">
           +91
         </div>
@@ -257,7 +278,7 @@ verifyPhoneOtpMutation.mutate({ phone, code });
           autoComplete="tel-national"
           inputMode="tel"
           disabled={disabled || phoneOtpPending}
-          aria-invalid={phoneError ? true : undefined}
+          aria-invalid={phoneError || (invalid && !phoneVerified) ? true : undefined}
           className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
           value={phoneInput.startsWith("+91") ? phoneInput.slice(3) : phoneInput}
           onChange={(event) => {

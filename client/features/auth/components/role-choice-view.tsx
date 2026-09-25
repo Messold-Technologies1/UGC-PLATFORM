@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
   authMeQueryKey,
@@ -91,6 +94,11 @@ export function RoleChoiceView() {
   const callbackUrl = searchParams.get("callbackUrl");
   const { data: user = null, isPending } = useMeQuery();
   const [selected, setSelected] = useState<OnboardingRole>("CREATOR");
+  // Terms of Service + Privacy Policy consent moved here from the signup form,
+  // so it covers both the email+password and the Google route (Google users
+  // never see the signup form). Pre-ticked — the user can opt out.
+  const [termsAccepted, setTermsAccepted] = useState(true);
+  const [termsWarned, setTermsWarned] = useState(false);
   // The role-less, authenticated user is the only one who stays on this screen;
   // everyone else is redirected by the effect below.
   const needsRoleChoice =
@@ -151,6 +159,16 @@ export function RoleChoiceView() {
   }, [callbackUrl, isPending, router, user]);
 
   const pick = useCallback((role: OnboardingRole) => setSelected(role), []);
+
+  const handleContinue = useCallback(() => {
+    if (!termsAccepted) {
+      setTermsWarned(true);
+      document.getElementById("role-terms")?.focus();
+      return;
+    }
+    setTermsWarned(false);
+    mutation.mutate(selected);
+  }, [mutation, selected, termsAccepted]);
 
   if (!user || !needsRoleChoice) {
     return <FullScreenSpinner />;
@@ -265,11 +283,65 @@ export function RoleChoiceView() {
           })}
         </div>
 
+        {/* Terms — accepted once here, for both the email and Google routes. */}
+        <div className="mx-auto mt-8 flex max-w-[520px] items-start justify-center gap-3 text-left">
+          <Checkbox
+            id="role-terms"
+            checked={termsAccepted}
+            disabled={mutation.isPending}
+            onCheckedChange={(checked) => {
+              const accepted = checked === true;
+              setTermsAccepted(accepted);
+              if (accepted) setTermsWarned(false);
+            }}
+            className={cn(
+              "mt-0.5 size-4 shrink-0 rounded-[4px] border bg-white/10 shadow-none data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#B3123F]",
+              termsWarned ? "border-amber-300" : "border-white/50",
+            )}
+          />
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="role-terms"
+              className="block text-[12.5px] font-normal leading-normal text-white/80"
+            >
+              I agree to the{" "}
+              <Link
+                href="/legal/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-white hover:underline"
+              >
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/legal/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-white hover:underline"
+              >
+                Privacy Policy
+              </Link>
+              , and confirm I’m over 13.
+            </label>
+            {termsWarned ? (
+              <p className="mt-1.5 flex items-start gap-[7px] rounded-lg border border-amber-300/50 bg-amber-300/15 px-[11px] py-2 text-xs font-medium leading-[1.45] text-amber-100">
+                <AlertTriangle
+                  size={13}
+                  className="mt-px shrink-0 text-amber-200"
+                  aria-hidden
+                />
+                Please accept the terms to continue
+              </p>
+            ) : null}
+          </div>
+        </div>
+
         <button
           type="button"
           disabled={mutation.isPending}
-          onClick={() => mutation.mutate(selected)}
-          className="mt-9 inline-flex h-[52px] items-center justify-center gap-2 rounded-[13px] border-0 bg-white px-10 text-[15px] font-bold text-[#181313] shadow-[0_12px_28px_-10px_rgba(0,0,0,0.4)] transition hover:-translate-y-px disabled:cursor-default disabled:opacity-80"
+          onClick={handleContinue}
+          className="mt-6 inline-flex h-[52px] items-center justify-center gap-2 rounded-[13px] border-0 bg-white px-10 text-[15px] font-bold text-[#181313] shadow-[0_12px_28px_-10px_rgba(0,0,0,0.4)] transition hover:-translate-y-px disabled:cursor-default disabled:opacity-80"
         >
           {mutation.isPending ? (
             <>

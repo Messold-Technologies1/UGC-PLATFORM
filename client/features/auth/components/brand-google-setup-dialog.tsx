@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { completeBrandSetup } from "@/features/auth/api/complete-brand-setup";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
+import { FieldWarn } from "@/features/auth/components/field-warn";
 import {
   authMeQueryKey,
   fetchAuthMe,
@@ -58,8 +59,8 @@ const setupSchema = z.object({
         return false;
       }
     }, "Enter a valid website URL"),
-  // Terms of Service + Privacy Policy are accepted on the main signup page, so
-  // no policy checkboxes are collected here.
+  // Terms of Service + Privacy Policy are accepted on the role-choice screen
+  // (/onboarding/role), so no policy checkboxes are collected here.
 });
 
 type SetupData = z.infer<typeof setupSchema>;
@@ -84,6 +85,11 @@ export function BrandGoogleSetupDialog({
   // here to submit as the brand contact phone.
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  // Set when Continue is pressed with an unverified number, so the phone field
+  // is highlighted with an inline warning instead of the button silently doing
+  // nothing — same behaviour as the OTP step on the signup form.
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneWarned, setPhoneWarned] = useState(false);
 
   const form = useForm<SetupData>({
     resolver: zodResolver(setupSchema),
@@ -132,6 +138,11 @@ export function BrandGoogleSetupDialog({
 
   const pending = mutation.isPending || uploading;
 
+  const handleVerifiedChange = useCallback((verified: boolean) => {
+    setPhoneVerified(verified);
+    if (verified) setPhoneWarned(false);
+  }, []);
+
   const handleLogo = useCallback((file: File | null) => {
     if (!file) return;
     if (
@@ -154,9 +165,16 @@ export function BrandGoogleSetupDialog({
 
   const onSubmit = form.handleSubmit(async (data) => {
     if (!phoneVerified || !verifiedPhone) {
-      toast.error("Please verify your mobile number first.");
+      setPhoneWarned(true);
+      document.getElementById("brand-setup-phone")?.focus();
+      toast.error(
+        phoneOtpSent
+          ? "Enter the code sent to your phone and click Verify."
+          : "Please verify your number. Click Send OTP.",
+      );
       return;
     }
+    setPhoneWarned(false);
     setUploading(true);
     try {
       let logoKey: string | undefined;
@@ -211,13 +229,22 @@ export function BrandGoogleSetupDialog({
             <PhoneVerificationField
               idPrefix="brand-setup"
               disabled={pending}
-              onVerifiedChange={setPhoneVerified}
+              invalid={phoneWarned}
+              onVerifiedChange={handleVerifiedChange}
+              onOtpSentChange={setPhoneOtpSent}
               onVerifiedPhone={setVerifiedPhone}
             />
             <p className="text-[12px] leading-snug text-muted-foreground">
               So we can reach you quickly with support, order updates, and
               help along your creator collaborations. Verify it to continue.
             </p>
+            {phoneWarned ? (
+              <FieldWarn>
+                {phoneOtpSent
+                  ? "Enter the code sent to your phone and click Verify."
+                  : "Please verify your number. Click Send OTP."}
+              </FieldWarn>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">
@@ -280,7 +307,7 @@ export function BrandGoogleSetupDialog({
 
           <Button
             type="submit"
-            disabled={!ready || pending}
+            disabled={pending}
             className={cn(
               "h-11 w-full rounded-full font-bold",
               ready

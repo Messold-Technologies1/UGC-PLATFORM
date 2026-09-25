@@ -58,6 +58,8 @@ export interface OrderListSummary {
   disputeOpenedAt?: string | null;
   /** When the latest dispute was resolved — use for "Rejected on". */
   disputeResolvedAt?: string | null;
+  /** Which side raised the latest dispute, so lists can show it inline. */
+  disputeOpenedBy?: OrderDisputeOpenedBy | null;
 }
 
 export interface OrderAddOnSnapshot {

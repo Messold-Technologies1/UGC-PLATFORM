@@ -35,6 +35,7 @@ import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-crea
 import { useGetOrderRatingReviewQuery } from "../../hooks/use-get-order-rating-review-query";
 
 import { ReasonPromptDialog } from "../reason-prompt-dialog";
+import { RaiseDisputeButton } from "../raise-dispute-button";
 import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
 import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
@@ -171,13 +172,21 @@ function CreatorOrderHeader({
       </div>
 
       <div className="flex w-full flex-col gap-2 sm:w-auto">
-        <ContactSupportButton
-          className="h-10 w-full shrink-0 rounded-xl border-primary/30 text-primary hover:bg-primary/5 hover:text-primary px-4 text-sm font-medium sm:w-auto"
-          defaultSubject="Order support"
-        >
-          <MessageCircle className="size-4" />
-          Need Help
-        </ContactSupportButton>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <ContactSupportButton
+            className="h-10 w-full shrink-0 rounded-xl border-primary/30 text-primary hover:bg-primary/5 hover:text-primary px-4 text-sm font-medium sm:w-auto"
+            defaultSubject="Order support"
+          >
+            <MessageCircle className="size-4" />
+            Need Help
+          </ContactSupportButton>
+          <RaiseDisputeButton
+            orderId={order.id}
+            order={order}
+            role="creator"
+            className="w-full sm:w-auto"
+          />
+        </div>
         {showMessageBrand ? (
           <Button
             variant="outline"

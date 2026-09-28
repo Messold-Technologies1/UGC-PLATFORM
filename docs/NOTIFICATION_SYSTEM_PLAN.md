@@ -153,10 +153,14 @@ export const NOTIFICATION_EVENTS = defineEvents({
 
     /// Re-read at SEND time — a 7-day reminder renders current data, not a snapshot.
     /// A direct port of the body of today's notifyBriefSubmitted().
-    resolve: async (ctx, entityId) => { /* Prisma read → vars + recipient */ },
+    /// Returns null when the entity or recipient is gone — `| null` is in the
+    /// signature so the case cannot be forgotten (§12 B3).
+    resolve: async (ctx, entityId): Promise<ResolvedVars | null> => { /* … */ },
 
     /// Only consulted for rows with offsetMinutes > 0. OMIT ENTIRELY for send-now-only
-    /// events — which is 30 of the 32 (§3.3).
+    /// events — which is 30 of the 32 (§3.3). Its presence sets `supportsDelay`,
+    /// and its absence makes the API refuse delayed rows (§12 B1). For a delayed
+    /// send with genuinely no condition, opt in explicitly with `stillRelevant: ALWAYS`.
     stillRelevant: async (ctx, entityId) =>
       (await ctx.prisma.order.findUnique(…))?.status === 'BRIEF_SUBMITTED',
   },
@@ -448,8 +452,11 @@ delaying real-time notifications.
 `notif-event` → **EventDispatcher**
 1. Load the event; skip if `deprecated` or `!isActive`.
 2. Resolve the recipient.
-3. For each active schedule row, enqueue a `notif-step` job with
-   `jobId = ${eventKey}-${entityId}-${rowId}` and `delay = max(offsetMinutes×60000 − elapsed, 0)`.
+3. For each active schedule row, enqueue a job carrying
+   `{ eventKey, entityId, occurrenceKey, offsetMinutes }` — **the offset, not the row id** (§12 B4) —
+   with `jobId = ${eventKey}-${entityId}-${occurrenceKey}-${offsetMinutes}` and
+   `delay = max(offsetMinutes×60000 − elapsed, 0)`.
+   Immediate rows (`offsetMinutes = 0`) go to `notif-step`; sweep-produced rows go to `notif-bulk`.
 
 `notif-step` → **StepWorker**
 1. **Claim** — `INSERT … ON CONFLICT DO NOTHING` on `NotificationLog`, stamping `claimedAt`.
@@ -461,8 +468,12 @@ delaying real-time notifications.
 5. Per channel in the row, **independently** (a WhatsApp failure must not block the email):
    - opt-in gate (`emailNotificationsEnabled` / `whatsappNotificationsEnabled`), bypassed when
      `alwaysSend`. Reuses the existing `canSendToProfile` logic.
-   - email: suppression check. WhatsApp: phone normalises to ≥ 8 digits.
+   - recipient `User.status` must be `ACTIVE` — otherwise skip, `user_inactive` (§12 B3).
+   - email: suppression check. WhatsApp: phone normalises to ≥ 8 digits, and every `bodyVar` has
+     whitespace collapsed (§12 D).
    - render → send → update the log row with `providerMessageId`.
+   - **classify failures** (§12 B6): transient → throw and retry; permanent → throw
+     `UnrecoverableError` so it burns one attempt, not three.
 
 
 #### Worked example — 5 briefs accepted at once
@@ -559,6 +570,9 @@ model NotificationEvent {
   recipient            NotificationRecipientRole
   vars                 Json                            // { name: { type, example } }
   alwaysSend           Boolean @default(false)         // true ONLY on password-reset (§1.8)
+  /// Derived at sync from whether the catalog entry defines stillRelevant.
+  /// False ⇒ the API rejects any schedule row with offsetMinutes > 0 (§12 B1).
+  supportsDelay        Boolean @default(false)
   deprecated           Boolean @default(false)
   syncedAt             DateTime @updatedAt
 
@@ -680,7 +694,8 @@ GET    /api/admin/notifications/events                 list + template names + r
 GET    /api/admin/notifications/events/:key            detail + vars + schedule
 PATCH  /api/admin/notifications/events/:key            isActive, emailTemplateId, whatsappTemplateName
 
-PUT    /api/admin/notifications/events/:key/schedule   replace all rows for the event
+PUT    /api/admin/notifications/events/:key/schedule   replace all rows, in ONE transaction (§12 B4)
+POST   /api/admin/notifications/events/:key/backfill    apply a new row to recent entities (§12 B5)
 POST   /api/admin/notifications/events/:key/test       send a test using a real entity id
 
 GET    /api/admin/notifications/templates
@@ -877,31 +892,102 @@ folded into §3 and §4 above; the rest are behaviours to implement deliberately
   **Fix:** test sends use `occurrenceKey = test:${uuid}`, so they can never collide. No partial
   index needed, and they stay visible in the log as tests.
 
-### B. Scheduling and delivery
+### B. Scheduling and delivery — mechanisms, not warnings
 
-- **A delayed row on an event with no `stillRelevant` predicate.** 30 of 32 events have no predicate
-  because they send instantly (§3.3). The moment an admin adds a `+24 h` row to one, the nudge fires
-  unconditionally — "you haven't accepted the brief" to someone who accepted it an hour ago. The
-  admin UI must **warn and require confirmation** when adding an offset row to an event whose
-  catalog entry declares no predicate.
-- **`emit()` must be called after commit, never inside `$transaction`.** Today's code already does
-  this (`orders.service.ts:2724` fires after the transaction block closes). Emitting inside a
-  transaction that later rolls back notifies about something that did not happen.
-- **The entity disappears between emit and send.** A 7-day reminder whose order was hard-deleted.
-  `resolve()` returns null → log `SKIPPED`, reason `entity_gone`. Never throw.
-- **The recipient disappears, or changes address.** Context is resolved at send time, so a changed
-  email is picked up correctly; a deleted user logs `SKIPPED`, reason `no_recipient`.
-- **A schedule row is deleted while its jobs are in flight.** The job fires, finds no row, no-ops.
-- **A schedule row's offset is edited.** Only future events use it — in-flight delayed jobs keep the
-  old delay. Also `@@unique([eventKey, offsetMinutes])` means editing `24 h` → `48 h` fails if a
-  48 h row exists; the UI must surface that rather than 500.
-- **Rows added after an event fired are not retro-applied.** Adding a `+7 d` row today does nothing
-  for orders created yesterday. Only population events sweep retroactively (§3.4). Worth stating in
-  the UI so nobody waits for sends that will never come.
-- **Negative or absurd offsets.** Validate `offsetMinutes >= 0`. Int handles 14 days (20,160)
-  comfortably.
-- **Retries consume the rate limiter.** A failing job's three attempts occupy `notif-bulk` slots.
-  Sizing should assume the effective rate is below the nominal one.
+Each of these is closed structurally. A warning nobody reads is not a fix.
+
+#### B1 · Delayed rows on events with no relevance check → **rejected by the API, not warned about**
+
+The catalog derives a code-owned flag: `supportsDelay = typeof stillRelevant === 'function'`, synced
+onto `NotificationEvent`. `PUT /events/:key/schedule` returns **422** for any row with
+`offsetMinutes > 0` on an event where it is false:
+
+```
+"order-content-delivered-for-brand can only send immediately. A delayed row needs a
+ stillRelevant check in the event catalog, otherwise it would notify people who have
+ already acted. Add one in code, then this row can be saved."
+```
+
+The UI disables the offset field rather than letting someone reach the error. For a delayed send
+that genuinely has no condition, the developer opts in explicitly with `stillRelevant: ALWAYS` — an
+exported constant, one line, and self-documenting in review.
+
+#### B2 · `emit()` inside a transaction → **lint rule**
+
+Your code already gets this right (`orders.service.ts:2724` fires after the block closes), so this
+guards the future rather than fixing the present:
+
+```jsonc
+// .eslintrc — no-restricted-syntax
+{
+  "selector": "CallExpression[callee.property.name='$transaction'] CallExpression[callee.property.name='emit']",
+  "message": "emit() must run after the transaction commits — a rollback would notify about something that never happened."
+}
+```
+
+The proper fix is a transactional outbox (write the intent in the same transaction, drain it with a
+poller), which would also close **R5**, lost emits when Redis is down. Deferred: it adds a table, a
+poller and latency to immediate sends, and today's `void this.run(...)` carries the same exposure —
+so this is not a regression. Revisit if a lost notification is ever actually observed.
+
+#### B3 · Missing entities and inactive users → **the type signature forces handling**
+
+```ts
+resolve: (ctx, entityId) => Promise<ResolvedVars | null>
+```
+
+`null` is in the return type, so a developer cannot forget the case — the step worker logs `SKIPPED`,
+reason `entity_gone`, and never throws.
+
+While here, a related gate that belongs with it: a recipient whose `User.status` is not `ACTIVE`
+(`SUSPENDED` / `DEACTIVATED`) is skipped with reason `user_inactive`. Nothing today checks this, so
+a deactivated account still receives order mail.
+
+#### B4 · Rows deleted or retimed mid-flight → **offset is the identity, not the row id**
+
+The root cause was jobs carrying `scheduleId`, which orphans them when the row is replaced. Fixed by
+making the job payload `{ eventKey, entityId, occurrenceKey, offsetMinutes }` and resolving the row
+at fire time by `(eventKey, offsetMinutes)`:
+
+- **Row deleted** → no active row matches → skip, reason `row_removed`.
+- **Row retimed** → the old job finds no match and skips; future events use the new offset.
+- **`@@unique([eventKey, offsetMinutes])` conflicts** disappear, because
+  `PUT /events/:key/schedule` replaces the whole set in **one transaction** — upsert by offset,
+  delete the rest. There is no intermediate state in which 24 h and 48 h both exist, so re-timing a
+  row can no longer collide with its neighbour.
+
+This also matches the log's unique key, which already uses `offsetMinutes` rather than a row id.
+
+#### B5 · New rows are not retro-applied → **an explicit backfill action, driven by the log**
+
+Default stays "applies to events from here on", stated plainly in the UI next to the row.
+
+But the log already records every entity that fired this event, so a backfill is nearly free:
+
+```
+Added a +7 d row. 143 orders fired this event in the last 7 days.
+[ Apply to those 143 ]   [ Only new events ]
+```
+
+Implementation: select distinct `entityId` from `NotificationLog` where `eventKey` matches and
+`offsetMinutes = 0` within the window, then enqueue the new row with
+`delay = max(offsetMinutes − (now − queuedAt), 0)` — the same sequence-clock arithmetic as
+everything else. Idempotency falls out of the existing unique key. Roughly 30 lines, and it removes
+the "why did nothing happen" support question entirely.
+
+#### B6 · Retries burning rate-limiter slots → **classify failures; only retry transient ones**
+
+The waste is mostly permanent failures retrying three times. BullMQ's `UnrecoverableError` stops
+retries immediately, so the sender classifies before throwing:
+
+| Outcome | Examples | Behaviour |
+|---|---|---|
+| **Transient** | SES `Throttling`, `ServiceUnavailable`, 5xx, timeouts | Retry, 3 attempts, exponential backoff |
+| **Permanent** | SES `MessageRejected`, `MailFromDomainNotVerified`; Meta parameter-count mismatch, invalid template, undeliverable number | `throw new UnrecoverableError(...)` → one attempt, log `FAILED` with the provider's message |
+
+A bad template name then costs one slot per recipient instead of three, and the log shows the real
+reason instead of three identical failures. Headroom covers the rest: 120/min against an SES quota
+commonly near 840/min.
 
 ### C. Admin actions
 

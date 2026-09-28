@@ -30,6 +30,7 @@ describe('OrdersService.listOrdersForAdmin', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never, // wallet
     );
     return { service, count, findMany, groupBy };
   }

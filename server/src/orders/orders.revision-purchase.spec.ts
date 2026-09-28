@@ -88,6 +88,7 @@ describe('OrdersService extra-revisions purchase', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as never, // wallet
     );
     return { service, prisma, razorpay, orderMail, orderRealtime, orderUpdate };
   }

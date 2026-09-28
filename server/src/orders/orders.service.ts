@@ -4381,6 +4381,20 @@ export class OrdersService {
         ? { ...(baseWhere ?? {}), status: { in: params.statuses } }
         : baseWhere;
 
+    // Per-status counts over the base scope (NOT the active tab and NOT the
+    // page), so every badge is the full order total for that status.
+    //
+    // Built outside the $transaction tuple deliberately: inlined alongside the
+    // findMany below — whose nested select is large enough to exhaust inference
+    // — TypeScript falls back to Prisma's broad groupBy shape and types `_count`
+    // as `true | {...} | undefined`. Resolving the generic here keeps it precise.
+    const statusCountsQuery = this.prisma.order.groupBy({
+      by: ['status'],
+      where: baseWhere,
+      orderBy: { status: 'asc' },
+      _count: { _all: true },
+    });
+
     const [total, rows, grouped] = await this.prisma.$transaction([
       this.prisma.order.count({ where: listWhere }),
       this.prisma.order.findMany({
@@ -4431,20 +4445,12 @@ export class OrdersService {
           },
         },
       }),
-      // Per-status counts over the base scope (NOT the active tab and NOT the
-      // page), so every badge is the full order total for that status.
-      this.prisma.order.groupBy({
-        by: ['status'],
-        where: baseWhere,
-        _count: { _all: true },
-      }),
+      statusCountsQuery,
     ]);
 
     const statusCounts: Record<string, number> = {};
     for (const g of grouped) {
-      const count =
-        typeof g._count === 'object' ? (g._count._all ?? 0) : g._count;
-      statusCounts[g.status] = count;
+      statusCounts[g.status] = g._count._all;
     }
 
     const items: AdminOrderListItemDto[] = rows.map((r) => {

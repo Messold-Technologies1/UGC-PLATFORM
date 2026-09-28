@@ -93,6 +93,7 @@ describe('OrdersService bulk checkout', () => {
       {} as any,
       {} as any,
       coupons as any,
+      {} as never, // wallet
     );
     return { service, prisma, razorpay, created, coupons, orderRealtime };
   }
@@ -398,6 +399,7 @@ describe('OrdersService bulk checkout', () => {
         {} as any,
         {} as any,
         {} as any,
+        {} as never, // wallet
       );
       return { service, prisma, orderUpdates };
     }

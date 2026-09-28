@@ -34,6 +34,7 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       {} as never,
       orderPortfolioSync as never,
       {} as never,
+      {} as never, // wallet
     );
     return { service, orderUpdate, orderMail, orderPortfolioSync };
   }
@@ -143,6 +144,7 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
       {} as never,
       orderPortfolioSync as never,
       {} as never,
+      {} as never, // wallet
     );
 
     await service.adminRejectOrder({

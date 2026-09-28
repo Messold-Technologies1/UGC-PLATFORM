@@ -4,7 +4,9 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(async () => 'https://signed.example.com/upload'),
 }));
 
-const sendMock = jest.fn(async () => ({}));
+// Declared with the command parameter the real S3Client.send takes: without it
+// TypeScript infers empty call tuples, so mock.calls[0][0] is unindexable.
+const sendMock = jest.fn(async (_command: unknown) => ({}));
 
 jest.mock('@aws-sdk/client-s3', () => {
   const actual = jest.requireActual('@aws-sdk/client-s3');

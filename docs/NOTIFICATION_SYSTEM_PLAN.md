@@ -22,6 +22,7 @@ sequences and on-demand campaigns. Replaces the hardcoded `mail/` + `whatsapp/` 
 | 9 | Campaign audience | Fixed filter UI + saved, reusable segments |
 | 10 | Campaign guardrails | Mandatory recipient preview + test send before the Send button unlocks |
 | 11 | Delivery | Plan document first (this file), then phased PRs |
+| 12 | Variable scope | Declared **per entity type**, not per event, so future admin-created events inherit a full variable set (§4.1a). Tier 2/3 dynamic event sources deferred (§4.4) |
 
 ### 1.1 Two assumptions added during review
 
@@ -193,8 +194,55 @@ sooner; flip to a dedicated deploy later. The seam is the queue, so this is a co
 
 ### 4.1 Declaration
 
-A single typed catalog in `server/src/notifications/events/event-catalog.ts`. Plain typed const
-rather than decorators — better type inference for payloads, no metadata scanning, trivially testable.
+Two layers, both code-owned: **entity providers** (variables + recipients, declared once per
+entity type) and the **event catalog** (the moments themselves). Plain typed consts rather than
+decorators — better type inference, no metadata scanning, trivially testable.
+
+### 4.1a Entity providers — declared once per entity
+
+**This is the load-bearing decision.** Variables belong to the *entity*, not to the event. Declaring
+them per-event would mean every new event starts with an empty variable picker; declaring them
+per-entity means any event on `order` automatically exposes the whole order variable set.
+
+```ts
+// server/src/notifications/entities/order.entity.ts
+export const orderEntity = defineEntity('order', {
+  label: 'Order',
+
+  /// Every variable any order-based template may use. One place to add one.
+  vars: {
+    orderId:        { type: 'string', example: 'ord_8f21…',          group: 'core' },
+    status:         { type: 'string', example: 'DELIVERED',           group: 'core' },
+    packageName:    { type: 'string', example: 'Standard — 3 reels',  group: 'core' },
+    priceAmount:    { type: 'money',  example: '₹12,500',             group: 'core' },
+    revisionCount:  { type: 'number', example: '1',                   group: 'core' },
+    brandName:      { type: 'string', example: 'Acme Beauty',         group: 'brand' },
+    creatorName:    { type: 'string', example: 'Ananya R',            group: 'creator' },
+    deliveryDueAt:  { type: 'date',   example: '05 Oct 2026',         group: 'dates' },
+    actionUrlBrand: { type: 'url',    example: '/brand/orders/ord_8f21' },
+    actionUrlCreator:{ type: 'url',   example: '/creator/orders/ord_8f21' },
+    // … ~25 total
+  },
+
+  /// Who can be addressed for anything that happens to an order.
+  recipients: {
+    creator:     (o) => ({ userId: o.creator.userId, profileType: 'creator', profileId: o.creator.id }),
+    brand:       (o) => ({ userId: o.brand.userId,   profileType: 'brand',   profileId: o.brand.id }),
+    agencyOwner: (o) => o.brand.agency && ({ userId: o.brand.agency.ownerUserId }),
+    admin:       () => adminOpsRecipient(),
+  },
+
+  /// Resolves ONLY the groups the template actually references (see §4.1c).
+  resolve: async (ctx, entityId, neededGroups) => { /* narrow Prisma select → vars */ },
+})
+```
+
+Entities at launch: `order`, `creatorProfile`, `brandProfile`, `user`.
+**~4 resolvers replace the 24 per-event `resolve()` functions** the earlier draft implied.
+
+### 4.1b Event catalog
+
+Events become thin: they name a moment on an entity and pick which recipients it applies to.
 
 ```ts
 export const NOTIFICATION_EVENTS = defineEvents({
@@ -203,31 +251,40 @@ export const NOTIFICATION_EVENTS = defineEvents({
     description: 'Brand has submitted the creative brief; creator must accept or reject.',
     category: 'LIFECYCLE',          // TRANSACTIONAL | LIFECYCLE | MARKETING
     alwaysSend: false,              // true = bypasses the opt-in booleans
-    entity: 'order',
+    entity: 'order',                // ← inherits ALL order vars + recipients
     recipients: ['creator', 'brand'],
 
-    // Shown in the admin variable picker; also the contract the renderer validates against.
-    vars: {
-      creatorName:      { type: 'string', example: 'Ananya R' },
-      brandName:        { type: 'string', example: 'Acme Beauty' },
-      packageName:      { type: 'string', example: 'Standard — 3 reels' },
-      orderId:          { type: 'string', example: 'ord_8f21…' },
-      briefSubmittedAt: { type: 'date',   example: '28 Sep 2026' },
-      actionUrl:        { type: 'url',    example: '/creator/orders/ord_8f21/brief' },
+    /// Extra variables specific to THIS moment, merged over the entity's set.
+    extraVars: {
+      briefSubmittedAt: { type: 'date', example: '28 Sep 2026' },
     },
 
-    // Re-fetched at SEND time — this is what makes a 7-day reminder use fresh data.
-    resolve: async (ctx, { entityId, recipient }) => { /* Prisma read → vars */ },
-
-    // Hard safety net. Runs on EVERY step regardless of admin config.
+    /// Hard safety net. Runs on EVERY step regardless of admin config.
     stillRelevant: async (ctx, { entityId }) =>
-      (await ctx.prisma.order.findUnique(...))?.status === 'BRIEF_PENDING',
+      (await ctx.prisma.order.findUnique(...))?.status === 'BRIEF_SUBMITTED',
   },
   // … one entry per event
 })
 
 export type NotificationEventKey = keyof typeof NOTIFICATION_EVENTS
 ```
+
+An event's effective variable set is `entity.vars + event.extraVars`. That union is what the admin
+variable picker shows and what the §6.1 publish gate validates against.
+
+### 4.1c Lazy variable resolution
+
+Resolving ~25 variables for a template that uses three would mean a needless multi-table join on
+every send. So:
+
+1. At **publish time** the validator already parses the template with `Handlebars.parse()`. Walk the
+   AST for `PathExpression` nodes and store the referenced names on
+   `NotificationTemplate.referencedVars`.
+2. At **send time** map those names to their `group`s and pass only those groups to
+   `entity.resolve()`, which widens its Prisma `select` accordingly.
+
+A template using `{{creatorName}} {{orderId}}` costs a two-column read, not the full graph.
+
 
 Emission becomes type-checked:
 
@@ -243,7 +300,8 @@ this.events.emit('order.brief_submitted', { entityId: order.id, occurredAt: now 
 On boot the worker upserts the catalog into `NotificationEvent` so the admin dropdown is always current.
 
 - **Code-owned columns** (overwritten on every sync): `label`, `description`, `category`,
-  `alwaysSend`, `recipientRoles`, `variableSchema`, `entityType`.
+  `alwaysSend`, `recipientRoles`, `entityType`, and `variableSchema` — the latter flattened from
+  `entity.vars + event.extraVars` so the admin UI reads one field.
 - **Admin-owned columns** (never touched by sync): `isActive`.
 - Rows whose key disappears from code are marked `deprecated = true`, **never deleted** — rules,
   sequence runs and the delivery log reference them.
@@ -293,6 +351,82 @@ Events marked `alwaysSend: true` at launch: `auth.password_reset`, `order.refund
 
 ---
 
+### 4.4 Adding a new event — what needs code and what does not
+
+**The honest boundary:** something in the runtime must *observe* that a thing happened. No
+architecture removes that. What the design does control is how many code changes stand between
+"observed" and "an email and a WhatsApp go out, configured by an admin".
+
+#### What admin can do today with zero code
+
+For any event **already in the catalog**: add or remove channels, change every template, add or
+remove steps at any delay, change recipients, add cancel-on rules, turn the whole thing off.
+So "fire a WhatsApp as well as the email for order refunds, and chase again after 2 days" is
+pure configuration.
+
+#### What needs code
+
+Only a **genuinely new moment**. That is one entry in the catalog:
+
+```ts
+'order.payout_released': {
+  label: 'Creator payout released',
+  category: 'TRANSACTIONAL',
+  entity: 'order',                    // ← inherits all ~25 order vars + recipients free
+  recipients: ['creator'],
+  stillRelevant: async (ctx, { entityId }) => /* … */,
+},
+```
+
+…plus one emit call at the moment it happens. Because variables come from the entity (§4.1a),
+that is genuinely the whole change — **no template plumbing, no context object, no Prisma select**.
+Everything after the deploy is admin-side.
+
+#### Tier 2 / Tier 3 — deferred, deliberately
+
+Two further tiers would remove the code step for most future events. **Both are out of scope for
+this plan**, recorded here because the per-entity variable design (§4.1a) is what keeps them cheap
+to add later, and because one prerequisite is worth knowing about now.
+
+**Tier 2 — entity change events.** One generic sensor emits `order.changed` with
+`{ before, after, changedFields }`; admin then writes a field-transition filter
+(`status  *  →  DELIVERED`) and configures the sequence as usual. Covers every one of the 15
+`OrderStatus` values, and any other field, with no deploy.
+
+> **The chokepoint already exists.** `orders/orders.service.ts:5257` has a private
+> `updateOrder()` wrapper that **25 call sites** funnel through, and its
+> `withOrderInboxActivityOnUpdate` helper *already pre-reads the existing row* — exactly the
+> before/after comparison a change sensor needs. Tier 2 is largely a matter of hanging an emit
+> off that function.
+>
+> **Prerequisite, worth doing whenever those files are next touched:** four writes bypass the
+> wrapper and would be invisible to the sensor —
+> `orders.service.ts:2927` and `:3159` (direct `tx.order.update`), `order-chat.service.ts`,
+> and `watermark.service.ts`; `orders.service.ts:624` uses `updateMany`.
+>
+> **Trap:** the sensor must enqueue **after commit**, never inside the transaction, or a rolled
+> back change still sends a notification.
+
+**Tier 3 — condition / schedule events.** Admin defines entity + filter + cadence
+(`status = DELIVERED AND deliveredAt < now() - 3 days`, checked hourly); a cron emits a synthetic
+event per newly-matching row, with a dedupe table. This covers the "nothing happened, chase them"
+cases that most drip campaigns actually are. It reuses the **campaign segment filter engine**
+(§8.1) almost wholesale, so it is cheaper than it looks once P5 exists.
+
+#### Limits that survive all three tiers
+
+1. **WhatsApp waits on Meta.** A brand-new WA template needs approval (hours to days) in WhatsApp
+   Manager, outside your admin. An admin-created event can send WhatsApp *immediately* only by
+   reusing an already-approved template. Email is genuinely instant.
+2. **Unrecorded facts cannot trigger anything.** "Creator opened the brief" needs a `briefViewedAt`
+   column to exist first.
+3. **A change sensor loses the reason.** `status → CANCELLED_CREDITED` cannot tell you *who*
+   cancelled — but today you deliberately send different mail for `notifyOrderCancelledBySupport`
+   vs `notifyOrderCancelledByBrand` from the same end status. Declared Tier 1 events remain the
+   right tool wherever the reason changes the message.
+
+---
+
 ## 5. Data model
 
 New Prisma models. All UUID PKs, matching existing conventions.
@@ -321,7 +455,9 @@ model NotificationEvent {
   category       NotificationEventCategory
   entityType     String?                            // 'order' | 'creatorProfile' | 'user'
   recipientRoles NotificationRecipientRole[]
-  variableSchema Json                               // { name: { type, example } }
+  /// Resolved union of entity.vars + event.extraVars, flattened at sync time so the
+  /// admin UI needs no code access. { name: { type, example, group } }
+  variableSchema Json
   alwaysSend     Boolean  @default(false)           // bypasses the opt-in booleans
   isActive       Boolean  @default(true)            // ADMIN-OWNED kill switch
   deprecated     Boolean  @default(false)
@@ -384,6 +520,9 @@ model NotificationTemplate {                        // EMAIL only
   subjectHbs   String
   htmlHbs      String  @db.Text
   textHbs      String? @db.Text                     // null → auto-derived from html on render
+  /// Variable names found in the Handlebars AST at publish time. Drives lazy
+  /// resolution (§4.1c) so a 3-variable template does not trigger a 25-variable join.
+  referencedVars String[]
   status       NotificationTemplateStatus @default(DRAFT)
   version      Int     @default(1)
   updatedByUserId String? @db.Uuid
@@ -822,7 +961,7 @@ disk templates until a DB row exists.
 
 | Phase | Contents | User-visible |
 |---|---|---|
-| **P1** | Prisma migration (all §5 models), event catalog with the ~24 events, registry boot-sync, DB-first renderer **with disk fallback**, seeder that imports the 96 `.hbs` files into `NotificationTemplate` rows as `PUBLISHED` | None |
+| **P1** | Prisma migration (all §5 models), **4 entity providers** (§4.1a), event catalog with the ~24 events, registry boot-sync, DB-first renderer **with disk fallback** + lazy variable resolution, seeder that imports the 96 `.hbs` files into `NotificationTemplate` rows as `PUBLISHED` | None |
 | **P2** | Queues + EventDispatcher + StepWorker + delivery log + webhook wiring. `events.emit()` added **alongside** existing `notify*` calls, with sends **disabled** — log-only shadow mode to compare what would be sent vs what is sent | None |
 | **P3** | Admin API + UI for events, rules, steps, templates, WhatsApp mapping. Seed one rule per existing event reproducing **exactly** today's behaviour | Admin can view/edit; sends still from the old path |
 | **P4** | **Cutover.** Enable the new path, remove the `notify*` calls, delete `whatsapp-bridge.util.ts`. Migrate the creator drips (see risk R3) | The real switch |
@@ -874,7 +1013,7 @@ Separate-process deploy can land any time after P2 by flipping `BULLMQ_WORKER_EN
 
 | Phase | Estimate |
 |---|---|
-| P1 schema + registry + renderer + seeder | 3–4 days |
+| P1 schema + entity providers + registry + renderer + seeder | 3–4 days |
 | P2 queues + dispatcher + step worker + delivery log | 4–5 days |
 | P3 admin API + UI (events, rules, templates, WA mapping) | 6–8 days |
 | P4 cutover + drip migration | 2–3 days |
@@ -884,3 +1023,12 @@ Separate-process deploy can land any time after P2 by flipping `BULLMQ_WORKER_EN
 
 P1–P4 (full replacement of today's system, admin-configurable) is roughly **15–20 days**.
 P5 (campaigns) is genuinely additive and can be deferred without blocking anything.
+
+Per-entity variable providers (§4.1a) are **cost-neutral to slightly cheaper** than the per-event
+alternative: ~4 entity resolvers replace ~24 per-event `resolve()` functions. The saving is in P1,
+and it is what keeps the deferred tiers affordable:
+
+| Deferred (not scoped here) | Estimate if added later |
+|---|---|
+| Tier 2 — entity change events (§4.4), incl. routing the 4 stray `.order.update` sites | 3–4 days |
+| Tier 3 — condition / schedule events (§4.4), assuming P5 segment engine exists | 3–4 days |

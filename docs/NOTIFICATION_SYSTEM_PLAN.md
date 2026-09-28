@@ -183,9 +183,17 @@ select and context object already exist in `order-mail.notifier.ts`.
 this.orderMail.notifyBriefSubmitted(order.id, now)
 // after
 this.events.emit('order-brief-submitted-for-creator', { entityId: order.id })
+
+// repeatable events pass a discriminator so occurrence N is not mistaken for occurrence 1
+this.events.emit('order-revision-requested-for-creator', {
+  entityId: order.id,
+  occurrenceKey: String(newRevisionNumber),   // §12 A1
+})
 ```
 
-`emit()` writes one BullMQ job and returns. It is the **only** public export of the module.
+`emit()` writes one BullMQ job and returns. It is the **only** public export of the module, and it
+must be called **after** the surrounding transaction commits — which is what today's code already
+does (`orders.service.ts:2724`).
 
 ### 3.3 Timing and channels
 
@@ -444,8 +452,9 @@ delaying real-time notifications.
    `jobId = ${eventKey}-${entityId}-${rowId}` and `delay = max(offsetMinutes×60000 − elapsed, 0)`.
 
 `notif-step` → **StepWorker**
-1. **Claim** — insert the `NotificationLog` row. The `@@unique` means a duplicate insert loses the
-   race and returns; this is the whole idempotency mechanism.
+1. **Claim** — `INSERT … ON CONFLICT DO NOTHING` on `NotificationLog`, stamping `claimedAt`.
+   No row returned → read the existing one: a terminal status skips, a stale `QUEUED` row is taken
+   over, a freshly-claimed one means another worker has it (§12 A2).
 2. Event / row still active? → skip.
 3. `offsetMinutes > 0` → run **`stillRelevant()`**. False → log `SKIPPED`, reason `not_relevant`.
 4. `resolve()` — a **fresh** Prisma read.
@@ -612,6 +621,10 @@ model NotificationLog {
   id                   String @id @default(uuid()) @db.Uuid
   eventKey             String
   entityId             String
+  /// Discriminates repeat occurrences of the same event on the same entity —
+  /// revisionNumber, delivery id, reset-token id. Defaults to entityId.
+  /// Test sends use `test:<uuid>` so they never collide (§12 A1, A3).
+  occurrenceKey        String
   scheduleId           String? @db.Uuid
   offsetMinutes        Int
   channel              NotificationChannel
@@ -629,11 +642,14 @@ model NotificationLog {
   skippedReason        String?                         // opted_out | suppressed | no_phone |
                                                        // not_relevant | event_inactive
   queuedAt             DateTime @default(now())
+  /// Set when a worker takes the row. A QUEUED row with a stale claimedAt is
+  /// re-claimable, so a crash between claim and send cannot lose it (§12 A2).
+  claimedAt            DateTime?
   sentAt               DateTime?
   deliveredAt          DateTime?
 
   /// THE idempotency guarantee. A duplicate insert loses the race and no send happens.
-  @@unique([eventKey, entityId, recipientUserId, channel, offsetMinutes])
+  @@unique([eventKey, entityId, occurrenceKey, recipientUserId, channel, offsetMinutes])
   @@index([providerMessageId])
   @@index([recipientUserId, queuedAt])
   @@index([eventKey, queuedAt])
@@ -831,6 +847,125 @@ All prior questions are resolved (§1.8–§1.11). Two items remain, neither blo
 
 ---
 
+## 12. Edge cases
+
+Worked through after the design settled. **A1–A3 break the plan as written** and their fixes are
+folded into §3 and §4 above; the rest are behaviours to implement deliberately or accept knowingly.
+
+### A. Design-breaking — fixed
+
+- **A1 · Repeatable events were being permanently blocked.** The idempotency key
+  `(eventKey, entityId, recipientUserId, channel, offsetMinutes)` assumed one occurrence per entity.
+  **False for several live events.** `orders.service.ts:2724` fires `notifyRevisionRequested` on
+  *every* revision (revision 2, 3, … all share one `orderId`), and `password-reset` is repeatable by
+  definition — the second reset email a user requests would **never arrive**. Same for
+  extra-revisions/usage-rights purchases, repeat content deliveries after a revision, and repeat
+  disputes.
+  **Fix:** `emit()` takes an `occurrenceKey`, defaulting to the entity id. Events that repeat pass a
+  discriminator — `revisionNumber`, the delivery id, the reset-token id. It joins the unique tuple.
+- **A2 · A crash between claiming and sending lost the notification forever.** Claiming by inserting
+  the log row meant a process dying after the insert but before the SES call left a `QUEUED` row;
+  the retry hit the unique violation and skipped. Silent permanent loss.
+  **Fix:** `INSERT … ON CONFLICT DO NOTHING`. If no row is returned, read the existing one — a
+  terminal status (`SENT`/`DELIVERED`/`READ`) skips, while a `QUEUED` row whose `claimedAt` is older
+  than the stale threshold is **taken over**. Adds `claimedAt` to `NotificationLog`.
+  *Accepted trade-off:* a crash after SES accepts but before we record it sends a duplicate on
+  retry. **At-least-once is the deliberate choice** — a rare duplicate beats a silent loss.
+- **A3 · Test sends would consume the real send's slot.** An admin testing
+  `order-content-delivered-for-brand` against a real order would write the log row that then blocks
+  the genuine notification.
+  **Fix:** test sends use `occurrenceKey = test:${uuid}`, so they can never collide. No partial
+  index needed, and they stay visible in the log as tests.
+
+### B. Scheduling and delivery
+
+- **A delayed row on an event with no `stillRelevant` predicate.** 30 of 32 events have no predicate
+  because they send instantly (§3.3). The moment an admin adds a `+24 h` row to one, the nudge fires
+  unconditionally — "you haven't accepted the brief" to someone who accepted it an hour ago. The
+  admin UI must **warn and require confirmation** when adding an offset row to an event whose
+  catalog entry declares no predicate.
+- **`emit()` must be called after commit, never inside `$transaction`.** Today's code already does
+  this (`orders.service.ts:2724` fires after the transaction block closes). Emitting inside a
+  transaction that later rolls back notifies about something that did not happen.
+- **The entity disappears between emit and send.** A 7-day reminder whose order was hard-deleted.
+  `resolve()` returns null → log `SKIPPED`, reason `entity_gone`. Never throw.
+- **The recipient disappears, or changes address.** Context is resolved at send time, so a changed
+  email is picked up correctly; a deleted user logs `SKIPPED`, reason `no_recipient`.
+- **A schedule row is deleted while its jobs are in flight.** The job fires, finds no row, no-ops.
+- **A schedule row's offset is edited.** Only future events use it — in-flight delayed jobs keep the
+  old delay. Also `@@unique([eventKey, offsetMinutes])` means editing `24 h` → `48 h` fails if a
+  48 h row exists; the UI must surface that rather than 500.
+- **Rows added after an event fired are not retro-applied.** Adding a `+7 d` row today does nothing
+  for orders created yesterday. Only population events sweep retroactively (§3.4). Worth stating in
+  the UI so nobody waits for sends that will never come.
+- **Negative or absurd offsets.** Validate `offsetMinutes >= 0`. Int handles 14 days (20,160)
+  comfortably.
+- **Retries consume the rate limiter.** A failing job's three attempts occupy `notif-bulk` slots.
+  Sizing should assume the effective rate is below the nominal one.
+
+### C. Admin actions
+
+- **Deleting or deactivating a template that an event still references.** FK `restrict`, and the UI
+  names what uses it. A deactivated-but-referenced template must fall back to disk rather than throw.
+- **One template shared by several events.** Validation must check `{{variables}}` against the
+  **intersection** of every referencing event's `vars`, not just the one being edited.
+- **A subject that renders empty.** Validation catches it against example data, but live data can
+  still produce it (a null `brandName`). Guard at render: an empty subject falls back to the
+  template name rather than letting SES reject the message.
+- **Renaming a WhatsApp template in Meta.** The stored string silently stops matching and every send
+  for that event fails. The test-send button is the only cheap detection — surface Meta's error text
+  verbatim.
+- **Test-send permissions.** Test-send takes a real entity id; scope it so an admin cannot render
+  another user's order data outside the admin surface they already have.
+
+### D. Provider-specific
+
+- **WhatsApp body variables cannot contain newlines, tabs, or 4+ consecutive spaces.** Meta rejects
+  the whole message. A brand name or note pasted with a newline breaks the send. **Sanitize every
+  `bodyVar`** — collapse whitespace — before the Cloud API call.
+- **Editing an approved template in WhatsApp Manager changes its parameter count.** We send
+  positionally (`{{1}}`, `{{2}}`), so adding a placeholder in Meta breaks every send with
+  "number of parameters does not match". Nothing on our side detects it until sends fail.
+- **A template approved in one language only.** `WHATSAPP_DEFAULT_LANGUAGE` must match the approval,
+  or every send 400s.
+- **Quality-rating pause.** Meta can pause a template or demote the number's tier; all sends for it
+  fail until resolved. Surface it from the log rather than leaving it as a silent failure class.
+- **Text templates are HTML-escaped.** The `.text.hbs` files use `{{var}}`, which escapes — so a
+  brand named `Tom & Jerry` renders as `Tom &amp; Jerry` in the plain-text part today. Pre-existing;
+  worth fixing during the migration with `{{{var}}}` in text templates.
+- **SES message size.** SESv2 caps a message at 10 MB. Only reachable if someone inlines base64
+  images, but validation should reject an oversized rendered body rather than fail at send.
+
+### E. Population sweep (§3.4)
+
+- **Overlapping runs.** A sweep slower than its cron interval will start again before finishing.
+  Take a Redis lock for the duration; skip the run if held.
+- **A profile served by both a delayed job and the sweep.** Expected and harmless — whichever lands
+  second loses the `ON CONFLICT`.
+- **The profile completes mid-sweep.** `stillRelevant` re-checks at fire time, so the nudge is
+  skipped with reason `not_relevant`.
+- **A predicate that throws.** Fail closed: skip and retry, never send on an unknown state.
+- **The sweep keeps the Neon compute awake.** A daily cron is fine; anything more frequent erodes
+  the autosuspend saving the existing code is careful about.
+
+### F. Migration
+
+- **Splitting the stage templates is the fiddliest part of P1.** The subject line is a *single line*
+  containing four `{{#if isStageN}}` segments; the parser must split subject and body consistently
+  and be verified by eye against all seven outputs before the seeder is trusted.
+- **Legacy keys referenced by in-flight jobs during cutover.** Keep the disk fallback until every
+  delayed job enqueued under the old system has drained — at least as long as the longest offset
+  (7 days), not just until the deploy is green.
+
+### G. Data and privacy
+
+- **The log stores email addresses and phone numbers indefinitely** (§1.11, no pruning). If a user
+  deletes their account, their address survives in the log. Decide whether account deletion should
+  null `toAddress` on their rows — the audit trail stays intact, the PII does not. Worth settling
+  before P1, since it is a column-level decision.
+
+---
+
 ## 11. Effort
 
 | Phase | Estimate |
@@ -841,7 +976,8 @@ All prior questions are resolved (§1.8–§1.11). Two items remain, neither blo
 | P3 admin API + UI (events, schedule, templates, logs) | 4–5 days |
 | P4 cutover + drip migration | 2 days |
 | P5 cleanup | 1 day |
-| **Total** | **~12–15 working days** |
+| Edge-case hardening (§12 B–E: whitespace sanitising, sweep lock, predicate warning, empty-subject guard) | 1 day |
+| **Total** | **~13–16 working days** |
 
 Down from ~21–29 for the earlier scope; the cuts in §10 account for the difference. The batching
 work survived the cut — it moved from campaigns to the completion sweep (§3.4), which is now the

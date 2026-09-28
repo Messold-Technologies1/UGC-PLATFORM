@@ -1,4 +1,5 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, forwardRef } from '@nestjs/common';
+import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { BrandAccessModule } from '../brand-access/brand-access.module';
 import { NotificationRegistrySyncService } from './catalog/registry-sync.service';
 import { NotificationDispatchService } from './dispatch/notification-dispatch.service';
@@ -7,6 +8,9 @@ import { NotificationStepService } from './dispatch/notification-step.service';
 import { NotificationLogService } from './log/notification-log.service';
 import { NotificationQueueService } from './queues/notification-queue.service';
 import { NotificationTemplateRenderer } from './rendering/notification-template-renderer.service';
+import { TemplateValidatorService } from './rendering/template-validator.service';
+import { NotificationsAdminController } from './admin/notifications-admin.controller';
+import { NotificationsAdminService } from './admin/notifications-admin.service';
 
 /**
  * The notification engine.
@@ -21,10 +25,15 @@ import { NotificationTemplateRenderer } from './rendering/notification-template-
  */
 @Global()
 @Module({
-  imports: [BrandAccessModule],
+  // AuthGuardsModule supplies JwtAuthGuard and AdminGuard for the admin
+  // controller; forwardRef mirrors how the other admin modules take it.
+  imports: [BrandAccessModule, forwardRef(() => AuthGuardsModule)],
+  controllers: [NotificationsAdminController],
   providers: [
     NotificationRegistrySyncService,
     NotificationTemplateRenderer,
+    TemplateValidatorService,
+    NotificationsAdminService,
     NotificationLogService,
     NotificationDispatchService,
     NotificationStepService,

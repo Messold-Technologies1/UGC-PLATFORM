@@ -1,5 +1,8 @@
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { AuthGuardsModule } from '../auth/auth-guards.module';
+import { MetaCapiModule } from '../meta-capi/meta-capi.module';
+import { StorageModule } from '../storage/storage.module';
 import { BrandAccessModule } from '../brand-access/brand-access.module';
 import { MailModule } from '../mail/mail.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -38,10 +41,28 @@ describe('NotificationsModule wiring', () => {
           isGlobal: true,
           // No REDIS_URL: the queue service must degrade to a warning rather
           // than failing to construct.
-          load: [() => ({ FRONTEND_URL: 'https://app.gocollab.io' })],
+          // Enough config for the graph to construct. The point of this test
+          // is DI resolution, not behaviour, so placeholder values are fine.
+          load: [
+            () => ({
+              FRONTEND_URL: 'https://app.gocollab.io',
+              AWS_REGION: 'ap-south-1',
+              AWS_S3_ACCESS_KEY_ID: 'test',
+              AWS_S3_SECRET_ACCESS_KEY: 'test',
+              S3_BUCKET_NAME: 'test-bucket',
+              CDN_BASE_URL: 'https://cdn.test',
+              JWT_ACCESS_SECRET: 'test-secret',
+              JWT_REFRESH_SECRET: 'test-refresh-secret',
+            }),
+          ],
         }),
         PrismaModule,
         BrandAccessModule,
+        // Globals the guard chain reaches transitively. In the app these are
+        // registered by AppModule; an isolated graph has to name them.
+        MetaCapiModule,
+        StorageModule,
+        AuthGuardsModule,
         MailModule,
         WhatsAppModule,
         NotificationsModule,

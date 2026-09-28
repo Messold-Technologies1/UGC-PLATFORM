@@ -972,6 +972,148 @@ Separate-process deploy can land any time after P2 by flipping `BULLMQ_WORKER_EN
 
 ---
 
+
+### 11.1 Target code layout
+
+One new module, `server/src/notifications/`. The surviving pieces of `mail/` and `whatsapp/`
+**move into it** rather than being rewritten, so by P6 both old folders are gone and there is a
+single home for everything notification-related.
+
+```
+server/src/notifications/
+├── notifications.module.ts            # API-side: controllers + emit()
+├── notifications.worker.module.ts     # worker-side: queues + workers
+│
+├── catalog/
+│   ├── define-events.ts
+│   ├── event-catalog.ts               # the ~24 Tier-1 events (§4.1b)
+│   └── registry-sync.service.ts       # boot upsert into NotificationEvent
+│
+├── entities/                          # §4.1a — vars + recipients, per entity
+│   ├── define-entity.ts
+│   ├── order.entity.ts
+│   ├── creator-profile.entity.ts
+│   ├── brand-profile.entity.ts
+│   └── user.entity.ts
+│
+├── rendering/
+│   ├── template-renderer.service.ts   # REWRITTEN from mail/ — DB-first, disk fallback
+│   ├── template-validator.service.ts  # NEW — §6.1 publish gate + AST var extraction
+│   ├── partials/                      # MOVED from mail/templates/_partials — stays on disk
+│   │   ├── email-shell.html.hbs
+│   │   └── action-button.html.hbs
+│   └── legacy-templates/              # MOVED from mail/templates — deleted at P6
+│
+├── channels/
+│   ├── email/
+│   │   ├── email-sender.service.ts        # FROM mail/mail.service.ts — gate chain kept
+│   │   ├── ses.transport.ts               # MOVED unchanged
+│   │   └── email-suppression.service.ts   # MOVED unchanged
+│   └── whatsapp/
+│       ├── whatsapp-sender.service.ts     # FROM whatsapp.service.ts — in-memory Map removed
+│       ├── whatsapp-cloud.transport.ts    # MOVED unchanged
+│       ├── whatsapp-template-sync.service.ts  # NEW — pull approved list from Meta
+│       └── whatsapp-webhook.controller.ts # MOVED — status now written to the delivery log
+│
+├── dispatch/
+│   ├── notification-events.service.ts # emit() — THE ONLY THING other modules import
+│   ├── event-dispatcher.worker.ts
+│   ├── step.worker.ts
+│   ├── recipient-resolver.service.ts
+│   ├── quiet-hours.util.ts
+│   └── backstop-sweep.service.ts
+│
+├── delivery-log/
+│   └── delivery-log.service.ts
+│
+├── campaigns/                         # P5
+│   ├── segment-filter.compiler.ts
+│   ├── campaign.service.ts
+│   └── campaign.worker.ts
+│
+├── admin/
+│   ├── admin-events.controller.ts
+│   ├── admin-rules.controller.ts
+│   ├── admin-templates.controller.ts
+│   ├── admin-whatsapp-templates.controller.ts
+│   ├── admin-campaigns.controller.ts
+│   ├── admin-deliveries.controller.ts
+│   ├── admin-settings.controller.ts
+│   └── dto/
+│
+└── queues/
+    └── notification-queues.ts         # queue names, job types, jobId builders
+                                       # (reuses jobs/bullmq-redis.connection.ts)
+
+server/src/main.worker.ts              # NEW — separate entry point, boots worker module only
+```
+
+`package.json` gains `"start:worker": "node dist/main.worker.js"`. That plus
+`BULLMQ_WORKER_ENABLED=false` on the API process is the whole separate-deploy story.
+
+**The public surface shrinks to one method.** Today seven services import mail notifiers and call
+one of ~20 `notify*` methods. Afterwards they import `NotificationEventsService` and call
+`emit()`. Nothing outside `notifications/` knows that email or WhatsApp exist.
+
+### 11.2 File-by-file disposition
+
+Nothing is deleted before P4 proves the new path in production. The legacy templates **are** the
+P1–P5 fallback, and `EmailTemplateKey` is referenced in 51 places.
+
+#### Deleted (P6) — ~2,400 lines
+
+| File | Lines | Why |
+|---|---:|---|
+| `mail/order-mail.notifier.ts` | 707 | 20 hand-written `notify*` methods → catalog entries |
+| `mail/creator-profile-mail.notifier.ts` | 306 | same |
+| `mail/brand-profile-mail.notifier.ts` | 109 | same |
+| `mail/whatsapp-bridge.util.ts` | 61 | **the email↔WhatsApp lockstep** — replaced by per-step channels |
+| `mail/mail.types.ts` | 57 | `EmailTemplateKey` → DB rows |
+| `mail/mail.module.ts` | 30 | folded into `notifications.module.ts` |
+| `whatsapp/whatsapp.module.ts` | 21 | folded in |
+| `jobs/creator-reminder*.ts` (5 files) | 1,119 | hardcoded drip → admin-configured sequences |
+| `mail/templates/*.hbs` (96 files) | — | migrated to `NotificationTemplate` rows (partials excepted) |
+
+#### Moved and kept — ~860 lines
+
+| File | Lines | Change |
+|---|---:|---|
+| `mail/ses-mail.transport.ts` | 73 | **none** — pure SES client |
+| `mail/email-suppression.service.ts` | 51 | **none** |
+| `mail/brand-mail.recipient.ts` | 25 | becomes the `brandProfile` recipient resolver |
+| `mail/mail.service.ts` | 146 | gate chain kept; template lookup swapped for the new renderer |
+| `whatsapp/whatsapp-cloud.transport.ts` | 138 | **none** — pure Meta Cloud client |
+| `whatsapp/whatsapp.service.ts` | 238 | gate chain kept; **the bounded in-memory `outbound` Map is deleted** (§2.2) in favour of the delivery log |
+| `whatsapp/whatsapp-webhook.controller.ts` | 154 | `noteStatusUpdate` writes to `NotificationDelivery` by `wamid` |
+| `whatsapp/whatsapp.types.ts` | 35 | trimmed |
+| `mail/templates/_partials/*` | — | moved to `rendering/partials/`, still on disk |
+
+> **Do not rewrite the transports.** `ses-mail.transport.ts` and `whatsapp-cloud.transport.ts` are
+> working, timeout-wrapped provider clients with no business logic in them. They move verbatim.
+
+#### Rewritten
+
+| File | Lines | Change |
+|---|---:|---|
+| `mail/template-renderer.service.ts` | 162 | boot-compiled disk `Map` → DB-first with disk fallback, LRU by `templateId:version`, lazy variable groups. The shell/partial/`concat`-helper logic survives. Its spec (133 lines) is extended, not replaced. |
+
+#### Call sites to migrate (P4)
+
+Seven files swap `notify*` calls for `events.emit()`:
+`auth/password.service.ts`, `brand-profile/brand-profile.service.ts`,
+`creator-profile/creator-profile.service.ts`, `orders/orders.service.ts`,
+`social-connections/social-connections.service.ts`, `watermark/watermark.service.ts`,
+and `jobs/creator-reminder.service.ts` (which then dies).
+
+`webhooks/webhooks.module.ts` imports `MailModule` only for the suppression service — it just
+repoints to `NotificationsModule`.
+
+**Also dies with the reminder queue:** `scripts/reenroll-completion-reminders.ts` and its two
+`package.json` scripts (`reenroll:completion-reminders`, `…:dev`). If you still need cohort
+re-enrolment after cutover, it becomes a generic "re-open sequence for these entity ids" admin
+action rather than a bespoke script — worth deciding at P4, not P6.
+
+
 ## 12. Risks
 
 | # | Risk | Mitigation |

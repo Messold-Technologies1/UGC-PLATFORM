@@ -32,7 +32,7 @@ a WhatsApp template table, and a runtime settings table. Cut deliberately — se
 | 2 | Code-declared event catalog, synced to DB; admin configures templates, channels, timing |
 | 3 | WhatsApp = Meta template **name only**; copy authored in WhatsApp Manager |
 | 4 | Event key is the default template name for both channels |
-| 5 | Timing = a list of offsets; **each row picks its own channels** |
+| 5 | Timing = a list of offsets; **each row picks its own channels**. 30 of 32 events are a single `0` row — send immediately on trigger (§3.3) |
 | 6 | Keep: `stillRelevant` guard, delivery log, template validation, template version history |
 | 7 | Cut: campaigns, segments, quiet hours, entity providers, admin cancel rules |
 | 8 | **Only `password-reset` bypasses the opt-in booleans.** Every other event respects them |
@@ -155,7 +155,8 @@ export const NOTIFICATION_EVENTS = defineEvents({
     /// A direct port of the body of today's notifyBriefSubmitted().
     resolve: async (ctx, entityId) => { /* Prisma read → vars + recipient */ },
 
-    /// Only consulted for rows with offsetMinutes > 0. Omit for send-now-only events.
+    /// Only consulted for rows with offsetMinutes > 0. OMIT ENTIRELY for send-now-only
+    /// events — which is 30 of the 32 (§3.3).
     stillRelevant: async (ctx, entityId) =>
       (await ctx.prisma.order.findUnique(…))?.status === 'BRIEF_SUBMITTED',
   },
@@ -240,6 +241,50 @@ matching segment of the one-line subject — into its own row.
 
 The name is a **label, not a binding**: rows reference templates by id, so re-timing a row from 3 d
 to 5 d does not break anything. Rename the template too if you want the list to stay tidy.
+
+#### Most events have exactly one row, at 0
+
+**This is the normal case.** An event that just fires when it happens has a single row,
+`offsetMinutes = 0`, both channels ticked. No interval, no drip, no predicate.
+
+```
+Event: order-content-delivered-for-brand              [ Active ]
+
+  Email     order-content-delivered-for-brand   ▾
+  WhatsApp  order_content_delivered_for_brand   ▾
+
+  Send at                     Channels
+  │ [ 0    ] now        ✓    ☑ Email  ☑ WhatsApp    │
+  + add row
+```
+
+Of the 32 events, **30 are exactly this** — every order event (brief submitted/accepted/rejected,
+product shipped/received, revision requested, extra revisions and usage rights purchased, content
+delivered/accepted, completed, rejected, cancelled, cancelled by support, refunded, dispute
+opened/resolved), both creator-profile decisions, the social-connection expiry, the brand welcome,
+and the password reset.
+
+**Only two events carry intervals:**
+
+| Event | Rows |
+|---|---|
+| `creator-profile-completion-reminder` | 30 min · 24 h · 3 d · 7 d — population-swept (§3.4) |
+| `creator-profile-resubmit-reminder` | 30 min · 24 h · 48 h |
+
+Three consequences worth stating plainly:
+
+1. **`stillRelevant` is only consulted for rows with `offsetMinutes > 0`.** So 30 of the 32 events
+   need no predicate written at all — there is nothing to re-check when the send is instantaneous.
+2. **A `0` row still goes through the queue** with zero delay, exactly matching today's
+   fire-and-forget `void this.run(...)`. The API request does not wait on SES or Meta.
+3. **Admin can add an interval row to any of those 30 later, with no code change.** Wanting a
+   "brief still not accepted after 24 h" nudge becomes one row plus a template — and *that* is
+   where a `stillRelevant` predicate would then need adding in code, since the new row has an
+   offset > 0.
+
+The P1 seeder creates exactly one `0` row per event with both channels, so day one behaviour is
+byte-for-byte what ships today. `password-reset` is the sole email-only row, matching
+`whatsAppTemplateNameForEmail` returning null for it.
 
 #### WhatsApp per row
 

@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, History } from "lucide-react";
+import { ArrowLeft, History, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
   useBackfillMutation,
   useNotificationEventQuery,
   useReplaceScheduleMutation,
+  useSweepMutation,
   useTemplatesQuery,
   useUpdateEventMutation,
 } from "@/features/notifications/hooks/use-notifications";
@@ -48,6 +49,7 @@ export default function NotificationEventDetailPage({
   const updateEvent = useUpdateEventMutation(eventKey);
   const replaceSchedule = useReplaceScheduleMutation(eventKey);
   const backfill = useBackfillMutation(eventKey);
+  const sweep = useSweepMutation(eventKey);
 
   const [waName, setWaName] = useState<string | null>(null);
 
@@ -262,6 +264,67 @@ export default function NotificationEventDetailPage({
                   {formatOffset(row.offsetMinutes)}
                 </Button>
               ))}
+          </div>
+        </section>
+      )}
+
+      {event.canSweep && (
+        <section className="space-y-3 rounded-lg border p-5">
+          <div className="flex items-center gap-2">
+            <UserCheck className="text-muted-foreground h-4 w-4" />
+            <h2 className="font-medium">Send to older profiles</h2>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            Nothing &ldquo;happens&rdquo; to make a profile incomplete, so there
+            is no moment to send from. New signups are handled automatically.
+            Creators who signed up before this existed have never been reached —
+            this is how you reach them.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            Each creator receives <strong>one</strong> email: the latest stage
+            they have passed, not every stage at once.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              disabled={sweep.isPending}
+              onClick={() =>
+                sweep.mutate(true, {
+                  onSuccess: (result) => {
+                    const count = result.wouldSend ?? 0;
+                    if (count === 0) {
+                      toast.info("No older profiles are waiting for this.");
+                      return;
+                    }
+                    toast.info(
+                      `${count} creator${count === 1 ? "" : "s"} would receive this ` +
+                        `(of ${result.scanned} scanned).`,
+                      {
+                        duration: 15000,
+                        action: {
+                          label: `Send to ${count}`,
+                          onClick: () =>
+                            sweep.mutate(false, {
+                              onSuccess: (sent) =>
+                                toast.success(
+                                  `Queued for ${sent.enqueued ?? 0} creator(s).`,
+                                ),
+                              onError: (error) => toast.error(errorMessage(error)),
+                            }),
+                        },
+                      },
+                    );
+                  },
+                  onError: (error) => toast.error(errorMessage(error)),
+                })
+              }
+            >
+              {sweep.isPending ? "Checking…" : "Check how many are waiting"}
+            </Button>
+            <p className="text-muted-foreground text-xs">
+              Nothing is sent until you confirm the number.
+            </p>
           </div>
         </section>
       )}

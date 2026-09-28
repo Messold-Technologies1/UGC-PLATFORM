@@ -57,6 +57,20 @@ export interface NotificationEventDetail
   vars: Record<string, VarSpec>;
   emailTemplateId: string | null;
   schedule: ScheduleRow[];
+  /**
+   * True for events with no moment to emit from — a profile that simply sits
+   * unfinished. Those can be sent to the entities that pre-date the system.
+   */
+  canSweep: boolean;
+}
+
+export interface SweepResult {
+  scanned: number;
+  /** Present on a preview. */
+  wouldSend?: number;
+  /** Present on a real run. */
+  enqueued?: number;
+  superseded?: number;
 }
 
 export interface NotificationTemplateSummary {

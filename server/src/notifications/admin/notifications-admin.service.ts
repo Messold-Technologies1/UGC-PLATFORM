@@ -17,6 +17,7 @@ import type { NotificationVarSpec } from '../catalog/define-events';
 import { TemplateValidatorService } from '../rendering/template-validator.service';
 import { NotificationTemplateRenderer } from '../rendering/notification-template-renderer.service';
 import { NotificationQueueService } from '../queues/notification-queue.service';
+import { NotificationSweepService } from '../dispatch/notification-sweep.service';
 import type {
   BackfillDto,
   ReplaceScheduleDto,
@@ -33,6 +34,7 @@ export class NotificationsAdminService {
     private readonly validator: TemplateValidatorService,
     private readonly renderer: NotificationTemplateRenderer,
     private readonly queues: NotificationQueueService,
+    private readonly sweeps: NotificationSweepService,
   ) {}
 
   // ---------------------------------------------------------------- events
@@ -102,6 +104,9 @@ export class NotificationsAdminService {
       ...row,
       whatsappTemplateName:
         row.whatsappTemplateName ?? defaultWhatsAppTemplateName(row.key),
+      // Events with no moment to emit from can be swept instead; the UI shows
+      // the control only for those.
+      canSweep: Boolean(getEventDefinition(key)?.population),
     };
   }
 
@@ -252,6 +257,28 @@ export class NotificationsAdminService {
       `backfilled ${key} +${dto.offsetMinutes}m for ${fired.length} entit(ies)`,
     );
     return { matched: fired.length, enqueued: fired.length };
+  }
+
+  /**
+   * Reach the entities this event can never be emitted for — the profiles that
+   * existed before the system did, which no signup ever emitted for.
+   *
+   * Deliberately a button rather than a cron: on the completion reminder this
+   * is the largest send the platform will have done, so it should be a decision
+   * with the number in front of you, not something that fires at 10am.
+   */
+  async sweepPopulation(key: string, dryRun: boolean) {
+    const definition = getEventDefinition(key);
+    if (!definition) throw new NotFoundException(`Unknown event ${key}`);
+    if (!definition.population) {
+      throw new BadRequestException(
+        `${key} is emitted when it happens, so there is nothing to sweep.`,
+      );
+    }
+
+    return dryRun
+      ? this.sweeps.preview(key, definition.population)
+      : this.sweeps.sweep(key, definition.population);
   }
 
   // ------------------------------------------------------------- templates

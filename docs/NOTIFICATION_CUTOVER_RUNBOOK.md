@@ -189,26 +189,29 @@ These are intended, but they are changes — confirm each is wanted before step 
 
 ## The completion-reminder catch-up
 
-The daily sweep reaches **every** building profile, with no time window — the
-legacy job only covered a ~10 day backfill window, so anyone older had stopped
-hearing from it entirely.
+New signups are handled automatically: signup emits, and the drip runs from
+delayed jobs.
 
-The first sweep after the flip is therefore the largest send this platform has
-done: everyone in the backlog receives one catch-up email. `highestDueOnly`
-caps it at one per creator rather than four, but the volume is still the whole
-backlog at once.
+Creators who signed up **before** any of this existed were never emitted for, so
+they will never hear from it. Reaching them is a button on the event page, not
+something that happens on its own:
 
-**Before the first sweep, check the size and consider unticking WhatsApp** on
-the completion-reminder rows until it has drained:
+**Admin → Notifications → Events → creator-profile-completion-reminder →
+Send to older profiles → Check how many are waiting**
 
-```sql
-SELECT count(*) FROM "CreatorProfile" WHERE "completeProfile" = false;
-```
+It reports the count and sends nothing until you confirm. Each creator receives
+**one** email — the latest stage they have passed, not every stage at once.
 
-A backlog above your WhatsApp 24h conversation cap will not queue — the excess
-**fails**, and those failures hurt the quality rating that also governs order
-notifications. Email is rate-limited at 120/min on the bulk lane, so a 10k
-backlog drains over roughly 90 minutes without touching transactional sends.
+This is deliberately manual. On a backlog of any size it is the largest send
+this platform will have done, and it should be a decision taken with the number
+in front of you rather than a cron firing at 10am.
+
+**Before confirming**, consider unticking WhatsApp on those rows until the
+backlog has drained. A backlog above your WhatsApp 24h conversation cap will not
+queue — the excess **fails**, and those failures hurt the quality rating that
+also governs order notifications. Email goes through the bulk lane at 120/min,
+so a 10k backlog drains over roughly 90 minutes without touching transactional
+sends.
 
 ---
 

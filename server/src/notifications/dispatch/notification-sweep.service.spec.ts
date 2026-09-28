@@ -47,7 +47,6 @@ function build(profiles: Array<{ id: string; ageMs: number }>, rows = ROWS) {
     { get: jest.fn(() => 'https://app.test') } as never,
     {} as never,
     queues as never,
-    { doesExist: jest.fn(() => false), addCronJob: jest.fn() } as never,
   );
 
   return { service, prisma, queues, population };

@@ -93,6 +93,16 @@ export class NotificationsAdminController {
     return this.service.backfill(key, dto);
   }
 
+  @Post('events/:key/sweep')
+  @ApiOperation({
+    summary: 'Send this event to entities it was never emitted for',
+    description:
+      'For events with no moment to emit from — a profile that simply sits unfinished. Pass dryRun to get the count without sending.',
+  })
+  sweep(@Param('key') key: string, @Query('dryRun') dryRun?: string) {
+    return this.service.sweepPopulation(key, dryRun === 'true');
+  }
+
   // ---- templates ----
 
   @Get('templates')

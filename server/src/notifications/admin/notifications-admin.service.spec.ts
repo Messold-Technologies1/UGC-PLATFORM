@@ -68,14 +68,22 @@ function build(overrides: { supportsDelay?: boolean; eventKey?: string } = {}) {
   const queues = { enqueueStep: jest.fn().mockResolvedValue(undefined) };
   const renderer = { invalidate: jest.fn(), render: jest.fn() };
 
+  const sweeps = {
+    preview: jest.fn().mockResolvedValue({ scanned: 0, wouldSend: 0 }),
+    sweep: jest
+      .fn()
+      .mockResolvedValue({ scanned: 0, enqueued: 0, superseded: 0 }),
+  };
+
   const service = new NotificationsAdminService(
     prisma as never,
     new TemplateValidatorService(),
     renderer as never,
     queues as never,
+    sweeps as never,
   );
 
-  return { service, prisma, tx, queues, renderer };
+  return { service, prisma, tx, queues, renderer, sweeps };
 }
 
 describe('replaceSchedule', () => {
@@ -264,6 +272,35 @@ describe('backfill', () => {
 
     await expect(
       service.backfill(EVENT, { offsetMinutes: 99 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('sweepPopulation', () => {
+  it('previews without sending', async () => {
+    const { service, sweeps } = build();
+
+    await service.sweepPopulation('creator-profile-completion-reminder', true);
+
+    // The admin sees the number before deciding; nothing is enqueued.
+    expect(sweeps.preview).toHaveBeenCalled();
+    expect(sweeps.sweep).not.toHaveBeenCalled();
+  });
+
+  it('sends when asked for real', async () => {
+    const { service, sweeps } = build();
+
+    await service.sweepPopulation('creator-profile-completion-reminder', false);
+
+    expect(sweeps.sweep).toHaveBeenCalled();
+  });
+
+  it('refuses an event that is emitted when it happens', async () => {
+    const { service } = build();
+
+    // An order event has a moment to emit from, so there is nothing to sweep.
+    await expect(
+      service.sweepPopulation('order-content-delivered-for-brand', true),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

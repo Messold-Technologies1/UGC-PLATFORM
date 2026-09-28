@@ -1,12 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SchedulerRegistry } from '@nestjs/schedule';
-import { CronJob } from 'cron';
 import { NotificationChannel, NotificationLogStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BrandAccessService } from '../../brand-access/brand-access.service';
 import { frontendBaseUrl } from '../../util/frontend-url.util';
-import { NOTIFICATION_EVENTS_BY_KEY } from '../catalog/event-catalog';
 import type { EventContext, PopulationSpec } from '../catalog/define-events';
 import { NotificationQueueService } from '../queues/notification-queue.service';
 import type { StepJobData } from '../queues/notification-queues';
@@ -14,16 +11,25 @@ import type { StepJobData } from '../queues/notification-queues';
 const PAGE_SIZE = 500;
 
 /**
- * Drives the events that are swept rather than emitted.
+ * Reaches the entities an event can never be emitted for.
  *
- * The completion reminder is the case this exists for. Nothing *happens* to
- * make a profile incomplete, so there is no moment to emit from — and the
- * legacy job only ever reached creators inside a ~10 day window, leaving older
- * building profiles to hear nothing. This sweeps all of them, every day, with
- * no window at all.
+ * Every other event has a moment: an order is delivered, a brief is accepted,
+ * and `emit()` is called there. "Your profile is still incomplete" has no such
+ * moment — nothing happens, a profile simply sits unfinished.
+ *
+ * Signup is the one moment available, so a new signup is emitted there and its
+ * drip runs from delayed jobs. That leaves the creators who signed up *before*
+ * any of this existed: nobody emitted for them, so they would never hear from
+ * it at all. This is how they are reached.
+ *
+ * It is therefore a backfill, not a recurring process — after the backlog is
+ * cleared there is little left for it to find, since every new signup emits.
+ * So it runs when an admin presses the button, with the count shown first,
+ * rather than on a cron that could put the largest send this platform has done
+ * through the door at 10am unannounced.
  */
 @Injectable()
-export class NotificationSweepService implements OnModuleInit {
+export class NotificationSweepService {
   private readonly logger = new Logger(NotificationSweepService.name);
   /**
    * Guards against a slow sweep starting again before it has finished. Two
@@ -37,45 +43,32 @@ export class NotificationSweepService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly brandAccess: BrandAccessService,
     private readonly queues: NotificationQueueService,
-    private readonly scheduler: SchedulerRegistry,
   ) {}
 
-  onModuleInit(): void {
-    // Only a process that runs workers should sweep, so an API-only replica
-    // never produces bulk jobs. Registering here rather than from the queue
-    // service keeps the dependency one-way — the queue service must not also
-    // depend on this one.
-    if (this.config.get<string>('BULLMQ_WORKER_ENABLED', 'true') === 'false') {
-      this.logger.log('sweeps disabled on this process (no worker)');
-      return;
-    }
-    this.registerCrons();
-  }
-
-  /** Registers a cron per swept event. */
-  registerCrons(): void {
-    for (const [eventKey, definition] of Object.entries(
-      NOTIFICATION_EVENTS_BY_KEY,
-    )) {
-      const population = definition.population;
-      if (!population) continue;
-
-      const name = `notification-sweep:${eventKey}`;
-      if (this.scheduler.doesExist('cron', name)) continue;
-
-      const job = new CronJob(population.cron, () => {
-        void this.sweep(eventKey, population);
-      });
-      this.scheduler.addCronJob(name, job as never);
-      job.start();
-      this.logger.log(`sweep registered for ${eventKey} (${population.cron})`);
-    }
+  /**
+   * Count what a sweep would send, touching nothing. This is what the admin
+   * sees before deciding.
+   */
+  async preview(
+    eventKey: string,
+    population: PopulationSpec,
+  ): Promise<{ scanned: number; wouldSend: number }> {
+    const result = await this.walk(eventKey, population, { dryRun: true });
+    return { scanned: result.scanned, wouldSend: result.enqueued };
   }
 
   /** Runs one event's sweep. Exposed so it can be triggered and tested directly. */
   async sweep(
     eventKey: string,
     population: PopulationSpec,
+  ): Promise<{ scanned: number; enqueued: number; superseded: number }> {
+    return this.walk(eventKey, population, { dryRun: false });
+  }
+
+  private async walk(
+    eventKey: string,
+    population: PopulationSpec,
+    opts: { dryRun: boolean },
   ): Promise<{ scanned: number; enqueued: number; superseded: number }> {
     if (this.running.has(eventKey)) {
       this.logger.warn(`sweep ${eventKey}: previous run still going, skipping`);
@@ -110,19 +103,23 @@ export class NotificationSweepService implements OnModuleInit {
           const skipped = population.highestDueOnly ? due.slice(0, -1) : [];
 
           for (const row of toSend) {
-            await this.queues.enqueueStep(
-              this.job(eventKey, entity, row),
-              // The bulk lane, never the transactional one: a large sweep must
-              // not hold an order confirmation behind its rate limiter.
-              'bulk',
-            );
+            if (!opts.dryRun) {
+              await this.queues.enqueueStep(
+                this.job(eventKey, entity, row),
+                // The bulk lane, never the transactional one: a large sweep
+                // must not hold an order confirmation behind its rate limiter.
+                'bulk',
+              );
+            }
             enqueued += 1;
           }
 
           // Mark the rows this profile has aged past, so they are never
           // revisited and the log says why they were not sent.
-          for (const row of skipped) {
-            superseded += await this.markSuperseded(eventKey, entity.id, row);
+          if (!opts.dryRun) {
+            for (const row of skipped) {
+              superseded += await this.markSuperseded(eventKey, entity.id, row);
+            }
           }
         }
 
@@ -130,7 +127,8 @@ export class NotificationSweepService implements OnModuleInit {
       }
 
       this.logger.log(
-        `sweep ${eventKey}: scanned ${scanned}, enqueued ${enqueued}, superseded ${superseded}`,
+        `sweep ${eventKey}${opts.dryRun ? ' (preview)' : ''}: scanned ${scanned}, ` +
+          `${opts.dryRun ? 'would send' : 'enqueued'} ${enqueued}, superseded ${superseded}`,
       );
       return { scanned, enqueued, superseded };
     } finally {

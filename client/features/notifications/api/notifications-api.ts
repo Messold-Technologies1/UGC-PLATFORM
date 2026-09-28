@@ -8,6 +8,7 @@ import type {
   NotificationTemplateSummary,
   SaveTemplateInput,
   ScheduleRow,
+  SweepResult,
   TemplatePreview,
   TemplateVersion,
 } from "../types";
@@ -59,6 +60,18 @@ export async function backfillRow(
   const { data } = await api.post<{ matched: number; enqueued: number }>(
     N.EVENT_BACKFILL(key),
     payload,
+  );
+  return data;
+}
+
+export async function sweepEvent(
+  key: string,
+  dryRun: boolean,
+): Promise<SweepResult> {
+  const { data } = await api.post<SweepResult>(
+    N.EVENT_SWEEP(key),
+    {},
+    { params: { dryRun: String(dryRun) } },
   );
   return data;
 }

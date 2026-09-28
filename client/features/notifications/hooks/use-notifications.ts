@@ -12,6 +12,7 @@ import {
   replaceSchedule,
   revertTemplate,
   saveTemplate,
+  sweepEvent,
   updateEvent,
 } from "../api/notifications-api";
 import type { SaveTemplateInput, ScheduleRow } from "../types";
@@ -74,6 +75,12 @@ export function useBackfillMutation(key: string) {
   return useMutation({
     mutationFn: (payload: Parameters<typeof backfillRow>[1]) =>
       backfillRow(key, payload),
+  });
+}
+
+export function useSweepMutation(key: string) {
+  return useMutation({
+    mutationFn: (dryRun: boolean) => sweepEvent(key, dryRun),
   });
 }
 

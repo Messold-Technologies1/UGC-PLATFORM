@@ -485,10 +485,43 @@ backoff) while the other four proceed; the error lands on that job's log row.
 BullMQ on the deterministic `jobId`; were it to get past that, the `NotificationLog` unique
 constraint refuses the insert and the job returns without sending.
 
-**Connection pool.** The worker process holds its own Prisma pool, separate from the API's. With
-`concurrency: 10` on `notif-step` plus 5 on each other queue, size `connection_limit` accordingly
-and point the worker at Neon's **pooled** endpoint — a worker that exhausts direct connections
-takes the API down with it.
+**Connection pool.** Running a second process means a **second Prisma pool**, and the two do not
+know about each other while drawing on the same database budget. `PrismaService extends
+PrismaClient`, so there is one pool per process, and Prisma's default size is
+`num_physical_cpus × 2 + 1` — **3 on a 1-vCPU container, 5 on 2 vCPU.**
+
+Two opposite failure modes:
+
+| | Symptom |
+|---|---|
+| **Pool too small** | `P2024: Timed out fetching a new connection from the connection pool` after the 10s default `pool_timeout`. Jobs fail, retry, back off; notifications go slow and flaky. The likelier of the two. |
+| **Pool too large** | `FATAL: remaining connection slots are reserved`. **The API cannot get a connection either**, so every user request 500s — a background worker takes the live site down. |
+
+**Concurrency does not equal connections.** A connection is held for the Prisma read (~10 ms) and
+the log write (~5 ms), but **not** during the SES or Meta call (~300 ms), which is the slow part.
+A pool of ~10 comfortably serves the 20 concurrent jobs above.
+
+> **Rule: never hold a Prisma transaction across a provider HTTP call.** Read, release, send, then
+> write the log row. A `$transaction` spanning the send pins a connection for the whole call, and
+> 20 concurrent jobs then really do need 20 connections.
+
+**Configuration.** The schema already has the right shape —
+`url = env("DATABASE_URL")` + `directUrl = env("DIRECT_URL")`. Set `connection_limit` explicitly
+per process rather than relying on CPU inference, since the worker and API containers may differ
+and burstable vCPUs report unreliably:
+
+```
+API     DATABASE_URL=postgresql://…-pooler.neon.tech/db?pgbouncer=true&connection_limit=10
+worker  DATABASE_URL=postgresql://…-pooler.neon.tech/db?pgbouncer=true&connection_limit=10
+        DIRECT_URL=postgresql://…neon.tech/db     # direct — migrations only
+```
+
+- `-pooler` is Neon's PgBouncer in transaction mode, multiplexing many client connections onto few
+  real ones. This is what makes two processes safe.
+- `?pgbouncer=true` makes Prisma disable prepared statements; without it you get intermittent
+  `prepared statement "s0" already exists` errors.
+- `DIRECT_URL` stays direct: `prisma migrate` needs real sessions and advisory locks, which
+  transaction-mode pooling breaks.
 
 **Backstop sweep.** A low-frequency cron finds log rows stuck in `QUEUED` past their due time and
 retries them — covering a Redis restart or eviction dropping a delayed job. Same rationale and
@@ -768,7 +801,8 @@ covers every building profile continuously.
 | **R6** | **Delayed sends fire at 3am.** Quiet hours were cut. | Accepted: every event here is transactional or lifecycle, where timeliness beats politeness. Revisit if WhatsApp block rates rise. |
 | **R7** | **The first completion sweep is the largest send this platform has ever done.** Every building profile at once, across both channels. | `highestDueOnly` caps it at one email per creator, not four (§3.4). Run the first sweep with WhatsApp unchecked to avoid the Meta tier ceiling. Rate-limited at 120/min, so a 10k backlog drains over ~90 minutes rather than hitting SES in a burst. Verify the recipient count with a dry run before enabling the cron. |
 | **R8** | **The sweep starving transactional sends.** A BullMQ limiter is per queue, so a shared queue would put an order confirmation behind 10,000 sweep emails. | Separate `notif-step` (unlimited) and `notif-bulk` (rate-limited) queues, §3.6. Assert in review that the sweep producer never targets `notif-step`. |
-| **R9** | **Log table growth**, since nothing is pruned (§1.11). | The four indexes keep queries cheap at any size. Archive rather than delete if it ever matters — this is the audit trail for every message the platform has sent. |
+| **R9** | **The worker exhausting database connections takes the API down**, since the two processes hold separate Prisma pools against one budget. | Explicit per-process `connection_limit`, Neon's pooled endpoint with `?pgbouncer=true`, `DIRECT_URL` reserved for migrations, and no transaction held across a provider HTTP call (§3.6). |
+| **R10** | **Log table growth**, since nothing is pruned (§1.11). | The four indexes keep queries cheap at any size. Archive rather than delete if it ever matters — this is the audit trail for every message the platform has sent. |
 
 ---
 

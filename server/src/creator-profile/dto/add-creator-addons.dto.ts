@@ -11,4 +11,3 @@ export class AddCreatorAddOnsDto {
   @Type(() => CreatorAddOnCreateDto)
   addOns!: CreatorAddOnCreateDto[];
 }
-

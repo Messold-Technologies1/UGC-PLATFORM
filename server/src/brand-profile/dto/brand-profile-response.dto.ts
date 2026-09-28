@@ -8,7 +8,8 @@ export class BrandProfileResponseDto {
   @ApiPropertyOptional({
     example: 'uuid',
     nullable: true,
-    description: 'Set for standalone brand accounts; null for agency-managed brands.',
+    description:
+      'Set for standalone brand accounts; null for agency-managed brands.',
   })
   userId!: string | null;
 

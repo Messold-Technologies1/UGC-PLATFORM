@@ -42,4 +42,3 @@ export class OrderDeliveryItemDto {
   @ApiProperty()
   createdAt!: Date;
 }
-

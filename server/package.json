@@ -44,7 +44,8 @@
     "prisma:reclaim:orphan-portfolio-objects": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/reclaim-orphan-portfolio-objects.ts",
     "prisma:backfill:order-portfolio-videos": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-order-videos-to-portfolio.ts",
     "data:gen:aliases": "ts-node prisma/scripts/generate-india-location-aliases.ts",
-    "prisma:seed:notification-templates": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/seed-notification-templates.ts"
+    "prisma:seed:notification-templates": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/seed-notification-templates.ts",
+    "prisma:backfill:notification-drip-log": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-notification-drip-log.ts"
   },
   "prisma": {
     "seed": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/seed.ts"

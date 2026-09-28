@@ -7,4 +7,3 @@ export class CreatorSuggestionItemDto {
   @ApiProperty({ example: 'Clean aesthetic' })
   name!: string;
 }
-

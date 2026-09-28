@@ -21,13 +21,19 @@ export class RegisterAgencyDto {
   @MinLength(8, { message: 'Password must be at least 8 characters' })
   password!: string;
 
-  @ApiProperty({ example: 'Northstar Media', description: 'Agency display name' })
+  @ApiProperty({
+    example: 'Northstar Media',
+    description: 'Agency display name',
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(200)
   name!: string;
 
-  @ApiProperty({ example: 'Jane Doe', description: 'Primary agency contact name' })
+  @ApiProperty({
+    example: 'Jane Doe',
+    description: 'Primary agency contact name',
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(200)

@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  cutoverStandDownMessage,
+  notificationsCutoverActive,
+} from '../notifications/cutover';
+import {
   resolveBrandMailAddress,
   resolveBrandMailDisplayName,
 } from './brand-mail.recipient';
@@ -96,6 +100,14 @@ export class BrandProfileMailNotifier {
   }
 
   private async run(label: string, fn: () => Promise<void>): Promise<void> {
+    // Once the engine owns sending, this path must not also fire or the
+    // recipient gets the same message twice.
+    if (notificationsCutoverActive(this.config)) {
+      this.logger.debug(
+        cutoverStandDownMessage(`brand profile email ${label}`),
+      );
+      return;
+    }
     try {
       await fn();
     } catch (err) {

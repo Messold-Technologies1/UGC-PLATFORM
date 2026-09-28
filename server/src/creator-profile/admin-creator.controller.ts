@@ -246,12 +246,18 @@ export class AdminCreatorController {
     @Body() dto: AdminFeatureCreatorDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<AdminCreatorListItemDto> {
-    return this.creatorProfileService.featureCreatorProfile(req.user.id, id, dto);
+    return this.creatorProfileService.featureCreatorProfile(
+      req.user.id,
+      id,
+      dto,
+    );
   }
 
   @Delete(':id/feature')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remove a creator from featured discovery ordering' })
+  @ApiOperation({
+    summary: 'Remove a creator from featured discovery ordering',
+  })
   async unfeatureCreator(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {

@@ -29,8 +29,8 @@ export class PhoneVerificationService {
   private isConfigured(): boolean {
     return Boolean(
       this.config.get<string>('TWILIO_ACCOUNT_SID')?.trim() &&
-        this.config.get<string>('TWILIO_AUTH_TOKEN')?.trim() &&
-        this.config.get<string>('TWILIO_VERIFY_SERVICE_SID')?.trim(),
+      this.config.get<string>('TWILIO_AUTH_TOKEN')?.trim() &&
+      this.config.get<string>('TWILIO_VERIFY_SERVICE_SID')?.trim(),
     );
   }
 
@@ -43,7 +43,8 @@ export class PhoneVerificationService {
    */
   private devBypassEnabled(): boolean {
     return (
-      this.config.get<string>('NODE_ENV') !== 'production' && !this.isConfigured()
+      this.config.get<string>('NODE_ENV') !== 'production' &&
+      !this.isConfigured()
     );
   }
 
@@ -95,6 +96,6 @@ export class PhoneVerificationService {
     const check = await client.verify.v2
       .services(serviceSid)
       .verificationChecks.create({ to: phone, code: code.trim() });
-    return (check.status ?? 'pending') as TwilioVerifyCheckStatus;
+    return check.status ?? 'pending';
   }
 }

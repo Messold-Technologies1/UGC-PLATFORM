@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-
 export const BRAND_PRONUNCIATION_AUDIO_MAX_BYTES = 5 * 1024 * 1024;
 
 export class PresignBrandPronunciationUploadDto {

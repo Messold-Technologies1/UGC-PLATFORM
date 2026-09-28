@@ -118,7 +118,9 @@ export class CreateBrandProfileDto {
     description:
       'Required when categories includes OTHER. Stores the custom category label.',
   })
-  @ValidateIf((o: CreateBrandProfileDto) => (o.categories ?? []).includes(BrandCategory.OTHER))
+  @ValidateIf((o: CreateBrandProfileDto) =>
+    (o.categories ?? []).includes(BrandCategory.OTHER),
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(120)

@@ -21,7 +21,8 @@ export class CreateCheckoutDto {
 
   @ApiPropertyOptional({
     type: [String],
-    description: 'Optional creator add-on IDs (must belong to the same creator as the package)',
+    description:
+      'Optional creator add-on IDs (must belong to the same creator as the package)',
   })
   @IsOptional()
   @IsArray()
@@ -48,4 +49,3 @@ export class CreateCheckoutDto {
   @IsBoolean()
   useCredits?: boolean;
 }
-

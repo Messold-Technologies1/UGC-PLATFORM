@@ -1,8 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  CreatorContentVolumeBucket,
-  CreatorGender,
-} from '@prisma/client';
+import { CreatorContentVolumeBucket, CreatorGender } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -35,8 +32,7 @@ export class CreatorPackageCreateDto {
 
   @ApiPropertyOptional({
     example: ['1 Video'],
-    description:
-      'Optional. If omitted/empty, backend defaults to ["1 Video"].',
+    description: 'Optional. If omitted/empty, backend defaults to ["1 Video"].',
     type: [String],
   })
   @IsOptional()
@@ -91,8 +87,7 @@ export class CreatorPackageCreateDto {
 export class CreatorAddOnCreateDto {
   @ApiProperty({
     example: 'on_location_shoot',
-    description:
-      'Predefined add-on slug from GET /creators/add-on-options.',
+    description: 'Predefined add-on slug from GET /creators/add-on-options.',
   })
   @Matches(/^[a-z0-9_]+$/, { message: 'slug must be snake_case' })
   slug!: string;
@@ -256,7 +251,12 @@ export class CreateCreatorProfileDto {
     example: [
       {
         name: 'Standard',
-        deliverables: ['1 Video', 'Basic editing', 'Raw footage', '1080p minimum'],
+        deliverables: [
+          '1 Video',
+          'Basic editing',
+          'Raw footage',
+          '1080p minimum',
+        ],
         videoLengthSeconds: 60,
         basicEditing: true,
         priceAmount: '500',

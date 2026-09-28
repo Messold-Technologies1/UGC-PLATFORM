@@ -22,5 +22,8 @@ export class CreatorFacetOptionsResponseDto {
       items: { $ref: '#/components/schemas/CreatorFacetOptionItemDto' },
     },
   })
-  optionsByDimension!: Record<CreatorFacetDimension, CreatorFacetOptionItemDto[]>;
+  optionsByDimension!: Record<
+    CreatorFacetDimension,
+    CreatorFacetOptionItemDto[]
+  >;
 }

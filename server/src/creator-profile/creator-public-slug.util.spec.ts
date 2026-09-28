@@ -7,7 +7,9 @@ import {
 describe('creator-public-slug.util', () => {
   describe('normalizeCreatorPublicProfileSlug', () => {
     it('lowercases and removes spaces', () => {
-      expect(normalizeCreatorPublicProfileSlug('Riya Sharma')).toBe('riyasharma');
+      expect(normalizeCreatorPublicProfileSlug('Riya Sharma')).toBe(
+        'riyasharma',
+      );
     });
 
     it('preserves hyphen suffixes', () => {
@@ -18,7 +20,9 @@ describe('creator-public-slug.util', () => {
   describe('generateCreatorPublicSlug', () => {
     it('returns an 8-char token from the unambiguous alphabet only', () => {
       for (let i = 0; i < 50; i++) {
-        expect(generateCreatorPublicSlug()).toMatch(/^[0-9abcdefghjkmnpqrstvwxyz]{8}$/);
+        expect(generateCreatorPublicSlug()).toMatch(
+          /^[0-9abcdefghjkmnpqrstvwxyz]{8}$/,
+        );
       }
     });
 

@@ -122,7 +122,10 @@ describe('creator-list-filters.util', () => {
     });
 
     it('filters by Instagram follower range (active connections only)', () => {
-      const q: ListCreatorsQueryDto = { minFollowers: 1000, maxFollowers: 50000 };
+      const q: ListCreatorsQueryDto = {
+        minFollowers: 1000,
+        maxFollowers: 50000,
+      };
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
           { isListed: true },

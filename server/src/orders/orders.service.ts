@@ -56,6 +56,7 @@ import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrderMailNotifier } from '../mail/order-mail.notifier';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
 import { WatermarkQueueService } from '../jobs/watermark-queue.service';
@@ -471,6 +472,7 @@ export class OrdersService {
     private readonly orderPortfolioSync: OrderPortfolioSyncService,
     private readonly coupons: CouponsService,
     private readonly wallet: WalletService,
+    private readonly events: NotificationEventsService,
   ) {}
 
   private async resolveBrandActor(params: {
@@ -1352,7 +1354,9 @@ export class OrdersService {
       couponId: p.free ? null : (resolvedCoupon?.couponId ?? null),
       couponCodeSnapshot: p.free ? null : (resolvedCoupon?.code ?? null),
       couponNameSnapshot: p.free ? null : (resolvedCoupon?.name ?? null),
-      discountTypeSnapshot: p.free ? null : (resolvedCoupon?.discountType ?? null),
+      discountTypeSnapshot: p.free
+        ? null
+        : (resolvedCoupon?.discountType ?? null),
       discountAmountPaise: p.childDiscount,
       grossAmountPaise: p.free ? 0 : p.childGross,
     });
@@ -1878,6 +1882,10 @@ export class OrdersService {
     });
 
     this.orderMail.notifyBriefSubmitted(order.id, now);
+    void this.events.emit('order-brief-submitted-for-creator', {
+      entityId: order.id,
+      occurredAt: now,
+    });
   }
 
   async acceptBrief(params: {
@@ -1998,6 +2006,9 @@ export class OrdersService {
       deliveryGraceDeadlineAt: deadlines?.deliveryGraceDeadlineAt ?? null,
     });
 
+    void this.events.emit('order-brief-accepted-for-brand', {
+      entityId: order.id,
+    });
     this.orderMail.notifyBriefAccepted(
       order.id,
       deadlines?.deliveryDueAt ?? null,
@@ -2230,10 +2241,28 @@ export class OrdersService {
 
     if (params.bySupport) {
       this.orderMail.notifyOrderCancelledBySupport(order.id, params.note);
+      for (const key of [
+        'order-cancelled-by-support-for-brand',
+        'order-cancelled-by-support-for-creator',
+      ] as const) {
+        void this.events.emit(key, { entityId: order.id });
+      }
     } else if (params.onBehalfOf === 'BRAND') {
       this.orderMail.notifyOrderCancelledByBrand(order.id, params.note);
+      for (const key of [
+        'order-cancelled-for-brand',
+        'order-cancelled-for-creator',
+      ] as const) {
+        void this.events.emit(key, { entityId: order.id });
+      }
     } else {
       this.orderMail.notifyBriefRejectedByCreator(order.id, params.note);
+      for (const key of [
+        'order-brief-rejected-for-brand',
+        'order-brief-rejected-for-creator',
+      ] as const) {
+        void this.events.emit(key, { entityId: order.id });
+      }
     }
   }
 
@@ -2297,6 +2326,9 @@ export class OrdersService {
       dispatchedAt,
     });
 
+    void this.events.emit('order-product-shipped-for-creator', {
+      entityId: order.id,
+    });
     this.orderMail.notifyProductShipped(order.id, {
       courierName,
       trackingId,
@@ -2385,6 +2417,9 @@ export class OrdersService {
     });
 
     this.orderMail.notifyProductReceived(order.id, deadlines.deliveryDueAt);
+    void this.events.emit('order-product-received-for-brand', {
+      entityId: order.id,
+    });
 
     return {
       orderId: updated.id,
@@ -2722,6 +2757,11 @@ export class OrdersService {
     });
 
     this.orderMail.notifyRevisionRequested(order.id, trimmedNote);
+    void this.events.emit('order-revision-requested-for-creator', {
+      entityId: order.id,
+      // Revision 2 must not be swallowed as a duplicate of revision 1.
+      occurrenceKey: String(newRevisionNumber),
+    });
     void this.orderRealtime.emitOrderRevisionRequested({
       orderId: order.id,
       revisionNumber: newRevisionNumber,
@@ -2938,6 +2978,15 @@ export class OrdersService {
       purchase.orderId,
       purchase.revisionsAdded,
     );
+    for (const key of [
+      'order-extra-revisions-purchased-for-creator',
+      'order-extra-revisions-purchased-for-brand',
+    ] as const) {
+      void this.events.emit(key, {
+        entityId: purchase.orderId,
+        occurrenceKey: purchase.id,
+      });
+    }
     void this.orderRealtime.emitOrderRevisionsPurchased({
       orderId: purchase.orderId,
       revisionsAdded: purchase.revisionsAdded,
@@ -3170,6 +3219,15 @@ export class OrdersService {
       purchase.orderId,
       purchase.daysAdded,
     );
+    for (const key of [
+      'order-extra-usage-rights-purchased-for-brand',
+      'order-extra-usage-rights-purchased-for-creator',
+    ] as const) {
+      void this.events.emit(key, {
+        entityId: purchase.orderId,
+        occurrenceKey: purchase.id,
+      });
+    }
     void this.orderRealtime.emitOrderUsageRightsPurchased({
       orderId: purchase.orderId,
       daysAdded: purchase.daysAdded,
@@ -4632,6 +4690,14 @@ export class OrdersService {
     });
 
     this.orderMail.notifyContentAccepted(order.id);
+    // One legacy call mailed both sides; as events they are separate so an
+    // admin can turn either off.
+    void this.events.emit('order-content-accepted-for-creator', {
+      entityId: order.id,
+    });
+    void this.events.emit('order-completed-for-brand', {
+      entityId: order.id,
+    });
 
     // Publish the approved final into the creator's portfolio as a Brand Collab.
     // Fire-and-forget and non-fatal, like the mail above: the copy is idempotent
@@ -4692,15 +4758,20 @@ export class OrdersService {
     });
     if (existing) return;
 
+    let disputeId = '';
     await this.prisma.$transaction(async (tx) => {
-      await tx.orderDispute.create({
+      // The id discriminates this dispute from any earlier one on the same
+      // order, so a second dispute is not treated as a duplicate notification.
+      const dispute = await tx.orderDispute.create({
         data: {
           orderId: order.id,
           openedBy: params.openedBy,
           reason: params.reason,
           status: 'OPEN',
         },
+        select: { id: true },
       });
+      disputeId = dispute.id;
       await this.updateOrder(
         {
           where: { id: order.id },
@@ -4713,6 +4784,15 @@ export class OrdersService {
     });
 
     // Notify both parties that a dispute has been opened.
+    for (const key of [
+      'order-dispute-opened-for-brand',
+      'order-dispute-opened-for-creator',
+    ] as const) {
+      void this.events.emit(key, {
+        entityId: order.id,
+        occurrenceKey: disputeId,
+      });
+    }
     this.orderMail.notifyDisputeOpened(order.id, {
       openedBy: params.openedBy,
       reason: params.reason,
@@ -4829,6 +4909,13 @@ export class OrdersService {
       throw new BadRequestException('Order is not currently disputed');
     }
 
+    // Read before the update, which closes it: the id discriminates this
+    // resolution from any earlier dispute on the same order.
+    const openDispute = await this.prisma.orderDispute.findFirst({
+      where: { orderId: order.id, status: 'OPEN' },
+      select: { id: true },
+    });
+
     await this.prisma.$transaction(async (tx) => {
       await tx.orderDispute.updateMany({
         where: { orderId: order.id, status: 'OPEN' },
@@ -4843,6 +4930,15 @@ export class OrdersService {
     });
 
     // Notify both parties that the dispute was resolved and the order continues.
+    for (const key of [
+      'order-dispute-resolved-for-brand',
+      'order-dispute-resolved-for-creator',
+    ] as const) {
+      void this.events.emit(key, {
+        entityId: order.id,
+        occurrenceKey: openDispute?.id ?? order.id,
+      });
+    }
     this.orderMail.notifyDisputeResolved(order.id, {
       outcome: 'CONTINUED',
       resolutionNotes: params.resolutionNotes,
@@ -4970,7 +5066,8 @@ export class OrdersService {
             brandId: order.brandId,
             orderId: order.id,
             amountPaise: order.expectedAmountPaise,
-            reason: params.resolutionNotes ?? 'Dispute resolved in brand favour',
+            reason:
+              params.resolutionNotes ?? 'Dispute resolved in brand favour',
           },
           tx,
         );
@@ -4985,6 +5082,12 @@ export class OrdersService {
     });
 
     this.orderMail.notifyOrderRejected(order.id, params.resolutionNotes);
+    for (const key of [
+      'order-rejected-for-brand',
+      'order-rejected-for-creator',
+    ] as const) {
+      void this.events.emit(key, { entityId: order.id });
+    }
 
     // Acceptance is reversed: pull the Brand Collab tile (if the order had been
     // accepted before the dispute) so refunded work is not showcased publicly.
@@ -5050,6 +5153,10 @@ export class OrdersService {
       .catch(() => undefined);
 
     this.orderMail.notifyOrderRefunded(order.id, refundedAt);
+    void this.events.emit('order-refunded-for-brand', {
+      entityId: order.id,
+      occurredAt: refundedAt,
+    });
 
     this.logger.log(
       `Order ${order.id} marked REFUNDED by admin (manual refund, no Razorpay call)`,

@@ -32,7 +32,9 @@ export function escapeCsvField(value: string | null | undefined): string {
 /**
  * Build a UTF-8 CSV string with BOM so Excel opens non-ASCII names correctly.
  */
-export function buildCreatorsContactCsv(rows: CreatorContactExportRow[]): string {
+export function buildCreatorsContactCsv(
+  rows: CreatorContactExportRow[],
+): string {
   const header = ['Name', 'Phone', 'Instagram'];
   const lines = [
     header.map(escapeCsvField).join(','),
@@ -82,7 +84,13 @@ export async function buildCreatorsContactXlsx(
 export function buildCreatorsOutreachCsv(
   rows: CreatorOutreachExportRow[],
 ): string {
-  const header = ['Name', 'Email', 'Phone', 'instagramConnected', 'identityComplete'];
+  const header = [
+    'Name',
+    'Email',
+    'Phone',
+    'instagramConnected',
+    'identityComplete',
+  ];
   const lines = [
     header.map(escapeCsvField).join(','),
     ...rows.map((row) =>

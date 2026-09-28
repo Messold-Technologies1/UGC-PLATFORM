@@ -46,11 +46,9 @@ describe('creator-unavailability.util', () => {
     const endsOn = new Date(today);
     endsOn.setUTCDate(endsOn.getUTCDate() + 2);
 
+    expect(isDateWithinInclusiveRange(today, startsOn, endsOn)).toBe(true);
     expect(
-      isDateWithinInclusiveRange(today, startsOn, endsOn),
-    ).toBe(true);
-    expect(mapUnavailabilityToPublicAvailability({ startsOn, endsOn }).available).toBe(
-      false,
-    );
+      mapUnavailabilityToPublicAvailability({ startsOn, endsOn }).available,
+    ).toBe(false);
   });
 });

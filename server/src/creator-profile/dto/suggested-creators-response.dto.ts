@@ -37,7 +37,8 @@ export class SuggestedCreatorListItemDto {
 
   @ApiPropertyOptional({
     example: '1999.00',
-    description: 'Primary package price (string decimal), when a package exists.',
+    description:
+      'Primary package price (string decimal), when a package exists.',
   })
   priceAmount?: string | null;
 

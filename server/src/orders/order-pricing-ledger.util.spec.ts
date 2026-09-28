@@ -17,9 +17,9 @@ describe('computeOrderPricingLedger', () => {
     expect(l.platformFeePaise).toBe(20000);
     expect(l.payToCreatorPaise).toBe(80000);
     // Always balances.
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      l.brandPaidPaise,
-    );
+    expect(
+      l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise,
+    ).toBe(l.brandPaidPaise);
   });
 
   it('waivePlatformFee (No platform fee coupon): fee 0, creator gets the full net', () => {
@@ -55,7 +55,9 @@ describe('computeOrderPricingLedger', () => {
     expect(l.platformFeePaise).toBe(98000); // 20% of 4900
     expect(l.payToCreatorPaise).toBe(392000); // 80% of 4900 (4900 − 980)
     // Creator + fee reconcile to the GROSS value (the platform funds the coupon).
-    expect(l.payToCreatorPaise + l.platformFeePaise).toBe(l.platformFeeBasePaise);
+    expect(l.payToCreatorPaise + l.platformFeePaise).toBe(
+      l.platformFeeBasePaise,
+    );
     // The platform's actual margin = brand paid − creator payout = ₹480.
     expect(l.brandPaidPaise - l.payToCreatorPaise).toBe(48000);
   });
@@ -89,9 +91,9 @@ describe('computeOrderPricingLedger', () => {
     expect(l.earnedPaise).toBe(120000);
     expect(l.platformFeePaise).toBe(24000);
     expect(l.payToCreatorPaise).toBe(96000);
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      120000,
-    );
+    expect(
+      l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise,
+    ).toBe(120000);
   });
 
   it('some extras unused: refunds the unused at full price', () => {
@@ -113,9 +115,9 @@ describe('computeOrderPricingLedger', () => {
     expect(l.earnedPaise).toBe(120000); // base 100000 + 2 used × 10000
     expect(l.platformFeePaise).toBe(24000);
     expect(l.payToCreatorPaise).toBe(96000);
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      140000,
-    );
+    expect(
+      l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise,
+    ).toBe(140000);
   });
 
   it('none of the extras used: whole extra amount is refunded', () => {
@@ -131,9 +133,9 @@ describe('computeOrderPricingLedger', () => {
     expect(l.refundToBrandPaise).toBe(20000);
     expect(l.earnedPaise).toBe(100000);
     expect(l.payToCreatorPaise).toBe(80000);
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      l.brandPaidPaise,
-    );
+    expect(
+      l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise,
+    ).toBe(l.brandPaidPaise);
   });
 
   it('values unused revisions LIFO across purchases at each price', () => {
@@ -154,9 +156,9 @@ describe('computeOrderPricingLedger', () => {
     // the single unused revision is the last one → valued 30000.
     expect(l.refundToBrandPaise).toBe(30000);
     expect(l.brandPaidPaise).toBe(80000);
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      80000,
-    );
+    expect(
+      l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise,
+    ).toBe(80000);
   });
 
   it('PLATFORM_FEE_RATE is 20%', () => {
@@ -175,9 +177,9 @@ describe('computeOrderPricingLedger', () => {
     expect(l.refundToBrandPaise).toBe(610000);
     expect(l.platformFeePaise).toBe(0);
     expect(l.payToCreatorPaise).toBe(0);
-    expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
-      l.brandPaidPaise,
-    );
+    expect(
+      l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise,
+    ).toBe(l.brandPaidPaise);
   });
 });
 

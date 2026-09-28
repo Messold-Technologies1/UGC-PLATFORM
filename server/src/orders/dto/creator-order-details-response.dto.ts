@@ -9,4 +9,3 @@ export class CreatorOrderDetailsResponseDto {
   @ApiProperty({ type: () => OrderBrandSnapshotDto })
   brand!: OrderBrandSnapshotDto;
 }
-

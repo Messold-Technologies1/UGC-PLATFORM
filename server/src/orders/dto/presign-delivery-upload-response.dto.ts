@@ -21,4 +21,3 @@ export class PresignDeliveryUploadResponseDto {
   @ApiProperty({ type: () => [PresignedDeliveryUploadItemDto] })
   uploads!: PresignedDeliveryUploadItemDto[];
 }
-

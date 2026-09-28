@@ -22,6 +22,7 @@ import {
   type SkipReason,
 } from '../log/notification-log.service';
 import type { StepJobData } from '../queues/notification-queues';
+import { notificationsCutoverActive } from '../cutover';
 
 /** Thrown for a failure that retrying cannot fix, so it burns one attempt not three. */
 export class PermanentSendError extends Error {}
@@ -54,11 +55,11 @@ export class NotificationStepService {
   ) {}
 
   /**
-   * P2 ships in shadow mode: everything runs and is logged, but nothing is
-   * handed to a provider until this is switched on at cutover.
+   * Until the cutover the engine runs in shadow: every decision is made and
+   * recorded, but the legacy notifiers are still the ones actually sending.
    */
   private sendingEnabled(): boolean {
-    return this.config.get<string>('NOTIFICATIONS_SENDING_ENABLED') === 'true';
+    return notificationsCutoverActive(this.config);
   }
 
   async deliver(job: StepJobData): Promise<StepOutcome[]> {

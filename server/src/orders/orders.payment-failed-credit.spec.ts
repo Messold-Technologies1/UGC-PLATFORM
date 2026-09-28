@@ -31,6 +31,7 @@ describe('OrdersService.onPaymentFailedFromWebhook (credit return)', () => {
       {} as never,
       {} as never,
       wallet as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
     return { service, prisma, orderUpdate, wallet };
   }

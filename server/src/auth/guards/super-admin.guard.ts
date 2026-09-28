@@ -11,9 +11,9 @@ import { isSuperAdminEmail } from '../super-admin';
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<
-      Request & { user?: { email?: string } }
-    >();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: { email?: string } }>();
     const email = request.user?.email;
     if (!email) {
       throw new UnauthorizedException('Missing user');

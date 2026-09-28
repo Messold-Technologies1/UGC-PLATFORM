@@ -84,7 +84,11 @@ type MeLookupUser = {
     completeProfile: boolean;
     creatorApproval: { status: ApprovalStatus } | null;
   } | null;
-  brandProfile: { id: string; brandName: string | null; logoUrl: string | null } | null;
+  brandProfile: {
+    id: string;
+    brandName: string | null;
+    logoUrl: string | null;
+  } | null;
   ownedAgency: {
     id: string;
     lastActiveBrandProfileId: string | null;
@@ -92,16 +96,13 @@ type MeLookupUser = {
   } | null;
 };
 
-const ME_WORKSPACE_ROLES = [
-  'CREATOR',
-  'BRAND',
-  'ADMIN',
-  'AGENCY',
-] as const;
+const ME_WORKSPACE_ROLES = ['CREATOR', 'BRAND', 'ADMIN', 'AGENCY'] as const;
 
 type MeWorkspaceRole = (typeof ME_WORKSPACE_ROLES)[number];
 
-function isMeWorkspaceRole(name: RoleName | null | undefined): name is MeWorkspaceRole {
+function isMeWorkspaceRole(
+  name: RoleName | null | undefined,
+): name is MeWorkspaceRole {
   return (
     name === 'CREATOR' ||
     name === 'BRAND' ||
@@ -634,8 +635,7 @@ export class AuthService {
     const primary = user.primaryRole?.name ?? null;
     const looksCreator =
       primary === RoleName.CREATOR || Boolean(user.creatorProfile);
-    const looksBrand =
-      primary === RoleName.BRAND || Boolean(user.brandProfile);
+    const looksBrand = primary === RoleName.BRAND || Boolean(user.brandProfile);
 
     if (intendedRole === 'BRAND' && looksCreator && !looksBrand) {
       throw new ConflictException(
@@ -647,10 +647,7 @@ export class AuthService {
         'This email is already registered as a brand. Sign in as a brand instead.',
       );
     }
-    if (
-      primary === RoleName.AGENCY ||
-      primary === RoleName.ADMIN
-    ) {
+    if (primary === RoleName.AGENCY || primary === RoleName.ADMIN) {
       throw new ConflictException(
         'This email is already registered with another account type. Sign in with that account instead.',
       );
@@ -929,7 +926,7 @@ export class AuthService {
       activeBrandProfileId = null;
     }
     if (!activeBrandProfileId && accessibleBrands.length === 1) {
-      activeBrandProfileId = accessibleBrands[0]!.id;
+      activeBrandProfileId = accessibleBrands[0].id;
     }
 
     const me: MeUser = {

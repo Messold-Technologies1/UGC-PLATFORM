@@ -59,6 +59,7 @@ describe('OrdersService admin brief actions on behalf', () => {
       {} as never,
       {} as never,
       wallet as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
     return { service, orderUpdate, orderRealtime, orderMail, wallet };
   }

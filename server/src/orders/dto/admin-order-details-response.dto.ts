@@ -13,4 +13,3 @@ export class AdminOrderDetailsResponseDto {
   @ApiProperty({ type: () => OrderBrandSnapshotDto })
   brand!: OrderBrandSnapshotDto;
 }
-

@@ -252,9 +252,9 @@ describe('AuthService', () => {
     );
     prisma.session.deleteMany.mockResolvedValue({ count: 0 });
 
-    await expect(service.refresh('expired-refresh-token')).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      service.refresh('expired-refresh-token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
     // The stale session row (if any) is purged so the token can't be retried.
     expect(prisma.session.deleteMany).toHaveBeenCalledTimes(1);
     // No new tokens are minted for an invalid refresh token.
@@ -310,9 +310,9 @@ describe('AuthService', () => {
     });
     prisma.session.delete.mockResolvedValue({ id: 'session-1' });
 
-    await expect(service.refresh('valid-but-stale-token')).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      service.refresh('valid-but-stale-token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(prisma.session.delete).toHaveBeenCalledWith({
       where: { id: 'session-1' },
     });

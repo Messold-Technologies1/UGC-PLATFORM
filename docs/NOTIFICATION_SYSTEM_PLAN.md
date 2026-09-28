@@ -373,10 +373,11 @@ longer needed — the sweep does its job continuously and for everyone.
 2. **Enqueue with `queue.addBulk()`** per batch, not one `add()` per profile — one pipelined Redis
    command instead of hundreds of round-trips.
    `jobId = ${eventKey}-${profileId}-${rowId}` makes a re-enqueue a no-op.
-3. **Rate-limit the sends**, not the enqueue:
+3. **Enqueue onto `notif-bulk`, never `notif-step`** — this is what keeps the sweep from
+   delaying real-time notifications (§3.6):
    ```ts
-   new Worker(QUEUE.step, handler, {
-     connection, concurrency: 10,
+   new Worker(QUEUE.bulk, handler, {
+     connection, concurrency: 5,
      limiter: { max: 120, duration: 60_000 },   // stay inside the SES quota
    })
    ```
@@ -418,8 +419,23 @@ maintaining templates in two places. WhatsApp Cloud has no bulk endpoint at all.
 
 ### 3.6 Dispatch
 
-**Two queues**, on the existing `jobs/bullmq-redis.connection.ts` with the same
+**Three queues**, on the existing `jobs/bullmq-redis.connection.ts` with the same
 `attempts: 3` / exponential-backoff / `removeOnComplete` defaults the reminder queue uses.
+
+| Queue | Carries | Config |
+|---|---|---|
+| `notif-event` | one job per `emit()`; fans out to schedule rows | `concurrency: 5` |
+| `notif-step` | transactional sends + delayed drip rows | `concurrency: 10`, **no limiter** |
+| `notif-bulk` | population-sweep sends only (§3.4) | `concurrency: 5`, `limiter: 120/min` |
+
+**`notif-step` and `notif-bulk` run the same handler.** The split exists purely to stop the sweep
+delaying real-time notifications.
+
+> **Why not one queue.** A BullMQ limiter is **per queue**. With everything on one queue, a 10,000
+> profile completion sweep draining at 120/min would put a brand's brief-accepted confirmation
+> behind it — **over an hour late**. Head-of-line blocking that only appears once the sweep is
+> switched on. Transactional sends therefore get their own unlimited queue; the sweep is the only
+> thing that generates enough volume to need the SES rate cap anyway.
 
 `notif-event` → **EventDispatcher**
 1. Load the event; skip if `deprecated` or `!isActive`.
@@ -438,6 +454,41 @@ maintaining templates in two places. WhatsApp Cloud has no bulk endpoint at all.
      `alwaysSend`. Reuses the existing `canSendToProfile` logic.
    - email: suppression check. WhatsApp: phone normalises to ≥ 8 digits.
    - render → send → update the log row with `providerMessageId`.
+
+
+#### Worked example — 5 briefs accepted at once
+
+```
+t=0ms    5 requests → emit('order-brief-accepted-for-brand', { entityId })
+         5 jobs into notif-event. Redis is single-threaded, so the writes
+         serialize with no contention (~1ms each). All 5 responses return.
+
+t=~5ms   Dispatcher (concurrency 5) → all 5 in parallel.
+         Each: load event → resolve brand → 1 row at offset 0
+             → enqueue 1 notif-step job, delay 0.
+         jobId = order-brief-accepted-for-brand-<orderId>-<rowId>
+         5 distinct orderIds → 5 distinct jobIds → no collision.
+
+t=~20ms  Step worker (concurrency 10) → all 5 in parallel.
+         Each: INSERT NotificationLog (distinct entityId → all succeed)
+             → resolve() fresh read → opt-in gate → render → send.
+         offsetMinutes = 0, so stillRelevant is never consulted.
+         Both channels ticked → 10 provider calls: 5 SES + 5 Meta.
+```
+
+Nothing serialises and nothing collides — five independent rows, five independent sends.
+
+**Failures are isolated.** One job's SES error retries on its own schedule (3 attempts, exponential
+backoff) while the other four proceed; the error lands on that job's log row.
+
+**A double-accept is rejected twice over.** A repeated `emit()` for the same order is refused by
+BullMQ on the deterministic `jobId`; were it to get past that, the `NotificationLog` unique
+constraint refuses the insert and the job returns without sending.
+
+**Connection pool.** The worker process holds its own Prisma pool, separate from the API's. With
+`concurrency: 10` on `notif-step` plus 5 on each other queue, size `connection_limit` accordingly
+and point the worker at Neon's **pooled** endpoint — a worker that exhausts direct connections
+takes the API down with it.
 
 **Backstop sweep.** A low-frequency cron finds log rows stuck in `QUEUED` past their due time and
 retries them — covering a Redis restart or eviction dropping a delayed job. Same rationale and
@@ -716,7 +767,8 @@ covers every building profile continuously.
 | **R5** | **Lost emit if Redis is down.** `emit()` enqueues; an outage drops the event. Today's `void this.run(...)` has the same weakness, so this is not a regression. | The backstop sweep covers rows already logged. A transactional outbox would close it fully — noted, not scoped. |
 | **R6** | **Delayed sends fire at 3am.** Quiet hours were cut. | Accepted: every event here is transactional or lifecycle, where timeliness beats politeness. Revisit if WhatsApp block rates rise. |
 | **R7** | **The first completion sweep is the largest send this platform has ever done.** Every building profile at once, across both channels. | `highestDueOnly` caps it at one email per creator, not four (§3.4). Run the first sweep with WhatsApp unchecked to avoid the Meta tier ceiling. Rate-limited at 120/min, so a 10k backlog drains over ~90 minutes rather than hitting SES in a burst. Verify the recipient count with a dry run before enabling the cron. |
-| **R8** | **Log table growth**, since nothing is pruned (§1.11). | The four indexes keep queries cheap at any size. Archive rather than delete if it ever matters — this is the audit trail for every message the platform has sent. |
+| **R8** | **The sweep starving transactional sends.** A BullMQ limiter is per queue, so a shared queue would put an order confirmation behind 10,000 sweep emails. | Separate `notif-step` (unlimited) and `notif-bulk` (rate-limited) queues, §3.6. Assert in review that the sweep producer never targets `notif-step`. |
+| **R9** | **Log table growth**, since nothing is pruned (§1.11). | The four indexes keep queries cheap at any size. Archive rather than delete if it ever matters — this is the audit trail for every message the platform has sent. |
 
 ---
 

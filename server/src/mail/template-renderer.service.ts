@@ -97,6 +97,21 @@ export class TemplateRendererService implements OnModuleInit {
     };
   }
 
+  /**
+   * Wrap an already-rendered body in the shared email shell.
+   *
+   * Public so the DB-backed renderer can reuse the same chrome: admin-authored
+   * templates supply only the body, and branding stays in one place.
+   */
+  wrapInShell(bodyHtml: string, context: EmailTemplateContext): string {
+    return this.shellTemplate({ ...this.withDefaults(context), body: bodyHtml });
+  }
+
+  /** Platform-wide defaults (platformName, logoUrl, frontendUrl) merged under a context. */
+  applyDefaults(context: EmailTemplateContext): EmailTemplateContext {
+    return this.withDefaults(context);
+  }
+
   private withDefaults(context: EmailTemplateContext): EmailTemplateContext {
     const frontendUrl = this.config
       .get<string>('FRONTEND_URL', 'http://localhost:3000')

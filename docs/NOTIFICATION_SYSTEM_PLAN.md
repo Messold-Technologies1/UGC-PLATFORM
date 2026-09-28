@@ -35,6 +35,10 @@ a WhatsApp template table, and a runtime settings table. Cut deliberately — se
 | 5 | Timing = a list of offsets; **each row picks its own channels** |
 | 6 | Keep: `stillRelevant` guard, delivery log, template validation, template version history |
 | 7 | Cut: campaigns, segments, quiet hours, entity providers, admin cancel rules |
+| 8 | **Only `password-reset` bypasses the opt-in booleans.** Every other event respects them |
+| 9 | Stage-switching templates are **split into one template per schedule row** (§3.3) |
+| 10 | The completion reminder sweeps **all** building profiles, batched — no time window (§3.6) |
+| 11 | **Log everything**, no pruning |
 
 ---
 
@@ -135,7 +139,7 @@ export const NOTIFICATION_EVENTS = defineEvents({
     label: 'Brief submitted — to creator',
     description: 'Brand submitted the creative brief; creator must accept or reject.',
     recipient: 'creator',
-    alwaysSend: false,        // true bypasses the opt-in booleans (password reset, refunds…)
+    alwaysSend: false,        // true ONLY on password-reset; everything else respects opt-in
 
     /// Shown in the admin variable picker; validated against on template save.
     vars: {
@@ -205,15 +209,148 @@ Event: order-brief-submitted-for-creator              [ Active ]
 Offsets are stored as **minutes** (`0`, `30`, `1440`, `10080`, `20160`) and measured **from the
 triggering event**, never from the previous row — the `buildCompletionReminderJobs` arithmetic.
 
-**Per-row template override (one nullable column).** §2.4 found that the completion drip uses one
-template with `isStage1`…`isStage4` switches. Two ways to carry that over, both supported:
+**Per-row template override (one nullable column).** §2.4 found that the completion drip ships
+**one file containing four different emails**, gated by `{{#if isStage1}}`…`{{#if isStage4}}` —
+subject line included.
 
-1. **Override per row** — split the stage template into four clean ones and point each row at its
-   own. Recommended; admin edits plain copy instead of nested `{{#if}}`.
-2. **Keep the switches** — leave the override null and use the `stepIndex` and `stepOffsetMinutes`
-   values injected into every render context.
+**Decided: split it into one template per schedule row**, each pointed at by `templateOverrideId`.
+Someone editing the day-3 copy then opens a file containing only the day-3 email, instead of a
+100-line file with four nested conditionals they must not break.
 
-### 3.4 Rendering
+Names are offset-based, so the list reads in order and is self-describing:
+
+| Row | Email template name | Subject (existing copy) |
+|---|---|---|
+| +30 min | `creator-profile-completion-reminder-30m` | Your {{platformName}} profile is almost ready 👀 |
+| +24 h | `creator-profile-completion-reminder-24h` | You started it. Don't leave it halfway 👀 |
+| +3 d | `creator-profile-completion-reminder-3d` | What if a brand is looking for someone like you? |
+| +7 d | `creator-profile-completion-reminder-7d` | Still want to be listed on {{platformName}}? |
+
+The resubmit drip splits the same way:
+
+| Row | Email template name |
+|---|---|
+| +30 min | `creator-profile-resubmit-reminder-30m` |
+| +24 h | `creator-profile-resubmit-reminder-24h` |
+| +48 h | `creator-profile-resubmit-reminder-48h` |
+
+**32 template keys become 37 templates** (2 stage-switching files replaced by 7). The P1 seeder
+performs the split automatically by extracting each `{{#if isStageN}}` block — including the
+matching segment of the one-line subject — into its own row.
+
+The name is a **label, not a binding**: rows reference templates by id, so re-timing a row from 3 d
+to 5 d does not break anything. Rename the template too if you want the list to stay tidy.
+
+#### WhatsApp per row
+
+`whatsappTemplateOverride` on the schedule row mirrors `templateOverrideId`, so a row can name its
+own Meta template. Null means the event's.
+
+**Leave it null for now.** Today all four completion stages send the *same* WhatsApp message
+(`sendWhatsAppForEmail` passes one `emailKey` regardless of stage, with `bodyVars: [recipientName]`),
+so keeping the event-level name preserves current behaviour exactly and needs **no new Meta
+approvals**. Per-stage WhatsApp copy would mean submitting 7 new templates to WhatsApp Manager and
+waiting on approval — worth doing later, not a launch blocker.
+
+`stepIndex` and `stepOffsetMinutes` are still injected into every render context, so a
+conditional template remains possible where it genuinely helps.
+
+### 3.4 Population events — the completion reminder
+
+Most events are **emitted**: something happens to one order, `emit()` fires, the schedule rows run.
+
+The completion reminder is different. Nothing "happens" — a profile simply stays unfinished. Today
+that is handled by `runBackstopSweep`, restricted by `CREATOR_COMPLETION_REMINDER_BACKFILL_DAYS`
+(default 10, floored at day-7 + 2) so **only creators who signed up in roughly the last week are
+ever reached**. That window is being removed: the reminder must reach **every** building profile.
+
+So the catalog supports a second kind of event, declared with a `population` block instead of
+relying on `emit()`:
+
+```ts
+'creator-profile-completion-reminder': {
+  label: 'Creator profile incomplete',
+  recipient: 'creator',
+  vars: { recipientName, actionUrl, … },
+  resolve: async (ctx, profileId) => { /* … */ },
+  stillRelevant: async (ctx, profileId) =>
+    !(await ctx.prisma.creatorProfile.findUnique(…))?.completeProfile,
+
+  /// Swept on a cron instead of emitted. No time window — every matching row is
+  /// considered, paged in batches.
+  population: {
+    cron: '0 10 * * *',                         // once daily
+    clockField: 'completionReminderStartedAt',  // offsets are measured from here
+    where: { completeProfile: false, /* … */ },
+    highestDueOnly: true,                       // see below
+  },
+}
+```
+
+Everything downstream is unchanged: the same schedule rows, the same templates, the same channel
+selection, the same `StepWorker`. Only the *producer* differs — a cron instead of `emit()`.
+
+#### `highestDueOnly` — why a 6-month-old profile gets one email, not four
+
+Offsets are measured from `clockField`. For a creator who registered long ago, **all four rows are
+already due**, so a naive sweep would send four emails at once.
+
+Your current code already solved this — *"Only the highest stage a profile has crossed is sent"*.
+That rule carries over: the sweep sends only the latest due row and writes the earlier ones to
+`NotificationLog` as `SKIPPED`, reason `superseded`.
+
+| Creator | Rows due | Sent |
+|---|---|---|
+| registered 45 min ago | 30 min | the 30-min email |
+| registered 2 days ago | 30 min, 24 h | the 24-h email; 30-min logged `superseded` |
+| registered 8 months ago | all four | the 7-day email; the other three logged `superseded` |
+
+New signups still get the full 30 min → 24 h → 3 d → 7 d drip, because their delayed jobs fire as
+each row comes due. The sweep is the catch-up and the safety net.
+
+#### Each stage sends at most once, ever
+
+The `NotificationLog` unique constraint means a profile that has received a row never receives it
+again, however often the sweep runs. So the backlog gets **one** catch-up email, not a daily nudge.
+
+**To re-nudge later, add schedule rows** — `30 d`, `60 d`, `90 d`. No new mechanism: they are due
+for anyone who has been building that long, and `highestDueOnly` keeps it to one message. Long-dormant
+profiles receive the newest row once and then go quiet again.
+
+#### Batching
+
+This is the one place batching matters, and it is why `reenroll-completion-reminders.ts` is no
+longer needed — the sweep does its job continuously and for everyone.
+
+1. **Page the population** by keyset (`WHERE id > :lastId ORDER BY id`), ~500 rows per batch.
+   Never `OFFSET` — it degrades quadratically, and on Neon that is real money. Never
+   `findMany()` the whole set.
+2. **Enqueue with `queue.addBulk()`** per batch, not one `add()` per profile — one pipelined Redis
+   command instead of hundreds of round-trips.
+   `jobId = ${eventKey}-${profileId}-${rowId}` makes a re-enqueue a no-op.
+3. **Rate-limit the sends**, not the enqueue:
+   ```ts
+   new Worker(QUEUE.step, handler, {
+     connection, concurrency: 10,
+     limiter: { max: 120, duration: 60_000 },   // stay inside the SES quota
+   })
+   ```
+   A production SES account commonly starts near **14 emails/second**; exceeding it returns
+   `Throttling` errors that count against your reputation. 120/min is deliberately conservative.
+
+Provider calls are **not** batched. `ses-mail.transport.ts` uses `SendEmailCommand` with
+`Content.Simple` — HTML rendered locally through your shell and partials. SESv2's
+`SendBulkEmailCommand` requires a template *stored in SES* with its own limited syntax, which would
+mean abandoning `email-shell.html.hbs`, the `actionButton` partial and the `concat` helper, and
+maintaining templates in two places. WhatsApp Cloud has no bulk endpoint at all.
+
+> **WhatsApp caution on this event.** Meta caps *unique business-initiated conversations per rolling
+> 24 hours* by messaging tier (commonly 250 → 1K → 10K → …). A first sweep across a large backlog of
+> building profiles can exceed it — the excess does not queue, it **fails**, and failures hurt the
+> quality rating that also governs your order notifications. Run the first catch-up with the
+> WhatsApp channel unchecked on those rows, then enable it once the backlog is drained.
+
+### 3.5 Rendering
 
 `TemplateRendererService` changes from boot-compiled disk map to **DB-first with disk fallback**:
 
@@ -234,7 +371,7 @@ template with `isStage1`…`isStage4` switches. Two ways to carry that over, bot
 - a **test render against the `example` values** produces a non-empty subject and body;
 - only allowlisted helpers are used (`concat` today).
 
-### 3.5 Dispatch
+### 3.6 Dispatch
 
 **Two queues**, on the existing `jobs/bullmq-redis.connection.ts` with the same
 `attempts: 3` / exponential-backoff / `removeOnComplete` defaults the reminder queue uses.
@@ -283,7 +420,7 @@ model NotificationEvent {
   description          String?
   recipient            NotificationRecipientRole
   vars                 Json                            // { name: { type, example } }
-  alwaysSend           Boolean @default(false)         // bypasses the opt-in booleans
+  alwaysSend           Boolean @default(false)         // true ONLY on password-reset (§1.8)
   deprecated           Boolean @default(false)
   syncedAt             DateTime @updatedAt
 
@@ -302,6 +439,7 @@ model NotificationSchedule {
   offsetMinutes      Int                               // 0 = immediately
   channels           NotificationChannel[]             // [EMAIL] | [WHATSAPP] | both
   templateOverrideId String? @db.Uuid                  // null → the event's emailTemplateId
+  whatsappTemplateOverride String?                     // null → the event's whatsappTemplateName
   isActive           Boolean @default(true)
   sortOrder          Int     @default(0)
 
@@ -379,6 +517,12 @@ model NotificationLog {
 
 **Skipped sends are logged.** Today a skip is only a `logger.warn`; "why didn't the creator get the
 WhatsApp?" has to be answerable from the database.
+
+**Retention: keep everything, no pruning** (§1.11). The four indexes above keep queries cheap
+regardless of size, and the heaviest single contributor is the one-off completion-reminder catch-up
+(one row per building profile per stage). Revisit only if the table reaches the tens of millions —
+at which point archive rather than delete, since this is the audit trail for everything the
+platform has ever sent.
 
 ---
 
@@ -509,9 +653,10 @@ extended, not replaced.
 `jobs/creator-reminder.service.ts` (which then dies). `webhooks/webhooks.module.ts` imports
 `MailModule` only for suppression — it just repoints.
 
-**Also dies with the reminder queue:** `scripts/reenroll-completion-reminders.ts` and its two
-`package.json` scripts. If cohort re-enrolment is still wanted, it becomes a generic admin action —
-decide at P4.
+**Also deleted:** `scripts/reenroll-completion-reminders.ts` and its two `package.json` scripts
+(`reenroll:completion-reminders`, `…:dev`). **No replacement is needed** — the script existed to
+drag creators back inside the `BACKFILL_DAYS` window, and §3.4 removes that window. The sweep now
+covers every building profile continuously.
 
 ---
 
@@ -525,22 +670,21 @@ decide at P4.
 | **R4** | **WhatsApp template names are free text.** A typo means Meta rejects every send for that event. | `^[a-z0-9_]+$` enforced, defaulted from the event key, and the test-send button surfaces Meta's error before the event goes live. |
 | **R5** | **Lost emit if Redis is down.** `emit()` enqueues; an outage drops the event. Today's `void this.run(...)` has the same weakness, so this is not a regression. | The backstop sweep covers rows already logged. A transactional outbox would close it fully — noted, not scoped. |
 | **R6** | **Delayed sends fire at 3am.** Quiet hours were cut. | Accepted: every event here is transactional or lifecycle, where timeliness beats politeness. Revisit if WhatsApp block rates rise. |
-| **R7** | **Log table growth.** One row per send per channel. | Modest at current volume. Add a pruning job if it ever matters; the indexes above keep queries cheap regardless. |
+| **R7** | **The first completion sweep is the largest send this platform has ever done.** Every building profile at once, across both channels. | `highestDueOnly` caps it at one email per creator, not four (§3.4). Run the first sweep with WhatsApp unchecked to avoid the Meta tier ceiling. Rate-limited at 120/min, so a 10k backlog drains over ~90 minutes rather than hitting SES in a burst. Verify the recipient count with a dry run before enabling the cron. |
+| **R8** | **Log table growth**, since nothing is pruned (§1.11). | The four indexes keep queries cheap at any size. Archive rather than delete if it ever matters — this is the audit trail for every message the platform has sent. |
 
 ---
 
 ## 9. Open questions
 
-1. **`alwaysSend` list.** Today **only** password-reset bypasses the opt-in gate. Proposed
-   additions: `order-refunded-for-brand`, `order-dispute-opened-*`, `order-dispute-resolved-*`,
-   `order-cancelled-by-support-*`. This is a behaviour change — a user with notifications off would
-   start receiving refund and dispute mail. Confirm.
-2. **Completion drip copy.** Split the `isStage1..4` template into four templates (recommended,
-   §3.3), or keep the switches and use the injected `stepIndex`?
-3. **Cohort re-enrolment.** Does `reenroll-completion-reminders` need a replacement at P4?
-4. **Log retention.** Keep everything, or prune after 90 days?
+All prior questions are resolved (§1.8–§1.11). Two items remain, neither blocking:
 
----
+1. **Per-stage WhatsApp copy.** Launch keeps one WhatsApp template per event, matching today
+   (§3.3). Submitting 7 stage-specific templates to WhatsApp Manager is a later improvement —
+   `whatsappTemplateOverride` is already in the schema for it.
+2. **Re-nudge cadence.** The backlog gets one catch-up email per §3.4. If dormant profiles should be
+   nudged again, add `30 d` / `60 d` / `90 d` schedule rows — no code change. Worth deciding once
+   the first sweep's numbers are in.
 
 ## 10. What was cut, and why
 
@@ -560,11 +704,14 @@ decide at P4.
 
 | Phase | Estimate |
 |---|---|
-| P1 schema + catalog + renderer + seeder | 2–3 days |
+| P1 schema + catalog + renderer + seeder (incl. the stage-template split) | 2–3 days |
 | P2 queues + dispatcher + step worker + log | 2–3 days |
+| P2b population sweep + batching (§3.4) | 1 day |
 | P3 admin API + UI (events, schedule, templates, logs) | 4–5 days |
 | P4 cutover + drip migration | 2 days |
 | P5 cleanup | 1 day |
-| **Total** | **~11–14 working days** |
+| **Total** | **~12–15 working days** |
 
-Down from ~21–29 for the earlier scope. The cuts in §10 account for the difference.
+Down from ~21–29 for the earlier scope; the cuts in §10 account for the difference. The batching
+work survived the cut — it moved from campaigns to the completion sweep (§3.4), which is now the
+largest send in the system.

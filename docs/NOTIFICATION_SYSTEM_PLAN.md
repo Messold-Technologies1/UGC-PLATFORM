@@ -11,7 +11,7 @@ sequences and on-demand campaigns. Replaces the hardcoded `mail/` + `whatsapp/` 
 
 | # | Decision | Choice |
 |---|---|---|
-| 1 | Service shape | **Standalone `notifications/` service at repo root**, sibling to `server/`, sharing one Postgres via a workspace `packages/db`. Requires converting the repo to a pnpm workspace (§11.1) |
+| 1 | Service shape | `notifications/` **module inside `server/src/`**, run as a **separate process** via a second entry point + `BULLMQ_WORKER_ENABLED`. One repo, one package, one deploy artifact, two deploy targets (§11.1) |
 | 2 | Event model | Code-declared event catalog, auto-synced to DB; admin configures everything downstream |
 | 3 | WhatsApp authoring | Meta template **name + variable mapping** only; copy stays in WhatsApp Manager |
 | 4 | Sequence exit | **Both** — code `stillRelevant` predicate (hard safety net) **plus** admin-chosen cancel-on events |
@@ -149,24 +149,27 @@ rather than waiting for P4 cutover.
 
 ## 3. Target architecture
 
-Two deployable services and a client, over one Postgres and one Redis.
+One codebase and one deploy artifact, started twice with different roles.
 
 ```
-┌──────────── server/ (API) ─────────────┐   ┌──── client/ ────┐
-│ orders · watermark · creator flows     │   │  admin panel    │
-│ notification ADMIN API  (config CRUD)  │◄──┤  /admin/        │
-│ SES + WhatsApp webhook routes          │   │  notifications  │
-│                                        │   └─────────────────┘
-│   emit('order.brief_submitted', {…})   │
-└───────────────────┬────────────────────┘
-                    │  @gocollab/notifications-contract  (types + queue names only)
-                    ▼
-            Redis · BullMQ
-     ┌──────────┼──────────┬──────────────┐
-  notif.event notif.step campaign.send campaign.recipient
-     │          │          │              │
-┌────┴──────────┴──────────┴──────────────┴──────────────────┐
-│           notifications/  (own package, own deploy)        │
+┌──────────── API process ────────────┐      ┌──── client/ ────┐
+│  node dist/main.js                  │      │  admin panel    │
+│  BULLMQ_WORKER_ENABLED=false        │◄─────┤  /admin/        │
+│                                     │      │  notifications  │
+│  orders · watermark · creator flows │      └─────────────────┘
+│  notification admin API             │
+│  SES + WhatsApp webhook routes      │
+│                                     │
+│  events.emit('order.brief_…', {…})  │
+└──────────────────┬──────────────────┘
+                   │
+           Redis · BullMQ
+    ┌──────────┼──────────┬──────────────┐
+ notif.event notif.step campaign.send campaign.recipient
+    │          │          │              │
+┌───┴──────────┴──────────┴──────────────┴───────────────────┐
+│  WORKER process                                            │
+│  node dist/main.worker.js   BULLMQ_WORKER_ENABLED=true     │
 │                                                            │
 │ EventDispatcher ─ load rules ─ recipients ─ open Run       │
 │ StepWorker  ─ claim ─ stillRelevant? ─ cancelled?          │
@@ -177,29 +180,44 @@ Two deployable services and a client, over one Postgres and one Redis.
 │        └─────── NotificationDelivery (log) ───────┘        │
 └───────────────────────────┬────────────────────────────────┘
                             │
-              @gocollab/db  ·  the SAME Postgres
-        (context resolved at SEND time, never a stale snapshot)
+                    the SAME Postgres
+      (context resolved at SEND time, never a stale snapshot)
 ```
+
+**Same build, two start commands.** `main.ts` boots the HTTP app with workers off;
+`main.worker.ts` boots only the notification and jobs modules with no HTTP surface beyond
+`/health`. Nothing is duplicated — the second entry point imports the same modules.
 
 **Why shared Postgres:** a day-7 reminder re-reads the order at send time, so it renders the current
 price, status and names. A separate database would force an emit-time snapshot and send day-0 data
 a week later — then need a callback API to fix it, arriving back at shared-DB but slower.
 
-**Why a standalone service:** SES and Meta HTTP calls, Handlebars compilation and campaign fan-out
-stop competing with API request handling; the engine scales and restarts independently; its
-dependency tree excludes `sharp`, `ffmpeg-static` and `razorpay`; and the boundary is enforced by
-the compiler rather than by convention — `notifications/` has no way to reach into `OrdersService`.
-Layout, cost and the decisions it forces are in §11.1.
+**Why a separate process:** SES and Meta HTTP calls, Handlebars compilation and campaign fan-out
+stop competing with API request handling; the worker scales and restarts independently; and a
+notification crash cannot take down the API. Cost: one env var and a second deploy target.
 
-**Direction of dependency:** `server → contract → (queue) → notifications`. `server` never imports
-`notifications`, and `notifications` never imports `server`. The only shared code is
-`packages/db`, `packages/notifications-contract` and `packages/shared`.
+**Why not a separate package or repo:** the boundary would not match a domain seam. Notification
+context spans Order → Brand → Agency → Creator → User and is resolved live at send time — it is a
+view over the whole domain, not a bounded context. Splitting it would cost a workspace conversion
+(~3–4 days touching ~40 `PrismaService` importers), two build pipelines, and a migration race to
+prevent, in exchange for a compiler-enforced import rule and a smaller container. Neither is worth
+it at current volume. **The admin-dynamism this plan delivers comes entirely from the data model,
+not from deployment topology.**
 
-**Sequencing note:** the workspace conversion (P0) is the one prerequisite that touches existing
-code broadly. If it needs to be deferred, the engine can be built first under `server/src/` behind
-the same queue seam and relocated later — the seam is a BullMQ job, so the move is mechanical.
-`BULLMQ_WORKER_ENABLED` (`creator-reminder-queue.service.ts:81`) already exists for exactly this
-kind of split.
+### 3.1 Keeping extraction cheap
+
+Extraction later should stay a folder move, so two rules hold from day one:
+
+1. **One public export.** Only `NotificationEventsService.emit()` leaves the module. Enforced by an
+   ESLint `no-restricted-imports` rule: nothing outside `src/notifications/**` may import anything
+   from it except that service. This is ~90% of what a package boundary buys, for ~zero cost.
+2. **The seam is the queue, not a function call.** `emit()` writes a BullMQ job and returns.
+   The worker never shares in-process state with the API.
+
+Revisit a true split when campaign volume measurably affects API latency, a separate team owns
+notifications, workers need to scale independently of API pods, or the engine is wanted in a second
+product. Until one of those is true, deferring costs nothing — and the decision is then made with
+real load data instead of a guess.
 
 ---
 
@@ -974,7 +992,6 @@ disk templates until a DB row exists.
 
 | Phase | Contents | User-visible |
 |---|---|---|
-| **P0** | **Workspace conversion** (§11.1): `pnpm-workspace.yaml`, root `package.json`, `packages/db` (schema + 146 migrations moved), `packages/shared`, `packages/notifications-contract`, repoint ~40 `PrismaService` importers, CI + tsconfig + jest updates. Ships alone and green before anything else starts. | None |
 | **P1** | Prisma migration (all §5 models), **4 entity providers** (§4.1a), event catalog with the ~24 events, registry boot-sync, DB-first renderer **with disk fallback** + lazy variable resolution, seeder that imports the 96 `.hbs` files into `NotificationTemplate` rows as `PUBLISHED` | None |
 | **P2** | Queues + EventDispatcher + StepWorker + delivery log + webhook wiring. `events.emit()` added **alongside** existing `notify*` calls, with sends **disabled** — log-only shadow mode to compare what would be sent vs what is sent | None |
 | **P3** | Admin API + UI for events, rules, steps, templates, WhatsApp mapping. Seed one rule per existing event reproducing **exactly** today's behaviour | Admin can view/edit; sends still from the old path |
@@ -982,137 +999,123 @@ disk templates until a DB row exists.
 | **P5** | Campaigns, segments, unsubscribe, marketing opt-out | New capability |
 | **P6** | Delete `order-mail.notifier.ts`, `creator-profile-mail.notifier.ts`, `brand-profile-mail.notifier.ts`, the disk fallback, `EmailTemplateKey`, and the old reminder columns | None |
 
-Separate-process deploy can land any time after P2 by flipping `BULLMQ_WORKER_ENABLED`.
+The worker process can be split out any time after P2: add `main.worker.ts`, deploy a second
+target running `start:worker`, and set `BULLMQ_WORKER_ENABLED=false` on the API. Until then
+everything runs in-process, which is also how local development stays.
 
 ---
 
 
-### 11.1 Repository layout — standalone service
+### 11.1 Target code layout
 
-`notifications/` is a **sibling of `server/`**, not a module inside it. It has its own
-`package.json`, dependency tree, Dockerfile and deploy. `server/` cannot import it, and it cannot
-import `server/` — the only things they share are explicit workspace packages and one Postgres.
-
-This requires converting the repo to a **pnpm workspace**. Today there is no root `package.json`
-and no `pnpm-workspace.yaml`; `client/` and `server/` are independent projects. `server/package.json`
-already declares `packageManager: pnpm@9.0.0`, so the tooling is the one you are on.
+One new module, `server/src/notifications/`, plus a second entry point. The surviving pieces of
+`mail/` and `whatsapp/` **move into it** rather than being rewritten, so by P6 both old folders are
+gone and there is a single home for everything notification-related.
 
 ```
-UGC-PLATFORM/
-├── pnpm-workspace.yaml              NEW
-├── package.json                     NEW — root scripts only
+server/src/notifications/
+├── notifications.module.ts            # API side: admin controllers + emit()
+├── notifications.worker.module.ts     # worker side: queues + workers
 │
-├── packages/
-│   ├── db/                          NEW — the single owner of the database
-│   │   ├── prisma/schema.prisma        ← MOVED from server/prisma/
-│   │   ├── prisma/migrations/          ← MOVED (146 migrations)
-│   │   └── src/index.ts                exports PrismaClient + generated types
-│   │
-│   ├── notifications-contract/      NEW — the seam. Pure types, no runtime logic.
-│   │   └── src/index.ts                event-key union, payload shapes,
-│   │                                   queue + job names, jobId builders
-│   │
-│   └── shared/                      NEW — small, currently duplicated helpers
-│       └── src/                        with-timeout.ts, frontend-url.util.ts,
-│                                       env validation, pino config
+├── catalog/
+│   ├── define-events.ts
+│   ├── event-catalog.ts               # the ~24 Tier-1 events (§4.1b)
+│   └── registry-sync.service.ts       # boot upsert into NotificationEvent
 │
-├── client/                          unchanged
+├── entities/                          # §4.1a — vars + recipients, per entity
+│   ├── define-entity.ts
+│   ├── order.entity.ts
+│   ├── creator-profile.entity.ts
+│   ├── brand-profile.entity.ts
+│   └── user.entity.ts
 │
-├── server/                          API. Emits events. Hosts the notification ADMIN API.
-│                                    Keeps the SES + WhatsApp webhook routes.
+├── rendering/
+│   ├── template-renderer.service.ts   # REWRITTEN from mail/ — DB-first, disk fallback
+│   ├── template-validator.service.ts  # NEW — §6.1 publish gate + AST var extraction
+│   ├── partials/                      # MOVED from mail/templates/_partials — stays on disk
+│   │   ├── email-shell.html.hbs
+│   │   └── action-button.html.hbs
+│   └── legacy-templates/              # MOVED from mail/templates — deleted at P6
 │
-└── notifications/                   NEW — the engine. No public HTTP beyond /health.
-    ├── package.json
-    ├── Dockerfile
-    └── src/
-        ├── main.ts                  worker entry
-        ├── catalog/                 event implementations (resolve, stillRelevant)
-        ├── entities/                §4.1a providers — order, creatorProfile, brandProfile, user
-        ├── rendering/               renderer, validator, partials/, legacy-templates/
-        ├── channels/
-        │   ├── email/               ses.transport, email-sender, suppression
-        │   └── whatsapp/            cloud.transport, whatsapp-sender, template-sync
-        ├── dispatch/                event-dispatcher, step.worker, quiet-hours, backstop
-        ├── campaigns/               segment compiler, campaign.worker
-        ├── delivery-log/
-        └── queues/
+├── channels/
+│   ├── email/
+│   │   ├── email-sender.service.ts        # FROM mail/mail.service.ts — gate chain kept
+│   │   ├── ses.transport.ts               # MOVED unchanged
+│   │   └── email-suppression.service.ts   # MOVED unchanged
+│   └── whatsapp/
+│       ├── whatsapp-sender.service.ts     # FROM whatsapp.service.ts — in-memory Map removed
+│       ├── whatsapp-cloud.transport.ts    # MOVED unchanged
+│       ├── whatsapp-template-sync.service.ts  # NEW — pull approved list from Meta
+│       └── whatsapp-webhook.controller.ts # MOVED — status written to the delivery log
+│
+├── dispatch/
+│   ├── notification-events.service.ts # emit() — THE ONLY PUBLIC EXPORT (§3.1)
+│   ├── event-dispatcher.worker.ts
+│   ├── step.worker.ts
+│   ├── recipient-resolver.service.ts
+│   ├── quiet-hours.util.ts
+│   └── backstop-sweep.service.ts
+│
+├── delivery-log/
+│   └── delivery-log.service.ts
+│
+├── campaigns/                         # P5
+│   ├── segment-filter.compiler.ts
+│   ├── campaign.service.ts
+│   └── campaign.worker.ts
+│
+├── admin/
+│   ├── admin-events.controller.ts
+│   ├── admin-rules.controller.ts
+│   ├── admin-templates.controller.ts
+│   ├── admin-whatsapp-templates.controller.ts
+│   ├── admin-campaigns.controller.ts
+│   ├── admin-deliveries.controller.ts
+│   ├── admin-settings.controller.ts
+│   └── dto/
+│
+└── queues/
+    └── notification-queues.ts         # queue names, job types, jobId builders
+                                       # (reuses jobs/bullmq-redis.connection.ts)
+
+server/src/main.worker.ts              # NEW — worker entry point, /health only
 ```
 
-#### How `server` triggers a notification without importing the service
+#### Running it as two processes
 
-`server` depends on `@gocollab/notifications-contract` and `@gocollab/db` — **never** on
-`notifications/`. The contract package holds types and an emitter that only enqueues:
-
-```ts
-// packages/notifications-contract/src/index.ts
-export type NotificationEventKey =
-  | 'order.brief_submitted'
-  | 'order.content_delivered'
-  | /* … */
-
-export type EmitPayload = { entityId: string; occurredAt?: Date; meta?: Record<string, string> }
-
-export const QUEUE = { event: 'notif-event', step: 'notif-step', /* … */ } as const
+```jsonc
+// server/package.json
+"scripts": {
+  "start:prod":   "node dist/main.js",          // BULLMQ_WORKER_ENABLED=false
+  "start:worker": "node dist/main.worker.js"    // BULLMQ_WORKER_ENABLED=true
+}
 ```
 
-```ts
-// in orders.service.ts
-await this.notifications.emit('order.brief_submitted', { entityId: order.id })
-// → writes one BullMQ job. That is the entire coupling.
+One build, one image, two start commands. `main.worker.ts` imports
+`NotificationsWorkerModule` and `JobsModule` only — no controllers, no Swagger, no Socket.IO.
+
+`BULLMQ_WORKER_ENABLED` already exists (`creator-reminder-queue.service.ts:81`, logging
+*"queue only (no worker on this process)"*), so the API-side half of this split is already built
+and proven for the existing reminder queue.
+
+**Local development** stays single-process: run the API with `BULLMQ_WORKER_ENABLED=true` and
+everything works in one terminal. The split is a production deployment concern only.
+
+#### The public surface shrinks to one method
+
+Today seven services import mail notifiers and call one of ~20 `notify*` methods. Afterwards they
+import `NotificationEventsService` and call `emit()`. Nothing outside `notifications/` knows that
+email or WhatsApp exist — enforced by the ESLint rule in §3.1:
+
+```jsonc
+// .eslintrc — no-restricted-imports
+{
+  "patterns": [{
+    "group": ["**/notifications/**"],
+    "message": "Import NotificationEventsService from notifications/dispatch only."
+  }]
+}
 ```
-
-The **runtime** half of the catalog — `resolve()`, `stillRelevant()`, the entity providers — lives
-in `notifications/`. A `Record<NotificationEventKey, EventImpl>` type makes the compiler reject any
-declared key without an implementation, so the two halves cannot drift.
-
-#### Why the admin API stays in `server`
-
-The §4.2 registry sync already flattens `entity.vars + event.extraVars` into
-`NotificationEvent.variableSchema` as JSON. **So the admin UI reads the catalog from the database,
-not from code** — which means the admin controllers do not need to live beside the catalog.
-
-Putting them in `server/` reuses `JwtAuthGuard`, `AdminGuard`, the existing CORS config, Swagger,
-and the API base URL the admin panel already calls. Putting them in `notifications/` would mean a
-second HTTP server, duplicated JWT verification, a second CORS origin list, a second Swagger mount,
-and a second base URL in the client. All of that for CRUD over config tables.
-
-The resulting split is clean and easy to state:
-
-> **`server` writes configuration and emits events. `notifications` reads configuration and sends.**
-
-#### Why the webhooks stay in `server`
-
-`POST /api/webhooks/ses` (SNS) and `POST /api/webhooks/whatsapp` (Meta) are registered with
-external providers. Moving them means repointing an SNS HTTPS subscription and a Meta callback URL,
-re-doing the Meta verify-token handshake, and exposing `notifications/` publicly — during which
-delivery statuses silently drop. They are DB writes; they can stay where they are and write to the
-shared tables. Revisit only if `notifications/` ever needs its own ingress anyway.
-
-#### The three things this layout forces
-
-| Decision | Recommendation | Why it matters |
-|---|---|---|
-| **Who owns the Prisma schema** | `packages/db`, moved wholesale from `server/prisma/` | The notification tables live in the **same database**. A second schema with its own migration history against one Postgres is a genuine footgun. Moving the 146 migrations is a directory move — history lives in the `_prisma_migrations` table and is keyed by name + checksum, not path, so it survives as long as filenames are untouched. |
-| **Who runs `prisma migrate deploy`** | Exactly one — a CI step, or `server`'s release command. **Never both services at boot.** | Two services migrating one database on deploy will race. |
-| **Where shared helpers live** | `packages/shared` | `with-timeout.ts`, `frontend-url.util.ts`, env validation and the pino setup are all needed by both. The alternative is copy-paste drift. |
-
-#### Cost of going standalone
-
-Real and bounded — roughly **+3 to +4 days** on top of the estimates in §14:
-
-| Work | Estimate |
-|---|---|
-| pnpm workspace + root scripts + CI wiring | 0.5 day |
-| Move Prisma to `packages/db`; repoint ~40 modules that import `PrismaService`; move `postinstall: prisma generate` | 1.5 days |
-| `notifications-contract` + `shared` packages | 0.5 day |
-| Second Dockerfile, deploy target, env plumbing, health check | 1 day |
-| Update `server/test`, jest configs, tsconfig paths | 0.5 day |
-
-Ongoing: two installs, two builds, slightly slower CI, and dependency bumps in two places.
-
-**What it buys:** a boundary the compiler enforces (`notifications` *cannot* reach into
-`OrdersService`), independent deploy and scaling, and an isolated dependency tree — `sharp`,
-`ffmpeg-static` and `razorpay` do not need to exist in the notification container.
 
 ### 11.2 File-by-file disposition
 
@@ -1135,9 +1138,9 @@ P1–P5 fallback, and `EmailTemplateKey` is referenced in 51 places.
 
 #### Moved and kept — ~860 lines
 
-All destinations below are inside the standalone `notifications/` package (§11.1), **not**
-`server/src/`. Each move crosses a package boundary, so imports of `PrismaService` become
-`@gocollab/db` and shared helpers become `@gocollab/shared`.
+All destinations below are inside `server/src/notifications/` (§11.1). These are file moves within
+the same package, so imports of `PrismaService`, `with-timeout` and `frontend-url.util` are
+unchanged apart from their relative paths.
 
 | File | Lines | Change |
 |---|---:|---|
@@ -1188,8 +1191,6 @@ action rather than a bespoke script — worth deciding at P4, not P6.
 | **R5** | **SES reputation on bulk sends.** Complaints and bounces from campaigns can degrade the whole account, including transactional mail. | Rate limiter, forced `marketingOptOut` filter, suppression check at send time, `List-Unsubscribe` header, complaint rate surfaced in the delivery log. Consider a dedicated SES configuration set for campaigns. |
 | **R6** | **WhatsApp quality rating.** Marketing blasts are the fastest way into a lower messaging tier, which throttles *transactional* messages too. | Cost estimate at preview, quiet hours applied to WA, separate `WhatsAppTemplateCategory`, and campaign channel selection defaulting to email-only. |
 | **R7** | **Neon autosuspend vs campaign load.** A large campaign wakes the compute and hammers it. | Cursor-paged segment resolution, rate limiter, `campaignMaxRecipients` cap. Keep the backstop sweep infrequent, as the current code deliberately does. |
-| **R9** | **Workspace conversion touches everything.** Moving Prisma to `packages/db` repoints ~40 modules; a mistake here breaks the whole API, not just notifications. | Ship P0 as its own PR with **zero behaviour change** — imports and config only. Migration history survives the move because `_prisma_migrations` keys on name + checksum, not path; verify with `prisma migrate status` against a restored production snapshot before merging. |
-| **R10** | **Two services migrating one database.** If both `server` and `notifications` run `prisma migrate deploy` on release, they race. | Exactly one owner (§11.1): a CI step or `server`'s release command. `notifications` never migrates — it only reads and writes rows. |
 | **R8** | **Lost emit if Redis is down.** `events.emit()` enqueues; a Redis outage drops the event. Today's `void this.run(...)` has the same weakness, so this is not a regression — but it is worth fixing. | The backstop sweep covers sequences already opened. For emits themselves, the optional hardening is a transactional outbox table written in the same transaction as the domain change, drained by a poller. **Deferred to P5+ — flagged, not scoped.** |
 
 ---
@@ -1220,18 +1221,17 @@ action rather than a bespoke script — worth deciding at P4, not P6.
 
 | Phase | Estimate |
 |---|---|
-| **P0 workspace conversion (§11.1)** | **3–4 days** |
 | P1 schema + entity providers + registry + renderer + seeder | 3–4 days |
 | P2 queues + dispatcher + step worker + delivery log | 4–5 days |
 | P3 admin API + UI (events, rules, templates, WA mapping) | 6–8 days |
 | P4 cutover + drip migration | 2–3 days |
 | P5 campaigns + segments + unsubscribe | 5–7 days |
 | P6 cleanup | 1–2 days |
-| **Total** | **~24–33 working days** |
+| **Total** | **~21–29 working days** |
 
-P0–P4 (full replacement of today's system, admin-configurable, standalone) is roughly
-**18–24 days**. Without the standalone split it would be 15–20; the ~3–4 day delta is the price
-of the enforced boundary, and it is paid once, up front.
+P1–P4 (full replacement of today's system, admin-configurable) is roughly **15–20 days**.
+The separate *process* adds essentially nothing to that — a second entry file and a deploy target.
+A separate *package* would have added ~3–4 days up front plus ongoing overhead; deferred per §3.1.
 P5 (campaigns) is genuinely additive and can be deferred without blocking anything.
 
 Per-entity variable providers (§4.1a) are **cost-neutral to slightly cheaper** than the per-event

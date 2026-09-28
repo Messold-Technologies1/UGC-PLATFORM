@@ -686,6 +686,7 @@ model NotificationCampaign {
   createdByUserId    String? @db.Uuid
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  recipients_        NotificationCampaignRecipient[]   // frozen audience, see §8.3
 
   @@index([status, scheduledAt])
 }
@@ -755,6 +756,9 @@ model NotificationSettings {
   campaignMaxRecipients Int?    @default(5000)
   campaignRatePerMinute Int?    @default(120)
   whatsappMarketingRatePaise Int? @default(78)      // for the cost estimate
+  /// WhatsApp messaging-tier ceiling: unique business-initiated conversations per
+  /// rolling 24h. Synced from WhatsApp Manager; blocks oversized blasts (§8.3).
+  whatsappTierLimitPerDay    Int?
   updatedByUserId       String? @db.Uuid
   updatedAt             DateTime @updatedAt
 }
@@ -901,18 +905,135 @@ not on the email suppression list.
 
 ### 8.2 Send flow
 
-1. **Preview** — run the count query, store `previewedAt`, `previewedCount`, `guardrailHash`, and
+1. **Preview** — resolve the count, store `previewedAt`, `previewedCount`, `guardrailHash`, and
    (for WhatsApp) `estimatedCostPaise = recipients × whatsappMarketingRatePaise`.
 2. **Test send** — to the admin's own address/number; stores `testSentAt`.
 3. **Send unlocks** only when `previewedAt` and `testSentAt` are both set **and** `guardrailHash`
    still matches the campaign's current filters/channels/templates. Any edit resets both.
-4. Enforce `campaignMaxRecipients`.
-5. `campaign.send` pages the segment with a cursor and enqueues `campaign.recipient` jobs under a
-   BullMQ `limiter: { max: campaignRatePerMinute, duration: 60_000 }`, keeping SES inside its rate
-   limit and WhatsApp off a cliff.
-6. Each recipient job re-checks opt-in + `marketingOptOut` + suppression **at send time** (a
-   campaign can take a while to drain; someone may unsubscribe mid-flight), renders, sends, logs.
-7. Rolling `sentCount` / `failedCount` / `skippedCount` on the campaign row for the admin progress view.
+4. Enforce `campaignMaxRecipients`, and for WhatsApp check the messaging-tier ceiling (§8.3).
+5. **Materialise the audience** into `NotificationCampaignRecipient` (§8.3) — one row per
+   recipient, status `PENDING`. This is the point of no return; the audience is now frozen.
+6. `campaign.send` walks that table in batches, `addBulk`-ing `campaign.recipient` jobs under a
+   BullMQ rate limiter.
+7. Each recipient job re-checks opt-in + `marketingOptOut` + suppression **at send time** (a
+   campaign takes a while to drain; someone may unsubscribe mid-flight), renders, sends, and
+   flips the row to `SENT` / `FAILED` / `SKIPPED`.
+8. Progress counters on the campaign row come from aggregates over that table.
+
+### 8.3 Batching — four layers, three of which actually batch
+
+"Batch the blast" means different things at different layers. Getting them confused is how you
+either melt the database or double-send to 2,000 people.
+
+#### Layer 0 — Materialise the audience (do this first)
+
+```prisma
+enum CampaignRecipientStatus { PENDING SENT FAILED SKIPPED }
+
+/// The frozen audience for one campaign. Written once at send time, then walked in batches.
+model NotificationCampaignRecipient {
+  id            String @id @default(uuid()) @db.Uuid
+  campaignId    String @db.Uuid
+  campaign      NotificationCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId        String @db.Uuid
+  profileType   String?                        // 'creator' | 'brand'
+  profileId     String? @db.Uuid
+  emailAddress  String?
+  phone         String?
+  status        CampaignRecipientStatus @default(PENDING)
+  skippedReason String?
+  sentAt        DateTime?
+
+  /// THE idempotency guarantee: a recipient can appear at most once per campaign,
+  /// so a crashed or re-run campaign can never send twice.
+  @@unique([campaignId, userId])
+  @@index([campaignId, status])
+}
+```
+
+This one table solves four problems at once, and none of them are solvable by paging a live query:
+
+| Problem | Why the live query fails |
+|---|---|
+| **Resume after a crash** | A cursor in memory dies with the worker. Restarting re-sends from the top. |
+| **Double-send** | Nothing stops a re-run. The `@@unique` makes it structurally impossible. |
+| **A moving audience** | Paging a live segment while signups continue means rows shift between pages — recipients get skipped or duplicated. A snapshot cannot move. |
+| **Progress + per-recipient audit** | "Who actually got it, who was skipped and why" is a `GROUP BY` instead of a log grep. |
+
+Write it in chunks of ~1,000 with `createMany({ skipDuplicates: true })`.
+
+#### Layer 1 — Read the audience in keyset batches
+
+Walk `NotificationCampaignRecipient WHERE status = 'PENDING'` ordered by `id`, ~500 per batch,
+keyset (`WHERE id > :lastId`) not `OFFSET`. Offset pagination degrades quadratically and, on Neon,
+that is real money. Never `findMany()` the whole audience — 5,000 hydrated rows is a needless
+memory spike on a container also doing Handlebars rendering.
+
+#### Layer 2 — Enqueue in bulk
+
+`queue.addBulk(jobs)` per batch, **not** 5,000 individual `queue.add()` calls — that is 5,000
+round-trips to Redis. One `addBulk` per ~500-job batch is one pipelined command.
+
+`jobId = camp-${campaignId}-${recipientRowId}` makes BullMQ itself reject duplicates if a batch is
+somehow enqueued twice.
+
+#### Layer 3 — Do **not** batch the provider call
+
+This is the counter-intuitive one, and your code already settles it.
+
+**Email.** `ses-mail.transport.ts` uses `SendEmailCommand` with `Content.Simple` — HTML you rendered
+locally through your own shell and partials. SESv2's `SendBulkEmailCommand` (up to 50 destinations)
+requires `DefaultContent.Template`, i.e. a template **stored in SES** with SES's own limited
+replacement syntax. Using it would mean pushing all your templates into SES, losing
+`email-shell.html.hbs`, the `actionButton` partial and the `concat` helper, and maintaining
+templates in two places. **Not worth it.** Send one `SendEmail` per recipient, rate-limited:
+
+```ts
+new Worker(QUEUE.campaignRecipient, handler, {
+  connection,
+  concurrency: 10,
+  limiter: { max: settings.campaignRatePerMinute, duration: 60_000 },
+})
+```
+
+The limiter is what keeps you inside the SES sending quota (a production account commonly starts
+around **14 emails/second**; check yours in the SES console, since exceeding it returns
+`Throttling` errors that count against your reputation). The default `campaignRatePerMinute: 120`
+is 2/s — deliberately conservative, and adjustable from the admin settings screen without a deploy.
+
+**WhatsApp.** Meta's Cloud API has no bulk send endpoint at all — one POST per message, which
+`whatsapp-cloud.transport.ts` already does.
+
+#### The WhatsApp ceiling is a cap, not a rate
+
+More important than throughput: WhatsApp limits **unique business-initiated conversations per
+rolling 24 hours** by messaging tier — commonly 250 → 1K → 10K → 100K → unlimited, climbing with
+quality rating and business verification. A new number typically starts at the bottom.
+
+A 5,000-recipient blast from a 1K-tier number does not send slowly — **roughly 4,000 messages
+simply fail**, and the failures hurt your quality rating, which can demote the tier, which throttles
+your *transactional* order notifications too.
+
+So the preview step must show the current tier alongside the recipient count and refuse to unlock
+Send when `recipients > tier`. The tier is visible in WhatsApp Manager; `whatsapp-template-sync`
+can pull it while syncing templates. Store it on `NotificationSettings` as
+`whatsappTierLimitPerDay` and re-check at send time, since it moves.
+
+#### Rough shape at 5,000 recipients
+
+| | |
+|---|---|
+| Materialise audience | 5 × `createMany` of 1,000 |
+| Read | 10 keyset batches of 500 |
+| Enqueue | 10 × `addBulk` |
+| Provider calls | 5,000 individual sends, 10 concurrent, rate-limited |
+| Wall clock at 120/min | ~42 min |
+| Wall clock at 600/min | ~8 min |
+
+Pick the rate from your SES quota and your appetite for complaint-rate risk, not from impatience.
+A blast that lands over 40 minutes is also easier to abort halfway if the copy turns out wrong —
+which is why `POST /campaigns/:id/cancel` just flips the campaign status and lets in-flight
+recipient jobs no-op on their status check.
 
 ---
 
@@ -1189,8 +1310,9 @@ action rather than a bespoke script — worth deciding at P4, not P6.
 | **R3** | **Double-send during the creator-drip cutover.** `CreatorReminderService` and a new rule for `creator.profile_incomplete` would both fire. | Single atomic cutover: disable `CREATOR_COMPLETION_REMINDERS_ENABLED` in the same deploy that activates the rule. Backfill `NotificationSequenceStepRun.sentAt` from the existing `completionReminder*At` columns so already-sent stages are never repeated. Keep the old columns until P6. |
 | **R4** | **A bad template breaks live email.** Failure is silent — a typo'd variable renders blank. | The §6.1 publish gate: compile + variable-existence + example-render + helper allowlist. Plus version history and one-click revert. |
 | **R5** | **SES reputation on bulk sends.** Complaints and bounces from campaigns can degrade the whole account, including transactional mail. | Rate limiter, forced `marketingOptOut` filter, suppression check at send time, `List-Unsubscribe` header, complaint rate surfaced in the delivery log. Consider a dedicated SES configuration set for campaigns. |
-| **R6** | **WhatsApp quality rating.** Marketing blasts are the fastest way into a lower messaging tier, which throttles *transactional* messages too. | Cost estimate at preview, quiet hours applied to WA, separate `WhatsAppTemplateCategory`, and campaign channel selection defaulting to email-only. |
-| **R7** | **Neon autosuspend vs campaign load.** A large campaign wakes the compute and hammers it. | Cursor-paged segment resolution, rate limiter, `campaignMaxRecipients` cap. Keep the backstop sweep infrequent, as the current code deliberately does. |
+| **R6** | **WhatsApp tier ceiling and quality rating.** The 24h cap on unique business-initiated conversations is a **hard limit, not a rate** — a blast above it does not queue, it fails, and the failures can demote the tier, throttling *transactional* messages too. | Sync `whatsappTierLimitPerDay` and refuse to unlock Send when `recipients > tier` (§8.3). Plus cost estimate at preview, quiet hours applied to WA, separate `WhatsAppTemplateCategory`, and campaign channel selection defaulting to email-only. |
+| **R7** | **Neon autosuspend vs campaign load.** A large campaign wakes the compute and hammers it. | Materialised audience written in `createMany` chunks, keyset-paged reads (never `OFFSET`), `addBulk` enqueueing, rate limiter, and the `campaignMaxRecipients` cap (§8.3). Keep the backstop sweep infrequent, as the current code deliberately does. |
+| **R11** | **A campaign crashing mid-send double-sends on restart.** 2,000 people receive it twice. | The audience is materialised before the first send, with `@@unique([campaignId, userId])` and a per-row status, so a restart resumes at `status = PENDING` and a re-run is structurally incapable of sending twice (§8.3). A live paged query cannot offer this. |
 | **R8** | **Lost emit if Redis is down.** `events.emit()` enqueues; a Redis outage drops the event. Today's `void this.run(...)` has the same weakness, so this is not a regression — but it is worth fixing. | The backstop sweep covers sequences already opened. For emits themselves, the optional hardening is a transactional outbox table written in the same transaction as the domain change, drained by a poller. **Deferred to P5+ — flagged, not scoped.** |
 
 ---

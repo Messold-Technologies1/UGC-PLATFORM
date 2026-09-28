@@ -59,6 +59,39 @@ export type EventContext = {
   frontendBaseUrl: string;
 };
 
+/**
+ * Declares an event that is swept rather than emitted.
+ *
+ * Most events happen *to* something — an order is delivered, a brief is
+ * accepted — and `emit()` says so. A completion reminder is different: nothing
+ * happens, a profile simply stays unfinished. So the event owns a query over
+ * its population and a cron drives it.
+ */
+export type PopulationSpec = {
+  /** How often to sweep. Infrequent enough to let the Neon compute autosuspend. */
+  cron: string;
+  /**
+   * One page of the population, keyset-ordered by id. `clockAt` is what the
+   * schedule offsets are measured from — the sweep has no time window, so a
+   * profile from any date is considered.
+   */
+  page: (
+    ctx: EventContext,
+    cursor: string | null,
+    take: number,
+  ) => Promise<Array<{ id: string; clockAt: Date }>>;
+  /**
+   * When true, only the latest due row is sent and the earlier ones are logged
+   * as superseded.
+   *
+   * Without it a creator who registered eight months ago has every row due at
+   * once and would receive the whole drip in one go. With it they get the last
+   * one — a single catch-up — while a new signup still receives each stage as
+   * it comes due via its delayed jobs.
+   */
+  highestDueOnly: boolean;
+};
+
 export type EventDefinition = {
   /** Human label for the admin events list. */
   label: string;
@@ -102,6 +135,12 @@ export type EventDefinition = {
    * with {@link ALWAYS_RELEVANT} rather than leaving this undefined.
    */
   stillRelevant?: (ctx: EventContext, entityId: string) => Promise<boolean>;
+
+  /**
+   * Present when this event is swept rather than emitted. See
+   * {@link PopulationSpec}.
+   */
+  population?: PopulationSpec;
 };
 
 /**

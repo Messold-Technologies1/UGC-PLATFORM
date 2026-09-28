@@ -1,4 +1,5 @@
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { MetaCapiModule } from '../meta-capi/meta-capi.module';
@@ -56,6 +57,8 @@ describe('NotificationsModule wiring', () => {
             }),
           ],
         }),
+        // SchedulerRegistry for the sweep crons; AppModule registers this too.
+        ScheduleModule.forRoot(),
         PrismaModule,
         BrandAccessModule,
         // Globals the guard chain reaches transitively. In the app these are

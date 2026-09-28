@@ -129,6 +129,33 @@ export const profileEvents = defineEvents({
       });
       return p ? !p.completeProfile : false;
     },
+
+    /**
+     * Swept daily across EVERY building profile, with no time window.
+     *
+     * The legacy job only reached creators inside a ~10 day backfill window,
+     * so anyone older never heard from it again. Removing the window is the
+     * point: the reminder should reach the whole backlog.
+     */
+    population: {
+      cron: '0 10 * * *',
+      highestDueOnly: true,
+      page: async (ctx, cursor, take) => {
+        const rows = await ctx.prisma.creatorProfile.findMany({
+          where: { completeProfile: false },
+          // Keyset, not OFFSET: offset paging degrades quadratically, and on
+          // Neon that is real money.
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true, completionReminderStartedAt: true },
+        });
+        return rows.map((row) => ({
+          id: row.id,
+          clockAt: row.completionReminderStartedAt,
+        }));
+      },
+    },
   },
 
   'creator-profile-resubmit-reminder': {

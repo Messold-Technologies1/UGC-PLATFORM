@@ -288,6 +288,25 @@ export const ENDPOINTS = {
       BY_ID: (id: string) =>
         `/api/admin/demo-intro-videos/${encodeURIComponent(id)}`,
     },
+    NOTIFICATIONS: {
+      EVENTS: "/api/admin/notifications/events",
+      EVENT: (key: string) =>
+        `/api/admin/notifications/events/${encodeURIComponent(key)}`,
+      EVENT_SCHEDULE: (key: string) =>
+        `/api/admin/notifications/events/${encodeURIComponent(key)}/schedule`,
+      EVENT_BACKFILL: (key: string) =>
+        `/api/admin/notifications/events/${encodeURIComponent(key)}/backfill`,
+      TEMPLATES: "/api/admin/notifications/templates",
+      TEMPLATE: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}`,
+      TEMPLATE_PREVIEW: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/preview`,
+      TEMPLATE_VERSIONS: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/versions`,
+      TEMPLATE_REVERT: (id: string, version: number) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/revert/${version}`,
+      LOGS: "/api/admin/notifications/logs",
+    },
     COUPONS: {
       LIST: "/api/admin/coupons",
       CREATE: "/api/admin/coupons",

@@ -113,8 +113,10 @@ it into a single `logger.warn` (`order-mail.notifier.ts:531`); and **the
 Net effect: a brand buying extra revisions, and a creator whose Instagram connection expires,
 receive **nothing on either channel**, with only a warn line as evidence.
 
-**Recommendation:** fix now as a standalone two-line PR (add both keys to `ALL_TEMPLATE_KEYS`),
-independent of this plan.
+**Fixed** ahead of this plan: `ALL_TEMPLATE_KEYS` is now derived from the enum
+(`Object.values(EmailTemplateKey)`) rather than hand-listed, so the drift class is gone — a new
+enum member without template files now fails loudly at boot instead of silently at send time. A
+regression test renders every key.
 
 ### 2.6 Infrastructure already present
 

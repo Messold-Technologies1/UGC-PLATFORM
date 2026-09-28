@@ -98,6 +98,11 @@ export class WhatsAppWebhookController {
 
         for (const status of value.statuses ?? []) {
           if (!status.id || !status.status) continue;
+          void this.whatsapp.recordStatusUpdate({
+            messageId: status.id,
+            status: status.status,
+            errors: status.errors,
+          });
           this.whatsapp.noteStatusUpdate({
             messageId: status.id,
             recipient: status.recipient_id,

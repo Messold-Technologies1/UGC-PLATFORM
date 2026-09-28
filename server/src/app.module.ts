@@ -34,8 +34,11 @@ import { SocialConnectionsModule } from './social-connections/social-connections
 import { LoggingModule } from './logging/logging.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
+import { NotificationsModule } from './notifications/notifications.module';
+
 @Module({
   imports: [
+    NotificationsModule,
     LoggingModule,
     ConfigModule.forRoot({
       isGlobal: true,

@@ -291,7 +291,9 @@ export class CreatorProfileMailNotifier {
     displayName: string;
     user: { name: string | null };
   }): string {
-    return profile.displayName?.trim() || profile.user.name?.trim() || 'Creator';
+    return (
+      profile.displayName?.trim() || profile.user.name?.trim() || 'Creator'
+    );
   }
 
   private frontendBase(): string {

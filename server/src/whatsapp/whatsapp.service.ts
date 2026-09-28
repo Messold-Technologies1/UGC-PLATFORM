@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NotificationLogStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationLogService } from '../notifications/log/notification-log.service';
 import { WhatsAppCloudTransport } from './whatsapp-cloud.transport';
 import type {
   SendWhatsAppParams,
@@ -38,6 +40,7 @@ export class WhatsAppService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly transport: WhatsAppCloudTransport,
     private readonly prisma: PrismaService,
+    private readonly notificationLog: NotificationLogService,
   ) {
     this.sendTimeoutMs = this.config.get<number>(
       'WHATSAPP_SEND_TIMEOUT_MS',
@@ -156,6 +159,28 @@ export class WhatsAppService implements OnModuleInit {
    * POST time. The template/recipient are filled in from the outbound map when
    * known (best-effort).
    */
+  /**
+   * Persist a delivery-status callback against the send it belongs to.
+   *
+   * The in-memory `outbound` map below is a best-effort convenience for log
+   * lines only — it is bounded, lost on restart, and empty on a second replica.
+   * The NotificationLog row keyed by wamid is the durable record.
+   */
+  async recordStatusUpdate(update: {
+    messageId: string;
+    status: string;
+    errors?: Array<{ code?: number; message?: string; title?: string }>;
+  }): Promise<void> {
+    const status = mapWhatsAppStatus(update.status);
+    if (!status) return;
+    const err = update.errors?.[0];
+    await this.notificationLog.applyProviderStatus({
+      providerMessageId: update.messageId,
+      status,
+      errorMessage: err ? (err.message ?? err.title ?? null) : null,
+    });
+  }
+
   noteStatusUpdate(update: {
     messageId: string;
     recipient?: string;
@@ -234,5 +259,21 @@ export class WhatsAppService implements OnModuleInit {
       select: { whatsappNotificationsEnabled: true },
     });
     return profile?.whatsappNotificationsEnabled ?? false;
+  }
+}
+
+/** Meta's status vocabulary, mapped onto ours. Unknown values are ignored. */
+function mapWhatsAppStatus(status: string): NotificationLogStatus | null {
+  switch (status) {
+    case 'sent':
+      return NotificationLogStatus.SENT;
+    case 'delivered':
+      return NotificationLogStatus.DELIVERED;
+    case 'read':
+      return NotificationLogStatus.READ;
+    case 'failed':
+      return NotificationLogStatus.FAILED;
+    default:
+      return null;
   }
 }

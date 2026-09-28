@@ -12,4 +12,3 @@ import { RealtimeModule } from '../realtime/realtime.module';
   providers: [WebhooksService],
 })
 export class WebhooksModule {}
-

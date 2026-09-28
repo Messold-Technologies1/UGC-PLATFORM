@@ -44,7 +44,9 @@ export class BrandProfileMailNotifier {
       }
 
       const actorUserId =
-        await this.brandAccess.resolveBrandActorUserIdForProfile(brandProfileId);
+        await this.brandAccess.resolveBrandActorUserIdForProfile(
+          brandProfileId,
+        );
       const user = await this.prisma.user.findUnique({
         where: { id: actorUserId },
         select: { email: true, name: true, phone: true },

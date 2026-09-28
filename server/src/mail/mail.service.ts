@@ -23,13 +23,18 @@ export class MailService implements OnModuleInit {
     private readonly suppression: EmailSuppressionService,
     private readonly prisma: PrismaService,
   ) {
-    this.sendTimeoutMs = this.config.get<number>('MAIL_SEND_TIMEOUT_MS', 10_000);
+    this.sendTimeoutMs = this.config.get<number>(
+      'MAIL_SEND_TIMEOUT_MS',
+      10_000,
+    );
   }
 
   onModuleInit(): void {
     const from = this.config.get<string>('SES_FROM_EMAIL')?.trim();
     const sesKey = this.config.get<string>('AWS_SES_ACCESS_KEY_ID')?.trim();
-    const sesSecret = this.config.get<string>('AWS_SES_SECRET_ACCESS_KEY')?.trim();
+    const sesSecret = this.config
+      .get<string>('AWS_SES_SECRET_ACCESS_KEY')
+      ?.trim();
     const mailEnabledFlag = this.config.get<string>('MAIL_ENABLED');
     const enabled = this.isEnabled();
 
@@ -47,7 +52,9 @@ export class MailService implements OnModuleInit {
     if (this.config.get<string>('MAIL_ENABLED') === 'false') return false;
     const from = this.config.get<string>('SES_FROM_EMAIL')?.trim();
     const sesKey = this.config.get<string>('AWS_SES_ACCESS_KEY_ID')?.trim();
-    const sesSecret = this.config.get<string>('AWS_SES_SECRET_ACCESS_KEY')?.trim();
+    const sesSecret = this.config
+      .get<string>('AWS_SES_SECRET_ACCESS_KEY')
+      ?.trim();
     return Boolean(from && sesKey && sesSecret);
   }
 

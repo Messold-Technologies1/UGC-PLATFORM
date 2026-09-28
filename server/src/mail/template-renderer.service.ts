@@ -104,7 +104,10 @@ export class TemplateRendererService implements OnModuleInit {
    * templates supply only the body, and branding stays in one place.
    */
   wrapInShell(bodyHtml: string, context: EmailTemplateContext): string {
-    return this.shellTemplate({ ...this.withDefaults(context), body: bodyHtml });
+    return this.shellTemplate({
+      ...this.withDefaults(context),
+      body: bodyHtml,
+    });
   }
 
   /** Platform-wide defaults (platformName, logoUrl, frontendUrl) merged under a context. */

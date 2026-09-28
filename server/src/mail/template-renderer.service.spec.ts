@@ -50,7 +50,9 @@ describe('TemplateRendererService', () => {
   });
 
   it('renders the logo image when EMAIL_TEMPLATE_LOGO is set', () => {
-    const svc = build({ EMAIL_TEMPLATE_LOGO: 'https://cdn.gocollab.io/logo.png' });
+    const svc = build({
+      EMAIL_TEMPLATE_LOGO: 'https://cdn.gocollab.io/logo.png',
+    });
 
     const { html } = svc.render(EmailTemplateKey.PASSWORD_RESET, {
       recipientName: 'Mohit',

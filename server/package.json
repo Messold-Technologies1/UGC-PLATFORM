@@ -33,6 +33,7 @@
     "prisma:backfill:recompute-listing": "ts-node prisma/backfill-recompute-listing.ts",
     "prisma:backfill:building-profile-self-complete": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-building-profile-self-complete.ts",
     "prisma:backfill:go-live-policies-accepted": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-go-live-policies-accepted.ts",
+    "prisma:backfill:withdrawn-stage": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-withdrawn-stage.ts",
     "prisma:backfill:phone-verified": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-phone-verified.ts",
     "prisma:backfill:notification-preferences": "ts-node prisma/backfill-notification-preferences.ts",
     "prisma:backfill:resolve-dual-role-users": "ts-node prisma/backfill-resolve-dual-role-users.ts",

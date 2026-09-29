@@ -98,6 +98,7 @@ describe('Admin brand deactivate/activate (e2e)', () => {
             {} as never,
             {} as never,
             {} as never,
+            { emit: () => Promise.resolve() } as never,
             {} as never,
           ),
         inject: [PrismaService],

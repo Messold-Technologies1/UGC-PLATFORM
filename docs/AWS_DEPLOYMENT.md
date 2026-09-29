@@ -274,6 +274,30 @@ domain matters, and it is Redis's private domain, not the worker's. Point them a
 different instances and the worker drains a queue nobody fills — which looks
 exactly like the sleeping failure above.
 
+### If the service crashes at boot on `pino-pretty`
+
+```
+Error: unable to determine transport target for "pino-pretty"
+    at new PinoLogger (/app/node_modules/nestjs-pino/PinoLogger.js)
+```
+
+`pino-pretty` is a devDependency, so a production install omits it — and
+`NODE_ENV` decided whether to use it, which is a different question from whether
+it is installed. Railway sets `NODE_ENV=production` for the **build** (so
+`npm ci` prunes devDependencies) while a dev or staging service can still **run**
+with `NODE_ENV` unset or `development`. The logger then selected a transport that
+was not on disk and pino failed the boot inside DI, before anything could log
+why.
+
+Fixed in `src/logging/logging.module.ts` by resolving the module instead of
+inferring it from the environment: present → pretty, absent → JSON, never a
+crash. Reproduced and verified both ways (old code crashes with
+`pino-pretty` removed and `NODE_ENV` unset; current code boots past the logger).
+
+If you hit it on an older commit, the one-line unblock is to set
+`NODE_ENV=production` on that service — which is what a deployed environment
+should be anyway, with `LOG_LEVEL=debug` if you want dev verbosity.
+
 ### Migrations
 
 Run `prisma migrate deploy` from **one** service only — the API's start command
@@ -298,6 +322,7 @@ This is the same hazard `deploy.sh` avoids on EC2 with a one-shot container.
 | Compose brings both services up | ❌ not verified |
 | Deploy script end to end | ❌ not verified |
 | Worker starts with no HTTP listener (§8) | ✅ verified in source |
+| `pino-pretty` boot crash fixed (§8) | ✅ reproduced, fixed, re-run both ways |
 | Railway two-service setup (§8) | ❌ not verified — never deployed |
 | **Any queue job actually executing, anywhere** | ❌ **not verified — no Redis here** |
 

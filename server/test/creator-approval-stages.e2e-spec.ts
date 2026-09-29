@@ -198,6 +198,7 @@ describe('Creator approval stages without the shortlist (e2e)', () => {
               {} as never,
               {} as never,
               { notifyApproved: () => undefined } as never,
+              { emit: () => Promise.resolve() } as never,
               {} as never,
               { enabled: false } as never,
               {} as never,

@@ -39,20 +39,43 @@ Deploy with the flag unset. At this point:
 
 ```bash
 npx prisma migrate deploy          # the notification tables
-npm run prisma:seed:notification-templates
 ```
 
-The seeder imports the bundled `.hbs` files, splits the two stage templates,
-links each event to its template, and creates one immediate schedule row per
-event carrying **both** channels — reproducing today's behaviour, where every
-email fires its WhatsApp twin.
+**No seeding step.** `NotificationBootstrapService` runs on every boot: it syncs
+the event catalog, then imports the bundled `.hbs` files, splits the two stage
+templates, links each event to its template, and creates one immediate schedule
+row per event carrying **both** channels — reproducing today's behaviour, where
+every email fires its WhatsApp twin.
+
+It was a manual script, and the manual step is exactly what got missed: the
+admin template list came up empty on the first deploy while the renderer quietly
+fell back to the files on disk. Working, but uneditable.
+
+The import is idempotent and protects admin edits: a template with
+`updatedByUserId` set is never overwritten, and event links and schedule rows
+are only ever created, never rewritten. Both the API and the worker boot it, so
+it runs under a transaction-scoped advisory lock — whichever process arrives
+first does the work.
+
+To run the import by hand — to force a re-import without restarting, or against
+a database the app is not pointed at:
+
+```bash
+npm run notifications:import-templates
+```
+
+It calls the same service the boot path calls, so the two cannot drift. It runs
+from `dist` with plain node: the old `prisma:seed:notification-templates` went
+through `ts-node`, a devDependency that a production install prunes, so in a
+deployed container it died with `Cannot find module
+'ts-node/register/transpile-only'`. The old name still works as an alias.
 
 **Check:** 37 templates, 31 events, and a schedule row per event.
 
 ```sql
 SELECT count(*) FROM "NotificationTemplate";                  -- 37
 SELECT count(*) FROM "NotificationEvent" WHERE NOT deprecated; -- 31
-SELECT count(*) FROM "NotificationSchedule";                   -- 34
+SELECT count(*) FROM "NotificationSchedule";                   -- 36
 ```
 
 *(34 rather than 31: the two drips carry 4 and 3 rows.)*
@@ -106,8 +129,8 @@ offsets are unclaimed.
 received.**
 
 ```bash
-npm run prisma:backfill:notification-drip-log -- --dry-run   # counts only
-npm run prisma:backfill:notification-drip-log
+npm run notifications:backfill-drip-log -- --dry-run   # counts only
+npm run notifications:backfill-drip-log
 ```
 
 It turns each `completionReminder*At` and `resubmitReminder*At` stamp into a

@@ -20,7 +20,7 @@ import {
  * Idempotent: the unique constraint means re-running inserts nothing new.
  * Run it BEFORE setting NOTIFICATIONS_SENDING_ENABLED=true.
  *
- *   npm run prisma:backfill:notification-drip-log
+ *   npm run notifications:backfill-drip-log
  */
 
 const prisma = new PrismaClient();
@@ -144,7 +144,9 @@ async function backfillCompletion(): Promise<number> {
     }
 
     cursor = profiles[profiles.length - 1].id;
-    console.log(`  completion: ${profiles.length} profile(s), ${written} row(s)`);
+    console.log(
+      `  completion: ${profiles.length} profile(s), ${written} row(s)`,
+    );
   }
   return written;
 }
@@ -195,7 +197,9 @@ async function backfillResubmit(): Promise<number> {
     }
 
     cursor = approvals[approvals.length - 1].id;
-    console.log(`  resubmit: ${approvals.length} approval(s), ${written} row(s)`);
+    console.log(
+      `  resubmit: ${approvals.length} approval(s), ${written} row(s)`,
+    );
   }
   return written;
 }

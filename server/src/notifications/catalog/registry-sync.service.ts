@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { supportsDelay } from './define-events';
 import {
@@ -21,16 +21,17 @@ import {
  *
  * A key that disappears from the catalog is flagged `deprecated` rather than
  * deleted, because schedule rows and log entries still reference it.
+ *
+ * Called by {@link NotificationBootstrapService} rather than from its own
+ * `onModuleInit`, because the template import has to run strictly after it —
+ * templates link to events by key, so the rows must exist first. One ordered
+ * boot sequence says that explicitly instead of leaning on provider order.
  */
 @Injectable()
-export class NotificationRegistrySyncService implements OnModuleInit {
+export class NotificationRegistrySyncService {
   private readonly logger = new Logger(NotificationRegistrySyncService.name);
 
   constructor(private readonly prisma: PrismaService) {}
-
-  async onModuleInit(): Promise<void> {
-    await this.sync();
-  }
 
   async sync(): Promise<{ upserted: number; deprecated: number }> {
     let upserted = 0;

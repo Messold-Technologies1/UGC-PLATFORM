@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Handlebars from 'handlebars';
 import type { TemplateDelegate } from 'handlebars';
@@ -9,6 +9,7 @@ import {
   type EmailTemplateContext,
   type RenderedEmail,
 } from './mail.types';
+import { resolveMailTemplatesDir } from './templates-dir';
 
 /**
  * Every template the renderer compiles at boot.
@@ -31,8 +32,6 @@ type CompiledSet = {
   text: TemplateDelegate;
 };
 
-const TEMPLATE_MARKER = join('_partials', 'email-shell.html.hbs');
-
 @Injectable()
 export class TemplateRendererService implements OnModuleInit {
   private readonly logger = new Logger(TemplateRendererService.name);
@@ -43,7 +42,7 @@ export class TemplateRendererService implements OnModuleInit {
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
-    this.templatesDir = this.resolveTemplatesDir();
+    this.templatesDir = resolveMailTemplatesDir();
     this.logger.log(`mail templates loaded from ${this.templatesDir}`);
 
     // `concat` lets a partial hash argument carry an interpolated string —
@@ -139,24 +138,5 @@ export class TemplateRendererService implements OnModuleInit {
 
   private compileFile(path: string): TemplateDelegate {
     return Handlebars.compile(readFileSync(path, 'utf8'));
-  }
-
-  /**
-   * Prefer compiled `dist/mail/templates`. In `start:dev`, SWC can boot before
-   * Nest copies assets; fall back to `src/mail/templates` when dist is empty.
-   */
-  private resolveTemplatesDir(): string {
-    const candidates = [
-      join(__dirname, 'templates'),
-      join(process.cwd(), 'src', 'mail', 'templates'),
-    ];
-    for (const dir of candidates) {
-      if (existsSync(join(dir, TEMPLATE_MARKER))) {
-        return dir;
-      }
-    }
-    throw new Error(
-      `Mail templates not found. Expected ${TEMPLATE_MARKER} under one of: ${candidates.join(', ')}`,
-    );
   }
 }

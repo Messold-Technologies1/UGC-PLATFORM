@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplatesQuery } from "@/features/notifications/hooks/use-notifications";
 
 export default function NotificationTemplatesPage() {
-  const { data: templates, isLoading } = useTemplatesQuery();
+  const { data: templates, isLoading, isError } = useTemplatesQuery();
+  const isEmpty = !isLoading && !isError && templates?.length === 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
@@ -23,6 +24,24 @@ export default function NotificationTemplatesPage() {
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-14 w-full" />
           ))}
+        </div>
+      ) : isError ? (
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <p className="text-sm font-medium">Could not load templates</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            The notifications API did not respond. Check the server logs.
+          </p>
+        </div>
+      ) : isEmpty ? (
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <FileText className="text-muted-foreground mx-auto h-6 w-6" />
+          <p className="mt-3 text-sm font-medium">No templates yet</p>
+          <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
+            The bundled email templates are imported into the database when the
+            server starts. An empty list means that import has not run against
+            this environment yet — redeploy, or check the server logs for
+            &quot;notification templates imported&quot;.
+          </p>
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">

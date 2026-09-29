@@ -1,6 +1,7 @@
 import { Global, Module, forwardRef } from '@nestjs/common';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { BrandAccessModule } from '../brand-access/brand-access.module';
+import { NotificationBootstrapService } from './notifications-bootstrap.service';
 import { NotificationRegistrySyncService } from './catalog/registry-sync.service';
 import { NotificationDispatchService } from './dispatch/notification-dispatch.service';
 import { NotificationEventsService } from './dispatch/notification-events.service';
@@ -10,6 +11,7 @@ import { NotificationBackstopService } from './dispatch/notification-backstop.se
 import { NotificationLogService } from './log/notification-log.service';
 import { NotificationQueueService } from './queues/notification-queue.service';
 import { NotificationTemplateRenderer } from './rendering/notification-template-renderer.service';
+import { NotificationTemplateImportService } from './rendering/template-import.service';
 import { TemplateValidatorService } from './rendering/template-validator.service';
 import { NotificationsAdminController } from './admin/notifications-admin.controller';
 import { NotificationsAdminService } from './admin/notifications-admin.service';
@@ -36,7 +38,9 @@ import { NotificationsAdminService } from './admin/notifications-admin.service';
   imports: [BrandAccessModule, forwardRef(() => AuthGuardsModule)],
   controllers: [NotificationsAdminController],
   providers: [
+    NotificationBootstrapService,
     NotificationRegistrySyncService,
+    NotificationTemplateImportService,
     NotificationTemplateRenderer,
     TemplateValidatorService,
     NotificationsAdminService,

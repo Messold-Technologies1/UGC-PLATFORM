@@ -39,20 +39,34 @@ Deploy with the flag unset. At this point:
 
 ```bash
 npx prisma migrate deploy          # the notification tables
-npm run prisma:seed:notification-templates
 ```
 
-The seeder imports the bundled `.hbs` files, splits the two stage templates,
-links each event to its template, and creates one immediate schedule row per
-event carrying **both** channels — reproducing today's behaviour, where every
-email fires its WhatsApp twin.
+**No seeding step.** `NotificationBootstrapService` runs on every boot: it syncs
+the event catalog, then imports the bundled `.hbs` files, splits the two stage
+templates, links each event to its template, and creates one immediate schedule
+row per event carrying **both** channels — reproducing today's behaviour, where
+every email fires its WhatsApp twin.
+
+It was a manual script, and the manual step is exactly what got missed: the
+admin template list came up empty on the first deploy while the renderer quietly
+fell back to the files on disk. Working, but uneditable.
+
+The import is idempotent and protects admin edits: a template with
+`updatedByUserId` set is never overwritten, and event links and schedule rows
+are only ever created, never rewritten. Both the API and the worker boot it, so
+it runs under a transaction-scoped advisory lock — whichever process arrives
+first does the work.
+
+`npm run prisma:seed:notification-templates` still exists for running the import
+by hand against a database the app is not pointed at. It shares its logic with
+the boot path, so the two cannot drift.
 
 **Check:** 37 templates, 31 events, and a schedule row per event.
 
 ```sql
 SELECT count(*) FROM "NotificationTemplate";                  -- 37
 SELECT count(*) FROM "NotificationEvent" WHERE NOT deprecated; -- 31
-SELECT count(*) FROM "NotificationSchedule";                   -- 34
+SELECT count(*) FROM "NotificationSchedule";                   -- 36
 ```
 
 *(34 rather than 31: the two drips carry 4 and 3 rows.)*

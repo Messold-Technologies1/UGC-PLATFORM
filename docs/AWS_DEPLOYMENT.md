@@ -6,6 +6,9 @@ deploy and is not covered here.
 You are already largely on AWS — S3 for media, SES for email, CloudFront for
 `CDN_BASE_URL`. This moves compute onto EC2 alongside them.
 
+If you need the notification worker running **before** the EC2 move, or you
+decide to stay on Railway, skip to §8 — the process split works there too.
+
 > **Nothing here has been executed.** The Dockerfile, compose file and deploy
 > script are written and the build steps they depend on are verified locally
 > (`npm ci` with placeholder database variables, `npm run build` producing
@@ -218,6 +221,72 @@ looks perfectly healthy.
 
 ---
 
+## 8 · Interim: running the worker on Railway
+
+The two-process split is a **code** change, not an AWS one. If you want the
+notification worker running before the EC2 move — or you stay on Railway —
+Railway supports it fine. Add a **second service pointed at the same repo** and
+change one thing: the start command.
+
+| | `api` service | `worker` service |
+|---|---|---|
+| Root directory | `server` | `server` |
+| Build | default | default (identical) |
+| Start command | `npm run start:prod` | `npm run start:worker` |
+| `BULLMQ_WORKER_ENABLED` | `false` | `true` |
+| Public domain | yes | **none** |
+| Health check path | `/api/health` | **leave empty** |
+| App sleeping / serverless | off | **off** |
+
+### The worker needs no domain
+
+`src/main.worker.ts` calls `NestFactory.createApplicationContext`, not `create`.
+There is no HTTP server, no `listen()`, no port — only `src/main.ts` binds one.
+The worker dials *outward* to Postgres and Redis; nothing ever dials *in*. A
+Railway domain exists so traffic can reach a service, so there is nothing here to
+attach one to. Railway will still inject `PORT`; the worker ignores it.
+
+### The two settings that break it silently
+
+**Leave the health check path empty.** Railway health checks are HTTP GETs.
+Pointed at a process with no server, every deploy fails its check and
+restart-loops. This is the most common way a Railway worker is broken.
+
+**Turn App Sleeping off.** Sleeping is driven by inbound HTTP activity, and a
+service that never receives any looks permanently idle. It sleeps, nothing wakes
+it, and the queues simply stop draining — no error, no alarm, delayed sends
+piling up unfired. The API stays green throughout.
+
+Both failures share the shape called out in §7: the worker serves no traffic, so
+nothing notices when it stops. On Railway, watch its deploy logs for the
+`notification worker started` line and alarm on the service restarting.
+
+### Environment
+
+Give the worker the **full** variable set, not a subset — it is the process that
+actually sends, so it needs the SES and WhatsApp credentials, `DATABASE_URL` /
+`DIRECT_URL`, `REDIS_URL` and `NOTIFICATIONS_SENDING_ENABLED` exactly as the API
+has them. Use Railway shared variables rather than two copies that drift.
+
+`REDIS_URL` must resolve to the **same** Redis instance for both services, over
+Railway's private network (`redis.railway.internal`). This is the one place a
+domain matters, and it is Redis's private domain, not the worker's. Point them at
+different instances and the worker drains a queue nobody fills — which looks
+exactly like the sleeping failure above.
+
+### Migrations
+
+Run `prisma migrate deploy` from **one** service only — the API's start command
+or a release step. If both run it at boot they race on the advisory lock and one
+fails the deploy. Leave the worker's start command as bare `npm run start:worker`.
+This is the same hazard `deploy.sh` avoids on EC2 with a one-shot container.
+
+> When you move to AWS this section becomes moot: `docker-compose.yml` already
+> defines both services off one image, which is strictly better than two Railway
+> services that can drift in build or environment.
+
+---
+
 ## What is verified, and what is not
 
 | | |
@@ -228,6 +297,9 @@ looks perfectly healthy.
 | Docker image builds | ❌ **not verified — no daemon here** |
 | Compose brings both services up | ❌ not verified |
 | Deploy script end to end | ❌ not verified |
+| Worker starts with no HTTP listener (§8) | ✅ verified in source |
+| Railway two-service setup (§8) | ❌ not verified — never deployed |
+| **Any queue job actually executing, anywhere** | ❌ **not verified — no Redis here** |
 
 Build the image locally once before you trust any of it:
 

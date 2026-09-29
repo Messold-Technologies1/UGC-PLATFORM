@@ -2,10 +2,12 @@
  * Run-once backfill for creator video normalization (portfolio + intro).
  *
  * Transcodes every portfolio/intro video that isn't already a web-safe H.264/AAC
- * MP4 (downscaled + faststart, audio kept) and swaps it in place, so raw
- * HEVC/.mov uploads stop rendering black-with-audio in the drawer/profile.
- * Idempotent and safe to re-run: already-web-safe files are skipped, each row is
- * claimed atomically, and a failed row is retried on a re-run or by the cron.
+ * MP4 (faststart, audio kept, source resolution preserved) and swaps it in
+ * place, so raw HEVC/.mov uploads stop rendering black-with-audio in the
+ * drawer/profile. Already-web-safe files keep their bytes, but are remuxed
+ * (stream copy) when their moov atom sits after mdat.
+ * Idempotent and safe to re-run: each row is claimed atomically, and a failed
+ * row is retried on a re-run or by the cron.
  *
  * Usage (from server/):
  *   # production (the deployed image already has dist/):
@@ -15,7 +17,9 @@
  *
  * Env:
  *   NORMALIZE_BACKFILL_BATCH  rows fetched per page (default 25)
- *   PORTFOLIO_MAX_HEIGHT      downscale cap (default 720)
+ *   PORTFOLIO_MAX_HEIGHT      optional downscale cap; unset = keep source resolution
+ *   PORTFOLIO_VIDEO_CRF       x264 quality, lower is better (default 20)
+ *   PORTFOLIO_VIDEO_PRESET    x264 preset (default veryfast)
  *   FFMPEG_PATH               system ffmpeg (required on Alpine/musl)
  *   BULLMQ_WORKER_ENABLED     set 'false' so the script doesn't also start the
  *                             BullMQ worker — it encodes inline itself

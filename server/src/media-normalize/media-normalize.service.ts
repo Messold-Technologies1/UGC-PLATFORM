@@ -14,11 +14,83 @@ import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.s
 const ffmpegPath: string =
   process.env.FFMPEG_PATH || (ffmpegStatic as unknown as string) || 'ffmpeg';
 
-/** Max height for the normalized "full" video. The drawer tiles are small, so
- *  720p is plenty; configurable. */
-function maxHeight(): number {
-  const v = Number(process.env.PORTFOLIO_MAX_HEIGHT);
-  return Number.isFinite(v) && v >= 240 ? Math.floor(v) : 720;
+/**
+ * Optional height cap for the normalized "full" video, or null to keep the
+ * source resolution (the default).
+ *
+ * This used to default to 720, which visibly softened the 1080p reels creators
+ * upload — the drawer and public profile play them full-bleed, not as small
+ * tiles. Portfolio quality is the product, so the cap is now opt-in: set
+ * PORTFOLIO_MAX_HEIGHT to re-enable downscaling (e.g. to claw back bandwidth).
+ */
+function maxHeight(): number | null {
+  const raw = process.env.PORTFOLIO_MAX_HEIGHT?.trim();
+  if (!raw) return null;
+  const v = Number(raw);
+  return Number.isFinite(v) && v >= 240 ? Math.floor(v) : null;
+}
+
+/**
+ * x264 quality for the compatibility transcode. Lower = better, ~18-23 is the
+ * visually-transparent range. The old value of 26 was tuned when output was
+ * always downscaled to 720p, where softness was partly masked by the downscale;
+ * at full resolution it is not.
+ */
+function videoCrf(): number {
+  const v = Number(process.env.PORTFOLIO_VIDEO_CRF);
+  return Number.isFinite(v) && v >= 0 && v <= 51 ? Math.floor(v) : 20;
+}
+
+/**
+ * x264 preset. Affects compression *efficiency*, not quality — at a fixed CRF a
+ * slower preset yields a smaller file for the same picture. Left at `veryfast`
+ * because the BullMQ workers currently share a container with the API; once the
+ * worker is split out, `medium` cuts roughly 20-30% off the file size.
+ */
+function videoPreset(): string {
+  return process.env.PORTFOLIO_VIDEO_PRESET?.trim() || 'veryfast';
+}
+
+/**
+ * Top-level MP4/MOV atom types, in file order. Used to tell whether `moov`
+ * precedes `mdat` (i.e. the file is already "faststart"). Bounded so a
+ * malformed or non-ISOBMFF file can't spin here.
+ */
+function topLevelAtoms(buf: Buffer): string[] {
+  const out: string[] = [];
+  let off = 0;
+  while (off + 8 <= buf.length && out.length < 32) {
+    let size = buf.readUInt32BE(off);
+    const type = buf.toString('latin1', off + 4, off + 8);
+    // Anything that isn't four printable ASCII chars means we've lost sync.
+    if (!/^[\x20-\x7e]{4}$/.test(type)) break;
+    out.push(type);
+    if (size === 1) {
+      // 64-bit extended size follows the type.
+      if (off + 16 > buf.length) break;
+      size = buf.readUInt32BE(off + 8) * 2 ** 32 + buf.readUInt32BE(off + 12);
+    } else if (size === 0) {
+      break; // runs to EOF — nothing after it
+    }
+    if (size < 8) break;
+    off += size;
+  }
+  return out;
+}
+
+/**
+ * True when playback can begin before the whole file is downloaded, i.e. `moov`
+ * comes before `mdat`. A recorder that writes `moov` last (most phone cameras,
+ * and anything not muxed with `+faststart`) forces the browser to fetch to the
+ * end of the file before it can show frame one — on a multi-hundred-MB upload
+ * that reads as "the video never loads".
+ */
+function hasFaststart(buf: Buffer): boolean {
+  const atoms = topLevelAtoms(buf);
+  const moov = atoms.indexOf('moov');
+  const mdat = atoms.indexOf('mdat');
+  if (moov === -1 || mdat === -1) return false;
+  return moov < mdat;
 }
 
 interface ProbeResult {
@@ -32,11 +104,18 @@ interface ProbeResult {
  * so every browser can play them in the drawer / public profile. Raw uploads are
  * often HEVC/.mov (iPhone), which some browsers render black-with-audio.
  *
- * For each video: probe → if not already H.264/AAC MP4 within the height cap,
- * transcode (downscale + faststart, **audio kept**) → write to a new S3 key →
- * repoint the DB row → delete the original. A new key (not an in-place overwrite)
- * is used so the CDN/browser cache serves the fixed file immediately. After a
- * swap the card preview is re-triggered, since its source key changed.
+ * For each video: probe → if not already a web-safe H.264/AAC MP4, transcode
+ * (**audio kept**, source resolution preserved unless PORTFOLIO_MAX_HEIGHT is
+ * set) → write to a new S3 key → repoint the DB row → delete the original. A new
+ * key (not an in-place overwrite) is used so the CDN/browser cache serves the
+ * fixed file immediately. After a swap the card preview is re-triggered, since
+ * its source key changed.
+ *
+ * A source that is already web-safe is left at its original bytes, with one
+ * exception: if its `moov` atom sits after `mdat` it is remuxed (`-c copy`, so
+ * the picture is bit-identical) to move `moov` to the front. Without that, a
+ * large pass-through upload can only start playing once it has downloaded
+ * almost completely.
  */
 @Injectable()
 export class MediaNormalizeService {
@@ -181,12 +260,19 @@ export class MediaNormalizeService {
       const probe = await this.probe(inPath);
 
       if (!this.needsNormalize(ext, probe)) {
-        return null; // already H.264/AAC MP4 within the cap — leave it alone
+        // Already web-safe. Leave the bytes alone unless the moov atom is at the
+        // end, in which case remux (stream copy — no re-encode, so no quality
+        // change) purely to move it to the front.
+        if (hasFaststart(source)) return null;
+        this.logger.log(
+          `normalize: ${sourceKey} is web-safe but not faststart — remuxing (stream copy)`,
+        );
+        await this.remuxFaststart(inPath, outPath);
+      } else {
+        await this.transcode(inPath, outPath, {
+          keepAudio: opts.keepAudio && probe.audioCodec !== null,
+        });
       }
-
-      await this.transcode(inPath, outPath, {
-        keepAudio: opts.keepAudio && probe.audioCodec !== null,
-      });
       const out = await readFile(outPath);
       const key = `${opts.destPrefix}/${randomUUID()}.mp4`;
       await this.storage.putObjectBuffer({
@@ -200,12 +286,14 @@ export class MediaNormalizeService {
     }
   }
 
-  /** Already web-safe if it's an .mp4 whose video is H.264, height within the
-   *  cap, and audio (if any) is AAC. Anything else gets transcoded. */
+  /** Already web-safe if it's an .mp4 whose video is H.264 and whose audio (if
+   *  any) is AAC. Height only disqualifies a file when a cap is configured —
+   *  by default the source resolution is kept. Anything else gets transcoded. */
   private needsNormalize(ext: string, probe: ProbeResult): boolean {
     if (ext !== 'mp4') return true;
     if (probe.videoCodec !== 'h264') return true;
-    if (probe.height != null && probe.height > maxHeight()) return true;
+    const cap = maxHeight();
+    if (cap != null && probe.height != null && probe.height > cap) return true;
     if (probe.audioCodec != null && probe.audioCodec !== 'aac') return true;
     return false;
   }
@@ -228,18 +316,19 @@ export class MediaNormalizeService {
     outPath: string,
     opts: { keepAudio: boolean },
   ): Promise<void> {
+    const cap = maxHeight();
     const args = [
       '-y',
       '-i',
       inPath,
-      '-vf',
-      `scale=-2:'min(${maxHeight()},ih)'`,
+      // Only scale when a cap is configured; `min(cap,ih)` never upscales.
+      ...(cap != null ? ['-vf', `scale=-2:'min(${cap},ih)'`] : []),
       '-c:v',
       'libx264',
       '-preset',
-      'veryfast',
+      videoPreset(),
       '-crf',
-      '26',
+      String(videoCrf()),
       '-pix_fmt',
       'yuv420p',
       ...(opts.keepAudio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an']),
@@ -251,6 +340,29 @@ export class MediaNormalizeService {
     if (code !== 0) {
       throw new Error(
         `ffmpeg exited with code ${code}: ${stderr.slice(-2000)}`,
+      );
+    }
+  }
+
+  /**
+   * Rewrite the container with `moov` in front, copying both streams verbatim.
+   * No decode/encode happens, so the result is bit-identical in picture and
+   * sound to the source — this only changes where the index lives.
+   */
+  private async remuxFaststart(inPath: string, outPath: string): Promise<void> {
+    const { code, stderr } = await this.runFfmpegCapture([
+      '-y',
+      '-i',
+      inPath,
+      '-c',
+      'copy',
+      '-movflags',
+      '+faststart',
+      outPath,
+    ]);
+    if (code !== 0) {
+      throw new Error(
+        `ffmpeg faststart remux exited with code ${code}: ${stderr.slice(-2000)}`,
       );
     }
   }

@@ -101,7 +101,7 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
     };
   }
 
-  it('transcodes a raw HEVC/.mov upload to a web-safe H.264/AAC MP4 (audio kept, ≤720p, faststart)', async () => {
+  it('transcodes a raw HEVC/.mov upload to a web-safe H.264/AAC MP4 (audio kept, source resolution preserved, faststart)', async () => {
     // 1080x1920 HEVC .mov WITH audio — the classic black-with-audio source.
     const sample = await generate([
       '-f',
@@ -139,7 +139,8 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
     expect(atoms.indexOf('moov')).toBeGreaterThanOrEqual(0);
     expect(atoms.indexOf('moov')).toBeLessThan(atoms.indexOf('mdat'));
 
-    // Probe the output: H.264 video, AAC audio kept, height ≤ 720.
+    // Probe the output: H.264 video, AAC audio kept, and the full 1080x1920
+    // source resolution retained (no downscale — that's the point).
     const dir = await mkdtemp(join(tmpdir(), 'mn-out-'));
     const outPath = join(dir, 'out.mp4');
     try {
@@ -149,7 +150,8 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
       expect(stderr).toMatch(/Audio:\s*aac/i);
       const res = /,\s(\d+)x(\d+)/.exec(stderr);
       expect(res).not.toBeNull();
-      expect(Number(res![2])).toBeLessThanOrEqual(720);
+      expect(Number(res![1])).toBe(1080);
+      expect(Number(res![2])).toBe(1920);
     } finally {
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     }
@@ -213,5 +215,105 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
       data: Record<string, unknown>;
     };
     expect(call.data.videoKey).toBeUndefined();
+  });
+
+  it('remuxes a web-safe MP4 whose moov is at the end, keeping resolution', async () => {
+    // 1080x1920 H.264 + AAC, but muxed WITHOUT +faststart, so moov trails mdat.
+    // Nothing about the picture needs fixing — only the atom order, which would
+    // otherwise force the browser to fetch the whole file before frame one.
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=1080x1920:rate=30:duration=1',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=1000:duration=1',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-c:a',
+      'aac',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping faststart remux test');
+      return;
+    }
+    // Guard the premise: the source really must have moov after mdat.
+    const srcAtoms = topLevelAtoms(sample);
+    expect(srcAtoms.indexOf('moov')).toBeGreaterThan(srcAtoms.indexOf('mdat'));
+
+    const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+    h.storageMock.getObjectBuffer.mockResolvedValue(sample);
+
+    await h.service.normalizePortfolioVideo('v1');
+
+    expect(h.storageMock.putObjectBuffer).toHaveBeenCalledTimes(1);
+    const out = h.uploaded as unknown as Buffer;
+    const atoms = topLevelAtoms(out);
+    expect(atoms.indexOf('moov')).toBeLessThan(atoms.indexOf('mdat'));
+
+    // Stream copy — the full resolution survives the remux untouched.
+    const dir = await mkdtemp(join(tmpdir(), 'mn-remux-'));
+    const outPath = join(dir, 'out.mp4');
+    try {
+      await writeFile(outPath, out);
+      const { stderr } = await runFfmpeg(['-hide_banner', '-i', outPath]);
+      const res = /,\s(\d+)x(\d+)/.exec(stderr);
+      expect(res).not.toBeNull();
+      expect(Number(res![1])).toBe(1080);
+      expect(Number(res![2])).toBe(1920);
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
+  it('still downscales when PORTFOLIO_MAX_HEIGHT is set (opt-in escape hatch)', async () => {
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=1080x1920:rate=30:duration=1',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping height-cap test');
+      return;
+    }
+
+    const prev = process.env.PORTFOLIO_MAX_HEIGHT;
+    process.env.PORTFOLIO_MAX_HEIGHT = '720';
+    try {
+      const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+      h.storageMock.getObjectBuffer.mockResolvedValue(sample);
+
+      await h.service.normalizePortfolioVideo('v1');
+
+      expect(h.storageMock.putObjectBuffer).toHaveBeenCalledTimes(1);
+      const out = h.uploaded as unknown as Buffer;
+      const dir = await mkdtemp(join(tmpdir(), 'mn-cap-'));
+      const outPath = join(dir, 'out.mp4');
+      try {
+        await writeFile(outPath, out);
+        const { stderr } = await runFfmpeg(['-hide_banner', '-i', outPath]);
+        const res = /,\s(\d+)x(\d+)/.exec(stderr);
+        expect(res).not.toBeNull();
+        expect(Number(res![2])).toBe(720);
+      } finally {
+        await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+      }
+    } finally {
+      if (prev === undefined) delete process.env.PORTFOLIO_MAX_HEIGHT;
+      else process.env.PORTFOLIO_MAX_HEIGHT = prev;
+    }
   });
 });

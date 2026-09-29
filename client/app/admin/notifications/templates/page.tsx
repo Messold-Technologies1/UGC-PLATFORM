@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplatesQuery } from "@/features/notifications/hooks/use-notifications";
 
@@ -12,11 +13,19 @@ export default function NotificationTemplatesPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Email templates</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          WhatsApp copy lives in WhatsApp Manager; only email is edited here.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Email templates</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            WhatsApp copy lives in WhatsApp Manager; only email is edited here.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/admin/notifications/templates/new">
+            <Plus className="mr-1 h-4 w-4" />
+            New template
+          </Link>
+        </Button>
       </header>
 
       {isLoading ? (
@@ -42,6 +51,12 @@ export default function NotificationTemplatesPage() {
             this environment yet — redeploy, or check the server logs for
             &quot;notification templates imported&quot;.
           </p>
+          <Button asChild variant="outline" className="mt-4">
+            <Link href="/admin/notifications/templates/new">
+              <Plus className="mr-1 h-4 w-4" />
+              New template
+            </Link>
+          </Button>
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">

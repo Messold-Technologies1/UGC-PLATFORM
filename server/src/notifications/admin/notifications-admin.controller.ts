@@ -26,6 +26,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { NotificationsAdminService } from './notifications-admin.service';
 import {
   BackfillDto,
+  DeriveTextDto,
+  PreviewDraftDto,
   PreviewTemplateDto,
   ReplaceScheduleDto,
   SaveTemplateDto,
@@ -158,7 +160,41 @@ export class NotificationsAdminController {
     description: 'Rendered subject, html and text plus the context used.',
   })
   preview(@Param('id') id: string, @Body() dto: PreviewTemplateDto) {
-    return this.service.preview(id, dto.eventKey);
+    return this.service.preview(id, dto.eventKey, {
+      subjectHbs: dto.subjectHbs,
+      htmlHbs: dto.htmlHbs,
+      textHbs: dto.textHbs,
+    });
+  }
+
+  @Post('templates/preview')
+  @ApiOperation({
+    summary: 'Render draft content for a template that has no row yet',
+    description:
+      'Same rendering as the saved preview, for the create form. Variables ' +
+      'resolve from the name being typed.',
+  })
+  previewDraft(@Body() dto: PreviewDraftDto) {
+    return this.service.previewDraft(
+      dto.name,
+      {
+        subjectHbs: dto.subjectHbs,
+        htmlHbs: dto.htmlHbs,
+        textHbs: dto.textHbs,
+      },
+      dto.eventKey,
+    );
+  }
+
+  @Post('templates/derive-text')
+  @ApiOperation({
+    summary: 'Plain-text template implied by a block of HTML',
+    description:
+      'Used by the editor to keep the plain-text part in step with the HTML, ' +
+      'including for a template that does not exist yet.',
+  })
+  deriveText(@Body() dto: DeriveTextDto) {
+    return this.service.deriveText(dto.htmlHbs);
   }
 
   @Get('templates/:id/versions')

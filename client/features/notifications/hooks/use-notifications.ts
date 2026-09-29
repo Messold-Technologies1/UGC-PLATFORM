@@ -8,6 +8,8 @@ import {
   fetchTemplate,
   fetchTemplateVersions,
   fetchTemplates,
+  deriveTemplateText,
+  previewDraftTemplate,
   previewTemplate,
   replaceSchedule,
   revertTemplate,
@@ -15,7 +17,7 @@ import {
   sweepEvent,
   updateEvent,
 } from "../api/notifications-api";
-import type { SaveTemplateInput, ScheduleRow } from "../types";
+import type { SaveTemplateInput, ScheduleRow, TemplateDraft } from "../types";
 
 export const notificationKeys = {
   events: ["admin", "notifications", "events"] as const,
@@ -117,8 +119,19 @@ export function useSaveTemplateMutation(id: string | null) {
 
 export function useTemplatePreviewMutation(id: string) {
   return useMutation({
-    mutationFn: (eventKey?: string) => previewTemplate(id, eventKey),
+    mutationFn: (args?: { eventKey?: string; draft?: TemplateDraft }) =>
+      previewTemplate(id, args?.eventKey, args?.draft),
   });
+}
+
+/** Derives the plain-text part from HTML, for a template that may not exist yet. */
+export function useDeriveTextMutation() {
+  return useMutation({ mutationFn: deriveTemplateText });
+}
+
+/** Live preview for the create form, which has no template id to preview. */
+export function useDraftPreviewMutation() {
+  return useMutation({ mutationFn: previewDraftTemplate });
 }
 
 export function useTemplateVersionsQuery(id: string | null) {

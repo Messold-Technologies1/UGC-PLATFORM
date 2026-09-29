@@ -66,7 +66,21 @@ function build(overrides: { supportsDelay?: boolean; eventKey?: string } = {}) {
   };
 
   const queues = { enqueueStep: jest.fn().mockResolvedValue(undefined) };
-  const renderer = { invalidate: jest.fn(), render: jest.fn() };
+  const renderer = {
+    invalidate: jest.fn(),
+    render: jest.fn().mockResolvedValue({
+      subject: 'stored',
+      html: '<p>stored</p>',
+      text: 'stored',
+      source: 'db',
+      templateId: 't1',
+    }),
+    renderDraft: jest.fn().mockReturnValue({
+      subject: 'draft',
+      html: '<p>draft</p>',
+      text: 'draft',
+    }),
+  };
 
   const sweeps = {
     preview: jest.fn().mockResolvedValue({ scanned: 0, wouldSend: 0 }),
@@ -302,5 +316,87 @@ describe('sweepPopulation', () => {
     await expect(
       service.sweepPopulation('order-content-delivered-for-brand', true),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('preview', () => {
+  it('renders the stored template when no draft is sent', async () => {
+    const { service, renderer } = build();
+
+    const out = await service.preview('t1');
+
+    expect(renderer.render).toHaveBeenCalled();
+    expect(renderer.renderDraft).not.toHaveBeenCalled();
+    expect(out.subject).toBe('stored');
+  });
+
+  it('renders the draft instead, so the editor previews unsaved edits', async () => {
+    const { service, renderer } = build();
+
+    const out = await service.preview('t1', undefined, {
+      subjectHbs: 'Hi {{recipientName}}',
+      htmlHbs: '<p>draft body</p>',
+      textHbs: null,
+    });
+
+    expect(renderer.render).not.toHaveBeenCalled();
+    expect(renderer.renderDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ htmlHbs: '<p>draft body</p>' }),
+    );
+    expect(out.source).toBe('draft');
+  });
+
+  it('derives the plain-text template from whichever HTML it rendered', async () => {
+    const { service } = build();
+
+    const stored = await service.preview('t1');
+    expect(stored.derivedTextHbs).toBe('old');
+
+    const draft = await service.preview('t1', undefined, {
+      subjectHbs: 's',
+      htmlHbs: '<p>draft body</p>',
+    });
+    expect(draft.derivedTextHbs).toBe('draft body');
+  });
+
+  it('renders every variable with its declared example, never real data', async () => {
+    const { service, renderer } = build();
+
+    await service.preview('t1', undefined, {
+      subjectHbs: 's',
+      htmlHbs: '<p>x</p>',
+    });
+
+    const context = (
+      renderer.renderDraft.mock.calls[0] as [{ context: unknown }]
+    )[0].context;
+    expect(context).toEqual(expect.any(Object));
+  });
+});
+
+describe('previewDraft', () => {
+  it('renders content for a template that has no row yet', async () => {
+    const { service, renderer } = build();
+
+    const out = await service.previewDraft('brand-welcome', {
+      subjectHbs: 'Hi',
+      htmlHbs: '<p>new body</p>',
+    });
+
+    expect(renderer.renderDraft).toHaveBeenCalled();
+    expect(out.templateId).toBeNull();
+    expect(out.derivedTextHbs).toBe('new body');
+  });
+});
+
+describe('deriveText', () => {
+  it('turns the action button into the line the plain-text files use', () => {
+    const { service } = build();
+
+    expect(
+      service.deriveText(
+        '{{> actionButton url=actionUrl label="Review order \u2192"}}',
+      ),
+    ).toEqual({ textHbs: 'Review order: {{actionUrl}}' });
   });
 });

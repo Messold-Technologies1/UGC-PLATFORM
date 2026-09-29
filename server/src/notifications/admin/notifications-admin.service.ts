@@ -16,6 +16,7 @@ import {
 import type { NotificationVarSpec } from '../catalog/define-events';
 import { TemplateValidatorService } from '../rendering/template-validator.service';
 import { NotificationTemplateRenderer } from '../rendering/notification-template-renderer.service';
+import { deriveTextHbs } from '../rendering/derive-text';
 import { NotificationQueueService } from '../queues/notification-queue.service';
 import { NotificationSweepService } from '../dispatch/notification-sweep.service';
 import type {
@@ -461,8 +462,22 @@ export class NotificationsAdminService {
     );
   }
 
-  /** Render with the event's declared examples, so nothing real is needed. */
-  async preview(id: string, eventKey?: string) {
+  /**
+   * Render with the event's declared examples, so nothing real is needed.
+   *
+   * With `draft` content the editor previews what is on screen rather than
+   * what is stored, which is what makes the preview live. Drafts render through
+   * `renderDraft`, which never touches the cache the send path reads.
+   *
+   * `derivedTextHbs` comes back either way: it is the plain-text *template*
+   * that the HTML implies, which the editor offers when the admin has not
+   * written one by hand.
+   */
+  async preview(
+    id: string,
+    eventKey?: string,
+    draft?: { subjectHbs?: string; htmlHbs?: string; textHbs?: string | null },
+  ) {
     const template = await this.getTemplate(id);
     const vars = await this.varsForTemplate(id, eventKey ?? template.name);
 
@@ -471,12 +486,67 @@ export class NotificationsAdminService {
       context[name] = spec.example;
     }
 
+    const htmlHbs = draft?.htmlHbs ?? template.htmlHbs;
+    const usingDraft =
+      draft?.subjectHbs !== undefined || draft?.htmlHbs !== undefined;
+
+    if (usingDraft) {
+      const rendered = this.renderer.renderDraft({
+        subjectHbs: draft?.subjectHbs ?? template.subjectHbs,
+        htmlHbs,
+        textHbs: draft?.textHbs ?? null,
+        context,
+      });
+      return {
+        ...rendered,
+        source: 'draft' as const,
+        templateId: id,
+        context,
+        derivedTextHbs: deriveTextHbs(htmlHbs),
+      };
+    }
+
     const rendered = await this.renderer.render({
       templateId: id,
       templateName: eventKey ?? template.name,
       context,
     });
-    return { ...rendered, context };
+    return { ...rendered, context, derivedTextHbs: deriveTextHbs(htmlHbs) };
+  }
+
+  /**
+   * Renders draft content for a template that does not exist yet, so the create
+   * form gets the same live preview as the editor. Variables resolve from the
+   * name the admin is typing, which is how a seeded template lines up with its
+   * event.
+   */
+  async previewDraft(
+    name: string,
+    draft: { subjectHbs: string; htmlHbs: string; textHbs?: string | null },
+    eventKey?: string,
+  ) {
+    const vars = await this.varsForTemplate(null, eventKey ?? name);
+    const context: Record<string, string> = {};
+    for (const [varName, spec] of Object.entries(vars)) {
+      context[varName] = spec.example;
+    }
+
+    const rendered = this.renderer.renderDraft({ ...draft, context });
+    return {
+      ...rendered,
+      source: 'draft' as const,
+      templateId: null,
+      context,
+      derivedTextHbs: deriveTextHbs(draft.htmlHbs),
+    };
+  }
+
+  /**
+   * The plain-text template a block of HTML implies, with no template row
+   * needed — the create form has nothing to look up yet.
+   */
+  deriveText(htmlHbs: string): { textHbs: string } {
+    return { textHbs: deriveTextHbs(htmlHbs) };
   }
 
   // ------------------------------------------------------------------ logs

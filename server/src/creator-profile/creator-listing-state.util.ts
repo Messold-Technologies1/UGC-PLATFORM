@@ -82,6 +82,14 @@ export async function recomputeCreatorListingState(
   isListed: boolean;
   /** True only on the isListed false -> true transition made by this call. */
   becameListed: boolean;
+  /**
+   * Go-Live requirements still unmet, as human-readable labels. Only populated
+   * when this call actually evaluated the checklist (`evaluateCompleteness`)
+   * and it came back short; `[]` otherwise. The Go Live path reports these back
+   * to the creator so a submission that cannot latch fails loudly instead of
+   * returning 200 with nothing changed.
+   */
+  missing: string[];
 } | null> {
   const profile = await client.creatorProfile.findUnique({
     where: { id: creatorProfileId },
@@ -117,6 +125,7 @@ export async function recomputeCreatorListingState(
 
   let completeProfile = profile.completeProfile;
   const wasComplete = profile.completeProfile;
+  let missing: string[] = [];
 
   // Latch only flips false -> true; never re-evaluate once already complete,
   // and never auto-latch on a draft save (evaluateCompleteness === false).
@@ -150,7 +159,7 @@ export async function recomputeCreatorListingState(
       },
     });
 
-    const { complete } = evaluateProfileCompleteness({
+    const { complete, missing: unmet } = evaluateProfileCompleteness({
       profileImageUrl: profile.profileImageUrl,
       displayName: profile.displayName,
       contactEmail: profile.contactEmail,
@@ -183,6 +192,7 @@ export async function recomputeCreatorListingState(
     });
 
     completeProfile = complete;
+    missing = complete ? [] : unmet;
   }
 
   const currentStatus = profile.creatorApproval?.status;
@@ -230,5 +240,5 @@ export async function recomputeCreatorListingState(
 
   const becameListed = !profile.isListed && isListed;
 
-  return { completeProfile, isListed, becameListed };
+  return { completeProfile, isListed, becameListed, missing };
 }

@@ -1,0 +1,426 @@
+/**
+ * Recover the ORIGINAL (full-resolution) creator videos that the earlier
+ * downscale-to-720p normalization overwrote and deleted.
+ *
+ * Background: a previous version of MediaNormalizeService transcoded every
+ * portfolio/intro video above 720p, uploaded the smaller file under a NEW S3
+ * key, repointed the DB row, and then DELETED the original object. The bucket
+ * has versioning enabled, so each "delete" only added a delete marker — the
+ * original bytes still exist as a noncurrent version. This script finds those
+ * deleted originals, restores them, and repoints the DB rows back to full
+ * resolution.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * RUN ORDER MATTERS:
+ *   1. Deploy PR #331 first (the no-downscale pipeline). This script resets the
+ *      restored rows to `videoNormalizeStatus = null` so the pipeline re-checks
+ *      them — with the OLD code still deployed that would just re-downscale them
+ *      again. Deploy the fix, THEN run this.
+ *   2. Run in DRY-RUN first (default) and read the plan. Only then re-run with
+ *      APPLY=true.
+ * ────────────────────────────────────────────────────────────────────────────
+ *
+ * Matching a deleted original to its DB row:
+ *   - PRIMARY (exact): the row's `contentHash` is the SHA-256 of the originally
+ *     uploaded bytes, so we hash each deleted version and match it to the row
+ *     with the same hash. `@@unique([creatorId, contentHash])` makes this 1:1.
+ *   - FALLBACK (approximate): rows with no `contentHash` (older uploads, Brand
+ *     Collab copies) are paired within a creator by nearest timestamp
+ *     (row.videoNormalizeUpdatedAt ↔ the delete marker's time), only when the
+ *     leftover counts line up. A mispair here can only ever swap one of the
+ *     creator's OWN originals for another — never another creator's — and is
+ *     logged as TIMESTAMP confidence so you can eyeball it.
+ *   - Anything still ambiguous is printed as MANUAL and left untouched.
+ *
+ * Restore is crash-safe and resumable: we repoint the row to the original key
+ * first, then remove the delete marker. A run interrupted between the two leaves
+ * the original still delete-marked, so a re-run rediscovers and finishes it.
+ *
+ * Usage (from server/, after deploying PR #331):
+ *   # dry run — prints the plan, changes nothing:
+ *   node dist/scripts/restore-original-videos.js
+ *   # actually restore:
+ *   APPLY=true node dist/scripts/restore-original-videos.js
+ *
+ * Env: APPLY=true to execute (default dry-run). Needs the usual app env
+ * (DATABASE_URL, AWS_*, S3_BUCKET_NAME, CDN_BASE_URL).
+ */
+import { createHash } from 'node:crypto';
+import type { Readable } from 'node:stream';
+import { Logger, Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectVersionsCommand,
+} from '@aws-sdk/client-s3';
+import type { S3Client } from '@aws-sdk/client-s3';
+import { envValidationSchema } from '../config/env.validation';
+import { PrismaModule } from '../prisma/prisma.module';
+import { PrismaService } from '../prisma/prisma.service';
+import { StorageModule } from '../storage/storage.module';
+import { StorageService } from '../storage/storage.service';
+
+const APPLY = process.env.APPLY === 'true';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envValidationSchema,
+      validationOptions: { abortEarly: true },
+    }),
+    PrismaModule,
+    StorageModule,
+  ],
+})
+class RestoreModule {}
+
+interface DeletedOriginal {
+  key: string;
+  deleteMarkerVersionId: string;
+  dataVersionId: string;
+  deletedAt: number; // delete-marker LastModified (ms)
+}
+
+async function streamToBuffer(body: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of body) {
+    chunks.push(
+      typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk),
+    );
+  }
+  return Buffer.concat(chunks);
+}
+
+async function main(): Promise<void> {
+  const logger = new Logger('restore-original-videos');
+  logger.log(
+    APPLY
+      ? 'APPLY=true — changes WILL be written to S3 and the database'
+      : 'DRY RUN — no changes will be made (set APPLY=true to execute)',
+  );
+
+  const app = await NestFactory.createApplicationContext(RestoreModule, {
+    logger: ['error', 'warn', 'log'],
+  });
+  const prisma = app.get(PrismaService);
+  const storage = app.get(StorageService);
+  const s3: S3Client = storage.rawClient();
+  const bucket = storage.bucketName();
+
+  const stats = {
+    restored: 0,
+    byHash: 0,
+    byTimestamp: 0,
+    manual: 0,
+    errors: 0,
+  };
+
+  /** All keys under `prefix` whose latest version is a delete marker (i.e. the
+   *  object we deleted), with the version id needed to undelete + the newest
+   *  surviving data version. */
+  async function listDeletedOriginals(
+    prefix: string,
+  ): Promise<DeletedOriginal[]> {
+    const versionsByKey = new Map<
+      string,
+      {
+        data: { versionId: string; at: number }[];
+        latestMarker: { versionId: string; at: number } | null;
+      }
+    >();
+
+    let keyMarker: string | undefined;
+    let versionIdMarker: string | undefined;
+    for (;;) {
+      const res = await s3.send(
+        new ListObjectVersionsCommand({
+          Bucket: bucket,
+          Prefix: prefix,
+          KeyMarker: keyMarker,
+          VersionIdMarker: versionIdMarker,
+        }),
+      );
+      for (const v of res.Versions ?? []) {
+        if (!v.Key || !v.VersionId) continue;
+        const e = versionsByKey.get(v.Key) ?? { data: [], latestMarker: null };
+        e.data.push({
+          versionId: v.VersionId,
+          at: v.LastModified?.getTime() ?? 0,
+        });
+        versionsByKey.set(v.Key, e);
+      }
+      for (const m of res.DeleteMarkers ?? []) {
+        if (!m.Key || !m.VersionId) continue;
+        const e = versionsByKey.get(m.Key) ?? { data: [], latestMarker: null };
+        if (m.IsLatest) {
+          e.latestMarker = {
+            versionId: m.VersionId,
+            at: m.LastModified?.getTime() ?? 0,
+          };
+        }
+        versionsByKey.set(m.Key, e);
+      }
+      if (!res.IsTruncated) break;
+      keyMarker = res.NextKeyMarker;
+      versionIdMarker = res.NextVersionIdMarker;
+    }
+
+    const out: DeletedOriginal[] = [];
+    for (const [key, e] of versionsByKey) {
+      if (!e.latestMarker || e.data.length === 0) continue; // live, or no bytes to restore
+      const newest = e.data.sort((a, b) => b.at - a.at)[0];
+      out.push({
+        key,
+        deleteMarkerVersionId: e.latestMarker.versionId,
+        dataVersionId: newest.versionId,
+        deletedAt: e.latestMarker.at,
+      });
+    }
+    return out;
+  }
+
+  async function hashVersion(key: string, versionId: string): Promise<string> {
+    const res = await s3.send(
+      new GetObjectCommand({ Bucket: bucket, Key: key, VersionId: versionId }),
+    );
+    const buf = await streamToBuffer(res.Body as Readable);
+    return createHash('sha256').update(buf).digest('hex');
+  }
+
+  /** Undelete: removing the delete marker makes the prior data version current. */
+  async function undelete(orig: DeletedOriginal): Promise<void> {
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: orig.key,
+        VersionId: orig.deleteMarkerVersionId,
+      }),
+    );
+  }
+
+  // ── Portfolio videos ────────────────────────────────────────────────────
+  const creatorIds = (
+    await prisma.creatorPortfolioVideo.findMany({
+      select: { creatorId: true },
+      distinct: ['creatorId'],
+    })
+  ).map((r) => r.creatorId);
+
+  logger.log(
+    `scanning ${creatorIds.length} creators for deleted portfolio originals`,
+  );
+
+  for (const creatorId of creatorIds) {
+    const prefix = `creator-portfolio/${creatorId}/videos/`;
+    let deleted: DeletedOriginal[];
+    try {
+      deleted = await listDeletedOriginals(prefix);
+    } catch (err) {
+      stats.errors++;
+      logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
+      continue;
+    }
+    if (deleted.length === 0) continue;
+
+    const rows = await prisma.creatorPortfolioVideo.findMany({
+      where: { creatorId },
+      select: {
+        id: true,
+        videoKey: true,
+        contentHash: true,
+        videoNormalizeUpdatedAt: true,
+      },
+    });
+
+    const remainingRows = [...rows];
+    const remainingDeleted = [...deleted];
+
+    // PRIMARY: exact contentHash match.
+    for (const orig of [...remainingDeleted]) {
+      let hash: string;
+      try {
+        hash = await hashVersion(orig.key, orig.dataVersionId);
+      } catch (err) {
+        stats.errors++;
+        logger.error(`hash failed for ${orig.key}: ${(err as Error)?.message}`);
+        continue;
+      }
+      const rowIdx = remainingRows.findIndex((r) => r.contentHash === hash);
+      if (rowIdx === -1) continue;
+      const row = remainingRows[rowIdx];
+      remainingRows.splice(rowIdx, 1);
+      remainingDeleted.splice(remainingDeleted.indexOf(orig), 1);
+      await restorePortfolio(creatorId, row, orig, 'HASH');
+    }
+
+    // FALLBACK: single unambiguous leftover, or nearest-timestamp pairing.
+    const restoreCandidates = remainingRows.filter(
+      (r) => r.videoKey && !deleted.some((d) => d.key === r.videoKey),
+    );
+    if (remainingDeleted.length > 0) {
+      if (
+        remainingDeleted.length === restoreCandidates.length &&
+        restoreCandidates.length > 0
+      ) {
+        // Pair each leftover original to the row whose normalize time is closest.
+        const pool = [...restoreCandidates];
+        for (const orig of remainingDeleted) {
+          pool.sort(
+            (a, b) =>
+              Math.abs(
+                (a.videoNormalizeUpdatedAt?.getTime() ?? 0) - orig.deletedAt,
+              ) -
+              Math.abs(
+                (b.videoNormalizeUpdatedAt?.getTime() ?? 0) - orig.deletedAt,
+              ),
+          );
+          const row = pool.shift()!;
+          await restorePortfolio(creatorId, row, orig, 'TIMESTAMP');
+        }
+      } else {
+        for (const orig of remainingDeleted) {
+          stats.manual++;
+          logger.warn(
+            `MANUAL: ${orig.key} (creator ${creatorId}) — no contentHash match and leftover counts don't line up (${remainingDeleted.length} originals vs ${restoreCandidates.length} rows)`,
+          );
+        }
+      }
+    }
+  }
+
+  function countRestore(confidence: 'HASH' | 'TIMESTAMP'): void {
+    stats.restored++;
+    if (confidence === 'HASH') stats.byHash++;
+    else stats.byTimestamp++;
+  }
+
+  async function restorePortfolio(
+    creatorId: string,
+    row: { id: string; videoKey: string | null; contentHash: string | null },
+    orig: DeletedOriginal,
+    confidence: 'HASH' | 'TIMESTAMP',
+  ): Promise<void> {
+    const staleKey = row.videoKey;
+    if (staleKey === orig.key) {
+      // Already repointed (a prior interrupted run) — just make sure it's live.
+      logger.log(
+        `${confidence}: ${orig.key} already repointed; ensuring undeleted`,
+      );
+      if (APPLY) await undelete(orig).catch(() => undefined);
+      return;
+    }
+    logger.log(
+      `${confidence}: restore ${orig.key} → row ${row.id} (was ${staleKey})${APPLY ? '' : ' [dry-run]'}`,
+    );
+    if (!APPLY) {
+      countRestore(confidence);
+      return;
+    }
+    try {
+      // 1) Repoint the row FIRST (crash-safe: if we die before undelete, the
+      //    original is still delete-marked and a re-run rediscovers it).
+      await prisma.creatorPortfolioVideo.update({
+        where: { id: row.id },
+        data: {
+          videoKey: orig.key,
+          videoUrl: storage.buildCdnUrl(orig.key),
+          videoNormalizeStatus: null,
+          videoNormalizeAttempts: 0,
+        },
+      });
+      // 2) Undelete the original.
+      await undelete(orig);
+      // 3) Drop the downscaled object (versioning keeps a copy anyway).
+      if (staleKey)
+        await storage.deleteObjectIfExists(staleKey).catch(() => undefined);
+      // 4) Regenerate the card preview from the restored source.
+      await prisma.creatorProfile
+        .update({
+          where: { id: creatorId },
+          data: { previewVideoStatus: 'pending', previewVideoAttempts: 0 },
+        })
+        .catch(() => undefined);
+      countRestore(confidence);
+    } catch (err) {
+      stats.errors++;
+      logger.error(
+        `restore failed for ${orig.key}: ${(err as Error)?.message}`,
+      );
+    }
+  }
+
+  // ── Intro videos ─────────────────────────────────────────────────────────
+  const introCreators = await prisma.creatorProfile.findMany({
+    where: { introVideoKey: { not: null } },
+    select: { id: true, introVideoKey: true },
+  });
+  logger.log(
+    `scanning ${introCreators.length} creators for deleted intro originals`,
+  );
+
+  for (const c of introCreators) {
+    const prefix = `creator-profile/${c.id}/intro/`;
+    let deleted: DeletedOriginal[];
+    try {
+      deleted = await listDeletedOriginals(prefix);
+    } catch (err) {
+      stats.errors++;
+      logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
+      continue;
+    }
+    if (deleted.length === 0) continue;
+    // One intro per creator: the most recently deleted original is the pre-swap
+    // intro we want back.
+    const orig = deleted.sort((a, b) => b.deletedAt - a.deletedAt)[0];
+    if (c.introVideoKey === orig.key) {
+      if (APPLY) await undelete(orig).catch(() => undefined);
+      continue;
+    }
+    logger.log(
+      `INTRO: restore ${orig.key} → creator ${c.id} (was ${c.introVideoKey})${APPLY ? '' : ' [dry-run]'}`,
+    );
+    if (!APPLY) {
+      stats.restored++;
+      continue;
+    }
+    try {
+      const staleKey = c.introVideoKey;
+      await prisma.creatorProfile.update({
+        where: { id: c.id },
+        data: {
+          introVideoKey: orig.key,
+          introVideoUrl: storage.buildCdnUrl(orig.key),
+          introVideoNormalizeStatus: null,
+          introVideoNormalizeAttempts: 0,
+          previewVideoStatus: 'pending',
+          previewVideoAttempts: 0,
+        },
+      });
+      await undelete(orig);
+      if (staleKey)
+        await storage.deleteObjectIfExists(staleKey).catch(() => undefined);
+      stats.restored++;
+    } catch (err) {
+      stats.errors++;
+      logger.error(
+        `intro restore failed for ${c.id}: ${(err as Error)?.message}`,
+      );
+    }
+  }
+
+  logger.log(
+    `${APPLY ? 'restore complete' : 'dry run complete'}: ${stats.restored} restored ` +
+      `(hash=${stats.byHash} timestamp=${stats.byTimestamp}), ${stats.manual} need manual review, ${stats.errors} errors`,
+  );
+  await app.close();
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error('restore-original-videos crashed:', err);
+    process.exit(1);
+  });

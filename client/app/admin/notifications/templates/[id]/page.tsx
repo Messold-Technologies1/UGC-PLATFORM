@@ -1,15 +1,18 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, RotateCcw } from "lucide-react";
+import { ArrowLeft, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDebouncedValue } from "@/hooks/use-debounce";
+import {
+  TemplateBodyEditor,
+  type TextMode,
+} from "@/features/notifications/components/template-body-editor";
+import { TemplatePreviewPane } from "@/features/notifications/components/template-preview-pane";
 import {
   useRevertTemplateMutation,
   useSaveTemplateMutation,
@@ -47,23 +50,24 @@ export default function NotificationTemplateEditorPage({
 
   if (isLoading || !template) {
     return (
-      <div className="mx-auto max-w-6xl space-y-4 p-6">
+      <div className="mx-auto max-w-[1800px] space-y-4 p-6">
         <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-96 w-full" />
+        <Skeleton className="h-[70vh] w-full" />
       </div>
     );
   }
 
   // Keyed on the version so a save or a revert remounts the editor with the
   // stored content, rather than syncing form state from an effect.
-  return <TemplateEditor key={`${template.id}:${template.version}`} template={template} />;
+  return (
+    <TemplateEditor
+      key={`${template.id}:${template.version}`}
+      template={template}
+    />
+  );
 }
 
-function TemplateEditor({
-  template,
-}: {
-  template: NotificationTemplateDetail;
-}) {
+function TemplateEditor({ template }: { template: NotificationTemplateDetail }) {
   const id = template.id;
   const { data: versions = [] } = useTemplateVersionsQuery(id);
   const save = useSaveTemplateMutation(id);
@@ -75,6 +79,82 @@ function TemplateEditor({
   const [text, setText] = useState(template.textHbs ?? "");
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
   const [rendered, setRendered] = useState<TemplatePreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // A stored template starts "manual": the bundled copies were written by hand
+  // and say the same thing in a different shape, so following the HTML would
+  // throw that wording away on the first keystroke. One with no stored text has
+  // nothing to lose and follows the HTML from the start. The first preview
+  // upgrades "manual" to "auto" when the two already agree.
+  const [textMode, setTextMode] = useState<TextMode>(
+    template.textHbs?.trim() ? "manual" : "auto",
+  );
+  const settledInitialMode = useRef(false);
+
+  const derivedText = rendered?.derivedTextHbs ?? null;
+
+  // In auto mode the text follows the HTML, so it is not part of what we ask
+  // the server to render — otherwise each derived value would trigger the next
+  // preview, and the two would chase each other.
+  const previewKey = useDebouncedValue(
+    JSON.stringify({
+      subject,
+      html,
+      textHbs: textMode === "manual" ? text : null,
+    }),
+    400,
+  );
+
+  useEffect(() => {
+    const draft = JSON.parse(previewKey) as {
+      subject: string;
+      html: string;
+      textHbs: string | null;
+    };
+    preview.mutate(
+      {
+        draft: {
+          subjectHbs: draft.subject,
+          htmlHbs: draft.html,
+          textHbs: draft.textHbs,
+        },
+      },
+      {
+        onSuccess: (result) => {
+          setPreviewError(null);
+          setRendered(result);
+
+          if (!settledInitialMode.current) {
+            settledInitialMode.current = true;
+            // Already identical to what the HTML implies: nothing would be lost
+            // by following it, so follow it.
+            if (
+              template.textHbs?.trim() &&
+              template.textHbs.trim() === result.derivedTextHbs.trim()
+            ) {
+              setTextMode("auto");
+            }
+          }
+        },
+        onError: (error) => setPreviewError(errorMessage(error)),
+      },
+    );
+    // `preview` is a stable mutation object; re-running on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewKey]);
+
+  // Auto mode mirrors the derivation the server just handed back.
+  useEffect(() => {
+    if (textMode === "auto" && derivedText !== null) setText(derivedText);
+  }, [textMode, derivedText]);
+
+  const dirty = useMemo(
+    () =>
+      subject !== template.subjectHbs ||
+      html !== template.htmlHbs ||
+      text !== (template.textHbs ?? ""),
+    [subject, html, text, template],
+  );
 
   const onSave = () => {
     setIssues([]);
@@ -104,7 +184,7 @@ function TemplateEditor({
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
+    <div className="mx-auto max-w-[1800px] space-y-5 p-6">
       <Link
         href="/admin/notifications/templates"
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
@@ -119,26 +199,12 @@ function TemplateEditor({
           <p className="text-muted-foreground mt-1 text-xs">
             Version {template.version} · updated{" "}
             {new Date(template.updatedAt).toLocaleString()}
+            {dirty && <span className="ml-2 text-amber-700">unsaved changes</span>}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={preview.isPending}
-            onClick={() =>
-              preview.mutate(undefined, {
-                onSuccess: setRendered,
-                onError: (error) => toast.error(errorMessage(error)),
-              })
-            }
-          >
-            <Eye className="mr-1 h-4 w-4" />
-            Preview
-          </Button>
-          <Button onClick={onSave} disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Save"}
-          </Button>
-        </div>
+        <Button onClick={onSave} disabled={save.isPending || !dirty}>
+          {save.isPending ? "Saving…" : "Save"}
+        </Button>
       </header>
 
       {issues.length > 0 && (
@@ -153,66 +219,8 @@ function TemplateEditor({
         </ul>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Subject</label>
-            <Input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="font-mono text-sm"
-            />
-          </div>
-
-          <Tabs defaultValue="html">
-            <TabsList>
-              <TabsTrigger value="html">HTML</TabsTrigger>
-              <TabsTrigger value="text">Plain text</TabsTrigger>
-              {rendered && <TabsTrigger value="preview">Preview</TabsTrigger>}
-            </TabsList>
-
-            <TabsContent value="html">
-              <Textarea
-                value={html}
-                onChange={(e) => setHtml(e.target.value)}
-                rows={22}
-                className="font-mono text-xs"
-              />
-              <p className="text-muted-foreground mt-2 text-xs">
-                The body only — the shared shell adds the header, footer and
-                branding.
-              </p>
-            </TabsContent>
-
-            <TabsContent value="text">
-              <Textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={22}
-                className="font-mono text-xs"
-                placeholder="Leave empty to derive the plain-text part from the HTML."
-              />
-            </TabsContent>
-
-            {rendered && (
-              <TabsContent value="preview">
-                <div className="space-y-3">
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Subject: </span>
-                    {rendered.subject}
-                  </p>
-                  <iframe
-                    title="Rendered preview"
-                    srcDoc={rendered.html}
-                    className="h-[600px] w-full rounded border bg-white"
-                  />
-                </div>
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
-
-        <aside className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-[230px_minmax(0,1fr)_minmax(0,620px)]">
+        <aside className="order-2 space-y-6 xl:order-1">
           <div>
             <h2 className="mb-2 text-sm font-medium">Variables in use</h2>
             <div className="flex flex-wrap gap-1.5">
@@ -264,6 +272,31 @@ function TemplateEditor({
             </div>
           )}
         </aside>
+
+        <div className="order-1 xl:order-2">
+          <TemplateBodyEditor
+            subject={subject}
+            onSubjectChange={setSubject}
+            html={html}
+            onHtmlChange={setHtml}
+            text={text}
+            onTextChange={(value) => {
+              setTextMode("manual");
+              setText(value);
+            }}
+            textMode={textMode}
+            onRegenerateText={() => setTextMode("auto")}
+            derivedText={derivedText}
+          />
+        </div>
+
+        <div className="order-3 xl:sticky xl:top-6 xl:h-[calc(100vh-6rem)]">
+          <TemplatePreviewPane
+            preview={rendered}
+            isPending={preview.isPending}
+            error={previewError}
+          />
+        </div>
       </div>
     </div>
   );

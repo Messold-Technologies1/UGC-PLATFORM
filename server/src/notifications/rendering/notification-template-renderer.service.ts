@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Handlebars from 'handlebars';
 import type { TemplateDelegate } from 'handlebars';
-import { parse as parseHtml } from 'node-html-parser';
+import { deriveText } from './derive-text';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TemplateRendererService } from '../../mail/template-renderer.service';
 import {
@@ -78,6 +78,33 @@ export class NotificationTemplateRenderer {
     return { subject, html, text, source: 'db', templateId: row.id };
   }
 
+  /**
+   * Renders content that is not in the database — the admin editor previewing
+   * unsaved edits.
+   *
+   * Deliberately uncached and never consulted by a send: it compiles whatever
+   * it is handed, so a draft that is still mid-keystroke cannot leak into the
+   * cache the send path reads. A broken draft throws, which the caller turns
+   * into a message in the editor rather than a failed request.
+   */
+  renderDraft(draft: {
+    subjectHbs: string;
+    htmlHbs: string;
+    textHbs?: string | null;
+    context: EmailTemplateContext;
+  }): RenderedEmail {
+    const ctx = this.legacy.applyDefaults(draft.context);
+
+    const subject = Handlebars.compile(draft.subjectHbs)(ctx).trim();
+    const bodyHtml = Handlebars.compile(draft.htmlHbs)(ctx).trim();
+    const html = this.legacy.wrapInShell(bodyHtml, draft.context);
+    const text = draft.textHbs
+      ? Handlebars.compile(draft.textHbs)(ctx).trim()
+      : deriveText(bodyHtml);
+
+    return { subject, html, text };
+  }
+
   /** Clears the compiled cache. Used after a template is saved in the same process. */
   invalidate(): void {
     this.cache.clear();
@@ -142,29 +169,5 @@ export class NotificationTemplateRenderer {
   }
 }
 
-/**
- * A readable plain-text part from rendered HTML: block elements become line
- * breaks, links keep their target, and runs of blank lines collapse.
- */
-export function deriveText(html: string): string {
-  const root = parseHtml(html);
-  root.querySelectorAll('a').forEach((a) => {
-    const href = a.getAttribute('href');
-    const label = a.textContent.trim();
-    if (href && label && !label.includes(href)) {
-      a.replaceWith(`${label} (${href})`);
-    }
-  });
-  root
-    .querySelectorAll('p, div, br, tr, h1, h2, h3, h4, li')
-    .forEach((el) => el.insertAdjacentHTML('afterend', '\n'));
-
-  return root.textContent
-    .replace(/\r/g, '')
-    .replace(/[ \t]+/g, ' ')
-    .split('\n')
-    .map((line) => line.trim())
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+// Re-exported so existing importers keep working after the move.
+export { deriveText, deriveTextHbs } from './derive-text';

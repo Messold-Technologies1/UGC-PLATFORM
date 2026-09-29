@@ -142,6 +142,28 @@ export class PreviewTemplateDto {
   @IsOptional()
   @IsString()
   eventKey?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Unsaved subject to render instead of the stored one. Send the draft ' +
+      'fields together so the editor can preview edits before they are saved.',
+  })
+  @IsOptional()
+  @IsString()
+  subjectHbs?: string;
+
+  @ApiPropertyOptional({ description: 'Unsaved HTML body to render.' })
+  @IsOptional()
+  @IsString()
+  htmlHbs?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Unsaved plain text. Null or omitted derives it from the HTML.',
+  })
+  @IsOptional()
+  @IsString()
+  textHbs?: string | null;
 }
 
 export class BackfillDto {
@@ -169,4 +191,37 @@ export class BackfillDto {
   @IsOptional()
   @IsBoolean()
   dryRun?: boolean;
+}
+
+export class DeriveTextDto {
+  @ApiProperty({ description: 'The HTML body template to derive text from.' })
+  @IsString()
+  @MinLength(1)
+  htmlHbs!: string;
+}
+
+export class PreviewDraftDto {
+  @ApiProperty({ description: 'The name being typed; resolves the variables.' })
+  @IsString()
+  @MinLength(1)
+  name!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  eventKey?: string;
+
+  @ApiProperty()
+  @IsString()
+  subjectHbs!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  htmlHbs!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  textHbs?: string | null;
 }

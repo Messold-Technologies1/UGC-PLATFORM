@@ -9,6 +9,7 @@ import type {
   SaveTemplateInput,
   ScheduleRow,
   SweepResult,
+  TemplateDraft,
   TemplatePreview,
   TemplateVersion,
 } from "../types";
@@ -112,11 +113,40 @@ export async function createTemplate(
 export async function previewTemplate(
   id: string,
   eventKey?: string,
+  draft?: TemplateDraft,
 ): Promise<TemplatePreview> {
   const { data } = await api.post<TemplatePreview>(N.TEMPLATE_PREVIEW(id), {
     eventKey,
+    ...(draft ?? {}),
   });
   return data;
+}
+
+/** Renders draft content for a template with no row yet, for the create form. */
+export async function previewDraftTemplate(payload: {
+  name: string;
+  eventKey?: string;
+  subjectHbs: string;
+  htmlHbs: string;
+  textHbs?: string | null;
+}): Promise<TemplatePreview> {
+  const { data } = await api.post<TemplatePreview>(
+    N.TEMPLATE_PREVIEW_DRAFT,
+    payload,
+  );
+  return data;
+}
+
+/**
+ * The plain-text template a block of HTML implies. Server-side so the editor
+ * and the send path derive it exactly the same way.
+ */
+export async function deriveTemplateText(htmlHbs: string): Promise<string> {
+  const { data } = await api.post<{ textHbs: string }>(
+    N.TEMPLATE_DERIVE_TEXT,
+    { htmlHbs },
+  );
+  return data.textHbs;
 }
 
 export async function fetchTemplateVersions(

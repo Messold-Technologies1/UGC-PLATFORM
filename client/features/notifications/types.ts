@@ -122,9 +122,19 @@ export interface TemplatePreview {
   subject: string;
   html: string;
   text: string;
-  source: "db" | "disk";
+  /** "draft" when the preview rendered unsaved editor content. */
+  source: "db" | "disk" | "draft";
   templateId: string | null;
   context: Record<string, string>;
+  /** The plain-text template the HTML implies, for keeping the two in step. */
+  derivedTextHbs: string;
+}
+
+/** Unsaved editor content, so the preview can show what is on screen. */
+export interface TemplateDraft {
+  subjectHbs: string;
+  htmlHbs: string;
+  textHbs?: string | null;
 }
 
 export interface TemplateVersion {

@@ -27,9 +27,7 @@ import {
   PresignBrandLogoUploadDto,
   PresignUploadResponseDto,
 } from './dto/presign-brand-logo-upload.dto';
-import {
-  PresignBrandPronunciationUploadDto,
-} from './dto/presign-brand-pronunciation-upload.dto';
+import { PresignBrandPronunciationUploadDto } from './dto/presign-brand-pronunciation-upload.dto';
 import { BrandsListResponseDto } from './dto/brands-list-response.dto';
 import { AdminBrandDetailDto } from './dto/admin-brand-detail.dto';
 import { AdminBrandWishlistsResponseDto } from './dto/admin-brand-wishlists.dto';
@@ -38,6 +36,7 @@ import { ListBrandsQueryDto } from './dto/list-brands-query.dto';
 import { BrandUserStatusDto } from './dto/brand-user-status.dto';
 import { BrandCategoryOptionsResponseDto } from './dto/brand-category-options-response.dto';
 import { BRAND_CATEGORY_OPTIONS } from './brand-category-options';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 
 const ONGOING_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.PENDING_PAYMENT,
@@ -61,6 +60,7 @@ export class BrandProfileService {
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
     private readonly brandMail: BrandProfileMailNotifier,
+    private readonly events: NotificationEventsService,
     private readonly metaCapi: MetaCapiService,
   ) {}
 
@@ -99,7 +99,12 @@ export class BrandProfileService {
     signupEmail?: string,
   ): void {
     if (signupEmail) {
-      if (!this.storage.isTempBrandPronunciationAudioKeyForSignup(signupEmail, key)) {
+      if (
+        !this.storage.isTempBrandPronunciationAudioKeyForSignup(
+          signupEmail,
+          key,
+        )
+      ) {
         throw new BadRequestException('Invalid brandPronunciationAudioKey');
       }
       return;
@@ -137,7 +142,9 @@ export class BrandProfileService {
       ? (dto.otherCategoryLabel ?? '').trim()
       : '';
     if (includesOther && !otherCategoryLabel) {
-      throw new BadRequestException('otherCategoryLabel is required for OTHER category');
+      throw new BadRequestException(
+        'otherCategoryLabel is required for OTHER category',
+      );
     }
 
     const brandRole = await tx.role.findUnique({
@@ -238,16 +245,15 @@ export class BrandProfileService {
   // generation in some monorepo/dev setups.
   private mapBrandProfile(profile: any): BrandProfileResponseDto {
     const categories: BrandCategory[] =
-      profile.brandCategories?.map((b: { category: BrandCategory }) => b.category) ?? [];
+      profile.brandCategories?.map(
+        (b: { category: BrandCategory }) => b.category,
+      ) ?? [];
 
     return {
       id: profile.id,
       userId: profile.userId ?? null,
       agencyId: profile.agencyId ?? null,
-      email:
-        profile.user?.email ??
-        profile.contactEmail ??
-        '',
+      email: profile.user?.email ?? profile.contactEmail ?? '',
       contactFullName: profile.contactFullName ?? null,
       contactEmail: profile.contactEmail ?? null,
       contactPhone: profile.contactPhone ?? null,
@@ -445,6 +451,9 @@ export class BrandProfileService {
   }): Promise<BrandProfileResponseDto> {
     const profile = await this.finalizeBrandProfileAssetsAndLoad(params);
     this.brandMail.notifyWelcome(params.brandProfileId);
+    void this.events.emit('brand-welcome', {
+      entityId: params.brandProfileId,
+    });
     return profile;
   }
 
@@ -631,7 +640,10 @@ export class BrandProfileService {
         brandName: user.brandProfile?.brandName ?? null,
         contactFullName: user.brandProfile?.contactFullName ?? null,
         contactPhone: user.brandProfile?.contactPhone ?? null,
-        categories: user.brandProfile?.brandCategories?.map((bc: { category: BrandCategory }) => bc.category) ?? [],
+        categories:
+          user.brandProfile?.brandCategories?.map(
+            (bc: { category: BrandCategory }) => bc.category,
+          ) ?? [],
         logoUrl: user.brandProfile?.logoUrl ?? null,
         status: user.status,
         orderCount: user.brandProfile?._count?.orders ?? 0,
@@ -978,7 +990,9 @@ export class BrandProfileService {
         }
       } else {
         const pKey = pronunciationKeyRaw.trim();
-        if (this.storage.isTempBrandPronunciationAudioKeyForUser(userId, pKey)) {
+        if (
+          this.storage.isTempBrandPronunciationAudioKeyForUser(userId, pKey)
+        ) {
           this.assertTempBrandPronunciationAudioKeyOwner(userId, pKey);
           if (
             existing.brandPronunciationAudioKey &&
@@ -993,11 +1007,8 @@ export class BrandProfileService {
               deleteTemp: true,
             });
           data.brandPronunciationAudioKey = finalPKey;
-          data.brandPronunciationAudioUrl =
-            this.storage.buildCdnUrl(finalPKey);
-        } else if (
-          pKey === (existing.brandPronunciationAudioKey ?? '')
-        ) {
+          data.brandPronunciationAudioUrl = this.storage.buildCdnUrl(finalPKey);
+        } else if (pKey === (existing.brandPronunciationAudioKey ?? '')) {
           // unchanged final key
         } else {
           throw new BadRequestException('Invalid brandPronunciationAudioKey');
@@ -1027,7 +1038,9 @@ export class BrandProfileService {
         const includesOther = uniqueCategories.includes(BrandCategory.OTHER);
         const existingOther = existing.otherCategoryLabel ?? null;
         const requestedOther =
-          dto.otherCategoryLabel === undefined ? undefined : dto.otherCategoryLabel;
+          dto.otherCategoryLabel === undefined
+            ? undefined
+            : dto.otherCategoryLabel;
 
         if (includesOther) {
           const label =

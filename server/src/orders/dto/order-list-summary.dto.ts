@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { OrderStatus } from '@prisma/client';
+import { OrderDisputeOpenedBy, OrderStatus } from '@prisma/client';
 
 export class OrderListSummaryDto {
   @ApiProperty({ example: 'uuid' })
@@ -95,6 +95,13 @@ export class OrderListSummaryDto {
     description: 'When the latest dispute was opened (for Disputed on)',
   })
   disputeOpenedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    enum: OrderDisputeOpenedBy,
+    description:
+      'Which side raised the latest dispute, so lists can show it without opening the order',
+  })
+  disputeOpenedBy?: OrderDisputeOpenedBy | null;
 
   @ApiPropertyOptional({
     description:

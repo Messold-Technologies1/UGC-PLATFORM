@@ -92,7 +92,9 @@ export class UpdateBrandProfileDto {
     description:
       'Custom category label for OTHER. Required when categories includes OTHER. Set null to clear.',
   })
-  @ValidateIf((o: UpdateBrandProfileDto) => (o.categories ?? []).includes(BrandCategory.OTHER))
+  @ValidateIf((o: UpdateBrandProfileDto) =>
+    (o.categories ?? []).includes(BrandCategory.OTHER),
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(120)

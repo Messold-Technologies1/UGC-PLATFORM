@@ -337,7 +337,7 @@ export class InstagramMediaService {
       items: page.map((r) => this.toGalleryItem(r)),
       nextCursor:
         hasMore && page.length > 0
-          ? encodeGalleryCursor(page[page.length - 1]!)
+          ? encodeGalleryCursor(page[page.length - 1])
           : null,
       // A cache that has never synced has not learned whether more exists, so
       // default to true rather than claiming the account ends here.

@@ -6,7 +6,8 @@ export class OrderRevisionItemDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Revision number (1 = first revision requested, 2 = second, etc.)',
+    description:
+      'Revision number (1 = first revision requested, 2 = second, etc.)',
   })
   revisionNumber!: number;
 

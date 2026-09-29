@@ -45,7 +45,9 @@ export class SignupCreateMultipartUploadResponseDto {
   @ApiProperty({ example: 'abc123.uploadId' })
   uploadId!: string;
 
-  @ApiProperty({ example: 'https://cdn.example.com/creator-portfolio-signup-temp/...mp4' })
+  @ApiProperty({
+    example: 'https://cdn.example.com/creator-portfolio-signup-temp/...mp4',
+  })
   cdnUrl!: string;
 
   @ApiProperty({ example: 10 * 1024 * 1024 })
@@ -120,7 +122,9 @@ export class SignupCompleteMultipartUploadResponseDto {
   @ApiProperty({ example: 'creator-portfolio-signup-temp/<hash>/<uuid>.mp4' })
   key!: string;
 
-  @ApiProperty({ example: 'https://cdn.example.com/creator-portfolio-signup-temp/...mp4' })
+  @ApiProperty({
+    example: 'https://cdn.example.com/creator-portfolio-signup-temp/...mp4',
+  })
   cdnUrl!: string;
 }
 

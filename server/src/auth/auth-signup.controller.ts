@@ -40,7 +40,8 @@ export class AuthSignupController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Send SMS OTP for signup (unauthenticated; use before role-based register)',
+    summary:
+      'Send SMS OTP for signup (unauthenticated; use before role-based register)',
   })
   @ApiNoContentResponse({ description: 'OTP sent' })
   async sendSignupPhoneOtp(@Body() dto: SignupSendPhoneOtpDto): Promise<void> {
@@ -50,7 +51,9 @@ export class AuthSignupController {
   @Post('presign/creator-portfolio-video')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Presign creator portfolio video upload before registration' })
+  @ApiOperation({
+    summary: 'Presign creator portfolio video upload before registration',
+  })
   @ApiCreatedResponse({ type: PresignUploadResponseDto })
   async presignCreatorPortfolioVideo(
     @Body() dto: SignupPresignUploadDto,
@@ -89,7 +92,9 @@ export class AuthSignupController {
   @Post('multipart/creator-portfolio-video/sign-part')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 200, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Presign one part of a signup portfolio video upload' })
+  @ApiOperation({
+    summary: 'Presign one part of a signup portfolio video upload',
+  })
   @ApiCreatedResponse({ type: SignupSignMultipartPartResponseDto })
   async signCreatorPortfolioVideoPart(
     @Body() dto: SignupSignMultipartPartDto,
@@ -106,7 +111,9 @@ export class AuthSignupController {
   @Post('multipart/creator-portfolio-video/complete')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Finalize a signup portfolio video multipart upload' })
+  @ApiOperation({
+    summary: 'Finalize a signup portfolio video multipart upload',
+  })
   @ApiCreatedResponse({ type: SignupCompleteMultipartUploadResponseDto })
   async completeCreatorPortfolioVideoMultipart(
     @Body() dto: SignupCompleteMultipartUploadDto,
@@ -164,7 +171,9 @@ export class AuthSignupController {
   @Post('presign/brand-pronunciation')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Presign brand pronunciation audio upload before registration' })
+  @ApiOperation({
+    summary: 'Presign brand pronunciation audio upload before registration',
+  })
   @ApiCreatedResponse({ type: PresignUploadResponseDto })
   async presignBrandPronunciationSignup(
     @Body() dto: SignupPresignUploadDto,

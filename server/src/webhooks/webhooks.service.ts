@@ -5,12 +5,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EmailSuppressionReason } from '@prisma/client';
+import { EmailSuppressionReason, NotificationLogStatus } from '@prisma/client';
 import { EmailSuppressionService } from '../mail/email-suppression.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { OrdersService } from '../orders/orders.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import type { SesSnsNotification } from './ses-sns.types';
+import { NotificationLogService } from '../notifications/log/notification-log.service';
 import {
   verifySnsMessageSignature,
   type SnsIncomingMessage,
@@ -65,6 +66,7 @@ export class WebhooksService {
     private readonly orders: OrdersService,
     private readonly orderRealtime: OrderRealtimeNotifier,
     private readonly emailSuppression: EmailSuppressionService,
+    private readonly notificationLog: NotificationLogService,
   ) {}
 
   async handleSesSnsWebhook(params: {
@@ -185,6 +187,20 @@ export class WebhooksService {
       throw new BadRequestException('Invalid SES notification JSON');
     }
 
+    // Correlate the callback with the send it belongs to. Best-effort: a
+    // message sent before the log existed simply has no row.
+    const providerMessageId = ses.mail?.messageId?.trim();
+
+    if (ses.notificationType === 'Delivery') {
+      if (providerMessageId) {
+        await this.notificationLog.applyProviderStatus({
+          providerMessageId,
+          status: NotificationLogStatus.DELIVERED,
+        });
+      }
+      return;
+    }
+
     if (ses.notificationType === 'Bounce') {
       const bounceType = ses.bounce?.bounceType ?? 'Unknown';
       const isPermanent = bounceType === 'Permanent';
@@ -205,6 +221,13 @@ export class WebhooksService {
           detail: `${bounceType}/${ses.bounce?.bounceSubType ?? 'unknown'}`,
         });
       }
+      if (providerMessageId) {
+        await this.notificationLog.applyProviderStatus({
+          providerMessageId,
+          status: NotificationLogStatus.BOUNCED,
+          errorMessage: `${bounceType}/${ses.bounce?.bounceSubType ?? 'unknown'}`,
+        });
+      }
       return;
     }
 
@@ -216,6 +239,12 @@ export class WebhooksService {
         await this.emailSuppression.suppress({
           email,
           reason: EmailSuppressionReason.COMPLAINT,
+        });
+      }
+      if (providerMessageId) {
+        await this.notificationLog.applyProviderStatus({
+          providerMessageId,
+          status: NotificationLogStatus.COMPLAINED,
         });
       }
       return;

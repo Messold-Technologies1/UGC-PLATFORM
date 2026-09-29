@@ -5,10 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  OpenRouterClient,
-  OpenRouterError,
-} from '../ai/openrouter.client';
+import { OpenRouterClient, OpenRouterError } from '../ai/openrouter.client';
 import { computeAgeYears } from './creator-age.util';
 import type { GenerateCreatorBioDto } from './dto/generate-creator-bio.dto';
 
@@ -64,7 +61,10 @@ export class CreatorBioGeneratorService {
     }
 
     const userPrompt = this.buildUserPrompt(input, niches);
-    const model = this.config.get<string>('OPENROUTER_BIO_MODEL', DEFAULT_MODEL);
+    const model = this.config.get<string>(
+      'OPENROUTER_BIO_MODEL',
+      DEFAULT_MODEL,
+    );
 
     let raw: string;
     try {
@@ -96,7 +96,8 @@ export class CreatorBioGeneratorService {
     lines.push(`Niche: ${niches.join(', ')}`);
 
     const creatorTypes = this.cleanList(input.creatorTypes);
-    if (creatorTypes.length) lines.push(`Creator type: ${creatorTypes.join(', ')}`);
+    if (creatorTypes.length)
+      lines.push(`Creator type: ${creatorTypes.join(', ')}`);
 
     const occupations = this.cleanList(input.occupations);
     if (occupations.length) lines.push(`Occupation: ${occupations.join(', ')}`);

@@ -17,7 +17,8 @@ import {
 export class GenerateCreatorBioDto {
   @ApiPropertyOptional({
     type: [String],
-    description: 'Content-category (niche) labels, e.g. ["Beauty", "Skincare"].',
+    description:
+      'Content-category (niche) labels, e.g. ["Beauty", "Skincare"].',
   })
   @IsOptional()
   @IsArray()
@@ -68,13 +69,17 @@ export class GenerateCreatorBioDto {
   @MaxLength(80)
   country?: string;
 
-  @ApiPropertyOptional({ description: 'ISO date of birth; server derives age.' })
+  @ApiPropertyOptional({
+    description: 'ISO date of birth; server derives age.',
+  })
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
 }
 
 export class GeneratedBioResponseDto {
-  @ApiProperty({ description: 'AI-generated bio, ready to drop into the field.' })
+  @ApiProperty({
+    description: 'AI-generated bio, ready to drop into the field.',
+  })
   bio!: string;
 }

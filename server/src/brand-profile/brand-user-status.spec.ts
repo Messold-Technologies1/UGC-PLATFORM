@@ -61,6 +61,7 @@ describe('BrandProfileService.setBrandUserActive', () => {
       {} as never,
       {} as never,
       {} as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
       {} as never,
     );
     return { service, prisma, updates, sessionDeletes };

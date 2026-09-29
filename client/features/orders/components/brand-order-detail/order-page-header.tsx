@@ -4,11 +4,15 @@ import Link from "next/link";
 import { ArrowLeft, Copy, MessageCircle } from "lucide-react";
 import { ContactSupportButton } from "@/components/contact-support-dialog";
 import { toast } from "sonner";
+import type { OrderDetailsPublic } from "@/features/orders/api/types";
+import { RaiseDisputeButton } from "../raise-dispute-button";
 
 interface OrderPageHeaderProps {
   orderId: string;
   paidAt?: string | null;
   completedAt?: string | null;
+  /** Drives the "Raise a Dispute" action; omit to hide it. */
+  order?: Pick<OrderDetailsPublic, "status" | "dispute">;
 }
 
 function formatOrderDate(value?: string | null, hideTime?: boolean) {
@@ -33,6 +37,7 @@ export function OrderPageHeader({
   orderId,
   paidAt,
   completedAt,
+  order,
 }: Readonly<OrderPageHeaderProps>) {
   const displayId = orderId.length > 10 ? orderId.slice(0, 10) : orderId;
 
@@ -83,13 +88,18 @@ export function OrderPageHeader({
         </div>
       </div>
 
-      <ContactSupportButton
-        className="h-10 shrink-0 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 px-4 text-sm font-medium"
-        defaultSubject="Order support"
-      >
-        <MessageCircle className="size-4" />
-        Need Help
-      </ContactSupportButton>
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <ContactSupportButton
+          className="h-10 shrink-0 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 px-4 text-sm font-medium"
+          defaultSubject="Order support"
+        >
+          <MessageCircle className="size-4" />
+          Need Help
+        </ContactSupportButton>
+        {order ? (
+          <RaiseDisputeButton orderId={orderId} order={order} role="brand" />
+        ) : null}
+      </div>
     </div>
   );
 }

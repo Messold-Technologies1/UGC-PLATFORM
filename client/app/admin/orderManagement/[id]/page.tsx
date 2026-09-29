@@ -923,6 +923,11 @@ export default function AdminOrderDetailsPage() {
                         &ldquo;{order.dispute.reason}&rdquo;
                       </p>
                     ) : null}
+                    {order.dispute.openedAt ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Raised on {formatDate(order.dispute.openedAt)}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {order.dispute &&
@@ -942,6 +947,19 @@ export default function AdminOrderDetailsPage() {
                     {order.dispute.resolutionNotes ? (
                       <p className="mt-2 text-sm italic leading-relaxed text-foreground/80">
                         &ldquo;{order.dispute.resolutionNotes}&rdquo;
+                      </p>
+                    ) : null}
+                    {order.dispute.openedAt || order.dispute.resolvedAt ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {order.dispute.openedAt
+                          ? `Raised on ${formatDate(order.dispute.openedAt)}`
+                          : ""}
+                        {order.dispute.openedAt && order.dispute.resolvedAt
+                          ? " · "
+                          : ""}
+                        {order.dispute.resolvedAt
+                          ? `Resolved on ${formatDate(order.dispute.resolvedAt)}`
+                          : ""}
                       </p>
                     ) : null}
                   </div>

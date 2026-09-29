@@ -5,4 +5,3 @@ export class OrderDeliveriesResponseDto {
   @ApiProperty({ type: () => [OrderDeliveryItemDto] })
   items!: OrderDeliveryItemDto[];
 }
-

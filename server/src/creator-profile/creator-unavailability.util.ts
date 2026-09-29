@@ -47,10 +47,12 @@ export function isDateWithinInclusiveRange(
   return d >= start && d <= end;
 }
 
-export function mapUnavailabilityToPublicAvailability(unavailability?: {
-  startsOn: Date;
-  endsOn: Date;
-} | null): {
+export function mapUnavailabilityToPublicAvailability(
+  unavailability?: {
+    startsOn: Date;
+    endsOn: Date;
+  } | null,
+): {
   available: boolean;
   startsOn: string | null;
   endsOn: string | null;

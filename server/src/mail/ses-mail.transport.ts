@@ -19,7 +19,9 @@ export class SesMailTransport {
   private readonly client: SESv2Client | null;
 
   constructor(private readonly config: ConfigService) {
-    const accessKeyId = this.config.get<string>('AWS_SES_ACCESS_KEY_ID')?.trim();
+    const accessKeyId = this.config
+      .get<string>('AWS_SES_ACCESS_KEY_ID')
+      ?.trim();
     const secretAccessKey = this.config
       .get<string>('AWS_SES_SECRET_ACCESS_KEY')
       ?.trim();
@@ -41,7 +43,12 @@ export class SesMailTransport {
     });
   }
 
-  async send(params: SesSendParams): Promise<void> {
+  /**
+   * Returns SES's MessageId so a send can be correlated with the bounce,
+   * complaint and delivery callbacks that arrive later on the SNS webhook.
+   * Null only when SES accepts without one, which should not happen.
+   */
+  async send(params: SesSendParams): Promise<string | null> {
     if (!this.client) {
       throw new Error(
         'AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY are required to send email',
@@ -67,7 +74,8 @@ export class SesMailTransport {
       },
     };
 
-    await this.client.send(new SendEmailCommand(input));
+    const result = await this.client.send(new SendEmailCommand(input));
     this.logger.log(`sent email to=${params.to} subject="${params.subject}"`);
+    return result.MessageId ?? null;
   }
 }

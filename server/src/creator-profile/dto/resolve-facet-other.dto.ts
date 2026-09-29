@@ -50,6 +50,8 @@ export class FacetOtherResolveResponseDto {
   @ApiPropertyOptional({ enum: ['inappropriate', 'invalid'] })
   reason?: 'inappropriate' | 'invalid';
 
-  @ApiPropertyOptional({ description: 'Human-readable note for the UI banner.' })
+  @ApiPropertyOptional({
+    description: 'Human-readable note for the UI banner.',
+  })
   message?: string;
 }

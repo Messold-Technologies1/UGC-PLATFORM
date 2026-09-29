@@ -12,7 +12,9 @@ export class BulkCheckoutSkippedItemDto {
 }
 
 export class BulkCheckoutResponseDto {
-  @ApiProperty({ description: 'The checkout batch that owns the single payment.' })
+  @ApiProperty({
+    description: 'The checkout batch that owns the single payment.',
+  })
   batchId!: string;
 
   @ApiProperty()
@@ -27,7 +29,9 @@ export class BulkCheckoutResponseDto {
   @ApiProperty()
   razorpayKeyId!: string;
 
-  @ApiProperty({ description: 'Number of orders created (one per valid item).' })
+  @ApiProperty({
+    description: 'Number of orders created (one per valid item).',
+  })
   orderCount!: number;
 
   @ApiProperty({ type: [String], description: 'IDs of the created orders.' })
@@ -48,7 +52,9 @@ export class BulkCheckoutResponseDto {
   })
   discountAmountPaise?: number;
 
-  @ApiPropertyOptional({ description: 'Applied coupon code, when a coupon was used.' })
+  @ApiPropertyOptional({
+    description: 'Applied coupon code, when a coupon was used.',
+  })
   couponCode?: string;
 
   @ApiPropertyOptional({

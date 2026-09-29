@@ -7,4 +7,3 @@ export class OpenDisputeDto {
   @MinLength(3)
   reason!: string;
 }
-

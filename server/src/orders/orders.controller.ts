@@ -465,7 +465,8 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary: 'Brand requests revision with optional feedback note (enforces max revisions)',
+    summary:
+      'Brand requests revision with optional feedback note (enforces max revisions)',
   })
   @ApiParam({
     name: 'id',
@@ -490,7 +491,8 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Create/reuse a Razorpay checkout to buy extra revisions for an order',
+    summary:
+      'Create/reuse a Razorpay checkout to buy extra revisions for an order',
     description:
       'Available once the order has reached its revision cap. Each paid purchase raises the cap by a fixed amount after the payment is captured (webhook).',
   })
@@ -535,7 +537,8 @@ export class OrdersController {
   @Get(':id/revisions')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
-    summary: 'Get revision history for an order (brand, creator, or admin on that order)',
+    summary:
+      'Get revision history for an order (brand, creator, or admin on that order)',
   })
   @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
   @ApiOkResponse({ type: OrderRevisionsResponseDto })

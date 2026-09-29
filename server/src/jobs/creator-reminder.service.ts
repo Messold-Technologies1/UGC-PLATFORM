@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApprovalStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
+import { notificationsCutoverActive } from '../notifications/cutover';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -71,6 +72,10 @@ export class CreatorReminderService {
   ) {}
 
   isEnabled(): boolean {
+    // After the cutover the completion drip is schedule rows on
+    // creator-profile-completion-reminder, so this must stop or a creator gets
+    // both. Reading the same flag keeps the handover atomic.
+    if (notificationsCutoverActive(this.config)) return false;
     return (
       this.config.get<string>('CREATOR_COMPLETION_REMINDERS_ENABLED') === 'true'
     );
@@ -82,6 +87,7 @@ export class CreatorReminderService {
    * Manager first, so it stays off until explicitly enabled.
    */
   isResubmitEnabled(): boolean {
+    if (notificationsCutoverActive(this.config)) return false;
     return (
       this.config.get<string>('CREATOR_RESUBMIT_REMINDERS_ENABLED') === 'true'
     );
@@ -126,7 +132,10 @@ export class CreatorReminderService {
     }
   }
 
-  private stampData(stage: CompletionStage, value: Date | null): {
+  private stampData(
+    stage: CompletionStage,
+    value: Date | null,
+  ): {
     completionReminder30mAt?: Date | null;
     completionReminder24hAt?: Date | null;
     completionReminder72hAt?: Date | null;
@@ -581,7 +590,9 @@ export class CreatorReminderService {
 
       if (this.resubmitStampOf(c, highest) === null) {
         try {
-          if (await this.sendResubmitStageWithClaim(c.creatorId, highest, now)) {
+          if (
+            await this.sendResubmitStageWithClaim(c.creatorId, highest, now)
+          ) {
             sent += 1;
           }
         } catch {

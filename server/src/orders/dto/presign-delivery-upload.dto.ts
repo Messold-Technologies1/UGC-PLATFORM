@@ -31,4 +31,3 @@ export class PresignDeliveryUploadDto {
   @ArrayMaxSize(10)
   files!: PresignDeliveryUploadFileDto[];
 }
-

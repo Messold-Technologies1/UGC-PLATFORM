@@ -136,15 +136,25 @@ describe('Request-scoped workspace routes', () => {
     >;
 
     expect(requiredWorkspaceFor(controller, 'listBrandOrders')).toBe('BRAND');
-    expect(requiredWorkspaceFor(controller, 'getBrandOrderDetails')).toBe('BRAND');
-    expect(requiredWorkspaceFor(controller, 'listBrandOrderDeliveries')).toBe('BRAND');
-    expect(requiredWorkspaceFor(controller, 'listCreatorOrders')).toBe('CREATOR');
-    expect(requiredWorkspaceFor(controller, 'getCreatorOrderDetails')).toBe('CREATOR');
+    expect(requiredWorkspaceFor(controller, 'getBrandOrderDetails')).toBe(
+      'BRAND',
+    );
+    expect(requiredWorkspaceFor(controller, 'listBrandOrderDeliveries')).toBe(
+      'BRAND',
+    );
+    expect(requiredWorkspaceFor(controller, 'listCreatorOrders')).toBe(
+      'CREATOR',
+    );
+    expect(requiredWorkspaceFor(controller, 'getCreatorOrderDetails')).toBe(
+      'CREATOR',
+    );
 
     expect(requiredWorkspaceFor(controller, 'createCheckout')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'resumeCheckout')).toBe('BRAND');
     expect(requiredWorkspaceFor(controller, 'submitBrief')).toBe('BRAND');
-    expect(requiredWorkspaceFor(controller, 'markProductShipped')).toBe('BRAND');
+    expect(requiredWorkspaceFor(controller, 'markProductShipped')).toBe(
+      'BRAND',
+    );
     expect(requiredWorkspaceFor(controller, 'acceptBrief')).toBe('CREATOR');
     expect(requiredWorkspaceFor(controller, 'markProductReceived')).toBe(
       'CREATOR',

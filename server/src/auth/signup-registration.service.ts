@@ -14,6 +14,7 @@ import { StorageService } from '../storage/storage.service';
 import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { PhoneVerificationService } from './phone-verification.service';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 
 const SALT_ROUNDS = 10;
 
@@ -27,6 +28,7 @@ export class SignupRegistrationService {
     private readonly brandProfileService: BrandProfileService,
     private readonly agencyService: AgencyService,
     private readonly creatorReminders: CreatorReminderQueueService,
+    private readonly events: NotificationEventsService,
   ) {}
 
   /**
@@ -136,6 +138,13 @@ export class SignupRegistrationService {
           profile.completionReminderStartedAt,
         )
         .catch(() => undefined);
+      // The engine's schedule rows measure their offsets from occurredAt, so
+      // passing the same column keeps both paths on one clock — which is what
+      // lets the cutover flip without shifting anyone's drip.
+      void this.events.emit('creator-profile-completion-reminder', {
+        entityId: creatorProfileId,
+        occurredAt: profile.completionReminderStartedAt,
+      });
     }
   }
 
@@ -171,29 +180,32 @@ export class SignupRegistrationService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
 
-    const { userId, agencyId } = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          email,
-          name: dto.contactFullName.trim(),
-          passwordHash,
-          primaryRoleId: null,
-        },
-      });
-      const agency = await this.agencyService.runCreateAgencyInTransaction(
-        tx,
-        user.id,
-        {
-          name: dto.name,
-          contactFullName: dto.contactFullName,
-          contactEmail: dto.contactEmail,
-          contactPhone,
-          contactPhoneVerified,
-          website: dto.website?.trim() || null,
-        },
-      );
-      return { userId: user.id, agencyId: agency.id };
-    }, { timeout: 30_000, maxWait: 10_000 });
+    const { userId, agencyId } = await this.prisma.$transaction(
+      async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email,
+            name: dto.contactFullName.trim(),
+            passwordHash,
+            primaryRoleId: null,
+          },
+        });
+        const agency = await this.agencyService.runCreateAgencyInTransaction(
+          tx,
+          user.id,
+          {
+            name: dto.name,
+            contactFullName: dto.contactFullName,
+            contactEmail: dto.contactEmail,
+            contactPhone,
+            contactPhoneVerified,
+            website: dto.website?.trim() || null,
+          },
+        );
+        return { userId: user.id, agencyId: agency.id };
+      },
+      { timeout: 30_000, maxWait: 10_000 },
+    );
 
     if (logoKey) {
       const finalLogoKey = await this.storage.finalizeAgencyLogoKey({

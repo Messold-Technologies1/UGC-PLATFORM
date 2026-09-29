@@ -292,6 +292,7 @@ const adminCreatorListInclude = {
   },
   stats: { select: { avgRating: true, reviewCount: true } },
 } as const;
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 
 /**
  * NOTE: We intentionally keep this payload type loose because the workspace
@@ -322,6 +323,7 @@ export class CreatorProfileService {
     private readonly creatorPackageService: CreatorPackageService,
     private readonly storage: StorageService,
     private readonly creatorProfileMail: CreatorProfileMailNotifier,
+    private readonly events: NotificationEventsService,
     private readonly creatorReviews: CreatorReviewsService,
     private readonly metaCapi: MetaCapiService,
     private readonly facetOtherResolver: FacetOtherResolverService,
@@ -551,7 +553,7 @@ export class CreatorProfileService {
         id: p.id,
         name: p.name,
         deliverables: p.deliverables,
-        videoLengthSeconds: (p as any).videoLengthSeconds ?? 60,
+        videoLengthSeconds: p.videoLengthSeconds ?? 60,
         priceAmount: p.priceAmount,
         deliveryDays: p.deliveryDays,
         maxRevisions: p.maxRevisions ?? 2,
@@ -1259,10 +1261,10 @@ export class CreatorProfileService {
       );
     }
 
-    const [total, featuredTotal] = (await this.prisma.$transaction([
+    const [total, featuredTotal] = await this.prisma.$transaction([
       this.prisma.creatorProfile.count({ where }),
       this.prisma.creatorProfile.count({ where: activeFeaturedWhere }),
-    ])) as [number, number];
+    ]);
 
     const featuredSkip = Math.min(skip, featuredTotal);
     const featuredTake = Math.max(
@@ -1447,9 +1449,9 @@ export class CreatorProfileService {
         },
         portfolioVideos: {
           where: {
-      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
-      ...playableAssetWhere(),
-    },
+            visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+            ...playableAssetWhere(),
+          },
           orderBy: { createdAt: 'asc' },
           take: 1,
           select: {
@@ -1852,8 +1854,7 @@ export class CreatorProfileService {
         limit,
         skip,
         search: query.search,
-        wantComplete:
-          query.segment === AdminCreatorListSegment.LISTED_COMPLETE,
+        wantComplete: query.segment === AdminCreatorListSegment.LISTED_COMPLETE,
       });
     }
 
@@ -1869,7 +1870,10 @@ export class CreatorProfileService {
               // the PENDING -> SELF_COMPLETED flip). approvedAt is often null
               // for older self-completes, so using it left Aug signups under
               // Jul rows that happened to have a leftover approvedAt.
-              [{ creatorApproval: { updatedAt: 'desc' } }, { createdAt: 'desc' }]
+              [
+                { creatorApproval: { updatedAt: 'desc' } },
+                { createdAt: 'desc' },
+              ]
             : query.segment === AdminCreatorListSegment.WITHDRAWN
               ? // Most recently withdrawn first, so admins see fresh
                 // withdrawals at the top.
@@ -2232,7 +2236,11 @@ export class CreatorProfileService {
           },
           addOns: { select: { name: true } },
           _count: {
-            select: { profileLanguages: true, packages: true, restrictions: true },
+            select: {
+              profileLanguages: true,
+              packages: true,
+              restrictions: true,
+            },
           },
           portfolioVideos: {
             where: {
@@ -2539,9 +2547,9 @@ export class CreatorProfileService {
         addOns: { select: { name: true } },
         portfolioVideos: {
           where: {
-      visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
-      ...playableAssetWhere(),
-    },
+            visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
+            ...playableAssetWhere(),
+          },
           select: { id: true },
         },
         socialConnections: {
@@ -2790,6 +2798,9 @@ export class CreatorProfileService {
     );
 
     this.creatorProfileMail.notifyApproved(creatorProfileId);
+    void this.events.emit('creator-profile-approved', {
+      entityId: creatorProfileId,
+    });
 
     return this.mapCreatorProfileResponseDto(updated);
   }
@@ -2945,6 +2956,14 @@ export class CreatorProfileService {
     void this.creatorReminders
       .scheduleResubmitReminders(creatorProfileId, withdrawnAt)
       .catch(() => undefined);
+    // Same clock as above: the engine measures its rows from the withdraw.
+    // occurrenceKey is the withdraw time, because a creator may withdraw more
+    // than once and each withdraw starts a fresh drip.
+    void this.events.emit('creator-profile-resubmit-reminder', {
+      entityId: creatorProfileId,
+      occurrenceKey: withdrawnAt.toISOString(),
+      occurredAt: withdrawnAt,
+    });
 
     const updated = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
@@ -3111,272 +3130,277 @@ export class CreatorProfileService {
           )
         : undefined;
 
-    const { response, becameListed, introChanged } = await this.prisma.$transaction(
-      async (tx) => {
-        const profile = await tx.creatorProfile.findUnique({
-          where: { id: creatorProfileId },
-        });
-
-        if (!profile) {
-          throw new NotFoundException('Creator not found');
-        }
-
-        const allowed =
-          profile.userId === actingUserId ||
-          (await this.isAdmin(actingUserId, tx));
-        if (!allowed) {
-          throw new ForbiddenException(
-            'Not allowed to update this creator profile',
-          );
-        }
-
-        if (dto.displayName !== undefined) {
-          await this.syncUserDisplayName(tx, profile.userId, dto.displayName);
-        }
-
-        if (dto.phone !== undefined) {
-          await this.syncUserPhoneIfChanged(tx, profile.userId, dto.phone);
-        }
-
-        if (dto.contactEmail !== undefined) {
-          await this.syncUserEmailIfChanged(tx, profile.userId, dto.contactEmail);
-        }
-
-        let nextIntroVideoKey: string | null | undefined = undefined;
-        let nextIntroVideoUrl: string | null | undefined = undefined;
-        if (dto.introVideoKey !== undefined) {
-          const trimmed = dto.introVideoKey?.trim();
-          if (trimmed) {
-            // Profile already exists for this update flow; require a finalized key.
-            // The presign endpoint returns a finalized key when profile exists.
-            this.assertIntroVideoKeyOwner(creatorProfileId, trimmed);
-            nextIntroVideoKey = trimmed;
-            nextIntroVideoUrl = this.storage.buildCdnUrl(trimmed);
-          } else {
-            nextIntroVideoKey = null;
-            nextIntroVideoUrl = null;
-          }
-        }
-
-        let nextProfileImageKey: string | null | undefined = undefined;
-        let nextProfileImageUrl: string | null | undefined = undefined;
-        if (dto.profileImageKey !== undefined) {
-          const trimmed = dto.profileImageKey?.trim();
-          if (trimmed) {
-            this.assertProfileImageKeyOwner(creatorProfileId, trimmed);
-            nextProfileImageKey = trimmed;
-            nextProfileImageUrl = this.storage.buildCdnUrl(trimmed);
-          } else {
-            nextProfileImageKey = null;
-            nextProfileImageUrl = null;
-          }
-        }
-
-        const data: Prisma.CreatorProfileUpdateInput = {};
-        if (dto.displayName !== undefined) {
-          data.displayName = dto.displayName.trim();
-        }
-        if (dto.city !== undefined) {
-          data.city = dto.city?.trim() || null;
-        }
-        if (dto.countryName !== undefined) {
-          data.countryName = dto.countryName?.trim() || null;
-        }
-        if (dto.stateName !== undefined) {
-          data.stateName = dto.stateName?.trim() || null;
-        }
-        if (dto.bio !== undefined) {
-          data.bio = dto.bio?.trim() || null;
-        }
-        if (dto.gender !== undefined) {
-          data.gender = dto.gender;
-        }
-        if (dto.dateOfBirth !== undefined) {
-          if (!dto.dateOfBirth) {
-            data.dateOfBirth = null;
-          } else {
-            const d = new Date(dto.dateOfBirth);
-            data.dateOfBirth = Number.isNaN(d.getTime()) ? null : d;
-          }
-        }
-        if (dto.shippingAddress !== undefined) {
-          data.shippingAddress = dto.shippingAddress?.trim() || null;
-        }
-        if (dto.contactEmail !== undefined) {
-          const v = dto.contactEmail.trim();
-          if (!v) {
-            throw new BadRequestException('contactEmail cannot be empty');
-          }
-          data.contactEmail = v;
-        }
-        if (dto.instagramUrl !== undefined) {
-          data.instagramUrl = dto.instagramUrl?.trim() || null;
-        }
-        if (dto.youtubeUrl !== undefined) {
-          data.youtubeUrl = dto.youtubeUrl?.trim() || null;
-        }
-        if (dto.snapchatUrl !== undefined) {
-          data.snapchatUrl = dto.snapchatUrl?.trim() || null;
-        }
-        if (dto.contentVolume !== undefined) {
-          data.contentVolume = dto.contentVolume;
-        }
-        if (dto.collaborationCount !== undefined) {
-          data.collaborationCount = dto.collaborationCount;
-        }
-        if (dto.travelRadius !== undefined) {
-          data.travelRadius = dto.travelRadius;
-        }
-        if (dto.onLocationAvailable !== undefined) {
-          data.onLocationAvailable = dto.onLocationAvailable;
-        }
-        if (nextIntroVideoKey !== undefined) {
-          data.introVideoKey = nextIntroVideoKey;
-          data.introVideoUrl = nextIntroVideoUrl;
-          // The intro drives the card preview's effective source, so a change
-          // (set, replaced, or removed) invalidates any existing rendition.
-          // Reset status + attempts so the pipeline regenerates from scratch,
-          // even if a prior source had exhausted its retry budget.
-          data.previewVideoStatus = 'pending';
-          data.previewVideoAttempts = 0;
-        }
-        if (nextProfileImageKey !== undefined) {
-          data.profileImageKey = nextProfileImageKey;
-          data.profileImageUrl = nextProfileImageUrl;
-        }
-
-        // Go Live carries the creator's acceptance of the Go-Live policies
-        // (AI Content, Usage Rights, Payout, Creator Guidelines). Enforce it on
-        // the publish path — previously this was a client-only gate the server
-        // ignored — and record the acceptance time once, so the profile editor
-        // reflects the creator's real consent instead of inferring it from
-        // completeProfile.
-        if (dto.goLive === true) {
-          // Block a second submission while the profile is already awaiting a
-          // decision (Self complete, or Awaiting review). The creator must
-          // Withdraw first to edit and resubmit. Rejected/Building profiles are
-          // NOT blocked — a rejected creator resubmits, a building one submits
-          // for the first time.
-          const currentApproval = await tx.creatorApproval.findUnique({
-            where: { creatorId: creatorProfileId },
-            select: { status: true },
-          });
-          const submittedStatus = currentApproval?.status;
-          const alreadyAwaitingReview =
-            submittedStatus === ApprovalStatus.SELF_COMPLETED ||
-            (submittedStatus === ApprovalStatus.PENDING &&
-              profile.completeProfile);
-          if (alreadyAwaitingReview) {
-            throw new ConflictException(
-              'Your profile is already submitted and awaiting review. Withdraw it to make changes, then resubmit.',
-            );
-          }
-          if (dto.acceptedGoLivePolicies !== true) {
-            throw new BadRequestException(
-              'You must accept the Go-Live policies to publish your profile.',
-            );
-          }
-          if (!profile.goLivePoliciesAcceptedAt) {
-            data.goLivePoliciesAcceptedAt = new Date();
-          }
-        }
-
-        if (Object.keys(data).length > 0) {
-          await tx.creatorProfile.update({
+    const { response, becameListed, introChanged } =
+      await this.prisma.$transaction(
+        async (tx) => {
+          const profile = await tx.creatorProfile.findUnique({
             where: { id: creatorProfileId },
-            data,
           });
-        }
 
-        if (resolvedFacetSelections !== undefined) {
-          const facetRows = await this.resolveFacetSelectionRows(
-            tx,
-            resolvedFacetSelections,
-          );
-          await this.replaceFacetSelections(tx, creatorProfileId, facetRows);
-        }
+          if (!profile) {
+            throw new NotFoundException('Creator not found');
+          }
 
-        if (dto.profileLanguages !== undefined) {
-          const langRows = await this.resolveLanguageRows(
-            tx,
-            dto.profileLanguages,
-          );
-          await this.replaceProfileLanguages(tx, creatorProfileId, langRows);
-        }
+          const allowed =
+            profile.userId === actingUserId ||
+            (await this.isAdmin(actingUserId, tx));
+          if (!allowed) {
+            throw new ForbiddenException(
+              'Not allowed to update this creator profile',
+            );
+          }
 
-        if (dto.restrictions) {
-          const normalized = this.normalizeUniqueStrings(dto.restrictions);
-          await (tx as any).creatorRestriction.deleteMany({
-            where: { creatorId: creatorProfileId },
-          });
-          if (normalized.length > 0) {
-            await (tx as any).creatorRestriction.createMany({
-              data: normalized.map((restriction) => ({
-                creatorId: creatorProfileId,
-                restriction,
-              })),
-              skipDuplicates: true,
+          if (dto.displayName !== undefined) {
+            await this.syncUserDisplayName(tx, profile.userId, dto.displayName);
+          }
+
+          if (dto.phone !== undefined) {
+            await this.syncUserPhoneIfChanged(tx, profile.userId, dto.phone);
+          }
+
+          if (dto.contactEmail !== undefined) {
+            await this.syncUserEmailIfChanged(
+              tx,
+              profile.userId,
+              dto.contactEmail,
+            );
+          }
+
+          let nextIntroVideoKey: string | null | undefined = undefined;
+          let nextIntroVideoUrl: string | null | undefined = undefined;
+          if (dto.introVideoKey !== undefined) {
+            const trimmed = dto.introVideoKey?.trim();
+            if (trimmed) {
+              // Profile already exists for this update flow; require a finalized key.
+              // The presign endpoint returns a finalized key when profile exists.
+              this.assertIntroVideoKeyOwner(creatorProfileId, trimmed);
+              nextIntroVideoKey = trimmed;
+              nextIntroVideoUrl = this.storage.buildCdnUrl(trimmed);
+            } else {
+              nextIntroVideoKey = null;
+              nextIntroVideoUrl = null;
+            }
+          }
+
+          let nextProfileImageKey: string | null | undefined = undefined;
+          let nextProfileImageUrl: string | null | undefined = undefined;
+          if (dto.profileImageKey !== undefined) {
+            const trimmed = dto.profileImageKey?.trim();
+            if (trimmed) {
+              this.assertProfileImageKeyOwner(creatorProfileId, trimmed);
+              nextProfileImageKey = trimmed;
+              nextProfileImageUrl = this.storage.buildCdnUrl(trimmed);
+            } else {
+              nextProfileImageKey = null;
+              nextProfileImageUrl = null;
+            }
+          }
+
+          const data: Prisma.CreatorProfileUpdateInput = {};
+          if (dto.displayName !== undefined) {
+            data.displayName = dto.displayName.trim();
+          }
+          if (dto.city !== undefined) {
+            data.city = dto.city?.trim() || null;
+          }
+          if (dto.countryName !== undefined) {
+            data.countryName = dto.countryName?.trim() || null;
+          }
+          if (dto.stateName !== undefined) {
+            data.stateName = dto.stateName?.trim() || null;
+          }
+          if (dto.bio !== undefined) {
+            data.bio = dto.bio?.trim() || null;
+          }
+          if (dto.gender !== undefined) {
+            data.gender = dto.gender;
+          }
+          if (dto.dateOfBirth !== undefined) {
+            if (!dto.dateOfBirth) {
+              data.dateOfBirth = null;
+            } else {
+              const d = new Date(dto.dateOfBirth);
+              data.dateOfBirth = Number.isNaN(d.getTime()) ? null : d;
+            }
+          }
+          if (dto.shippingAddress !== undefined) {
+            data.shippingAddress = dto.shippingAddress?.trim() || null;
+          }
+          if (dto.contactEmail !== undefined) {
+            const v = dto.contactEmail.trim();
+            if (!v) {
+              throw new BadRequestException('contactEmail cannot be empty');
+            }
+            data.contactEmail = v;
+          }
+          if (dto.instagramUrl !== undefined) {
+            data.instagramUrl = dto.instagramUrl?.trim() || null;
+          }
+          if (dto.youtubeUrl !== undefined) {
+            data.youtubeUrl = dto.youtubeUrl?.trim() || null;
+          }
+          if (dto.snapchatUrl !== undefined) {
+            data.snapchatUrl = dto.snapchatUrl?.trim() || null;
+          }
+          if (dto.contentVolume !== undefined) {
+            data.contentVolume = dto.contentVolume;
+          }
+          if (dto.collaborationCount !== undefined) {
+            data.collaborationCount = dto.collaborationCount;
+          }
+          if (dto.travelRadius !== undefined) {
+            data.travelRadius = dto.travelRadius;
+          }
+          if (dto.onLocationAvailable !== undefined) {
+            data.onLocationAvailable = dto.onLocationAvailable;
+          }
+          if (nextIntroVideoKey !== undefined) {
+            data.introVideoKey = nextIntroVideoKey;
+            data.introVideoUrl = nextIntroVideoUrl;
+            // The intro drives the card preview's effective source, so a change
+            // (set, replaced, or removed) invalidates any existing rendition.
+            // Reset status + attempts so the pipeline regenerates from scratch,
+            // even if a prior source had exhausted its retry budget.
+            data.previewVideoStatus = 'pending';
+            data.previewVideoAttempts = 0;
+          }
+          if (nextProfileImageKey !== undefined) {
+            data.profileImageKey = nextProfileImageKey;
+            data.profileImageUrl = nextProfileImageUrl;
+          }
+
+          // Go Live carries the creator's acceptance of the Go-Live policies
+          // (AI Content, Usage Rights, Payout, Creator Guidelines). Enforce it on
+          // the publish path — previously this was a client-only gate the server
+          // ignored — and record the acceptance time once, so the profile editor
+          // reflects the creator's real consent instead of inferring it from
+          // completeProfile.
+          if (dto.goLive === true) {
+            // Block a second submission while the profile is already awaiting a
+            // decision (Self complete, or Awaiting review). The creator must
+            // Withdraw first to edit and resubmit. Rejected/Building profiles are
+            // NOT blocked — a rejected creator resubmits, a building one submits
+            // for the first time.
+            const currentApproval = await tx.creatorApproval.findUnique({
+              where: { creatorId: creatorProfileId },
+              select: { status: true },
+            });
+            const submittedStatus = currentApproval?.status;
+            const alreadyAwaitingReview =
+              submittedStatus === ApprovalStatus.SELF_COMPLETED ||
+              (submittedStatus === ApprovalStatus.PENDING &&
+                profile.completeProfile);
+            if (alreadyAwaitingReview) {
+              throw new ConflictException(
+                'Your profile is already submitted and awaiting review. Withdraw it to make changes, then resubmit.',
+              );
+            }
+            if (dto.acceptedGoLivePolicies !== true) {
+              throw new BadRequestException(
+                'You must accept the Go-Live policies to publish your profile.',
+              );
+            }
+            if (!profile.goLivePoliciesAcceptedAt) {
+              data.goLivePoliciesAcceptedAt = new Date();
+            }
+          }
+
+          if (Object.keys(data).length > 0) {
+            await tx.creatorProfile.update({
+              where: { id: creatorProfileId },
+              data,
             });
           }
-        }
 
-        if (dto.packages) {
-          await tx.creatorPackage.deleteMany({
-            where: { creatorId: creatorProfileId },
-          });
-          await this.creatorPackageService.createPackages(
+          if (resolvedFacetSelections !== undefined) {
+            const facetRows = await this.resolveFacetSelectionRows(
+              tx,
+              resolvedFacetSelections,
+            );
+            await this.replaceFacetSelections(tx, creatorProfileId, facetRows);
+          }
+
+          if (dto.profileLanguages !== undefined) {
+            const langRows = await this.resolveLanguageRows(
+              tx,
+              dto.profileLanguages,
+            );
+            await this.replaceProfileLanguages(tx, creatorProfileId, langRows);
+          }
+
+          if (dto.restrictions) {
+            const normalized = this.normalizeUniqueStrings(dto.restrictions);
+            await (tx as any).creatorRestriction.deleteMany({
+              where: { creatorId: creatorProfileId },
+            });
+            if (normalized.length > 0) {
+              await (tx as any).creatorRestriction.createMany({
+                data: normalized.map((restriction) => ({
+                  creatorId: creatorProfileId,
+                  restriction,
+                })),
+                skipDuplicates: true,
+              });
+            }
+          }
+
+          if (dto.packages) {
+            await tx.creatorPackage.deleteMany({
+              where: { creatorId: creatorProfileId },
+            });
+            await this.creatorPackageService.createPackages(
+              tx,
+              creatorProfileId,
+              dto.packages,
+            );
+          }
+
+          if (dto.addOns !== undefined) {
+            await tx.creatorAddOn.deleteMany({
+              where: { creatorId: creatorProfileId },
+            });
+            if (dto.addOns.length > 0) {
+              const normalizedAddOns = await this.normalizeCreatorAddOns(
+                tx,
+                dto.addOns as any,
+              );
+              await tx.creatorAddOn.createMany({
+                data: normalizedAddOns.map((addOn) => ({
+                  creatorId: creatorProfileId,
+                  name: addOn.name,
+                  priceAmount: addOn.priceAmount,
+                  description: addOn.description,
+                })),
+              });
+            }
+          }
+
+          // Latch completeProfile / recompute isListed after all writes land.
+          // Only an explicit Go Live (dto.goLive) may flip completeProfile to
+          // true; a draft save persists data without publishing.
+          const listingState = await recomputeCreatorListingState(
             tx,
             creatorProfileId,
-            dto.packages,
+            dto.goLive === true,
           );
-        }
 
-        if (dto.addOns !== undefined) {
-          await tx.creatorAddOn.deleteMany({
-            where: { creatorId: creatorProfileId },
+          const updated = await tx.creatorProfile.findUnique({
+            where: { id: creatorProfileId },
+            include: creatorProfileWithRelationsInclude as any,
           });
-          if (dto.addOns.length > 0) {
-            const normalizedAddOns = await this.normalizeCreatorAddOns(
-              tx,
-              dto.addOns as any,
-            );
-            await tx.creatorAddOn.createMany({
-              data: normalizedAddOns.map((addOn) => ({
-                creatorId: creatorProfileId,
-                name: addOn.name,
-                priceAmount: addOn.priceAmount,
-                description: addOn.description,
-              })),
-            });
+
+          if (!updated) {
+            throw new Error('Creator profile update failed');
           }
-        }
 
-        // Latch completeProfile / recompute isListed after all writes land.
-        // Only an explicit Go Live (dto.goLive) may flip completeProfile to
-        // true; a draft save persists data without publishing.
-        const listingState = await recomputeCreatorListingState(
-          tx,
-          creatorProfileId,
-          dto.goLive === true,
-        );
-
-        const updated = await tx.creatorProfile.findUnique({
-          where: { id: creatorProfileId },
-          include: creatorProfileWithRelationsInclude as any,
-        });
-
-        if (!updated) {
-          throw new Error('Creator profile update failed');
-        }
-
-        return {
-          response: this.mapCreatorProfileResponseDto(updated),
-          becameListed: listingState?.becameListed === true,
-          introChanged: nextIntroVideoKey !== undefined,
-        };
-      },
-      { timeout: 30_000, maxWait: 10_000 },
-    );
+          return {
+            response: this.mapCreatorProfileResponseDto(updated),
+            becameListed: listingState?.becameListed === true,
+            introChanged: nextIntroVideoKey !== undefined,
+          };
+        },
+        { timeout: 30_000, maxWait: 10_000 },
+      );
 
     // Fire the Meta "listed" conversion after the transaction commits, only on
     // the isListed false -> true transition (e.g. a creator completing their

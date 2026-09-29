@@ -16,6 +16,8 @@ import { WhatsAppWebhookController } from './whatsapp-webhook.controller';
 @Module({
   controllers: [WhatsAppWebhookController],
   providers: [WhatsAppCloudTransport, WhatsAppService],
-  exports: [WhatsAppService],
+  // WhatsAppCloudTransport is exported for the notifications module, which
+  // gates and renders itself and needs only the Cloud API client.
+  exports: [WhatsAppService, WhatsAppCloudTransport],
 })
 export class WhatsAppModule {}

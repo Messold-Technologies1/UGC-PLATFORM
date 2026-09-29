@@ -58,12 +58,7 @@ function readCookie(req: Request, name: string): string | undefined {
 }
 
 @ApiTags('auth')
-@ApiExtraModels(
-  UserResponseDto,
-  MeUserDto,
-  RegisterDto,
-  RegisterAgencyDto,
-)
+@ApiExtraModels(UserResponseDto, MeUserDto, RegisterDto, RegisterAgencyDto)
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -230,11 +225,7 @@ export class AuthController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<void> {
     const refreshToken = readCookie(req, AUTH_COOKIE_NAMES.refreshToken);
-    await this.passwordService.changePassword(
-      req.user.id,
-      dto,
-      refreshToken,
-    );
+    await this.passwordService.changePassword(req.user.id, dto, refreshToken);
   }
 
   @Get('google')
@@ -247,10 +238,7 @@ export class AuthController {
       'Optional intended workspace. BRAND provisions brand role and may require post-signup brand setup.',
   })
   @ApiResponse({ status: 302, description: 'Redirect to Google sign-in' })
-  google(
-    @Query('role') role: string | undefined,
-    @Res() res: Response,
-  ) {
+  google(@Query('role') role: string | undefined, @Res() res: Response) {
     const state = randomBytes(32).toString('hex');
     setOAuthStateCookie(res, state);
     const intendedRole = parseOAuthIntendedRole(role?.toUpperCase());

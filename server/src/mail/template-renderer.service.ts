@@ -10,38 +10,20 @@ import {
   type RenderedEmail,
 } from './mail.types';
 
-const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = [
-  EmailTemplateKey.CREATOR_PROFILE_APPROVED,
-  EmailTemplateKey.CREATOR_PROFILE_REJECTED,
-  EmailTemplateKey.CREATOR_PROFILE_COMPLETION_REMINDER,
-  EmailTemplateKey.CREATOR_PROFILE_RESUBMIT_REMINDER,
-  EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_BRIEF_ACCEPTED_FOR_BRAND,
-  EmailTemplateKey.ORDER_PRODUCT_SHIPPED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND,
-  EmailTemplateKey.ORDER_REVISION_REQUESTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_BRAND,
-  EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_CONTENT_DELIVERED_FOR_BRAND,
-  EmailTemplateKey.ORDER_CONTENT_ACCEPTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND,
-  EmailTemplateKey.ORDER_REJECTED_FOR_BRAND,
-  EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_BRAND,
-  EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_CANCELLED_FOR_BRAND,
-  EmailTemplateKey.ORDER_CANCELLED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_BRAND,
-  EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_CREATOR,
-  EmailTemplateKey.ORDER_REFUNDED_FOR_BRAND,
-  EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_BRAND,
-  EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_BRAND,
-  EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_CREATOR,
-  EmailTemplateKey.BRAND_WELCOME,
-  EmailTemplateKey.PASSWORD_RESET,
-];
+/**
+ * Every template the renderer compiles at boot.
+ *
+ * Derived from the enum rather than hand-listed: a hand-maintained copy silently
+ * drifts, and a key missing from it does not fail at boot — it throws
+ * `Unknown email template` from {@link TemplateRendererService.render} at send
+ * time, which the notifiers swallow into a single `logger.warn`. That is how
+ * ORDER_EXTRA_REVISIONS_PURCHASED_FOR_BRAND and SOCIAL_CONNECTION_EXPIRED came
+ * to send nothing on either channel despite having template files on disk.
+ *
+ * Deriving it means a new enum member without template files fails loudly at
+ * boot instead.
+ */
+const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = Object.values(EmailTemplateKey);
 
 type CompiledSet = {
   subject: TemplateDelegate;
@@ -113,6 +95,24 @@ export class TemplateRendererService implements OnModuleInit {
       html,
       text: set.text(ctx).trim(),
     };
+  }
+
+  /**
+   * Wrap an already-rendered body in the shared email shell.
+   *
+   * Public so the DB-backed renderer can reuse the same chrome: admin-authored
+   * templates supply only the body, and branding stays in one place.
+   */
+  wrapInShell(bodyHtml: string, context: EmailTemplateContext): string {
+    return this.shellTemplate({
+      ...this.withDefaults(context),
+      body: bodyHtml,
+    });
+  }
+
+  /** Platform-wide defaults (platformName, logoUrl, frontendUrl) merged under a context. */
+  applyDefaults(context: EmailTemplateContext): EmailTemplateContext {
+    return this.withDefaults(context);
   }
 
   private withDefaults(context: EmailTemplateContext): EmailTemplateContext {

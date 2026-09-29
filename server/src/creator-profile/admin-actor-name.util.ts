@@ -1,8 +1,10 @@
 /** Name shown in the admin creator list for who sent for review / approved. */
-export function adminActorDisplayName(user?: {
-  name?: string | null;
-  email?: string | null;
-} | null): string | null {
+export function adminActorDisplayName(
+  user?: {
+    name?: string | null;
+    email?: string | null;
+  } | null,
+): string | null {
   if (!user) return null;
   const name = user.name?.trim();
   if (name) return name;

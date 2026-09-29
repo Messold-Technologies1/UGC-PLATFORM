@@ -28,6 +28,7 @@ import {
   SocialConnectionDto,
 } from './dto/social-connection-response.dto';
 import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 
 /** Rolling window (days) each sync summarises for reach/views/profile-views. */
 const METRICS_WINDOW_DAYS = 30;
@@ -49,6 +50,7 @@ export class SocialConnectionsService {
     private readonly config: ConfigService,
     private readonly instagram: InstagramClient,
     private readonly creatorMail: CreatorProfileMailNotifier,
+    private readonly events: NotificationEventsService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -574,6 +576,9 @@ export class SocialConnectionsService {
       creatorProfileId,
       this.providerDisplayName(platform),
     );
+    void this.events.emit('social-connection-expired', {
+      entityId: creatorProfileId,
+    });
   }
 
   /** Human-facing name for a platform, e.g. `INSTAGRAM` -> `Instagram`. */

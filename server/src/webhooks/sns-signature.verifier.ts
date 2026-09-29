@@ -34,7 +34,6 @@ function isAllowedSigningCertUrl(url: string): boolean {
   }
 }
 
-
 function buildStringToSign(message: SnsIncomingMessage): string {
   const fields: string[] = [];
 
@@ -81,7 +80,9 @@ async function loadSigningCertificate(certUrl: string): Promise<string> {
 
   const res = await fetch(certUrl, { method: 'GET' });
   if (!res.ok) {
-    throw new Error(`Failed to download SNS signing certificate: ${res.status}`);
+    throw new Error(
+      `Failed to download SNS signing certificate: ${res.status}`,
+    );
   }
   const pem = await res.text();
   CERT_CACHE.set(certUrl, pem);

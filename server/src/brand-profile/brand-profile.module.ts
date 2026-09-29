@@ -11,4 +11,3 @@ import { BrandProfileService } from './brand-profile.service';
   exports: [BrandProfileService],
 })
 export class BrandProfileModule {}
-

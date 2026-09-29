@@ -180,7 +180,11 @@ export class FacetOtherResolverService {
       }
       // Real (matched or newly created) option; the custom label is no longer
       // needed because the value is now a first-class catalog option.
-      out.push({ dimension: sel.dimension, slug: resolved.slug, rank: sel.rank });
+      out.push({
+        dimension: sel.dimension,
+        slug: resolved.slug,
+        rank: sel.rank,
+      });
     }
     return out;
   }
@@ -237,7 +241,9 @@ export class FacetOtherResolverService {
 
     // Tier 1 — learned alias cache.
     const alias = await this.prisma.creatorFacetOptionAlias.findUnique({
-      where: { dimension_normalizedText: { dimension, normalizedText: normalized } },
+      where: {
+        dimension_normalizedText: { dimension, normalizedText: normalized },
+      },
       include: { option: true },
     });
     if (alias?.option && alias.option.status === 'active') {
@@ -262,13 +268,18 @@ export class FacetOtherResolverService {
 
     // Tier 2b — fuzzy (pg_trgm) match.
     const fuzzy = await this.fuzzyMatch(dimension, normalized);
-    if (fuzzy && fuzzy.slug !== 'other') return { kind: 'match', option: fuzzy };
+    if (fuzzy && fuzzy.slug !== 'other')
+      return { kind: 'match', option: fuzzy };
 
     // Tier 3 — LLM. If unavailable, keep the value as private custom text.
     if (!this.openRouter.isConfigured()) return { kind: 'kept' };
     let decision: LlmDecision | null;
     try {
-      decision = await this.classifyWithLlm(dimension, typedText, activeOptions);
+      decision = await this.classifyWithLlm(
+        dimension,
+        typedText,
+        activeOptions,
+      );
     } catch (err) {
       this.logger.warn(
         `facet_other llm failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -280,7 +291,8 @@ export class FacetOtherResolverService {
     if (decision.action === 'reject') {
       return {
         kind: 'reject',
-        reason: decision.reason === 'inappropriate' ? 'inappropriate' : 'invalid',
+        reason:
+          decision.reason === 'inappropriate' ? 'inappropriate' : 'invalid',
       };
     }
     if (decision.action === 'match' && decision.slug) {
@@ -317,7 +329,8 @@ export class FacetOtherResolverService {
     creatorProfileId: string | null,
   ): Promise<{ id: string; slug: string; label: string }> {
     let baseSlug = this.slugify(label);
-    if (!baseSlug || baseSlug === 'other') baseSlug = `custom_${this.slugify(label)}`;
+    if (!baseSlug || baseSlug === 'other')
+      baseSlug = `custom_${this.slugify(label)}`;
 
     // Ensure a unique slug within the dimension.
     const all = await this.prisma.creatorFacetOption.findMany({
@@ -377,7 +390,10 @@ Reply with STRICT JSON only, no prose, no code fences.`;
 
     const user = `Existing options:\n${list || '(none)'}\n\nCreator typed: "${typedText}"\n\nJSON:`;
 
-    const model = this.config.get<string>('OPENROUTER_BIO_MODEL', DEFAULT_MODEL);
+    const model = this.config.get<string>(
+      'OPENROUTER_BIO_MODEL',
+      DEFAULT_MODEL,
+    );
     let raw: string;
     try {
       raw = await this.openRouter.chatComplete({
@@ -409,7 +425,8 @@ Reply with STRICT JSON only, no prose, no code fences.`;
       if (action === 'reject') {
         return {
           action: 'reject',
-          reason: parsed.reason === 'inappropriate' ? 'inappropriate' : 'invalid',
+          reason:
+            parsed.reason === 'inappropriate' ? 'inappropriate' : 'invalid',
         };
       }
       return null;

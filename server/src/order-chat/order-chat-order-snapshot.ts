@@ -24,7 +24,6 @@ export function isOrderChatSnapshotUpdate(
   return (
     data.lastChatActivityAt !== undefined ||
     data.lastChatMessageId !== undefined ||
-    data.lastChatMessageAt !== undefined ||
     data.lastChatMessageSenderUserId !== undefined ||
     data.lastChatMessageType !== undefined ||
     data.lastChatMessageText !== undefined

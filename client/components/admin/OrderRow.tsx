@@ -50,6 +50,19 @@ export default function OrderRow({
   const brandLabel = brand.brandName?.trim() || "Unnamed Brand";
   const creatorLabel = creator.displayName?.trim() || "Creator";
 
+  // On a disputed order, name the side that raised it so admins can triage the
+  // list without opening each order.
+  const disputeRaisedBy =
+    order.status === "DISPUTED" && order.disputeOpenedBy
+      ? order.disputeOpenedBy === "BRAND"
+        ? "Brand"
+        : "Creator"
+      : null;
+  const disputeRaisedOn =
+    disputeRaisedBy && order.disputeOpenedAt
+      ? formatDate(order.disputeOpenedAt)
+      : null;
+
   // "Actioned by": who ended the order early (REJECTED) or accepted the brief.
   // role ADMIN means our support team acted on a party's behalf.
   const terminated = order.status === "REJECTED" && !!cancelledByActor;
@@ -152,12 +165,20 @@ export default function OrderRow({
         </div>
       </td>
       <td className="px-8 py-6">
-        <Badge
-          variant="outline"
-          className={`${statusClass} px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest`}
-        >
-          {statusLabel}
-        </Badge>
+        <div className="flex flex-col items-start gap-1">
+          <Badge
+            variant="outline"
+            className={`${statusClass} px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest`}
+          >
+            {statusLabel}
+          </Badge>
+          {disputeRaisedBy ? (
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+              Raised by {disputeRaisedBy}
+              {disputeRaisedOn ? ` · ${disputeRaisedOn}` : ""}
+            </span>
+          ) : null}
+        </div>
       </td>
       <td className="px-8 py-6">
         {actor ? (

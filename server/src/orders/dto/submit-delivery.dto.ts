@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class SubmitDeliveryAssetDto {
   @ApiProperty({ example: 'order-deliveries/<orderId>/r0/<uuid>.mp4' })
@@ -43,4 +50,3 @@ export class SubmitDeliveryResponseDto {
   @ApiProperty()
   status!: string;
 }
-

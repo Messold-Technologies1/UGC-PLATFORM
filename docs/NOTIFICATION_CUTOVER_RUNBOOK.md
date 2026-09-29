@@ -57,9 +57,18 @@ are only ever created, never rewritten. Both the API and the worker boot it, so
 it runs under a transaction-scoped advisory lock — whichever process arrives
 first does the work.
 
-`npm run prisma:seed:notification-templates` still exists for running the import
-by hand against a database the app is not pointed at. It shares its logic with
-the boot path, so the two cannot drift.
+To run the import by hand — to force a re-import without restarting, or against
+a database the app is not pointed at:
+
+```bash
+npm run notifications:import-templates
+```
+
+It calls the same service the boot path calls, so the two cannot drift. It runs
+from `dist` with plain node: the old `prisma:seed:notification-templates` went
+through `ts-node`, a devDependency that a production install prunes, so in a
+deployed container it died with `Cannot find module
+'ts-node/register/transpile-only'`. The old name still works as an alias.
 
 **Check:** 37 templates, 31 events, and a schedule row per event.
 
@@ -120,8 +129,8 @@ offsets are unclaimed.
 received.**
 
 ```bash
-npm run prisma:backfill:notification-drip-log -- --dry-run   # counts only
-npm run prisma:backfill:notification-drip-log
+npm run notifications:backfill-drip-log -- --dry-run   # counts only
+npm run notifications:backfill-drip-log
 ```
 
 It turns each `completionReminder*At` and `resubmitReminder*At` stamp into a

@@ -201,30 +201,70 @@ async function main(): Promise<void> {
     );
   }
 
-  // ── Portfolio videos ────────────────────────────────────────────────────
-  const creatorIds = (
+  // ── Phase 1: discover every deleted original up front (one listing pass) ──
+  // so we can report how many are still owed before touching anything. Each run
+  // only ever finds originals that STILL have a delete marker, so this number
+  // shrinks every run and is your resume/progress gauge.
+  const portfolioCreatorIds = (
     await prisma.creatorPortfolioVideo.findMany({
       select: { creatorId: true },
       distinct: ['creatorId'],
     })
   ).map((r) => r.creatorId);
 
-  logger.log(
-    `scanning ${creatorIds.length} creators for deleted portfolio originals`,
-  );
-
-  for (const creatorId of creatorIds) {
+  const portfolioByCreator = new Map<string, DeletedOriginal[]>();
+  for (const creatorId of portfolioCreatorIds) {
     const prefix = `creator-portfolio/${creatorId}/videos/`;
-    let deleted: DeletedOriginal[];
     try {
-      deleted = await listDeletedOriginals(prefix);
+      const deleted = await listDeletedOriginals(prefix);
+      if (deleted.length > 0) portfolioByCreator.set(creatorId, deleted);
     } catch (err) {
       stats.errors++;
       logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
-      continue;
     }
-    if (deleted.length === 0) continue;
+  }
 
+  const introCreators = await prisma.creatorProfile.findMany({
+    where: { introVideoKey: { not: null } },
+    select: { id: true, introVideoKey: true },
+  });
+  const introByCreator = new Map<
+    string,
+    { introVideoKey: string | null; deleted: DeletedOriginal[] }
+  >();
+  for (const c of introCreators) {
+    const prefix = `creator-profile/${c.id}/intro/`;
+    try {
+      const deleted = await listDeletedOriginals(prefix);
+      if (deleted.length > 0)
+        introByCreator.set(c.id, { introVideoKey: c.introVideoKey, deleted });
+    } catch (err) {
+      stats.errors++;
+      logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
+    }
+  }
+
+  const portfolioRemaining = [...portfolioByCreator.values()].reduce(
+    (n, d) => n + d.length,
+    0,
+  );
+  const introRemaining = [...introByCreator.values()].reduce(
+    (n, e) => n + e.deleted.length,
+    0,
+  );
+  const totalRemaining = portfolioRemaining + introRemaining;
+  let processed = 0;
+  logger.log(
+    `remaining to restore: ${totalRemaining} deleted original(s) — ` +
+      `${portfolioRemaining} portfolio across ${portfolioByCreator.size} creator(s), ` +
+      `${introRemaining} intro across ${introByCreator.size} creator(s)`,
+  );
+  if (totalRemaining === 0) {
+    logger.log('nothing left to restore — all originals are already live');
+  }
+
+  // ── Phase 2: restore ──────────────────────────────────────────────────────
+  for (const [creatorId, deleted] of portfolioByCreator) {
     const rows = await prisma.creatorPortfolioVideo.findMany({
       where: { creatorId },
       select: {
@@ -312,8 +352,9 @@ async function main(): Promise<void> {
       if (APPLY) await undelete(orig).catch(() => undefined);
       return;
     }
+    processed++;
     logger.log(
-      `${confidence}: restore ${orig.key} → row ${row.id} (was ${staleKey})${APPLY ? '' : ' [dry-run]'}`,
+      `${confidence}: restore ${orig.key} → row ${row.id} (${processed}/${totalRemaining})${APPLY ? '' : ' [dry-run]'}`,
     );
     if (!APPLY) {
       countRestore(confidence);
@@ -352,35 +393,19 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── Intro videos ─────────────────────────────────────────────────────────
-  const introCreators = await prisma.creatorProfile.findMany({
-    where: { introVideoKey: { not: null } },
-    select: { id: true, introVideoKey: true },
-  });
-  logger.log(
-    `scanning ${introCreators.length} creators for deleted intro originals`,
-  );
-
-  for (const c of introCreators) {
-    const prefix = `creator-profile/${c.id}/intro/`;
-    let deleted: DeletedOriginal[];
-    try {
-      deleted = await listDeletedOriginals(prefix);
-    } catch (err) {
-      stats.errors++;
-      logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
-      continue;
-    }
-    if (deleted.length === 0) continue;
+  // ── Phase 2 (intro) ────────────────────────────────────────────────────
+  for (const [introCreatorId, entry] of introByCreator) {
+    const c = { id: introCreatorId, introVideoKey: entry.introVideoKey };
     // One intro per creator: the most recently deleted original is the pre-swap
     // intro we want back.
-    const orig = deleted.sort((a, b) => b.deletedAt - a.deletedAt)[0];
+    const orig = entry.deleted.sort((a, b) => b.deletedAt - a.deletedAt)[0];
     if (c.introVideoKey === orig.key) {
       if (APPLY) await undelete(orig).catch(() => undefined);
       continue;
     }
+    processed++;
     logger.log(
-      `INTRO: restore ${orig.key} → creator ${c.id} (was ${c.introVideoKey})${APPLY ? '' : ' [dry-run]'}`,
+      `INTRO: restore ${orig.key} → creator ${c.id} (was ${c.introVideoKey}) (${processed}/${totalRemaining})${APPLY ? '' : ' [dry-run]'}`,
     );
     if (!APPLY) {
       stats.restored++;

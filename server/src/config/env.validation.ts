@@ -122,10 +122,18 @@ export const envValidationSchema = Joi.object({
     .max(120_000)
     .default(15_000),
 
-  // Twilio Verify (optional until phone OTP is used)
-  TWILIO_ACCOUNT_SID: Joi.string().optional(),
-  TWILIO_AUTH_TOKEN: Joi.string().optional(),
-  TWILIO_VERIFY_SERVICE_SID: Joi.string().optional(),
+  // Phone OTP over WhatsApp. Uses the WHATSAPP_* credentials below; these only
+  // name the approved authentication template and the key used to hash codes.
+  // Unset in non-production => dev bypass (fixed code 000000); in production an
+  // unconfigured WhatsApp means phone verification returns 503.
+  WHATSAPP_OTP_TEMPLATE_NAME: Joi.string().optional().default('otp_verification'),
+  WHATSAPP_OTP_TEMPLATE_LANGUAGE: Joi.string().optional(),
+  // Meta's expected button sub_type for the authentication template's copy-code
+  // button. Overridable so a component rejection is an env change, not a deploy.
+  WHATSAPP_OTP_BUTTON_SUBTYPE: Joi.string().optional().default('url'),
+  // Key for the HMAC that hashes stored OTP codes. Falls back to
+  // JWT_ACCESS_SECRET; set it separately to rotate one without the other.
+  PHONE_OTP_SECRET: Joi.string().min(16).optional(),
 
   // Email (SES) — optional until outbound mail is enabled
   AWS_SES_ACCESS_KEY_ID: Joi.string().min(1).optional(),

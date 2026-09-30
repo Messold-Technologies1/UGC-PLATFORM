@@ -2,18 +2,26 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import {
   ApiCreatedResponse,
   ApiNoContentResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import { PhoneVerificationService } from './phone-verification.service';
+import { clientIpFrom, toSendHttpException } from './phone-otp-request.util';
+import { PhoneOtpStatusQueryDto } from './dto/phone-otp-status-query.dto';
+import { PhoneOtpStatusResponseDto } from './dto/phone-otp-status-response.dto';
 import { SignupSendPhoneOtpDto } from './dto/signup-send-phone-otp.dto';
 import { SignupPresignUploadDto } from './dto/signup-presign-upload.dto';
 import {
@@ -40,11 +48,36 @@ export class AuthSignupController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Send SMS OTP for signup (unauthenticated; use before role-based register)',
+    summary:
+      'Send a WhatsApp OTP for signup (unauthenticated; use before role-based register)',
   })
   @ApiNoContentResponse({ description: 'OTP sent' })
-  async sendSignupPhoneOtp(@Body() dto: SignupSendPhoneOtpDto): Promise<void> {
-    await this.phoneVerification.sendVerificationCode(dto.phone);
+  async sendSignupPhoneOtp(
+    @Body() dto: SignupSendPhoneOtpDto,
+    @Req() req: Request,
+  ): Promise<void> {
+    try {
+      await this.phoneVerification.sendVerificationCode(
+        dto.phone,
+        'signup',
+        clientIpFrom(req),
+      );
+    } catch (err) {
+      throw toSendHttpException(err);
+    }
+  }
+
+  @Get('phone/otp-status')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Delivery state of the last signup OTP (is the number on WhatsApp?)',
+  })
+  @ApiOkResponse({ type: PhoneOtpStatusResponseDto })
+  async signupOtpStatus(
+    @Query() query: PhoneOtpStatusQueryDto,
+  ): Promise<PhoneOtpStatusResponseDto> {
+    return this.phoneVerification.getDeliveryState(query.phone, 'signup');
   }
 
   @Post('presign/creator-portfolio-video')

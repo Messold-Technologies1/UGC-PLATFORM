@@ -9,7 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { sendPhoneOtp, verifyPhoneOtp } from "@/features/auth/api/phone-otp";
+import {
+  fetchPhoneOtpStatus,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+} from "@/features/auth/api/phone-otp";
 import { cn } from "@/lib/utils";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
@@ -111,6 +115,13 @@ export function PhoneVerificationField({
     number | null
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
+  /**
+   * Set when Meta tells us (via our delivery webhook) that the number has no
+   * WhatsApp account. It cannot come from the send call — WhatsApp queues the
+   * message and reports success regardless — so this is filled in later, once
+   * the resend countdown lapses and we ask the server what actually happened.
+   */
+  const [notOnWhatsApp, setNotOnWhatsApp] = useState(false);
 
   const normalizedPhone = useMemo(
     () => normalizePhoneForOtp(phoneInput),
@@ -154,6 +165,32 @@ export function PhoneVerificationField({
     return () => window.clearInterval(intervalId);
   }, [otpResendAvailableAt]);
 
+  /**
+   * Once the resend countdown runs out and the code still hasn't been entered,
+   * ask the server what became of the message. A single check, not a poll: by
+   * this point Meta's delivery webhook has had a full minute to land, and the
+   * only outcome worth reacting to is "this number isn't on WhatsApp".
+   */
+  useEffect(() => {
+    if (!activeOtpPhone || phoneVerified) return;
+    if (resendSecondsRemaining > 0) return;
+    if (notOnWhatsApp) return;
+
+    let cancelled = false;
+    void fetchPhoneOtpStatus(activeOtpPhone)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.notOnWhatsApp) setNotOnWhatsApp(true);
+      })
+      // A failed status lookup is not worth surfacing — the user can still
+      // enter a code that did arrive, or hit resend.
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOtpPhone, notOnWhatsApp, phoneVerified, resendSecondsRemaining]);
+
   const sendPhoneOtpMutation = useMutation({
     mutationKey: ["auth", "phone", "send-otp"],
     mutationFn: sendPhoneOtp,
@@ -164,6 +201,7 @@ export function PhoneVerificationField({
       setOtpCode("");
       setOtpError(null);
       setPhoneError(null);
+      setNotOnWhatsApp(false);
       setOtpClockTick(now);
       setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
       toast.success("Verification code sent");
@@ -249,7 +287,7 @@ export function PhoneVerificationField({
     }
 
     if (!OTP_CODE_REGEX.test(code)) {
-      const message = "Enter the verification code from the SMS.";
+      const message = "Enter the verification code sent on WhatsApp.";
       setOtpError(message);
       toast.error(message);
       return;
@@ -288,6 +326,7 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             setPhoneInput(digits ? `+91${digits}` : "");
             setVerifiedPhone(null);
             setPhoneError(null);
+            setNotOnWhatsApp(false);
           }}
         />
         <Button
@@ -352,9 +391,16 @@ verifyPhoneOtpMutation.mutate({ phone, code });
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Enter the code sent to {activeOtpPhone}.
-          </p>
+          {notOnWhatsApp ? (
+            <p className="text-xs text-destructive">
+              {activeOtpPhone} isn&apos;t on WhatsApp. Please enter your
+              WhatsApp number and try again.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Enter the code sent on WhatsApp to {activeOtpPhone}.
+            </p>
+          )}
           {otpError ? <p className="text-xs text-destructive">{otpError}</p> : null}
         </div>
       ) : null}

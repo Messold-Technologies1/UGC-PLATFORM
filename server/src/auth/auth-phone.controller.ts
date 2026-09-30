@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpException,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -22,7 +24,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SendPhoneOtpDto } from './dto/send-phone-otp.dto';
 import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
 import { VerifyPhoneOtpResponseDto } from './dto/verify-phone-otp-response.dto';
+import { PhoneOtpStatusQueryDto } from './dto/phone-otp-status-query.dto';
+import { PhoneOtpStatusResponseDto } from './dto/phone-otp-status-response.dto';
 import { PhoneVerificationService } from './phone-verification.service';
+import { clientIpFrom, toSendHttpException } from './phone-otp-request.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('auth')
@@ -39,7 +44,7 @@ export class AuthPhoneController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Send SMS OTP to phone (Twilio Verify). Authenticated user.',
+    summary: 'Send a WhatsApp OTP to a phone. Authenticated user.',
   })
   @ApiNoContentResponse({ description: 'OTP sent' })
   async sendOtp(
@@ -56,7 +61,29 @@ export class AuthPhoneController {
     if (existing) {
       throw new BadRequestException('Invalid request.');
     }
-    await this.phoneVerification.sendVerificationCode(dto.phone);
+    try {
+      await this.phoneVerification.sendVerificationCode(
+        dto.phone,
+        'profile',
+        clientIpFrom(req),
+      );
+    } catch (err) {
+      throw toSendHttpException(err);
+    }
+  }
+
+  @Get('phone/otp-status')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Delivery state of the last OTP sent to a phone (is the number on WhatsApp?)',
+  })
+  @ApiOkResponse({ type: PhoneOtpStatusResponseDto })
+  async otpStatus(
+    @Query() query: PhoneOtpStatusQueryDto,
+  ): Promise<PhoneOtpStatusResponseDto> {
+    return this.phoneVerification.getDeliveryState(query.phone, 'profile');
   }
 
   @Post('phone/verify-otp')
@@ -82,7 +109,11 @@ export class AuthPhoneController {
       throw new BadRequestException('Invalid request.');
     }
 
-    const status = await this.phoneVerification.verifyCode(dto.phone, dto.code);
+    const status = await this.phoneVerification.verifyCode(
+      dto.phone,
+      dto.code,
+      'profile',
+    );
     const now = new Date();
 
     if (status === 'approved') {
@@ -120,7 +151,7 @@ export class AuthPhoneController {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    if (status === 'expired' || status === 'canceled') {
+    if (status === 'expired') {
       throw new BadRequestException({
         status,
         phoneVerified: false,

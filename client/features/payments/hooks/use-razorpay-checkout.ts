@@ -9,7 +9,9 @@ import { toast } from "sonner";
 import type { AddOn, CreatorProfile, Package } from "@/features/creators/types";
 import type { CheckoutSession } from "@/features/payments/api/create-checkout";
 import {
+  clearCheckoutAttemptKey,
   clearStoredCheckoutSession,
+  readOrCreateCheckoutAttemptKey,
   readStoredCheckoutSession,
   writeStoredCheckoutSession,
 } from "@/features/payments/lib/checkout-session-storage";
@@ -86,9 +88,23 @@ export function useRazorpayCheckout({
     [selectedAddOns, selectedPackage?.price],
   );
 
+  // The identity of this "order from this creator" intent, sent to the server
+  // as checkoutSessionKey. Stable across a reload of the same tab; cleared when
+  // the attempt ends, so the brand's next checkout with this creator is a new
+  // intent and becomes a separate order rather than replacing this one.
+  const attemptKey = useMemo(
+    () => readOrCreateCheckoutAttemptKey(creator.id),
+    [creator.id],
+  );
+
+  const endAttempt = useCallback(() => {
+    clearStoredCheckoutSession(attemptKey);
+    clearCheckoutAttemptKey(creator.id);
+  }, [attemptKey, creator.id]);
+
   const persistedSession = useMemo(
-    () => readStoredCheckoutSession(selectionSignature),
-    [selectionSignature],
+    () => readStoredCheckoutSession(attemptKey, selectionSignature),
+    [attemptKey, selectionSignature],
   );
 
   const checkoutSession =
@@ -141,7 +157,7 @@ export function useRazorpayCheckout({
         },
         onSuccess: (orderId) => {
           setIsProcessing(false);
-          clearStoredCheckoutSession(selectionSignature);
+          endAttempt();
           invalidateBrandWallet(queryClient);
           void queryClient.prefetchQuery(brandOrderDetailsQueryOptions(orderId));
           toast.success("Payment successful", {
@@ -156,8 +172,12 @@ export function useRazorpayCheckout({
           // A failed credit payment returns the credit and closes the order
           // server-side, so drop the cached session — a retry starts a fresh
           // checkout (which reserves the credit again) — and refresh the balance.
+          //
+          // The attempt key is deliberately KEPT: the brand is still trying to
+          // place this one order, so a retry should reuse the draft (a plain
+          // cash failure leaves it PENDING_PAYMENT) rather than spawn a second.
           setIsProcessing(false);
-          clearStoredCheckoutSession(selectionSignature);
+          clearStoredCheckoutSession(attemptKey);
           setCachedSession(null);
           invalidateBrandWallet(queryClient);
         },
@@ -169,7 +189,8 @@ export function useRazorpayCheckout({
       redirectToOrderDetails,
       selectedPackage?.id,
       selectedPackage?.label,
-      selectionSignature,
+      attemptKey,
+      endAttempt,
       user,
     ],
   );
@@ -192,6 +213,7 @@ export function useRazorpayCheckout({
             : {}),
           ...(couponCode ? { couponCode } : {}),
           ...(useCredits ? { useCredits: true } : {}),
+          checkoutSessionKey: attemptKey,
         }));
 
       // Credit is reserved on the server when the checkout session is created.
@@ -203,7 +225,7 @@ export function useRazorpayCheckout({
       // coupon) or store credit fully covered it. The server has already placed
       // the order — skip the gateway and go straight to the order.
       if (session.free || session.paidFromCredits) {
-        clearStoredCheckoutSession(selectionSignature);
+        endAttempt();
         void queryClient.prefetchQuery(
           brandOrderDetailsQueryOptions(session.orderId),
         );
@@ -221,7 +243,7 @@ export function useRazorpayCheckout({
         selectionSignature,
         session,
       });
-      writeStoredCheckoutSession(selectionSignature, session);
+      writeStoredCheckoutSession(attemptKey, selectionSignature, session);
 
       await launchCheckout(session);
       return true;
@@ -238,6 +260,8 @@ export function useRazorpayCheckout({
     creator.id,
     isProcessing,
     launchCheckout,
+    attemptKey,
+    endAttempt,
     selectionSignature,
     selectedAddOns,
     selectedPackage,

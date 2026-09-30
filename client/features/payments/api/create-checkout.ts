@@ -9,6 +9,13 @@ export type CreateCheckoutPayload = {
   couponCode?: string;
   /** Apply the brand's store credit ("Credits") toward this order. */
   useCredits?: boolean;
+  /**
+   * Identifies one checkout ATTEMPT. Resending the same key reuses that
+   * attempt's draft order (so a double-click doesn't create a second one);
+   * a new key creates a separate order, which is how a brand places two
+   * orders with the same creator for two different briefs.
+   */
+  checkoutSessionKey?: string;
 };
 
 export type CheckoutSession = {

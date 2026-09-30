@@ -39,16 +39,22 @@ describe('OrdersService: superseded checkout drafts', () => {
     return { service, findMany, updateMany, wallet };
   }
 
-  function sweep(service: OrdersService) {
+  function sweep(service: OrdersService, sessionKey: string | null = 'key-1') {
     return (
       service as unknown as {
         rejectOtherPendingOrdersForBrandCreator: (
           brandId: string,
           creatorId: string,
           keepOrderId: string,
+          checkoutSessionKey: string | null,
         ) => Promise<void>;
       }
-    ).rejectOtherPendingOrdersForBrandCreator('brand-1', 'creator-1', 'keep-1');
+    ).rejectOtherPendingOrdersForBrandCreator(
+      'brand-1',
+      'creator-1',
+      'keep-1',
+      sessionKey,
+    );
   }
 
   it('never selects bulk-checkout children', async () => {
@@ -64,6 +70,7 @@ describe('OrdersService: superseded checkout drafts', () => {
           status: 'PENDING_PAYMENT',
           // The guard: a child of an OrderCheckoutBatch is off limits.
           checkoutBatchId: null,
+          checkoutSessionKey: 'key-1',
           NOT: { id: 'keep-1' },
         }),
       }),
@@ -114,5 +121,34 @@ describe('OrdersService: superseded checkout drafts', () => {
 
     expect(updateMany).not.toHaveBeenCalled();
     expect(wallet.releaseCheckoutReservation).not.toHaveBeenCalled();
+  });
+
+  it('only closes drafts from the SAME checkout attempt', async () => {
+    // A brand deliberately ordering a second video from this creator gets a new
+    // attempt key, so their earlier draft must not be in scope. Before the key
+    // existed, that second checkout rejected the first order.
+    const { service, findMany } = makeService([]);
+
+    await sweep(service, 'attempt-b');
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ checkoutSessionKey: 'attempt-b' }),
+      }),
+    );
+  });
+
+  it('a keyless request reaches only other keyless drafts', async () => {
+    // Backwards compatibility: a client that predates the key keeps the old
+    // behaviour among keyless drafts, and never reaches into a keyed attempt.
+    const { service, findMany } = makeService([]);
+
+    await sweep(service, null);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ checkoutSessionKey: null }),
+      }),
+    );
   });
 });

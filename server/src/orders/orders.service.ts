@@ -173,14 +173,14 @@ const EXTRA_USAGE_RIGHTS_OPTION_SLUG = 'paid_ads_usage_30_days';
 const RAZORPAY_MIN_CHARGE_PAISE = 100;
 
 /**
- * Written on drafts closed because the brand started a newer checkout for the
- * same creator. These reach the REJECTED terminal state without ever being
- * charged, so the note states the money implication outright — an admin
- * reviewing the refund queue must not mistake a replaced draft for a cancelled
- * purchase.
+ * Written on drafts replaced within a single checkout attempt (the brand
+ * changed package mid-checkout, or retried). These reach the REJECTED terminal
+ * state without ever being charged, so the note states the money implication
+ * outright — an admin reviewing the refund queue must not mistake a replaced
+ * draft for a cancelled purchase.
  */
 const SUPERSEDED_CHECKOUT_REASON =
-  'Duplicate checkout — replaced by a newer order for the same creator. ' +
+  'Duplicate checkout — replaced during the same checkout attempt. ' +
   'The brand was never charged for this order; no refund or credit is due.';
 
 /**
@@ -614,6 +614,17 @@ export class OrdersService {
    * store credit those superseded orders had reserved is returned to the brand
    * before they are rejected.
    *
+   * Scoped to ONE checkout attempt: only drafts carrying the same
+   * checkoutSessionKey are closed. A brand who deliberately starts a second
+   * checkout with the same creator gets a new key, so their first draft
+   * survives and they end up with two orders — which is the point. Within a
+   * single attempt (a double-click, a retry after a failed payment, a changed
+   * package) the older draft is stale and is closed.
+   *
+   * A null key matches only other keyless drafts: requests from a client that
+   * predates the key keep exactly the previous behaviour among themselves, and
+   * never reach into a keyed attempt.
+   *
    * Bulk-checkout children are never swept: they belong to an OrderCheckoutBatch
    * the brand pays as ONE Razorpay order, and the batch total does not shrink
    * when a child is rejected. Sweeping one would charge the brand for an order
@@ -624,6 +635,7 @@ export class OrdersService {
     brandId: string,
     creatorId: string,
     keepOrderId: string,
+    checkoutSessionKey: string | null,
   ): Promise<void> {
     const others = await this.prisma.order.findMany({
       where: {
@@ -631,6 +643,7 @@ export class OrdersService {
         creatorId,
         status: 'PENDING_PAYMENT',
         checkoutBatchId: null,
+        checkoutSessionKey,
         NOT: { id: keepOrderId },
       },
       select: { id: true, creditsAppliedPaise: true },
@@ -821,11 +834,20 @@ export class OrdersService {
     couponCode?: string | null;
     /** Apply the brand's store credit ("Credits") toward this order. */
     useCredits?: boolean;
+    /**
+     * Identifies this checkout ATTEMPT (see Order.checkoutSessionKey). Retries
+     * of one attempt resend the same key and reuse its draft; a deliberate
+     * second checkout sends a new key and gets its own order, letting a brand
+     * hold two unpaid orders with the same creator. Optional: a client that
+     * predates it keeps the previous behaviour, matching only keyless drafts.
+     */
+    checkoutSessionKey?: string | null;
   }): Promise<CheckoutSessionResult> {
     const { brand } = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const checkoutSessionKey = params.checkoutSessionKey ?? null;
 
     const {
       pkg,
@@ -907,6 +929,7 @@ export class OrdersService {
           addOnsSnapshot: addOnsSnapshot,
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: 0,
+          checkoutSessionKey,
           ...zeroWriteData,
         },
         select: { id: true, currency: true },
@@ -915,6 +938,7 @@ export class OrdersService {
         brand.id,
         pkg.creatorId,
         created.id,
+        checkoutSessionKey,
       );
       await this.placeZeroRupeeOrder({
         orderId: created.id,
@@ -977,6 +1001,7 @@ export class OrdersService {
             addOnsTotalSnapshot: addOnsTotalDecimal,
             expectedAmountPaise: netAmountPaise,
             creditsAppliedPaise: creditsToApply,
+            checkoutSessionKey,
             ...couponWriteData,
           },
           select: { id: true, currency: true },
@@ -1011,6 +1036,7 @@ export class OrdersService {
         brand.id,
         pkg.creatorId,
         created.id,
+        checkoutSessionKey,
       );
 
       if (razorpayChargePaise === 0) {
@@ -1072,6 +1098,14 @@ export class OrdersService {
         brandId: brand.id,
         creatorId: pkg.creatorId,
         status: 'PENDING_PAYMENT',
+        // Only drafts from THIS checkout attempt are reusable. Without this a
+        // brand deliberately ordering a second video from the same creator was
+        // handed the first order's id and payment link, paid once, and got one
+        // order believing they had bought two.
+        checkoutSessionKey,
+        // A bulk cart's children are paid as one batch; never fold one into a
+        // single checkout.
+        checkoutBatchId: null,
       },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -1125,6 +1159,7 @@ export class OrdersService {
           brand.id,
           pkg.creatorId,
           matchingPackageOrder.id,
+          checkoutSessionKey,
         );
 
         this.logger.debug(
@@ -1185,6 +1220,7 @@ export class OrdersService {
         brand.id,
         pkg.creatorId,
         matchingPackageOrder.id,
+        checkoutSessionKey,
       );
 
       this.logger.debug(
@@ -1219,6 +1255,7 @@ export class OrdersService {
         addOnsSnapshot: addOnsSnapshot,
         addOnsTotalSnapshot: addOnsTotalDecimal,
         expectedAmountPaise: netAmountPaise,
+        checkoutSessionKey,
         ...couponWriteData,
       },
       select: { id: true, currency: true },
@@ -1242,6 +1279,7 @@ export class OrdersService {
       brand.id,
       pkg.creatorId,
       created.id,
+      checkoutSessionKey,
     );
 
     return this.buildCheckoutSessionResult({

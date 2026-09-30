@@ -56,6 +56,31 @@ export interface AdminWithdrawal extends WalletWithdrawal {
   brandBalancePaise: number;
 }
 
+/** A brand's credit position in the admin Credits list. */
+export interface AdminBrandCredit {
+  brandId: string;
+  brandName: string | null;
+  logoUrl: string | null;
+  contactEmail: string | null;
+  /** Total credit owned (spendable + held), in paise. */
+  balancePaise: number;
+  /** Locked by pending withdrawal requests, in paise. */
+  heldPaise: number;
+  /** Spendable now (balance - held), in paise. */
+  availablePaise: number;
+  currency: string;
+  /** Last wallet movement; null if the brand has never held credit. */
+  lastActivityAt: string | null;
+}
+
+export interface AdminBrandCreditsPage {
+  items: AdminBrandCredit[];
+  total: number;
+  /** Sums across every match, not just the current page. */
+  totalBalancePaise: number;
+  totalHeldPaise: number;
+}
+
 export interface AdminBrandLedger {
   balance: WalletBalance;
   transactions: WalletTransaction[];

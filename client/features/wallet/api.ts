@@ -1,6 +1,7 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import type {
+  AdminBrandCreditsPage,
   AdminBrandLedger,
   AdminWithdrawal,
   WalletBalance,
@@ -60,6 +61,26 @@ export async function getAdminWithdrawals(
   const { data } = await api.get<AdminWithdrawal[]>(
     ENDPOINTS.ADMIN.WALLET.WITHDRAWALS,
     { params: status ? { status } : undefined },
+  );
+  return data;
+}
+
+export async function getAdminBrandCredits(params: {
+  take: number;
+  skip: number;
+  includeZero: boolean;
+  search?: string;
+}): Promise<AdminBrandCreditsPage> {
+  const { data } = await api.get<AdminBrandCreditsPage>(
+    ENDPOINTS.ADMIN.WALLET.BRAND_CREDITS,
+    {
+      params: {
+        take: params.take,
+        skip: params.skip,
+        includeZero: params.includeZero ? "true" : "false",
+        ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+      },
+    },
   );
   return data;
 }

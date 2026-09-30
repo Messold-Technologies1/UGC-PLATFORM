@@ -153,13 +153,6 @@ export class WhatsAppService implements OnModuleInit {
   }
 
   /**
-   * Log a delivery-status callback from Meta. This is where a send is finally
-   * reported as truly `sent` / `delivered` / `read`, or `failed` with the Meta
-   * error code + reason — as opposed to the `accepted` (queued) line emitted at
-   * POST time. The template/recipient are filled in from the outbound map when
-   * known (best-effort).
-   */
-  /**
    * Persist a delivery-status callback against the send it belongs to.
    *
    * The in-memory `outbound` map below is a best-effort convenience for log
@@ -181,7 +174,15 @@ export class WhatsAppService implements OnModuleInit {
     });
   }
 
-  noteStatusUpdate(update: {
+  /**
+   * Log a delivery-status callback from Meta. This is where a send is finally
+   * reported as truly `sent` / `delivered` / `read`, or `failed` with the Meta
+   * error code + reason — as opposed to the `accepted` (queued) line emitted at
+   * POST time. The template/recipient are filled in from the outbound map when
+   * known (best-effort). Phone-verification sends additionally get the outcome
+   * persisted onto their `PhoneOtp` row (see {@link recordOtpDelivery}).
+   */
+  async noteStatusUpdate(update: {
     messageId: string;
     recipient?: string;
     status: string;
@@ -192,7 +193,7 @@ export class WhatsAppService implements OnModuleInit {
       message?: string;
       error_data?: { details?: string };
     }>;
-  }): void {
+  }): Promise<void> {
     const known = this.outbound.get(update.messageId);
     const template = known?.template ?? 'unknown';
     const to = update.recipient || known?.to || 'unknown';
@@ -205,13 +206,62 @@ export class WhatsAppService implements OnModuleInit {
       this.logger.warn(
         `${base} error_code=${err?.code ?? '?'} error="${detail}"`,
       );
+      await this.recordOtpDelivery(update.messageId, 'failed', {
+        code: err?.code,
+        detail,
+      });
       return;
     }
 
     this.logger.log(base);
+    await this.recordOtpDelivery(update.messageId, update.status);
     // A terminal state means we no longer need to remember this id.
     if (update.status === 'delivered' || update.status === 'read') {
       this.outbound.delete(update.messageId);
+    }
+  }
+
+  /**
+   * Mirror a delivery status onto the `PhoneOtp` row that owns this `wamid`.
+   *
+   * Phone verification needs this durably, not just in a log line: the send API
+   * only reports `accepted` (queued), so error 131026 ("not on WhatsApp") is the
+   * *only* signal that a number cannot receive its code, and it arrives here —
+   * after the browser already got its response. The OTP status endpoint reads
+   * what this writes.
+   *
+   * It cannot use the in-memory `outbound` map for the lookup: that map is
+   * bounded, evicting, and per-replica, so on a multi-pod deploy the webhook
+   * routinely lands on a pod that never saw the send. The database row is the
+   * only reliable join. Failures here are swallowed — a webhook must not 500
+   * back to Meta over bookkeeping.
+   */
+  private async recordOtpDelivery(
+    messageId: string,
+    status: string,
+    failure?: { code?: number; detail?: string },
+  ): Promise<void> {
+    if (!messageId || messageId === 'unknown') return;
+    try {
+      await this.prisma.phoneOtp.updateMany({
+        where: { wamid: messageId },
+        data: {
+          deliveryStatus: status,
+          ...(failure
+            ? {
+                failureCode: failure.code ?? null,
+                failureDetail: failure.detail?.slice(0, 500) ?? null,
+                failedAt: new Date(),
+              }
+            : {}),
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `could not persist OTP delivery status for ${messageId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
     }
   }
 

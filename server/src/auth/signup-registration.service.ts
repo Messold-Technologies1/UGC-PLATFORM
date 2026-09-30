@@ -63,7 +63,11 @@ export class SignupRegistrationService {
     phone: string,
     code: string,
   ): Promise<void> {
-    const status = await this.phoneVerification.verifyCode(phone, code);
+    const status = await this.phoneVerification.verifyCode(
+      phone,
+      code,
+      'signup',
+    );
     if (status === 'approved') return;
     if (status === 'max_attempts_reached') {
       throw new BadRequestException(

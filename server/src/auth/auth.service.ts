@@ -141,7 +141,11 @@ export class AuthService {
         'This phone number is already linked to another account.',
       );
     }
-    const status = await this.phoneVerification.verifyCode(phone, code);
+    const status = await this.phoneVerification.verifyCode(
+      phone,
+      code,
+      'signup',
+    );
     if (status === 'approved') return;
     if (status === 'max_attempts_reached') {
       throw new BadRequestException(

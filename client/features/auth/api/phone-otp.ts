@@ -40,3 +40,37 @@ export async function verifyPhoneOtp(
   );
   return data;
 }
+
+/**
+ * Delivery outcome of the last code sent to a number.
+ *
+ * The send call cannot tell us this: WhatsApp accepts (queues) a message even
+ * for a number with no WhatsApp account, and the real verdict reaches our
+ * webhook seconds later. The UI checks here once its resend countdown lapses,
+ * so it can tell the user their number isn't on WhatsApp rather than leaving
+ * them waiting for a code that will never arrive.
+ */
+export type PhoneOtpStatus = {
+  status: "unknown" | "pending" | "delivered" | "failed";
+  notOnWhatsApp: boolean;
+};
+
+export async function fetchPhoneOtpStatus(
+  phone: string,
+): Promise<PhoneOtpStatus> {
+  const { data } = await api.get<PhoneOtpStatus>(
+    ENDPOINTS.AUTH.PHONE_OTP_STATUS,
+    { params: { phone } },
+  );
+  return data;
+}
+
+export async function fetchSignupPhoneOtpStatus(
+  phone: string,
+): Promise<PhoneOtpStatus> {
+  const { data } = await api.get<PhoneOtpStatus>(
+    ENDPOINTS.AUTH.SIGNUP_PHONE_OTP_STATUS,
+    { params: { phone } },
+  );
+  return data;
+}

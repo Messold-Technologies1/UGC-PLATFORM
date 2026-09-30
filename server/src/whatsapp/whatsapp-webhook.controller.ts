@@ -83,11 +83,11 @@ export class WhatsAppWebhookController {
   /** Delivery-status + inbound-message callbacks. */
   @Post()
   @HttpCode(HttpStatus.OK)
-  handle(
+  async handle(
     @Req() req: Request & { rawBody?: Buffer },
     @Body() body: WhatsAppWebhookBody,
     // Meta signs the payload; header name is case-insensitive in Express.
-  ): void {
+  ): Promise<void> {
     if (!this.verifySignature(req)) {
       throw new ForbiddenException('Invalid webhook signature');
     }
@@ -103,7 +103,9 @@ export class WhatsAppWebhookController {
             status: status.status,
             errors: status.errors,
           });
-          this.whatsapp.noteStatusUpdate({
+          // Awaited, unlike the NotificationLog write above: this one also
+          // settles the PhoneOtp row, and phone verification reads that back.
+          await this.whatsapp.noteStatusUpdate({
             messageId: status.id,
             recipient: status.recipient_id,
             status: status.status,

@@ -7,6 +7,7 @@ import {
 describe('computeOrderPricingLedger', () => {
   it('no extra purchases: creator gets 80%, no refund', () => {
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 100000, // ₹1000
       maxRevisionsSnapshot: 1,
       revisionCount: 1,
@@ -25,6 +26,7 @@ describe('computeOrderPricingLedger', () => {
   it('waivePlatformFee (No platform fee coupon): fee 0, creator gets the full net', () => {
     // ₹5000 gross, fee waived → brand pays ₹4000 net; creator gets it all.
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 400000, // net (brand paid)
       grossBasePlusAddOnsPaise: 500000, // gross (pre-waiver)
       maxRevisionsSnapshot: 1,
@@ -44,6 +46,7 @@ describe('computeOrderPricingLedger', () => {
     // ₹4900 gross, ₹500 coupon → ₹4400 net (brand paid). The coupon comes out
     // of the platform's cut, not the creator's payout.
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 440000, // net (brand paid)
       grossBasePlusAddOnsPaise: 490000, // gross (pre-coupon)
       maxRevisionsSnapshot: 1,
@@ -62,6 +65,7 @@ describe('computeOrderPricingLedger', () => {
 
   it('non-coupon order: fee base falls back to the net base', () => {
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 100000,
       maxRevisionsSnapshot: 1,
       revisionCount: 1,
@@ -74,6 +78,7 @@ describe('computeOrderPricingLedger', () => {
   it('all purchased extras used: full value earned, refund 0', () => {
     // base cap 1, bought 1 pack (+2), used all 3 (revisionCount 3).
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 100000,
       maxRevisionsSnapshot: 3, // 1 base + 2 granted
       revisionCount: 3,
@@ -97,6 +102,7 @@ describe('computeOrderPricingLedger', () => {
   it('some extras unused: refunds the unused at full price', () => {
     // base cap 1, bought 2 packs (+4, ₹200 each → 40000), used 2 extras only.
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 100000,
       maxRevisionsSnapshot: 5, // 1 base + 4 granted
       revisionCount: 3, // 1 base + 2 extra used
@@ -120,6 +126,7 @@ describe('computeOrderPricingLedger', () => {
 
   it('none of the extras used: whole extra amount is refunded', () => {
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 100000,
       maxRevisionsSnapshot: 3,
       revisionCount: 1, // only the base revision used
@@ -142,6 +149,7 @@ describe('computeOrderPricingLedger', () => {
     const early = new Date('2026-01-01');
     const late = new Date('2026-02-01');
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 0,
       maxRevisionsSnapshot: 4, // base 0 + 4 granted (2 + 2)
       revisionCount: 3, // 3 used, 1 unused
@@ -165,6 +173,7 @@ describe('computeOrderPricingLedger', () => {
 
   it('rejected/refunded order refunds the full brand payment', () => {
     const l = computeOrderPricingLedger({
+      paidAt: new Date(),
       expectedAmountPaise: 610000,
       maxRevisionsSnapshot: 2,
       revisionCount: 0,
@@ -178,6 +187,129 @@ describe('computeOrderPricingLedger', () => {
     expect(l.payToCreatorPaise + l.platformFeePaise + l.refundToBrandPaise).toBe(
       l.brandPaidPaise,
     );
+  });
+  it('never paid: every settlement figure is 0, the quote stays visible', () => {
+    // A checkout draft (PENDING_PAYMENT) or a draft closed without payment.
+    // expectedAmountPaise is a QUOTE — treating it as collected money is what
+    // made the admin panel offer refunds for purchases that never happened.
+    const l = computeOrderPricingLedger({
+      paidAt: null,
+      expectedAmountPaise: 50000,
+      maxRevisionsSnapshot: 1,
+      revisionCount: 0,
+      paidPurchases: [],
+    });
+    expect(l.basePlusAddOnsPaise).toBe(50000); // the quote is still shown
+    expect(l.brandPaidPaise).toBe(0);
+    expect(l.cashPaidPaise).toBe(0);
+    expect(l.creditPaidPaise).toBe(0);
+    expect(l.refundToBrandPaise).toBe(0);
+    expect(l.payToCreatorPaise).toBe(0);
+    expect(l.platformFeePaise).toBe(0);
+  });
+
+  it('never paid + fullRefundToBrand: still 0 (the superseded-draft regression)', () => {
+    // A duplicate checkout swept to REJECTED reaches the full-refund branch.
+    // Before the paidAt gate this reported the whole quote as owed back.
+    const l = computeOrderPricingLedger({
+      paidAt: null,
+      expectedAmountPaise: 50000,
+      maxRevisionsSnapshot: 1,
+      revisionCount: 0,
+      paidPurchases: [],
+      fullRefundToBrand: true,
+    });
+    expect(l.brandPaidPaise).toBe(0);
+    expect(l.refundToBrandPaise).toBe(0);
+    expect(l.refundToBrandCashPaise).toBe(0);
+    expect(l.refundToBrandCreditPaise).toBe(0);
+  });
+
+  it('free order (paid, but ₹0 collected): nothing owed to anyone', () => {
+    // First-order-free and 100%-coupon orders DO get paidAt, with a ₹0 net.
+    const l = computeOrderPricingLedger({
+      paidAt: new Date(),
+      expectedAmountPaise: 0,
+      maxRevisionsSnapshot: 1,
+      revisionCount: 0,
+      paidPurchases: [],
+      fullRefundToBrand: true,
+    });
+    expect(l.brandPaidPaise).toBe(0);
+    expect(l.cashPaidPaise).toBe(0);
+    expect(l.refundToBrandCashPaise).toBe(0);
+  });
+
+  it('fully credit-paid: the whole settlement is credit, no cash to refund', () => {
+    const l = computeOrderPricingLedger({
+      paidAt: new Date(),
+      expectedAmountPaise: 50000,
+      creditsAppliedPaise: 50000,
+      maxRevisionsSnapshot: 1,
+      revisionCount: 0,
+      paidPurchases: [],
+      fullRefundToBrand: true,
+    });
+    expect(l.brandPaidPaise).toBe(50000);
+    expect(l.creditPaidPaise).toBe(50000);
+    expect(l.cashPaidPaise).toBe(0);
+    // Refunding 50000 as cash would pay out money never collected.
+    expect(l.refundToBrandCashPaise).toBe(0);
+    expect(l.refundToBrandCreditPaise).toBe(50000);
+  });
+
+  it('partial credit: refunds cash and credit to the source that funded them', () => {
+    // ₹500 order, ₹300 from the wallet, ₹200 actually charged via Razorpay.
+    const l = computeOrderPricingLedger({
+      paidAt: new Date(),
+      expectedAmountPaise: 50000,
+      creditsAppliedPaise: 30000,
+      maxRevisionsSnapshot: 1,
+      revisionCount: 0,
+      paidPurchases: [],
+      fullRefundToBrand: true,
+    });
+    expect(l.brandPaidPaise).toBe(50000);
+    expect(l.creditPaidPaise).toBe(30000);
+    expect(l.cashPaidPaise).toBe(20000);
+    expect(l.refundToBrandCashPaise).toBe(20000); // only what Razorpay took
+    expect(l.refundToBrandCreditPaise).toBe(30000);
+    expect(l.refundToBrandCashPaise + l.refundToBrandCreditPaise).toBe(
+      l.refundToBrandPaise,
+    );
+  });
+
+  it('credit never absorbs extra-revision purchases (those are always cash)', () => {
+    // Base ₹500 fully covered by credit, plus a ₹200 cash revision pack.
+    const l = computeOrderPricingLedger({
+      paidAt: new Date(),
+      expectedAmountPaise: 50000,
+      creditsAppliedPaise: 50000,
+      maxRevisionsSnapshot: 3,
+      revisionCount: 1,
+      paidPurchases: [
+        { revisionsAdded: 2, expectedAmountPaise: 20000, paidAt: new Date() },
+      ],
+    });
+    expect(l.brandPaidPaise).toBe(70000);
+    expect(l.creditPaidPaise).toBe(50000); // capped at the base
+    expect(l.cashPaidPaise).toBe(20000); // the revision pack
+    // Both extras unused → refunded, and that refund is entirely cash.
+    expect(l.refundToBrandPaise).toBe(20000);
+    expect(l.refundToBrandCashPaise).toBe(20000);
+    expect(l.refundToBrandCreditPaise).toBe(0);
+  });
+
+  it('paid orders split into cash + credit that sum to the total settled', () => {
+    const l = computeOrderPricingLedger({
+      paidAt: new Date(),
+      expectedAmountPaise: 100000,
+      creditsAppliedPaise: 25000,
+      maxRevisionsSnapshot: 1,
+      revisionCount: 1,
+      paidPurchases: [],
+    });
+    expect(l.cashPaidPaise + l.creditPaidPaise).toBe(l.brandPaidPaise);
   });
 });
 

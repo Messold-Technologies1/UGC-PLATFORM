@@ -172,6 +172,27 @@ const EXTRA_USAGE_RIGHTS_OPTION_SLUG = 'paid_ads_usage_30_days';
  */
 const RAZORPAY_MIN_CHARGE_PAISE = 100;
 
+/**
+ * Written on drafts closed because the brand started a newer checkout for the
+ * same creator. These reach the REJECTED terminal state without ever being
+ * charged, so the note states the money implication outright — an admin
+ * reviewing the refund queue must not mistake a replaced draft for a cancelled
+ * purchase.
+ */
+const SUPERSEDED_CHECKOUT_REASON =
+  'Duplicate checkout — replaced by a newer order for the same creator. ' +
+  'The brand was never charged for this order; no refund or credit is due.';
+
+/**
+ * Written when a partial-credit checkout fails at the gateway. The reserved
+ * store credit is returned to the wallet before the draft is closed, so the
+ * brand is already whole.
+ */
+const PAYMENT_FAILED_CREDIT_RETURNED_REASON =
+  'Payment failed at the gateway — the reserved store credit was returned to ' +
+  'the brand wallet and this checkout was closed. The brand was never ' +
+  'charged; no refund is due.';
+
 // ─── Razorpay-driven refund flow (disabled — kept for reference) ──────────
 // Refunds are now issued manually by an admin (see adminTriggerRefund
 // below); the old Razorpay refund-API + webhook flow is preserved here,
@@ -588,9 +609,16 @@ export class OrdersService {
   }
 
   /**
-   * Reject other awaiting-payment orders for the same brand+creator pair. Any
+   * Reject other awaiting-payment orders for the same brand+creator pair, so a
+   * brand can't pay a stale Razorpay link for a checkout they've replaced. Any
    * store credit those superseded orders had reserved is returned to the brand
    * before they are rejected.
+   *
+   * Bulk-checkout children are never swept: they belong to an OrderCheckoutBatch
+   * the brand pays as ONE Razorpay order, and the batch total does not shrink
+   * when a child is rejected. Sweeping one would charge the brand for an order
+   * they never receive, because markBulkPaidFromWebhook only marks children
+   * still in PENDING_PAYMENT as paid.
    */
   private async rejectOtherPendingOrdersForBrandCreator(
     brandId: string,
@@ -602,6 +630,7 @@ export class OrdersService {
         brandId,
         creatorId,
         status: 'PENDING_PAYMENT',
+        checkoutBatchId: null,
         NOT: { id: keepOrderId },
       },
       select: { id: true, creditsAppliedPaise: true },
@@ -623,7 +652,17 @@ export class OrdersService {
       }
       await tx.order.updateMany({
         where: { id: { in: others.map((o) => o.id) } },
-        data: { status: 'REJECTED', creditsAppliedPaise: 0 },
+        data: {
+          status: 'REJECTED',
+          creditsAppliedPaise: 0,
+          // No human rejected these — they are drafts the brand replaced — so
+          // there is no actor to record in cancelledByUserId. Spell out the
+          // money implication instead: admins see REJECTED orders in the
+          // refund queue and need to know at a glance that this one was never
+          // charged.
+          cancelledAt: new Date(),
+          cancellationReason: SUPERSEDED_CHECKOUT_REASON,
+        },
       });
     });
   }
@@ -1796,7 +1835,8 @@ export class OrdersService {
             data: {
               status: 'REJECTED',
               creditsAppliedPaise: 0,
-              cancellationReason: 'Payment failed — credit returned',
+              cancelledAt: new Date(),
+              cancellationReason: PAYMENT_FAILED_CREDIT_RETURNED_REASON,
             },
           },
           tx,
@@ -4055,6 +4095,7 @@ export class OrdersService {
         discountAmountPaise: true,
         grossAmountPaise: true,
         isFreeOrder: true,
+        creditsAppliedPaise: true,
         cancellationReason: true,
         cancelledAt: true,
         cancelledByUserId: true,
@@ -4124,6 +4165,11 @@ export class OrdersService {
       paidAt: Date | null;
     }>;
     mappedOrder.pricingLedger = computeOrderPricingLedger({
+      // An unpaid order settles nothing: expectedAmountPaise is the quote, not
+      // money collected. Without this the ledger reported the full quote as
+      // owed back on any REJECTED draft.
+      paidAt: order.paidAt,
+      creditsAppliedPaise: order.creditsAppliedPaise,
       expectedAmountPaise: order.expectedAmountPaise,
       maxRevisionsSnapshot: order.maxRevisionsSnapshot,
       revisionCount: order.revisionCount,
@@ -4972,7 +5018,20 @@ export class OrdersService {
       await this.updateOrder(
         {
           where: { id: order.id },
-          data: { status: nextStatus as any },
+          data: {
+            status: nextStatus as any,
+            // Mirror the resolution onto the order itself. It was previously
+            // recorded only on the OrderDispute row, leaving the order with
+            // NULL cancellation fields — so the admin panel showed "no reason
+            // note was provided" for a decision an admin had explained, and
+            // the timeline fell back to updatedAt, which drifts on every later
+            // write. Applies to the CANCELLED_CREDITED branch too: money moved
+            // with nobody's name against it.
+            cancelledAt: new Date(),
+            cancelledByUserId: params.adminUserId,
+            cancellationReason:
+              params.resolutionNotes ?? 'Dispute resolved in brand favour',
+          },
         },
         tx,
       );

@@ -68,9 +68,18 @@ function initials(value?: string | null) {
     .toUpperCase();
 }
 
-function cancelledByHeadline(cancelledBy?: string | null) {
+function cancelledByHeadline(
+  cancelledBy?: string | null,
+  wasPaid?: boolean,
+) {
   if (cancelledBy === "BRAND") return "Cancelled by brand";
   if (cancelledBy === "CREATOR") return "Rejected by creator";
+  // No actor and no payment: a checkout draft closed by the system — the brand
+  // replaced it with a newer checkout, or the gateway payment failed. Nobody
+  // rejected it, so "Order rejected" overstates what happened and puts it in
+  // the refund queue in the reader's mind. Which of the two it was is spelled
+  // out in the cancellation reason shown beneath this headline.
+  if (wasPaid === false) return "Closed automatically — never paid";
   return "Order rejected";
 }
 
@@ -232,7 +241,13 @@ export default function AdminOrderDetailsPage() {
   const canMarkCreatorPaid =
     order.status === "ACCEPTED" && !order.creatorPaidAt;
   const canRejectOrder = order.status === "DISPUTED";
-  const canRefundOrder = order.status === "REJECTED" && !order.refundedAt;
+  // Real money the brand can get back. An unpaid draft settled nothing, and a
+  // credit-funded order was never charged a rupee — refunding either through
+  // Razorpay would pay out money that was never collected.
+  const cashPaidPaise = order.pricingLedger?.cashPaidPaise ?? 0;
+  const wasCharged = Boolean(order.paidAt) && cashPaidPaise > 0;
+  const canRefundOrder =
+    order.status === "REJECTED" && !order.refundedAt && wasCharged;
   // Pre-acceptance brief actions the admin can take on a party's behalf.
   const canAcceptBrief = order.status === "BRIEF_SUBMITTED";
   const canRejectBrief = order.status === "BRIEF_SUBMITTED";
@@ -358,8 +373,10 @@ export default function AdminOrderDetailsPage() {
           }
         : {
             title: "Refund to brand",
-            description:
-              "Marks the order REFUNDED and emails the brand. Issue the actual refund to the brand manually (Razorpay dashboard / bank transfer) — this does not call Razorpay. Use this after the order has been rejected.",
+            description: `Marks the order REFUNDED and emails the brand. Issue the actual refund manually (Razorpay dashboard / bank transfer) — this does not call Razorpay. Refund ${formatCurrency(
+              cashPaidPaise / 100,
+              order.currency,
+            )}: that is what was charged through Razorpay, which may be less than the order total if the brand used store credit.`,
             action: "Refund to brand",
             icon: RotateCcw,
           };
@@ -387,7 +404,7 @@ export default function AdminOrderDetailsPage() {
     ...(isRejectedOrRefunded || order.cancelledAt
       ? [
           {
-            label: cancelledByHeadline(order.cancelledBy),
+            label: cancelledByHeadline(order.cancelledBy, Boolean(order.paidAt)),
             date: order.cancelledAt ?? order.updatedAt,
             active: true,
             icon: Ban,
@@ -505,7 +522,7 @@ export default function AdminOrderDetailsPage() {
               ? "Order cancelled — amount credited to the brand"
               : order.status === "REFUNDED"
                 ? "Order refunded"
-                : cancelledByHeadline(order.cancelledBy)}
+                : cancelledByHeadline(order.cancelledBy, Boolean(order.paidAt))}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {order.cancelledBy === "CREATOR"
@@ -684,6 +701,34 @@ export default function AdminOrderDetailsPage() {
                               {inr(led.brandPaidPaise)}
                             </span>
                           </div>
+                          {led.creditPaidPaise > 0 ? (
+                            <>
+                              <div className="flex items-center justify-between pl-3 text-sm">
+                                <span className="text-muted-foreground">
+                                  ↳ Paid via Razorpay
+                                </span>
+                                <span className="font-semibold">
+                                  {inr(led.cashPaidPaise)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between pl-3 text-sm">
+                                <span className="text-violet-600 dark:text-violet-400">
+                                  ↳ Paid with credits
+                                </span>
+                                <span className="font-semibold text-violet-600 dark:text-violet-400">
+                                  {inr(led.creditPaidPaise)}
+                                </span>
+                              </div>
+                            </>
+                          ) : null}
+                          {!order.paidAt ? (
+                            <p className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                              Never paid — “Brand paid” is ₹0. The package
+                              price above is the quote this order was created
+                              with, not money collected, so nothing is owed to
+                              the brand or the creator.
+                            </p>
+                          ) : null}
                           <p className="pt-1 text-xs text-muted-foreground">
                             Extra revisions used {led.extraRevisionsUsed} /{" "}
                             {led.extraRevisionsPurchased} · unused{" "}
@@ -720,10 +765,34 @@ export default function AdminOrderDetailsPage() {
                               {inr(led.refundToBrandPaise)}
                             </span>
                           </div>
+                          {led.refundToBrandCreditPaise > 0 ? (
+                            <>
+                              <div className="flex items-center justify-between pl-3 text-sm">
+                                <span className="text-muted-foreground">
+                                  ↳ Refund via Razorpay
+                                </span>
+                                <span className="font-semibold">
+                                  {inr(led.refundToBrandCashPaise)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between pl-3 text-sm">
+                                <span className="text-violet-600 dark:text-violet-400">
+                                  ↳ Return to credits
+                                </span>
+                                <span className="font-semibold text-violet-600 dark:text-violet-400">
+                                  {inr(led.refundToBrandCreditPaise)}
+                                </span>
+                              </div>
+                            </>
+                          ) : null}
                           <p className="pt-1 text-xs text-muted-foreground">
-                            {isRejectedOrRefunded
-                              ? "Rejected order — the full amount paid is refunded to the brand. Creator payout is ₹0."
-                              : "Refund = unused extra revisions (at full price). Amounts are provisional until the order closes."}
+                            {!order.paidAt
+                              ? "Never paid — nothing to settle. The creator is owed ₹0 and the brand is owed ₹0."
+                              : led.refundToBrandCreditPaise > 0
+                                ? "Rejected order — refund each part to the source that funded it. Only the Razorpay portion is real money; the rest returns to the brand's credit balance."
+                                : isRejectedOrRefunded
+                                  ? "Rejected order — the full amount paid is refunded to the brand. Creator payout is ₹0."
+                                  : "Refund = unused extra revisions (at full price). Amounts are provisional until the order closes."}
                           </p>
                         </div>
                       </div>
@@ -877,7 +946,7 @@ export default function AdminOrderDetailsPage() {
                     <div className="flex items-center gap-2">
                       <Ban className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                       <p className="text-sm font-bold text-rose-800 dark:text-rose-300">
-                        {cancelledByHeadline(order.cancelledBy)}
+                        {cancelledByHeadline(order.cancelledBy, Boolean(order.paidAt))}
                       </p>
                     </div>
                     {order.cancellationReason ||
@@ -1065,6 +1134,20 @@ export default function AdminOrderDetailsPage() {
                     <CheckCircle2 className="h-4 w-4" />
                     Refund done to the brand
                   </Button>
+                ) : isRejectedOrRefunded && !wasCharged ? (
+                  // Nothing was ever collected through Razorpay, so there is no
+                  // refund to issue. A greyed-out button alone would leave the
+                  // admin wondering what they are missing — say why.
+                  <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
+                    <p className="text-sm font-semibold text-foreground">
+                      Nothing to refund
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {order.paidAt
+                        ? "This order was settled entirely with store credit — no money was charged through Razorpay. Any amount due goes back to the brand's credit balance, not to their card."
+                        : "The brand was never charged for this order. No refund or credit is due."}
+                    </p>
+                  </div>
                 ) : (
                   <Button
                     type="button"

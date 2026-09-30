@@ -431,13 +431,25 @@ export interface OrderRevisionPurchaseDto {
 
 /** Settlement figures (paise). brandPaid = payToCreator + platformFee + refundToBrand. */
 export interface OrderPricingLedgerDto {
+  /**
+   * Total the brand settled (cash + store credit). 0 until the order is paid —
+   * an unpaid order has a quote, not a payment.
+   */
   brandPaidPaise: number;
+  /** The part charged through Razorpay: the only amount refundable to a card. */
+  cashPaidPaise: number;
+  /** The part funded from the brand's credit wallet; returned to the wallet. */
+  creditPaidPaise: number;
   basePlusAddOnsPaise: number;
   extraPaidPaise: number;
   extraRevisionsPurchased: number;
   extraRevisionsUsed: number;
   extraRevisionsUnused: number;
   refundToBrandPaise: number;
+  /** The part of refundToBrandPaise to return through Razorpay (real money). */
+  refundToBrandCashPaise: number;
+  /** The part of refundToBrandPaise to return to the brand's credit wallet. */
+  refundToBrandCreditPaise: number;
   earnedPaise: number;
   /** Amount the platform fee is charged on (pre-coupon gross base + used extras). */
   platformFeeBasePaise: number;

@@ -57,10 +57,27 @@ export class OrderUsageRightsSettlementDto {
 /** Settlement figures for an order. All paise. brandPaid = payToCreator +
  *  platformFee + refundToBrand. */
 export class OrderPricingLedgerDto {
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Total the brand settled (cash + store credit). 0 until the order is paid — an unpaid order has a quote, not a payment.',
+  })
   brandPaidPaise!: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'The part of brandPaidPaise charged through Razorpay. The only amount refundable to a card/bank.',
+  })
+  cashPaidPaise!: number;
+
+  @ApiProperty({
+    description:
+      'The part of brandPaidPaise funded from the brand store credit wallet. Returned to the wallet, never to a card.',
+  })
+  creditPaidPaise!: number;
+
+  @ApiProperty({
+    description: 'Base package + add-ons quoted on the order (shown even when unpaid)',
+  })
   basePlusAddOnsPaise!: number;
 
   @ApiProperty()
@@ -77,6 +94,18 @@ export class OrderPricingLedgerDto {
 
   @ApiProperty({ description: 'Value of purchased-but-unused extra revisions' })
   refundToBrandPaise!: number;
+
+  @ApiProperty({
+    description:
+      'The part of refundToBrandPaise to return through Razorpay (real money).',
+  })
+  refundToBrandCashPaise!: number;
+
+  @ApiProperty({
+    description:
+      'The part of refundToBrandPaise to return to the brand credit wallet.',
+  })
+  refundToBrandCreditPaise!: number;
 
   @ApiProperty({ description: 'Base + add-ons + used extras' })
   earnedPaise!: number;

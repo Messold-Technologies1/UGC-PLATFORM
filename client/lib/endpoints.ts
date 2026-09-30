@@ -297,6 +297,7 @@ export const ENDPOINTS = {
     },
     WALLET: {
       WITHDRAWALS: "/api/admin/wallet/withdrawals",
+      BRAND_CREDITS: "/api/admin/wallet/brands",
       COMPLETE_WITHDRAWAL: (id: string) =>
         `/api/admin/wallet/withdrawals/${encodeURIComponent(id)}/complete`,
       REJECT_WITHDRAWAL: (id: string) =>

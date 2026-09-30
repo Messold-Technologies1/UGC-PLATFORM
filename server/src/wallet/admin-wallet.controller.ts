@@ -26,6 +26,8 @@ import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { WalletService } from './wallet.service';
 import {
   AdjustWalletDto,
+  AdminBrandCreditDto,
+  AdminBrandCreditsPageDto,
   AdminWithdrawalDto,
   ProcessWithdrawalDto,
   WalletBalanceDto,
@@ -99,6 +101,34 @@ export class AdminWalletController {
       adminNote: dto.adminNote ?? null,
     });
     return WalletWithdrawalDto.from(withdrawal);
+  }
+
+  @Get('brands')
+  @ApiOperation({
+    summary: 'Credit held by every brand (admin Credits view)',
+    description:
+      'Lists brands with their total, held and spendable credit, biggest balance first. Includes brands that have never held credit (as ₹0) when includeZero is true. Totals in the response span every match, not just the page.',
+  })
+  @ApiOkResponse({ type: AdminBrandCreditsPageDto })
+  async listBrandCredits(
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+    @Query('includeZero') includeZero?: string,
+    @Query('search') search?: string,
+  ): Promise<AdminBrandCreditsPageDto> {
+    const { rows, total, totalBalancePaise, totalHeldPaise } =
+      await this.wallet.listBrandCreditsForAdmin({
+        take: take ? Number(take) : undefined,
+        skip: skip ? Number(skip) : undefined,
+        includeZero: includeZero === 'true',
+        search,
+      });
+    return {
+      items: rows.map((r) => AdminBrandCreditDto.from(r)),
+      total,
+      totalBalancePaise,
+      totalHeldPaise,
+    };
   }
 
   @Get('brands/:brandId')

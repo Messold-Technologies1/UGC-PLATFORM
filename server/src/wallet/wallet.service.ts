@@ -14,6 +14,21 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 
+/** One row of the admin Credits view: a brand and the credit it holds. */
+export type AdminBrandCreditRow = {
+  brandId: string;
+  brandName: string | null;
+  logoUrl: string | null;
+  contactEmail: string | null;
+  /** Total credit owned (spendable + held), in paise. */
+  balancePaise: number;
+  /** Locked by pending withdrawal requests, in paise. */
+  heldPaise: number;
+  currency: string;
+  /** Last wallet movement; null for a brand that has never held credit. */
+  lastActivityAt: Date | null;
+};
+
 /**
  * Store-credit wallet ("Credits" in the UI). All amounts are integer paise, INR,
  * matching Order.expectedAmountPaise.
@@ -599,5 +614,82 @@ export class WalletService {
       reason: params.reason.trim(),
       createdByUserId: params.adminUserId,
     });
+  }
+
+  /**
+   * Every brand with its credit position, for the admin Credits view.
+   *
+   * A LEFT JOIN, not a scan of BrandWallet: the wallet row is created lazily on
+   * a brand's first credit or debit (see ensureWallet), so listing the wallet
+   * table alone would silently omit every brand that has never had credit.
+   * Brands without a wallet read as a genuine ₹0 rather than going missing.
+   *
+   * Raw SQL for the ordering. Postgres sorts NULLs FIRST on a DESC ordering, so
+   * an ORM orderBy over the nullable wallet relation would float the ₹0 brands
+   * to the top of a list whose whole purpose is showing who holds credit;
+   * COALESCE ranks them as the zeros they are.
+   */
+  async listBrandCreditsForAdmin(params: {
+    take?: number;
+    skip?: number;
+    /** Include brands holding ₹0. Off by default — usually the shorter list. */
+    includeZero?: boolean;
+    /** Case-insensitive brand-name filter. */
+    search?: string;
+  }): Promise<{
+    rows: AdminBrandCreditRow[];
+    total: number;
+    totalBalancePaise: number;
+    totalHeldPaise: number;
+  }> {
+    const take = Math.min(Math.max(1, params.take ?? 25), 200);
+    const skip = Math.max(0, params.skip ?? 0);
+    const includeZero = params.includeZero === true;
+    const search = params.search?.trim();
+
+    const zeroFilter = includeZero
+      ? Prisma.empty
+      : Prisma.sql`AND COALESCE(w."balancePaise", 0) > 0`;
+    const searchFilter = search
+      ? Prisma.sql`AND b."brandName" ILIKE ${`%${search}%`}`
+      : Prisma.empty;
+
+    const [rows, countRows] = await Promise.all([
+      this.prisma.$queryRaw<AdminBrandCreditRow[]>`
+        SELECT b.id AS "brandId",
+               b."brandName",
+               b."logoUrl",
+               b."contactEmail",
+               COALESCE(w."balancePaise", 0)::int AS "balancePaise",
+               COALESCE(w."heldPaise", 0)::int AS "heldPaise",
+               COALESCE(w.currency, 'INR') AS "currency",
+               w."updatedAt" AS "lastActivityAt"
+        FROM "BrandProfile" b
+        LEFT JOIN "BrandWallet" w ON w."brandId" = b.id
+        WHERE TRUE ${zeroFilter} ${searchFilter}
+        ORDER BY COALESCE(w."balancePaise", 0) DESC,
+                 b."brandName" ASC NULLS LAST,
+                 b.id ASC
+        LIMIT ${take} OFFSET ${skip}
+      `,
+      // Totals span every match, not just this page: an admin reading "how much
+      // credit is outstanding" must not get the page subtotal.
+      this.prisma.$queryRaw<{ count: bigint; balance: bigint; held: bigint }[]>`
+        SELECT COUNT(*)::bigint AS count,
+               COALESCE(SUM(COALESCE(w."balancePaise", 0)), 0)::bigint AS balance,
+               COALESCE(SUM(COALESCE(w."heldPaise", 0)), 0)::bigint AS held
+        FROM "BrandProfile" b
+        LEFT JOIN "BrandWallet" w ON w."brandId" = b.id
+        WHERE TRUE ${zeroFilter} ${searchFilter}
+      `,
+    ]);
+
+    const totals = countRows[0];
+    return {
+      rows,
+      total: Number(totals?.count ?? 0),
+      totalBalancePaise: Number(totals?.balance ?? 0),
+      totalHeldPaise: Number(totals?.held ?? 0),
+    };
   }
 }

@@ -9,6 +9,9 @@
  * - Extra revisions add to the creator's payout only for the ones actually used;
  *   purchased-but-unused revisions are refunded to the brand at full price.
  * - Everything balances: brandPaid === payToCreator + platformFee + refundToBrand.
+ * - brandPaid is what the brand SETTLED, not what Razorpay collected: it splits
+ *   into cashPaid (refundable to a card) + creditPaid (returnable to the wallet
+ *   only). An unpaid order settles nothing, so every figure below is 0.
  */
 
 /** Platform commission taken from what the creator earns. Keep in sync with the
@@ -22,8 +25,24 @@ export type PaidRevisionPurchase = {
 };
 
 export type OrderPricingLedger = {
-  /** Total the brand paid us: base + add-ons + all extra-revision purchases. */
+  /**
+   * Total value the brand settled: base + add-ons + all extra-revision
+   * purchases. This is CASH + STORE CREDIT combined — see cashPaidPaise and
+   * creditPaidPaise for the split. 0 until the order is actually paid.
+   */
   brandPaidPaise: number;
+  /**
+   * The part of brandPaidPaise that came through Razorpay as real money. This
+   * is the ONLY amount that can be refunded to a card/bank — refunding
+   * brandPaidPaise on a credit-funded order would pay out money never
+   * collected.
+   */
+  cashPaidPaise: number;
+  /**
+   * The part of brandPaidPaise funded from the brand's store credit wallet.
+   * Returned to the wallet, never to a card.
+   */
+  creditPaidPaise: number;
   /** Base package + add-ons (the order's original expectedAmountPaise). */
   basePlusAddOnsPaise: number;
   /** Sum of every paid extra-revisions purchase. */
@@ -33,6 +52,14 @@ export type OrderPricingLedger = {
   extraRevisionsUnused: number;
   /** Value of purchased-but-unused extra revisions — owed back to the brand. */
   refundToBrandPaise: number;
+  /**
+   * The part of refundToBrandPaise to return through Razorpay (real money).
+   * Extra-revision purchases are always cash, so a partial (unused-revisions)
+   * refund is entirely cash; a full refund is split by how the order was paid.
+   */
+  refundToBrandCashPaise: number;
+  /** The part of refundToBrandPaise to return to the brand's credit wallet. */
+  refundToBrandCreditPaise: number;
   /** Base + add-ons + used extras (what the order actually earned). */
   earnedPaise: number;
   /**
@@ -63,6 +90,19 @@ function splitPaise(total: number, parts: number): number[] {
 }
 
 export function computeOrderPricingLedger(input: {
+  /**
+   * order.paidAt. Null means the brand was never charged — the order is a
+   * checkout draft (PENDING_PAYMENT) or a draft that was closed without ever
+   * being paid. Every settlement figure is then 0: expectedAmountPaise is a
+   * QUOTE, not money collected, and treating it as collected makes the admin
+   * panel offer refunds for purchases that never happened.
+   */
+  paidAt: Date | null;
+  /**
+   * order.creditsAppliedPaise — how much of expectedAmountPaise was funded
+   * from the brand's store credit wallet rather than charged via Razorpay.
+   */
+  creditsAppliedPaise?: number;
   /** order.expectedAmountPaise — base package + add-ons. */
   expectedAmountPaise: number;
   /** order.maxRevisionsSnapshot — already includes granted extras. */
@@ -89,6 +129,32 @@ export function computeOrderPricingLedger(input: {
     0,
     Math.round(input.expectedAmountPaise),
   );
+
+  // Never charged → nothing was collected, so nothing is owed to anyone. The
+  // quote (basePlusAddOnsPaise) stays visible so admins can still see what the
+  // order was for, but every settlement figure is 0. Extra revisions and
+  // usage-rights extensions can only be bought on a paid order, so there are
+  // none to account for here.
+  if (input.paidAt == null) {
+    return {
+      brandPaidPaise: 0,
+      cashPaidPaise: 0,
+      creditPaidPaise: 0,
+      basePlusAddOnsPaise,
+      extraPaidPaise: 0,
+      extraRevisionsPurchased: 0,
+      extraRevisionsUsed: 0,
+      extraRevisionsUnused: 0,
+      refundToBrandPaise: 0,
+      refundToBrandCashPaise: 0,
+      refundToBrandCreditPaise: 0,
+      earnedPaise: 0,
+      platformFeeBasePaise: 0,
+      platformFeePaise: 0,
+      payToCreatorPaise: 0,
+    };
+  }
+
   // The fee base is the gross (pre-coupon) base when a coupon was applied; for
   // non-coupon orders gross === net, so fall back to the net base.
   const grossBasePlusAddOnsPaise = Math.max(
@@ -143,15 +209,31 @@ export function computeOrderPricingLedger(input: {
   const usedExtrasPaise = extraPaidPaise - refundToBrandPaise;
   const brandPaidPaise = basePlusAddOnsPaise + extraPaidPaise;
 
+  // Store credit only ever funds the base order — extra revisions and
+  // usage-rights extensions are always charged in cash — so the credit portion
+  // is capped at the base and everything above it is real money.
+  const creditPaidPaise = Math.min(
+    Math.max(0, Math.round(input.creditsAppliedPaise ?? 0)),
+    basePlusAddOnsPaise,
+  );
+  const cashPaidPaise = brandPaidPaise - creditPaidPaise;
+
   if (input.fullRefundToBrand) {
     return {
       brandPaidPaise,
+      cashPaidPaise,
+      creditPaidPaise,
       basePlusAddOnsPaise,
       extraPaidPaise,
       extraRevisionsPurchased,
       extraRevisionsUsed,
       extraRevisionsUnused,
       refundToBrandPaise: brandPaidPaise,
+      // Give each source back what it funded: cash to Razorpay, credit to the
+      // wallet. Refunding the combined total as cash would pay out money that
+      // was never collected.
+      refundToBrandCashPaise: cashPaidPaise,
+      refundToBrandCreditPaise: creditPaidPaise,
       earnedPaise: 0,
       platformFeeBasePaise: 0,
       platformFeePaise: 0,
@@ -174,12 +256,18 @@ export function computeOrderPricingLedger(input: {
 
   return {
     brandPaidPaise,
+    cashPaidPaise,
+    creditPaidPaise,
     basePlusAddOnsPaise,
     extraPaidPaise,
     extraRevisionsPurchased,
     extraRevisionsUsed,
     extraRevisionsUnused,
     refundToBrandPaise,
+    // A partial refund only ever returns unused EXTRA revisions, which are
+    // always bought with cash — so none of it comes back as store credit.
+    refundToBrandCashPaise: refundToBrandPaise,
+    refundToBrandCreditPaise: 0,
     earnedPaise,
     platformFeeBasePaise,
     platformFeePaise,

@@ -48,4 +48,13 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsBoolean()
   useCredits?: boolean;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Identifies one checkout ATTEMPT. Mint a new UUID when the brand opens checkout for a creator and resend it on every retry of that attempt: the same key reuses the existing draft order, a new key creates a separate order. This is what lets a brand hold two unpaid orders with the same creator (e.g. two videos for two different briefs). Omit it only for backwards compatibility — the server then matches keyless drafts, as before this field existed.',
+  })
+  @IsOptional()
+  @IsUUID()
+  checkoutSessionKey?: string;
 }

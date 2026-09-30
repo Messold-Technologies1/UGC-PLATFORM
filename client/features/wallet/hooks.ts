@@ -9,6 +9,7 @@ import {
   cancelWithdrawal,
   completeWithdrawal,
   getAdminBrandLedger,
+  getAdminBrandCredits,
   getAdminWithdrawals,
   getWalletBalance,
   getWalletTransactions,
@@ -96,6 +97,33 @@ export function useAdminWithdrawals(status?: WalletWithdrawalStatus) {
   return useQuery({
     queryKey: [...adminWithdrawalsQueryKey, status ?? "ALL"],
     queryFn: () => getAdminWithdrawals(status),
+  });
+}
+
+export const adminBrandCreditsQueryKey = [
+  "admin",
+  "wallet",
+  "brand-credits",
+] as const;
+
+export function useAdminBrandCredits(params: {
+  take: number;
+  skip: number;
+  includeZero: boolean;
+  search?: string;
+}) {
+  return useQuery({
+    queryKey: [
+      ...adminBrandCreditsQueryKey,
+      params.take,
+      params.skip,
+      params.includeZero,
+      params.search ?? "",
+    ],
+    queryFn: () => getAdminBrandCredits(params),
+    // Paging/filtering keeps the previous page on screen instead of flashing
+    // an empty table between fetches.
+    placeholderData: (prev) => prev,
   });
 }
 

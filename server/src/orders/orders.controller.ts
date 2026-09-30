@@ -205,7 +205,7 @@ export class OrdersController {
   @ApiOperation({
     summary: 'Create or reuse platform order + Razorpay order for checkout',
     description:
-      'Idempotent for the same brand, creator, package, and add-ons: reuses an existing PENDING_PAYMENT order instead of creating duplicates.',
+      'Idempotent within one checkout attempt: repeating a call with the same checkoutSessionKey reuses that attempt’s PENDING_PAYMENT order instead of creating a duplicate. A different key is a different intent and creates a separate order, so a brand can hold several unpaid orders with the same creator.',
   })
   @ApiCreatedResponse({ type: CheckoutResponseDto })
   async createCheckout(
@@ -219,6 +219,7 @@ export class OrdersController {
       addOnIds: dto.addOnIds,
       couponCode: dto.couponCode,
       useCredits: dto.useCredits,
+      checkoutSessionKey: dto.checkoutSessionKey,
     });
   }
 

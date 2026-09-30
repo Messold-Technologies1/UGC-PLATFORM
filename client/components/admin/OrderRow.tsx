@@ -2,7 +2,11 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { AdminOrderListItemDto } from "@/features/admin/types";
-import { STATUS_COLORS, STATUS_LABELS } from "@/features/orders/constants";
+import {
+  STATUS_COLORS,
+  STATUS_LABELS,
+  STATUS_TAB_GROUPS,
+} from "@/features/orders/constants";
 
 interface OrderRowProps extends AdminOrderListItemDto {
   delay?: number;
@@ -63,9 +67,17 @@ export default function OrderRow({
       ? formatDate(order.disputeOpenedAt)
       : null;
 
-  // "Actioned by": who ended the order early (REJECTED) or accepted the brief.
+  // "Actioned by": who ended the order early, or accepted the brief.
   // role ADMIN means our support team acted on a party's behalf.
-  const terminated = order.status === "REJECTED" && !!cancelledByActor;
+  //
+  // Every terminal state an early ending can land on counts, not just REJECTED:
+  // a PAID order ended before acceptance goes to CANCELLED_CREDITED (the money
+  // returns to the brand's credits) and a refunded one to REFUNDED. Matching
+  // only REJECTED left the column blank for exactly the cancellations where
+  // money moved — the ones an admin most needs attributed. Uses the shared
+  // "cancelled" grouping so this can't drift from the status tabs.
+  const terminated =
+    STATUS_TAB_GROUPS.cancelled.includes(order.status) && !!cancelledByActor;
   const actor = terminated ? cancelledByActor : (briefAcceptedByActor ?? null);
   const bySupport = actor?.role === "ADMIN";
   const actionVerb = terminated

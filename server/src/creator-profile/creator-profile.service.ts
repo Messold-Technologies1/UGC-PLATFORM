@@ -3384,6 +3384,23 @@ export class CreatorProfileService {
             dto.goLive === true,
           );
 
+          // A Go Live the server's own checklist rejects must fail, not return
+          // 200 with nothing changed. Silently declining used to leave the
+          // profile submitted-looking to the creator (the wizard marks the
+          // Review step done on any successful response) while the approval row
+          // sat untouched in Building — and `goLivePoliciesAcceptedAt` was
+          // already stamped, which the editor then read as "reopened for
+          // editing". Throwing rolls the whole transaction back, so the stamp
+          // only ever lands on a submission that actually latched.
+          if (dto.goLive === true && listingState?.completeProfile !== true) {
+            const missing = listingState?.missing ?? [];
+            throw new BadRequestException(
+              missing.length > 0
+                ? `Your profile is not ready to submit yet. Still needed: ${missing.join(', ')}.`
+                : 'Your profile is not ready to submit yet. Finish the go-live checklist and try again.',
+            );
+          }
+
           const updated = await tx.creatorProfile.findUnique({
             where: { id: creatorProfileId },
             include: creatorProfileWithRelationsInclude as any,

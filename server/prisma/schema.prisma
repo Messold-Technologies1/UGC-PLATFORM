@@ -724,6 +724,16 @@ model Order {
   /// Razorpay order and released if the order is abandoned/rejected before
   /// payment. Applied AFTER any coupon discount.
   creditsAppliedPaise  Int           @default(0)
+  /// Identifies ONE brand-initiated checkout attempt. The brand's client mints
+  /// a key when it opens checkout for a creator and resends it on every retry
+  /// of that same attempt, so a double-click reuses the existing draft while a
+  /// deliberate second checkout (a new key) becomes a genuinely separate order.
+  /// Checkout only ever reuses, refreshes or closes drafts carrying the SAME
+  /// key — without it, a brand could not hold two unpaid orders with one
+  /// creator, because the second checkout closed the first. Null on orders
+  /// created before this existed, and on bulk-checkout children (the batch is
+  /// their unit of intent).
+  checkoutSessionKey   String?       @db.Uuid
   /// True when this order was placed under the creator's "first order free"
   /// promo: brand paid ₹0, no Razorpay, and the creator is paid ₹0. Shown as a
   /// "Free order" line in the admin pricing ledger.
@@ -772,6 +782,9 @@ model Order {
   @@index([deliveryGraceDeadlineAt])
   @@index([briefId])
   @@index([checkoutBatchId])
+  /// Serves the checkout lookup for a brand's open drafts with one creator
+  /// (brandId + creatorId + status), which ran unindexed before.
+  @@index([brandId, creatorId, status])
 }
 
 enum OrderCheckoutBatchStatus {

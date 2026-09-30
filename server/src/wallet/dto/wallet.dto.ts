@@ -15,6 +15,8 @@ import {
   WalletWithdrawalStatus,
 } from '@prisma/client';
 
+import type { AdminBrandCreditRow } from '../wallet.service';
+
 // ── Requests ─────────────────────────────────────────────────────────────────
 
 export class CreateWithdrawalDto {
@@ -137,4 +139,59 @@ export class AdminWithdrawalDto extends WalletWithdrawalDto {
       brandBalancePaise: w.wallet.balancePaise,
     };
   }
+}
+
+/** One brand's credit position in the admin Credits list. */
+export class AdminBrandCreditDto {
+  @ApiProperty() brandId!: string;
+  @ApiProperty({ nullable: true }) brandName!: string | null;
+  @ApiProperty({ nullable: true }) logoUrl!: string | null;
+  @ApiProperty({ nullable: true }) contactEmail!: string | null;
+  @ApiProperty({
+    description: 'Total credit owned (spendable + held), in paise.',
+  })
+  balancePaise!: number;
+  @ApiProperty({
+    description: 'Locked by pending withdrawal requests, in paise.',
+  })
+  heldPaise!: number;
+  @ApiProperty({ description: 'Spendable now (balance - held), in paise.' })
+  availablePaise!: number;
+  @ApiProperty() currency!: string;
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Last wallet movement; null if the brand has never held credit.',
+  })
+  lastActivityAt!: Date | null;
+
+  static from(row: AdminBrandCreditRow): AdminBrandCreditDto {
+    return {
+      brandId: row.brandId,
+      brandName: row.brandName,
+      logoUrl: row.logoUrl,
+      contactEmail: row.contactEmail,
+      balancePaise: row.balancePaise,
+      heldPaise: row.heldPaise,
+      // Derived, never stored: held money still sits inside the balance, so a
+      // single "credits" number would overstate what a brand can actually spend
+      // while a withdrawal is pending.
+      availablePaise: row.balancePaise - row.heldPaise,
+      currency: row.currency,
+      lastActivityAt: row.lastActivityAt,
+    };
+  }
+}
+
+export class AdminBrandCreditsPageDto {
+  @ApiProperty({ type: [AdminBrandCreditDto] })
+  items!: AdminBrandCreditDto[];
+  @ApiProperty({ description: 'Total brands matching the filters.' })
+  total!: number;
+  @ApiProperty({
+    description: 'Sum of balancePaise across ALL matches, not just this page.',
+  })
+  totalBalancePaise!: number;
+  @ApiProperty({ description: 'Sum of heldPaise across ALL matches.' })
+  totalHeldPaise!: number;
 }

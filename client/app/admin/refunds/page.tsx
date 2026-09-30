@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 import { useAuth } from "@/providers/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +12,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
+  useAdminBrandCredits,
   useAdminWithdrawals,
   useCompleteWithdrawalMutation,
   useRejectWithdrawalMutation,
@@ -34,7 +35,10 @@ function formatDate(iso: string): string {
   });
 }
 
-type TabKey = WalletWithdrawalStatus | "ALL";
+type TabKey = WalletWithdrawalStatus | "ALL" | "CREDITS";
+
+/** Not a withdrawal status — its own view, so it sits outside TAB_DEFS. */
+const CREDITS_TAB: TabKey = "CREDITS";
 
 const TAB_DEFS: { value: TabKey; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -105,6 +109,192 @@ function WithdrawalRow({ w }: { w: AdminWithdrawal }) {
   );
 }
 
+function formatDateOnly(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-IN", { dateStyle: "medium" });
+}
+
+/**
+ * Credit held across every brand.
+ *
+ * Three numbers per brand, never one: held money still sits inside the total
+ * balance, so a lone "credits" figure overstates what a brand can actually
+ * spend while a refund request of theirs is pending.
+ */
+function BrandCreditsPanel() {
+  const [page, setPage] = useState(1);
+  const [includeZero, setIncludeZero] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  // Debounced so typing a brand name doesn't fire a request per keystroke.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  const { data, isLoading, isError } = useAdminBrandCredits({
+    take: PAGE_SIZE,
+    skip: (page - 1) * PAGE_SIZE,
+    includeZero,
+    search,
+  });
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Total credits outstanding
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {inr(data?.totalBalancePaise ?? 0)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Held for pending refunds
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {inr(data?.totalHeldPaise ?? 0)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Brands listed
+          </p>
+          <p className="mt-1 text-xl font-bold">{total}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search brand name"
+            className="h-9 w-64 rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={includeZero}
+            onChange={(e) => {
+              setIncludeZero(e.target.checked);
+              setPage(1);
+            }}
+            className="size-4 rounded border-border"
+          />
+          Show brands with no credits
+        </label>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-2xl" />
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="rounded-2xl border border-border/40 bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
+          Could not load brand credits.
+        </div>
+      ) : items.length === 0 ? (
+        <div className="rounded-2xl border border-border/40 bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
+          {search
+            ? "No brand matches that name."
+            : includeZero
+              ? "No brands yet."
+              : "No brand is holding credits right now."}
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-2xl border border-border/40">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Brand</th>
+                  <th className="px-4 py-3">Total credits</th>
+                  <th className="px-4 py-3">Held</th>
+                  <th className="px-4 py-3">Available</th>
+                  <th className="px-4 py-3">Last activity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((b) => (
+                  <tr key={b.brandId} className="border-t border-border/30">
+                    <td className="px-4 py-3">
+                      <span className="font-medium">
+                        {b.brandName?.trim() || "Unnamed Brand"}
+                      </span>
+                      {b.contactEmail ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {b.contactEmail}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 font-semibold">
+                      {inr(b.balancePaise)}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {b.heldPaise > 0 ? inr(b.heldPaise) : "—"}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                      {inr(b.availablePaise)}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDateOnly(b.lastActivityAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                Page {page} of {totalPages} · {total}{" "}
+                {total === 1 ? "brand" : "brands"}
+              </span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  className="flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  className="flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AdminRefundsPage() {
   const { user } = useAuth();
   const isSuperAdmin = Boolean(user?.canManageAdmins);
@@ -171,7 +361,12 @@ export default function AdminRefundsPage() {
               </TabsTrigger>
             );
           })}
+          <TabsTrigger value={CREDITS_TAB}>Brand Credits</TabsTrigger>
         </TabsList>
+
+        <TabsContent value={CREDITS_TAB} className="mt-4">
+          <BrandCreditsPanel />
+        </TabsContent>
 
         {TAB_DEFS.map((t) => (
           <TabsContent key={t.value} value={t.value} className="mt-4">

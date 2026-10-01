@@ -16,10 +16,9 @@ import twilio from 'twilio';
  *
  * Verify is the last resort because it costs the most, but it is also the most
  * likely to land: Twilio owns the carrier relationships and the regional
- * compliance. In India in particular, plain A2P SMS requires TRAI DLT
- * registration (entity id, pre-registered templates, approved sender id) —
- * without it carriers drop the message, which is why the SMS tier can be
- * disabled independently via PHONE_OTP_SMS_ENABLED.
+ * compliance. Each tier can be switched off independently
+ * (PHONE_OTP_SMS_ENABLED / PHONE_OTP_VERIFY_ENABLED) without removing its
+ * credentials, for wherever one of them turns out not to deliver.
  */
 @Injectable()
 export class TwilioOtpTransport {
@@ -68,8 +67,8 @@ export class TwilioOtpTransport {
   /**
    * Send our own code as a plain SMS. Returns Twilio's message SID.
    *
-   * Prefers a Messaging Service (which owns sender selection, and on Indian
-   * traffic the DLT sender id) over a bare `from` number.
+   * Prefers a Messaging Service, which owns sender selection, over a bare
+   * `from` number.
    */
   async sendSms(params: { to: string; code: string }): Promise<string> {
     const messagingServiceSid = this.config
@@ -80,8 +79,8 @@ export class TwilioOtpTransport {
       this.config.get<string>('PHONE_OTP_SMS_TEMPLATE')?.trim() ||
       '{{code}} is your verification code. For your security, do not share this code.';
 
-    // In India the body must match a DLT-registered template, so the copy is
-    // configurable rather than hard-coded.
+    // Configurable rather than hard-coded: some regions require the body to
+    // match copy registered with the carrier.
     const body = template.replace('{{code}}', params.code);
 
     const message = await this.client().messages.create({

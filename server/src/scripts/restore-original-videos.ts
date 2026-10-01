@@ -160,6 +160,7 @@ async function main(): Promise<void> {
     restored: 0,
     byHash: 0,
     byTimestamp: 0,
+    repaired: 0,
     manual: 0,
     errors: 0,
   };
@@ -214,14 +215,12 @@ async function main(): Promise<void> {
       versionIdMarker = res.NextVersionIdMarker;
     }
 
+    // Return EVERY delete-marked key (cutoff is applied by the caller). Repair
+    // needs the full set — a row pointing at a key the cutoff would hide still
+    // has to be undeleted.
     const out: DeletedOriginal[] = [];
     for (const [key, e] of versionsByKey) {
       if (!e.latestMarker || e.data.length === 0) continue; // live, or no bytes to restore
-      // Skip delete markers this restore itself produced (deleting the old
-      // downscaled file). Those are newer than the cutoff; the genuine originals
-      // were deleted by the old normalization long before it.
-      if (DELETED_BEFORE && e.latestMarker.at >= DELETED_BEFORE.getTime())
-        continue;
       const newest = e.data.sort((a, b) => b.at - a.at)[0];
       out.push({
         key,
@@ -231,6 +230,12 @@ async function main(): Promise<void> {
       });
     }
     return out;
+  }
+
+  /** Delete markers older than the cutoff are genuine originals deleted by the
+   *  old normalization; newer ones are this restore's own cleanup tombstones. */
+  function isRestorable(d: DeletedOriginal): boolean {
+    return !DELETED_BEFORE || d.deletedAt < DELETED_BEFORE.getTime();
   }
 
   async function hashVersion(key: string, versionId: string): Promise<string> {
@@ -296,11 +301,11 @@ async function main(): Promise<void> {
   }
 
   const portfolioRemaining = [...portfolioByCreator.values()].reduce(
-    (n, d) => n + d.length,
+    (n, d) => n + d.filter(isRestorable).length,
     0,
   );
   const introRemaining = [...introByCreator.values()].reduce(
-    (n, e) => n + e.deleted.length,
+    (n, e) => n + e.deleted.filter(isRestorable).length,
     0,
   );
   const totalRemaining = portfolioRemaining + introRemaining;
@@ -326,8 +331,45 @@ async function main(): Promise<void> {
       },
     });
 
-    const remainingRows = [...rows];
-    const remainingDeleted = [...deleted];
+    // REPAIR: finish interrupted restores. A row already repointed to an
+    // original whose delete marker was never removed (crash/kill between repoint
+    // and undelete) serves a 403 — the DB advertises a key S3 still considers
+    // deleted. Just undelete it; the row already claims this exact key, so no
+    // matching is needed and the cutoff doesn't apply.
+    const repairedKeys = new Set<string>();
+    for (const row of rows) {
+      if (!row.videoKey) continue;
+      const marked = deleted.find((d) => d.key === row.videoKey);
+      if (!marked) continue;
+      repairedKeys.add(marked.key);
+      stats.repaired++;
+      logger.log(
+        `REPAIR: ${marked.key} → row ${row.id} repointed but still delete-marked; undeleting${APPLY ? '' : ' [dry-run]'}`,
+      );
+      if (APPLY) {
+        await undelete(marked).catch((err) => {
+          stats.errors++;
+          logger.error(
+            `repair undelete failed for ${marked.key}: ${(err as Error)?.message}`,
+          );
+        });
+        await prisma.creatorProfile
+          .update({
+            where: { id: creatorId },
+            data: { previewVideoStatus: 'pending', previewVideoAttempts: 0 },
+          })
+          .catch(() => undefined);
+      }
+    }
+
+    // Rows already pointing at a (now-repaired) key are done; restore only the
+    // rest, and only against genuine pre-campaign originals.
+    const remainingRows = rows.filter(
+      (r) => !(r.videoKey && repairedKeys.has(r.videoKey)),
+    );
+    const remainingDeleted = deleted.filter(
+      (d) => isRestorable(d) && !repairedKeys.has(d.key),
+    );
 
     // PRIMARY: exact contentHash match.
     for (const orig of [...remainingDeleted]) {
@@ -454,13 +496,40 @@ async function main(): Promise<void> {
   // ── Phase 2 (intro) ────────────────────────────────────────────────────
   for (const [introCreatorId, entry] of introByCreator) {
     const c = { id: introCreatorId, introVideoKey: entry.introVideoKey };
-    // One intro per creator: the most recently deleted original is the pre-swap
-    // intro we want back.
-    const orig = entry.deleted.sort((a, b) => b.deletedAt - a.deletedAt)[0];
-    if (c.introVideoKey === orig.key) {
-      if (APPLY) await undelete(orig).catch(() => undefined);
+
+    // REPAIR: the profile already points at this intro key but it's still
+    // delete-marked (interrupted restore → 403). Undelete it; no matching or
+    // cutoff needed, the profile already claims this exact key.
+    const markedCurrent = c.introVideoKey
+      ? entry.deleted.find((d) => d.key === c.introVideoKey)
+      : undefined;
+    if (markedCurrent) {
+      stats.repaired++;
+      logger.log(
+        `REPAIR (intro): ${markedCurrent.key} → creator ${c.id} repointed but still delete-marked; undeleting${APPLY ? '' : ' [dry-run]'}`,
+      );
+      if (APPLY) {
+        await undelete(markedCurrent).catch((err) => {
+          stats.errors++;
+          logger.error(
+            `repair undelete failed for ${markedCurrent.key}: ${(err as Error)?.message}`,
+          );
+        });
+        await prisma.creatorProfile
+          .update({
+            where: { id: c.id },
+            data: { previewVideoStatus: 'pending', previewVideoAttempts: 0 },
+          })
+          .catch(() => undefined);
+      }
       continue;
     }
+
+    // RESTORE: one intro per creator; the most recently deleted RESTORABLE
+    // original is the pre-swap intro we want back.
+    const restorable = entry.deleted.filter(isRestorable);
+    if (restorable.length === 0) continue;
+    const orig = restorable.sort((a, b) => b.deletedAt - a.deletedAt)[0];
     // Without a cutoff, "most recently deleted" could be this script's own
     // tombstone (deleting the old downscaled intro), which is always newer than
     // the genuine original — restoring it would re-break the intro. Hold back.
@@ -506,7 +575,8 @@ async function main(): Promise<void> {
 
   logger.log(
     `${APPLY ? 'restore complete' : 'dry run complete'}: ${stats.restored} restored ` +
-      `(hash=${stats.byHash} timestamp=${stats.byTimestamp}), ${stats.manual} need manual review, ${stats.errors} errors`,
+      `(hash=${stats.byHash} timestamp=${stats.byTimestamp}), ${stats.repaired} repaired ` +
+      `(interrupted undelete), ${stats.manual} need manual review, ${stats.errors} errors`,
   );
   await app.close();
 }

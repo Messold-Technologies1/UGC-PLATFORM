@@ -2,18 +2,15 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Get,
   HttpException,
   HttpCode,
   HttpStatus,
   Post,
-  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -24,8 +21,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SendPhoneOtpDto } from './dto/send-phone-otp.dto';
 import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
 import { VerifyPhoneOtpResponseDto } from './dto/verify-phone-otp-response.dto';
-import { PhoneOtpStatusQueryDto } from './dto/phone-otp-status-query.dto';
-import { PhoneOtpStatusResponseDto } from './dto/phone-otp-status-response.dto';
+import { SendPhoneOtpResponseDto } from './dto/send-phone-otp-response.dto';
 import { PhoneVerificationService } from './phone-verification.service';
 import { clientIpFrom, toSendHttpException } from './phone-otp-request.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -41,16 +37,17 @@ export class AuthPhoneController {
 
   @Post('phone/send-otp')
   @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Send a WhatsApp OTP to a phone. Authenticated user.',
+    summary:
+      'Send an OTP to a phone (WhatsApp, escalating to SMS on resend). Authenticated user.',
   })
-  @ApiNoContentResponse({ description: 'OTP sent' })
+  @ApiOkResponse({ type: SendPhoneOtpResponseDto })
   async sendOtp(
     @Body() dto: SendPhoneOtpDto,
     @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
+  ): Promise<SendPhoneOtpResponseDto> {
     const existing = await this.prisma.user.findFirst({
       where: {
         phone: dto.phone,
@@ -62,28 +59,15 @@ export class AuthPhoneController {
       throw new BadRequestException('Invalid request.');
     }
     try {
-      await this.phoneVerification.sendVerificationCode(
+      const channel = await this.phoneVerification.sendVerificationCode(
         dto.phone,
         'profile',
         clientIpFrom(req),
       );
+      return { channel };
     } catch (err) {
       throw toSendHttpException(err);
     }
-  }
-
-  @Get('phone/otp-status')
-  @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  @ApiOperation({
-    summary:
-      'Delivery state of the last OTP sent to a phone (is the number on WhatsApp?)',
-  })
-  @ApiOkResponse({ type: PhoneOtpStatusResponseDto })
-  async otpStatus(
-    @Query() query: PhoneOtpStatusQueryDto,
-  ): Promise<PhoneOtpStatusResponseDto> {
-    return this.phoneVerification.getDeliveryState(query.phone, 'profile');
   }
 
   @Post('phone/verify-otp')

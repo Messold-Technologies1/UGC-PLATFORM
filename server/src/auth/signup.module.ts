@@ -7,6 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { StorageModule } from '../storage/storage.module';
 import { PhoneVerificationService } from './phone-verification.service';
+import { TwilioOtpTransport } from './twilio-otp.transport';
 import { SignupRegistrationService } from './signup-registration.service';
 
 /**
@@ -21,10 +22,15 @@ import { SignupRegistrationService } from './signup-registration.service';
     forwardRef(() => BrandProfileModule),
     forwardRef(() => AgencyModule),
     CreatorReminderModule,
-    // PhoneVerificationService sends OTPs through the raw Cloud API transport.
+    // PhoneVerificationService sends OTPs through the raw Cloud API transport
+    // on the first tier, falling back to Twilio on later resends.
     WhatsAppModule,
   ],
-  providers: [SignupRegistrationService, PhoneVerificationService],
+  providers: [
+    SignupRegistrationService,
+    PhoneVerificationService,
+    TwilioOtpTransport,
+  ],
   exports: [SignupRegistrationService, PhoneVerificationService],
 })
 export class SignupModule {}

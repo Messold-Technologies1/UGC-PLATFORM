@@ -2,11 +2,9 @@ import {
   Body,
   Controller,
   ForbiddenException,
-  Get,
   HttpCode,
   HttpStatus,
   Post,
-  Query,
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
@@ -20,8 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { PhoneVerificationService } from './phone-verification.service';
 import { clientIpFrom, toSendHttpException } from './phone-otp-request.util';
-import { PhoneOtpStatusQueryDto } from './dto/phone-otp-status-query.dto';
-import { PhoneOtpStatusResponseDto } from './dto/phone-otp-status-response.dto';
+import { SendPhoneOtpResponseDto } from './dto/send-phone-otp-response.dto';
 import { SignupSendPhoneOtpDto } from './dto/signup-send-phone-otp.dto';
 import { SignupPresignUploadDto } from './dto/signup-presign-upload.dto';
 import {
@@ -45,39 +42,27 @@ export class AuthSignupController {
   ) {}
 
   @Post('phone/send-otp')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
     summary:
-      'Send a WhatsApp OTP for signup (unauthenticated; use before role-based register)',
+      'Send a signup OTP (WhatsApp, escalating to SMS on resend; unauthenticated)',
   })
-  @ApiNoContentResponse({ description: 'OTP sent' })
+  @ApiOkResponse({ type: SendPhoneOtpResponseDto })
   async sendSignupPhoneOtp(
     @Body() dto: SignupSendPhoneOtpDto,
     @Req() req: Request,
-  ): Promise<void> {
+  ): Promise<SendPhoneOtpResponseDto> {
     try {
-      await this.phoneVerification.sendVerificationCode(
+      const channel = await this.phoneVerification.sendVerificationCode(
         dto.phone,
         'signup',
         clientIpFrom(req),
       );
+      return { channel };
     } catch (err) {
       throw toSendHttpException(err);
     }
-  }
-
-  @Get('phone/otp-status')
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  @ApiOperation({
-    summary:
-      'Delivery state of the last signup OTP (is the number on WhatsApp?)',
-  })
-  @ApiOkResponse({ type: PhoneOtpStatusResponseDto })
-  async signupOtpStatus(
-    @Query() query: PhoneOtpStatusQueryDto,
-  ): Promise<PhoneOtpStatusResponseDto> {
-    return this.phoneVerification.getDeliveryState(query.phone, 'signup');
   }
 
   @Post('presign/creator-portfolio-video')

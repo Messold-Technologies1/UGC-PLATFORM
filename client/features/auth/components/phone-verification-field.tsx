@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  fetchPhoneOtpStatus,
   sendPhoneOtp,
   verifyPhoneOtp,
+  type PhoneOtpChannel,
 } from "@/features/auth/api/phone-otp";
 import { cn } from "@/lib/utils";
 
@@ -116,12 +116,10 @@ export function PhoneVerificationField({
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
   /**
-   * Set when Meta tells us (via our delivery webhook) that the number has no
-   * WhatsApp account. It cannot come from the send call — WhatsApp queues the
-   * message and reports success regardless — so this is filled in later, once
-   * the resend countdown lapses and we ask the server what actually happened.
+   * Channel the last code went out on. Each resend steps down the ladder
+   * (WhatsApp -> SMS), so the user has to be told where to look.
    */
-  const [notOnWhatsApp, setNotOnWhatsApp] = useState(false);
+  const [otpChannel, setOtpChannel] = useState<PhoneOtpChannel>("whatsapp");
 
   const normalizedPhone = useMemo(
     () => normalizePhoneForOtp(phoneInput),
@@ -165,46 +163,24 @@ export function PhoneVerificationField({
     return () => window.clearInterval(intervalId);
   }, [otpResendAvailableAt]);
 
-  /**
-   * Once the resend countdown runs out and the code still hasn't been entered,
-   * ask the server what became of the message. A single check, not a poll: by
-   * this point Meta's delivery webhook has had a full minute to land, and the
-   * only outcome worth reacting to is "this number isn't on WhatsApp".
-   */
-  useEffect(() => {
-    if (!activeOtpPhone || phoneVerified) return;
-    if (resendSecondsRemaining > 0) return;
-    if (notOnWhatsApp) return;
-
-    let cancelled = false;
-    void fetchPhoneOtpStatus(activeOtpPhone)
-      .then((result) => {
-        if (cancelled) return;
-        if (result.notOnWhatsApp) setNotOnWhatsApp(true);
-      })
-      // A failed status lookup is not worth surfacing — the user can still
-      // enter a code that did arrive, or hit resend.
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeOtpPhone, notOnWhatsApp, phoneVerified, resendSecondsRemaining]);
-
   const sendPhoneOtpMutation = useMutation({
     mutationKey: ["auth", "phone", "send-otp"],
     mutationFn: sendPhoneOtp,
-    onSuccess: (_result, variables) => {
+    onSuccess: (result, variables) => {
       const now = Date.now();
+      setOtpChannel(result.channel);
       setOtpSentToPhone(variables.phone);
       setVerifiedPhone(null);
       setOtpCode("");
       setOtpError(null);
       setPhoneError(null);
-      setNotOnWhatsApp(false);
       setOtpClockTick(now);
       setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
-      toast.success("Verification code sent");
+      toast.success(
+        result.channel === "whatsapp"
+          ? "Verification code sent on WhatsApp"
+          : "Verification code sent by SMS",
+      );
     },
     onError: (error) => {
       if (isAxiosError(error) && error.response?.status === 429) {
@@ -287,7 +263,7 @@ export function PhoneVerificationField({
     }
 
     if (!OTP_CODE_REGEX.test(code)) {
-      const message = "Enter the verification code sent on WhatsApp.";
+      const message = "Enter the verification code we sent you.";
       setOtpError(message);
       toast.error(message);
       return;
@@ -326,7 +302,6 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             setPhoneInput(digits ? `+91${digits}` : "");
             setVerifiedPhone(null);
             setPhoneError(null);
-            setNotOnWhatsApp(false);
           }}
         />
         <Button
@@ -391,16 +366,10 @@ verifyPhoneOtpMutation.mutate({ phone, code });
               )}
             </Button>
           </div>
-          {notOnWhatsApp ? (
-            <p className="text-xs text-destructive">
-              {activeOtpPhone} isn&apos;t on WhatsApp. Please enter your
-              WhatsApp number and try again.
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Enter the code sent on WhatsApp to {activeOtpPhone}.
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            Enter the code sent {otpChannel === "whatsapp" ? "on WhatsApp" : "by SMS"}{" "}
+            to {activeOtpPhone}.
+          </p>
           {otpError ? <p className="text-xs text-destructive">{otpError}</p> : null}
         </div>
       ) : null}

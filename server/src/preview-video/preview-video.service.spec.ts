@@ -160,8 +160,8 @@ describe('PreviewVideoService', () => {
   });
 
   // Real end-to-end encode through the actual ffmpeg binary — proves the worker
-  // produces a faststart, downscaled, audio-stripped rendition from a raw
-  // (moov-at-end, has-audio, >720p) source. Skips itself if ffmpeg can't run in
+  // produces a faststart, 9:16, <=1080p, audio-preserving rendition from a raw
+  // (moov-at-end, has-audio) source. Skips itself if ffmpeg can't run in
   // this environment rather than failing the suite.
   describe('generateForCreator (real ffmpeg encode)', () => {
     jest.setTimeout(120_000);
@@ -200,7 +200,7 @@ describe('PreviewVideoService', () => {
       }
     });
 
-    it('produces a faststart, <=720p, audio-free mp4 from a raw source', async () => {
+    it('produces a faststart, <=1080p 9:16, audio-preserving mp4 from a raw source', async () => {
       if (!sample) {
         console.warn('ffmpeg unavailable — skipping real-encode test');
         return;
@@ -249,18 +249,22 @@ describe('PreviewVideoService', () => {
       // A smaller object than the raw source.
       expect(out.length).toBeLessThan(sample.length);
 
-      // Probe the output: a video stream, no audio, height capped at 720.
+      // Probe the output: a video stream, audio preserved, height capped at
+      // 1080, and a 9:16 portrait aspect ratio.
       const dir = await mkdtemp(join(tmpdir(), 'preview-out-'));
       const outPath = join(dir, 'out.mp4');
       try {
         await writeFile(outPath, out);
         const { stderr } = await runFfmpeg(['-hide_banner', '-i', outPath]);
         expect(stderr).toContain('Video:');
-        expect(stderr).not.toContain('Audio:');
+        expect(stderr).toContain('Audio:');
         const res = /,\s(\d+)x(\d+)/.exec(stderr);
         expect(res).not.toBeNull();
+        const width = Number(res![1]);
         const height = Number(res![2]);
-        expect(height).toBeLessThanOrEqual(720);
+        expect(height).toBeLessThanOrEqual(1080);
+        // 9:16 portrait (within rounding to even dimensions).
+        expect(Math.abs(width / height - 9 / 16)).toBeLessThan(0.02);
       } finally {
         await rm(dir, { recursive: true, force: true }).catch(() => undefined);
       }

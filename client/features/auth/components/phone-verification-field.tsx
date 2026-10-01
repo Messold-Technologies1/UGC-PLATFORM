@@ -9,8 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { sendPhoneOtp, verifyPhoneOtp } from "@/features/auth/api/phone-otp";
+import {
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  type PhoneOtpChannel,
+} from "@/features/auth/api/phone-otp";
 import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
 const PHONE_E164_REGEX = /^\+\d{8,15}$/;
@@ -111,15 +116,28 @@ export function PhoneVerificationField({
     number | null
   >(null);
   const [otpClockTick, setOtpClockTick] = useState(0);
+  /**
+   * Channel the last code went out on. Each resend steps down the ladder
+   * (WhatsApp -> SMS), so the user has to be told where to look.
+   */
+  const [otpChannel, setOtpChannel] = useState<PhoneOtpChannel>("whatsapp");
 
   const normalizedPhone = useMemo(
     () => normalizePhoneForOtp(phoneInput),
     [phoneInput],
   );
-  const phoneVerified =
-    Boolean(normalizedPhone) &&
-    (verifiedPhone === normalizedPhone ||
-      initialVerifiedPhone === normalizedPhone);
+  /**
+   * With the OTP step switched off there is nothing to prove, so a well-formed
+   * number is treated as accepted and the parent form can submit. The number is
+   * still saved by that form's own update call, and the server records it as
+   * unverified.
+   */
+  const otpEnabled = env.phoneOtpEnabled;
+  const phoneVerified = otpEnabled
+    ? Boolean(normalizedPhone) &&
+      (verifiedPhone === normalizedPhone ||
+        initialVerifiedPhone === normalizedPhone)
+    : PHONE_E164_REGEX.test(normalizedPhone);
   const activeOtpPhone =
     otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
 
@@ -141,6 +159,12 @@ export function PhoneVerificationField({
   }, [onVerifiedChange, phoneVerified]);
 
   useEffect(() => {
+    // Without an OTP round trip nothing else reports the number upwards.
+    if (otpEnabled || !phoneVerified) return;
+    onVerifiedPhone?.(normalizedPhone);
+  }, [normalizedPhone, onVerifiedPhone, otpEnabled, phoneVerified]);
+
+  useEffect(() => {
     onOtpSentChange?.(Boolean(activeOtpPhone) && !phoneVerified);
   }, [activeOtpPhone, onOtpSentChange, phoneVerified]);
 
@@ -157,8 +181,9 @@ export function PhoneVerificationField({
   const sendPhoneOtpMutation = useMutation({
     mutationKey: ["auth", "phone", "send-otp"],
     mutationFn: sendPhoneOtp,
-    onSuccess: (_result, variables) => {
+    onSuccess: (result, variables) => {
       const now = Date.now();
+      setOtpChannel(result.channel);
       setOtpSentToPhone(variables.phone);
       setVerifiedPhone(null);
       setOtpCode("");
@@ -166,7 +191,11 @@ export function PhoneVerificationField({
       setPhoneError(null);
       setOtpClockTick(now);
       setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
-      toast.success("Verification code sent");
+      toast.success(
+        result.channel === "whatsapp"
+          ? "Verification code sent on WhatsApp"
+          : "Verification code sent by SMS",
+      );
     },
     onError: (error) => {
       if (isAxiosError(error) && error.response?.status === 429) {
@@ -249,7 +278,7 @@ export function PhoneVerificationField({
     }
 
     if (!OTP_CODE_REGEX.test(code)) {
-      const message = "Enter the verification code from the SMS.";
+      const message = "Enter the verification code we sent you.";
       setOtpError(message);
       toast.error(message);
       return;
@@ -290,6 +319,7 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             setPhoneError(null);
           }}
         />
+        {otpEnabled ? (
         <Button
           type="button"
           variant="ghost"
@@ -313,9 +343,10 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             "Send OTP"
           )}
         </Button>
+        ) : null}
       </div>
       {phoneError ? <p className="text-xs text-destructive">{phoneError}</p> : null}
-      {phoneVerified ? (
+      {otpEnabled && phoneVerified ? (
         <p className="text-xs font-medium text-green-600">
           Mobile number verified.
         </p>
@@ -353,7 +384,8 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Enter the code sent to {activeOtpPhone}.
+            Enter the code sent {otpChannel === "whatsapp" ? "on WhatsApp" : "by SMS"}{" "}
+            to {activeOtpPhone}.
           </p>
           {otpError ? <p className="text-xs text-destructive">{otpError}</p> : null}
         </div>

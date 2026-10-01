@@ -11,11 +11,15 @@ import { WhatsAppWebhookController } from './whatsapp-webhook.controller';
  *
  * The webhook controller receives Meta's delivery-status callbacks so we log the
  * real sent/delivered/read/failed outcome, not just the queued `accepted` reply.
+ *
+ * The raw transport is exported too: phone-verification OTPs must bypass
+ * WhatsAppService's notification opt-in gate (an OTP is transactional, and at
+ * signup there is no profile to carry the opt-in yet).
  */
 @Global()
 @Module({
   controllers: [WhatsAppWebhookController],
   providers: [WhatsAppCloudTransport, WhatsAppService],
-  exports: [WhatsAppService],
+  exports: [WhatsAppService, WhatsAppCloudTransport],
 })
 export class WhatsAppModule {}

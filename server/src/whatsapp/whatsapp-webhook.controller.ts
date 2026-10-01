@@ -83,11 +83,11 @@ export class WhatsAppWebhookController {
   /** Delivery-status + inbound-message callbacks. */
   @Post()
   @HttpCode(HttpStatus.OK)
-  handle(
+  async handle(
     @Req() req: Request & { rawBody?: Buffer },
     @Body() body: WhatsAppWebhookBody,
     // Meta signs the payload; header name is case-insensitive in Express.
-  ): void {
+  ): Promise<void> {
     if (!this.verifySignature(req)) {
       throw new ForbiddenException('Invalid webhook signature');
     }
@@ -98,7 +98,7 @@ export class WhatsAppWebhookController {
 
         for (const status of value.statuses ?? []) {
           if (!status.id || !status.status) continue;
-          this.whatsapp.noteStatusUpdate({
+          await this.whatsapp.noteStatusUpdate({
             messageId: status.id,
             recipient: status.recipient_id,
             status: status.status,

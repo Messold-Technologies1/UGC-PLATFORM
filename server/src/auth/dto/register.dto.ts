@@ -6,7 +6,6 @@ import {
   Matches,
   MaxLength,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -29,6 +28,11 @@ export class RegisterDto {
    * OTP code must accompany it and is verified before the account is created,
    * setting the user's phoneVerified. Omitted for Google signups, which verify
    * the phone later in the post-auth setup step.
+   *
+   * Whether the code is actually required is decided by PHONE_OTP_ENABLED, in
+   * the service rather than here — validation decorators cannot read config,
+   * and a DTO that hard-required the code would veto the switch before
+   * `AuthService` ever saw the request.
    */
   @ApiPropertyOptional({ example: '+919876543210' })
   @IsOptional()
@@ -39,7 +43,7 @@ export class RegisterDto {
   phone?: string;
 
   @ApiPropertyOptional({ example: '123456' })
-  @ValidateIf((o: RegisterDto) => Boolean(o.phone?.trim()))
+  @IsOptional()
   @IsString()
   @MinLength(4)
   @MaxLength(10)

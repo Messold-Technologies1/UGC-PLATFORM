@@ -61,7 +61,12 @@ export class SignupRegistrationService {
     phone: string,
     code: string,
   ): Promise<void> {
-    const status = await this.phoneVerification.verifyCode(phone, code);
+    if (!this.phoneVerification.otpRequired()) return;
+    const status = await this.phoneVerification.verifyCode(
+      phone,
+      code,
+      'signup',
+    );
     if (status === 'approved') return;
     if (status === 'max_attempts_reached') {
       throw new BadRequestException(
@@ -152,13 +157,13 @@ export class SignupRegistrationService {
     let contactPhoneVerified = false;
     if (contactPhone) {
       const otp = dto.contactPhoneOtpCode?.trim();
-      if (!otp) {
+      if (!otp && this.phoneVerification.otpRequired()) {
         throw new BadRequestException(
           'contactPhoneOtpCode is required when contactPhone is provided',
         );
       }
       await this.agencyService.assertContactPhoneAvailable(contactPhone);
-      await this.assertSignupPhoneOtpApproved(contactPhone, otp);
+      await this.assertSignupPhoneOtpApproved(contactPhone, otp ?? '');
       contactPhoneVerified = true;
     }
 

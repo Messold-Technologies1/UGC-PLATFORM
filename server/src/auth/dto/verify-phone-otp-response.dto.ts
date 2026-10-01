@@ -4,7 +4,7 @@ export class VerifyPhoneOtpResponseDto {
   @ApiProperty({
     example: 'approved',
     description:
-      'Twilio verification check status (e.g. approved, pending, expired, canceled, max_attempts_reached).',
+      'Verification check status: approved, pending, expired or max_attempts_reached.',
   })
   status!: string;
 

@@ -11,6 +11,7 @@ import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { registerAccount } from "@/features/auth/api/signup-account";
 import {
@@ -37,9 +38,11 @@ const signupSchema = z.object({
   phone: z
     .string()
     .regex(/^\+91[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
-  phoneOtpCode: z
-    .string()
-    .regex(/^\d{4,10}$/, "Enter the code we sent you"),
+  // Only demanded while the OTP step is switched on; with it off the field is
+  // never rendered, so a required schema would deadlock the form.
+  phoneOtpCode: env.phoneOtpEnabled
+    ? z.string().regex(/^\d{4,10}$/, "Enter the code we sent you")
+    : z.string().optional(),
 });
 
 type SignupData = z.infer<typeof signupSchema>;
@@ -86,6 +89,11 @@ export function UnifiedSignupForm() {
     : phoneValue ?? "";
   const phoneComplete = /^\+91[6-9]\d{9}$/.test(phoneValue ?? "");
 
+  /**
+   * With the OTP step switched off the code box never appears and no code is
+   * sent with the registration; the number is simply saved unverified.
+   */
+  const otpEnabled = env.phoneOtpEnabled;
   const [otpSent, setOtpSent] = useState(false);
   const [otpResendAt, setOtpResendAt] = useState<number | null>(null);
   const [, setOtpTick] = useState(0);
@@ -165,20 +173,21 @@ export function UnifiedSignupForm() {
       email: data.email.trim().toLowerCase(),
       password: data.password,
       phone: data.phone,
-      phoneOtpCode: data.phoneOtpCode,
+      ...(otpEnabled ? { phoneOtpCode: data.phoneOtpCode } : {}),
     });
   };
 
   const onInvalidSubmit = useCallback(() => {
-    if (otpSent) return;
+    if (!otpEnabled || otpSent) return;
     form.setError("phoneOtpCode", {
       type: "manual",
       message: "Please verify your number. Click Send OTP.",
     });
     document.getElementById("signup-phone")?.focus();
-  }, [form, otpSent]);
+  }, [form, otpEnabled, otpSent]);
 
-  const needsOtpWarning = !otpSent && Boolean(form.formState.errors.phoneOtpCode);
+  const needsOtpWarning =
+    otpEnabled && !otpSent && Boolean(form.formState.errors.phoneOtpCode);
 
   return (
     <>
@@ -312,6 +321,7 @@ export function UnifiedSignupForm() {
                 }}
               />
             </div>
+            {otpEnabled ? (
             <button
               type="button"
               onClick={handleSendOtp}
@@ -329,6 +339,7 @@ export function UnifiedSignupForm() {
                     ? "Resend"
                     : "Send OTP"}
             </button>
+            ) : null}
           </div>
           {form.formState.errors.phone ? (
             <FieldWarn>{form.formState.errors.phone.message}</FieldWarn>
@@ -337,7 +348,7 @@ export function UnifiedSignupForm() {
           ) : null}
         </div>
 
-        {otpSent ? (
+        {otpEnabled && otpSent ? (
           <div className="mb-3">
             <label htmlFor="signup-otp" className={authLabelClass}>
               Verification code

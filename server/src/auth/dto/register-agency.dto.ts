@@ -7,7 +7,6 @@ import {
   Matches,
   MaxLength,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 
 export class RegisterAgencyDto {
@@ -55,7 +54,9 @@ export class RegisterAgencyDto {
     example: '123456',
     description: 'SMS OTP from POST /auth/signup/phone/send-otp',
   })
-  @ValidateIf((o: RegisterAgencyDto) => !!o.contactPhone?.trim())
+  // Required only when PHONE_OTP_ENABLED is on; enforced in the service, which
+  // can read config (decorators cannot).
+  @IsOptional()
   @IsString()
   @MinLength(4)
   @MaxLength(10)

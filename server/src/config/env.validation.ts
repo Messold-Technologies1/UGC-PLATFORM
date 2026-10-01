@@ -133,6 +133,12 @@ export const envValidationSchema = Joi.object({
   // Meta's expected button sub_type for the authentication template's copy-code
   // button. Overridable so a component rejection is an env change, not a deploy.
   WHATSAPP_OTP_BUTTON_SUBTYPE: Joi.string().optional().default('url'),
+  // Master switch for phone verification, default on. 'false' accepts and
+  // stores numbers WITHOUT any code — registration and profile edits proceed
+  // unverified, and `User.phoneVerified` stays false for them. Must be set in
+  // step with the client's NEXT_PUBLIC_PHONE_OTP_ENABLED, which hides the OTP
+  // UI; the server is the one that actually enforces it.
+  PHONE_OTP_ENABLED: Joi.string().valid('true', 'false').optional(),
   // Key for the HMAC that hashes stored OTP codes. Falls back to
   // JWT_ACCESS_SECRET; set it separately to rotate one without the other.
   PHONE_OTP_SECRET: Joi.string().min(16).optional(),

@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, MapPin, ArrowRight, Gift } from "lucide-react";
+import { Play, MapPin, ArrowRight, Gift, Volume2, VolumeX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
@@ -67,8 +67,10 @@ export const CreatorCard = memo(function CreatorCard({
   // poster/video crossfade per hover.
   const [srcAttached, setSrcAttached] = useState(false);
   const [playing, setPlaying] = useState(false);
-  // Card previews are always muted — the server rendition is encoded without an
-  // audio track (see PreviewVideoService `-an`), so there's no sound to toggle.
+  // Previews autoplay muted on hover — browsers block unmuted autoplay without a
+  // user gesture. The rendition carries an audio track, so clicking the speaker
+  // toggle (a gesture) unmutes it. Starts muted and resets to muted per card.
+  const [muted, setMuted] = useState(true);
   // Hover-intent timer: a mouse sweeping across the grid shouldn't kick off a
   // load+play (and a CDN connection) for every card it crosses.
   const hoverTimerRef = useRef<number | null>(null);
@@ -85,6 +87,7 @@ export const CreatorCard = memo(function CreatorCard({
     setImageSrc(stillImageSrc);
     setSrcAttached(false);
     setPlaying(false);
+    setMuted(true);
     clearHoverTimer();
     if (videoRef.current) {
       videoRef.current.pause();
@@ -190,6 +193,22 @@ export const CreatorCard = memo(function CreatorCard({
     [creator, onOpen],
   );
 
+  // Toggle sound on the hovering preview. The click is the user gesture browsers
+  // require to allow unmuted playback; stop propagation so the card doesn't
+  // navigate to the profile.
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMuted((prev) => {
+      const next = !prev;
+      const video = videoRef.current;
+      if (video) {
+        video.muted = next;
+        if (!next) void video.play().catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <article
       className="rcard"
@@ -230,7 +249,7 @@ export const CreatorCard = memo(function CreatorCard({
             src={srcAttached ? creator.previewVideoUrl! : undefined}
             poster={videoThumbnail || profileImage || undefined}
             className={cn("real-media", !playing && "opacity-0")}
-            muted
+            muted={muted}
             loop
             playsInline
             // metadata (not none): once the src is attached the browser fetches
@@ -239,6 +258,17 @@ export const CreatorCard = memo(function CreatorCard({
             onCanPlay={handleCanPlay}
             onLoadedData={handleCanPlay}
           />
+        ) : null}
+
+        {hasVideo && playing ? (
+          <button
+            type="button"
+            onClick={handleToggleMute}
+            aria-label={muted ? "Unmute preview" : "Mute preview"}
+            className="absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/75"
+          >
+            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
         ) : null}
 
         <div className="scrim" />

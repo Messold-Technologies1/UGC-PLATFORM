@@ -31,6 +31,17 @@ import {
   AuthDivider,
 } from "./unified-auth-controls";
 
+// Five minutes. Long enough that a slow WhatsApp delivery has clearly failed
+// before the user burns a rung of the channel ladder on a resend.
+const PHONE_OTP_RESEND_MS = 5 * 60_000;
+
+/** `m:ss`, so a 5-minute wait reads sensibly on the button. */
+function formatResendCountdown(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 const signupSchema = z.object({
   name: z.string().trim().min(2, "Enter your full name"),
   email: z.email("Enter a valid email address").min(1, "Email is required"),
@@ -116,7 +127,7 @@ export function UnifiedSignupForm() {
     mutationFn: sendSignupPhoneOtp,
     onSuccess: (result) => {
       setOtpSent(true);
-      setOtpResendAt(Date.now() + 60_000);
+      setOtpResendAt(Date.now() + PHONE_OTP_RESEND_MS);
       setOtpChannel(result.channel);
       form.clearErrors("phoneOtpCode");
       toast.success(
@@ -334,7 +345,7 @@ export function UnifiedSignupForm() {
               {sendOtpMutation.isPending
                 ? "Sending…"
                 : resendSeconds > 0
-                  ? `${resendSeconds}s`
+                  ? formatResendCountdown(resendSeconds)
                   : otpSent
                     ? "Resend"
                     : "Send OTP"}
@@ -376,9 +387,14 @@ export function UnifiedSignupForm() {
                 )
               }
             />
+            <p className="mt-1.5 rounded-[8px] bg-[#faf4f6] px-2.5 py-1.5 text-[11.5px] font-semibold text-[#181313]">
+              {otpChannel === "whatsapp"
+                ? "Code sent on WhatsApp"
+                : "Code sent by SMS"}{" "}
+              to +91 {phoneDigits}
+            </p>
             <p className="mt-1 text-[11.5px] text-[#a89ea3]">
-              Sent {otpChannel === "whatsapp" ? "on WhatsApp" : "by SMS"} to +91{" "}
-              {phoneDigits}. It’s verified when you create your account.
+              It’s verified when you create your account.
             </p>
             {form.formState.errors.phoneOtpCode ? (
               <FieldWarn>{form.formState.errors.phoneOtpCode.message}</FieldWarn>

@@ -5,6 +5,17 @@ export type SendPhoneOtpPayload = {
   phone: string;
 };
 
+/**
+ * Which channel the code went out on. Each resend steps one rung down the
+ * ladder (WhatsApp -> SMS -> Twilio Verify), so the UI has to tell the user
+ * where to look rather than assuming WhatsApp.
+ */
+export type PhoneOtpChannel = "whatsapp" | "sms" | "twilio_verify";
+
+export type SendPhoneOtpResult = {
+  channel: PhoneOtpChannel;
+};
+
 export type VerifyPhoneOtpPayload = {
   phone: string;
   code: string;
@@ -17,8 +28,12 @@ export type VerifyPhoneOtpResponse = {
 
 export async function sendPhoneOtp(
   payload: SendPhoneOtpPayload,
-): Promise<void> {
-  await api.post(ENDPOINTS.AUTH.PHONE_SEND_OTP, payload);
+): Promise<SendPhoneOtpResult> {
+  const { data } = await api.post<SendPhoneOtpResult>(
+    ENDPOINTS.AUTH.PHONE_SEND_OTP,
+    payload,
+  );
+  return data;
 }
 
 /**
@@ -27,8 +42,12 @@ export async function sendPhoneOtp(
  */
 export async function sendSignupPhoneOtp(
   payload: SendPhoneOtpPayload,
-): Promise<void> {
-  await api.post(ENDPOINTS.AUTH.SIGNUP_PHONE_SEND_OTP, payload);
+): Promise<SendPhoneOtpResult> {
+  const { data } = await api.post<SendPhoneOtpResult>(
+    ENDPOINTS.AUTH.SIGNUP_PHONE_SEND_OTP,
+    payload,
+  );
+  return data;
 }
 
 export async function verifyPhoneOtp(
@@ -37,40 +56,6 @@ export async function verifyPhoneOtp(
   const { data } = await api.post<VerifyPhoneOtpResponse>(
     ENDPOINTS.AUTH.PHONE_VERIFY_OTP,
     payload,
-  );
-  return data;
-}
-
-/**
- * Delivery outcome of the last code sent to a number.
- *
- * The send call cannot tell us this: WhatsApp accepts (queues) a message even
- * for a number with no WhatsApp account, and the real verdict reaches our
- * webhook seconds later. The UI checks here once its resend countdown lapses,
- * so it can tell the user their number isn't on WhatsApp rather than leaving
- * them waiting for a code that will never arrive.
- */
-export type PhoneOtpStatus = {
-  status: "unknown" | "pending" | "delivered" | "failed";
-  notOnWhatsApp: boolean;
-};
-
-export async function fetchPhoneOtpStatus(
-  phone: string,
-): Promise<PhoneOtpStatus> {
-  const { data } = await api.get<PhoneOtpStatus>(
-    ENDPOINTS.AUTH.PHONE_OTP_STATUS,
-    { params: { phone } },
-  );
-  return data;
-}
-
-export async function fetchSignupPhoneOtpStatus(
-  phone: string,
-): Promise<PhoneOtpStatus> {
-  const { data } = await api.get<PhoneOtpStatus>(
-    ENDPOINTS.AUTH.SIGNUP_PHONE_OTP_STATUS,
-    { params: { phone } },
   );
   return data;
 }

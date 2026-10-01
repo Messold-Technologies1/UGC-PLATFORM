@@ -126,7 +126,9 @@ export const envValidationSchema = Joi.object({
   // name the approved authentication template and the key used to hash codes.
   // Unset in non-production => dev bypass (fixed code 000000); in production an
   // unconfigured WhatsApp means phone verification returns 503.
-  WHATSAPP_OTP_TEMPLATE_NAME: Joi.string().optional().default('otp_verification'),
+  WHATSAPP_OTP_TEMPLATE_NAME: Joi.string()
+    .optional()
+    .default('otp_verification'),
   WHATSAPP_OTP_TEMPLATE_LANGUAGE: Joi.string().optional(),
   // Meta's expected button sub_type for the authentication template's copy-code
   // button. Overridable so a component rejection is an env change, not a deploy.
@@ -134,6 +136,27 @@ export const envValidationSchema = Joi.object({
   // Key for the HMAC that hashes stored OTP codes. Falls back to
   // JWT_ACCESS_SECRET; set it separately to rotate one without the other.
   PHONE_OTP_SECRET: Joi.string().min(16).optional(),
+
+  // Fallback OTP tiers. Each resend to a number steps one rung down the ladder:
+  // WhatsApp -> Twilio SMS (carrying our own code) -> Twilio Verify (Twilio
+  // issues and checks its own). A tier without credentials is skipped, so
+  // Twilio is entirely optional and WhatsApp-only remains a valid setup.
+  TWILIO_ACCOUNT_SID: Joi.string().optional(),
+  TWILIO_AUTH_TOKEN: Joi.string().optional(),
+  // One of these two enables the SMS tier. Prefer the Messaging Service: it
+  // owns sender selection, and for Indian traffic the DLT-registered sender id.
+  TWILIO_MESSAGING_SERVICE_SID: Joi.string().optional(),
+  TWILIO_FROM_NUMBER: Joi.string().optional(),
+  // Enables the Twilio Verify tier.
+  TWILIO_VERIFY_SERVICE_SID: Joi.string().optional(),
+  // Body for the SMS tier. In India this must match a DLT-registered template
+  // or carriers drop the message; `{{code}}` is substituted.
+  PHONE_OTP_SMS_TEMPLATE: Joi.string().optional(),
+  // Skip a tier without removing its credentials. Set PHONE_OTP_SMS_ENABLED
+  // to 'false' when plain SMS is not deliverable (e.g. no DLT registration);
+  // resends then go straight from WhatsApp to Verify.
+  PHONE_OTP_SMS_ENABLED: Joi.string().valid('true', 'false').optional(),
+  PHONE_OTP_VERIFY_ENABLED: Joi.string().valid('true', 'false').optional(),
 
   // Email (SES) — optional until outbound mail is enabled
   AWS_SES_ACCESS_KEY_ID: Joi.string().min(1).optional(),

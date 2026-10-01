@@ -13,6 +13,7 @@ import {
 } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppCloudTransport } from '../whatsapp/whatsapp-cloud.transport';
+import { TwilioOtpTransport } from './twilio-otp.transport';
 
 /**
  * Outcome of checking a submitted code. These strings are the same set Twilio
@@ -30,16 +31,18 @@ export type PhoneOtpCheckStatus =
 export type PhoneOtpPurpose = 'signup' | 'profile';
 
 /**
- * What we know about the delivery of the most recent code for a phone. Meta's
- * send call only ever reports `accepted` (queued); the real outcome lands on the
- * status webhook seconds later, which is why this is a separate lookup rather
- * than part of the send response.
+ * How a code was delivered. The tiers are tried in this order, one step per
+ * resend, cheapest and most likely to be read first:
+ *
+ * 1. `whatsapp`   — our code, over the WhatsApp Cloud API.
+ * 2. `sms`        — our code, as a plain Twilio SMS.
+ * 3. `twilio_verify` — Twilio generates, sends and checks its own code.
+ *
+ * Escalation is driven purely by the number of sends, not by delivery
+ * failures: one "Send OTP" click sends exactly one message, and the user steps
+ * down a tier by asking for another code.
  */
-export type PhoneOtpDeliveryState = {
-  status: 'unknown' | 'pending' | 'delivered' | 'failed';
-  /** True for Meta error 131026 — the number is not reachable on WhatsApp. */
-  notOnWhatsApp: boolean;
-};
+export type PhoneOtpChannel = 'whatsapp' | 'sms' | 'twilio_verify';
 
 /**
  * Fixed code accepted by the non-production dev bypass (see below). Never
@@ -58,16 +61,15 @@ const MAX_SENDS_PER_HOUR = 5;
 const MAX_SENDS_PER_DAY = 10;
 /** Sends allowed from one IP per rolling hour, across all numbers. */
 const MAX_SENDS_PER_IP_PER_HOUR = 20;
-/** Meta error code meaning the recipient is not reachable on WhatsApp. */
-const META_ERROR_UNDELIVERABLE = 131026;
 /**
- * How far back a delivery-status lookup may see. The signup variant is
- * unauthenticated, so without a bound it would answer "has anyone ever started
- * signup with this number?" for any number. Restricting it to a live send
- * window keeps it useful to the person who just requested a code and useless as
- * a general oracle.
+ * How long the escalation ladder remembers earlier sends.
+ *
+ * Within this window the Nth send to a number uses the Nth channel; past it the
+ * ladder resets to WhatsApp. Long enough that a user working through resends
+ * keeps escalating, short enough that someone returning tomorrow starts from
+ * the cheapest channel again.
  */
-const DELIVERY_LOOKUP_WINDOW_MS = 15 * 60_000;
+const ESCALATION_WINDOW_MS = 30 * 60_000;
 /** Rows are kept this long for support/abuse forensics, then purged. */
 const RETENTION_DAYS = 30;
 
@@ -118,9 +120,10 @@ export class PhoneVerificationService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly whatsapp: WhatsAppCloudTransport,
+    private readonly twilio: TwilioOtpTransport,
   ) {}
 
-  private isConfigured(): boolean {
+  private whatsAppAvailable(): boolean {
     if (this.config.get<string>('WHATSAPP_ENABLED') === 'false') return false;
     return Boolean(
       this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID')?.trim() &&
@@ -129,12 +132,31 @@ export class PhoneVerificationService {
   }
 
   /**
-   * Dev/local convenience: when WhatsApp is NOT configured AND we are not in
-   * production, phone verification is stubbed so the signup flow is testable
-   * without sending messages — `sendVerificationCode` is a no-op and
+   * The escalation ladder, in order, filtered to the tiers this deployment can
+   * actually use. A tier missing its credentials is skipped rather than
+   * failing: with no Twilio configured this is WhatsApp-only, and with the SMS
+   * tier switched off (no DLT registration, say) a resend goes straight from
+   * WhatsApp to Verify.
+   */
+  private availableChannels(): PhoneOtpChannel[] {
+    const ladder: PhoneOtpChannel[] = [];
+    if (this.whatsAppAvailable()) ladder.push('whatsapp');
+    if (this.twilio.smsAvailable()) ladder.push('sms');
+    if (this.twilio.verifyAvailable()) ladder.push('twilio_verify');
+    return ladder;
+  }
+
+  private isConfigured(): boolean {
+    return this.availableChannels().length > 0;
+  }
+
+  /**
+   * Dev/local convenience: when NO delivery channel is configured AND we are
+   * not in production, phone verification is stubbed so the signup flow is
+   * testable without sending messages — `sendVerificationCode` is a no-op and
    * `verifyCode` approves the fixed {@link DEV_BYPASS_OTP_CODE}. In production
-   * the service always requires real WhatsApp (unconfigured → 503), so this can
-   * never weaken prod.
+   * the service always requires a real channel (none → 503), so this can never
+   * weaken prod.
    */
   private devBypassEnabled(): boolean {
     return (
@@ -181,7 +203,12 @@ export class PhoneVerificationService {
   }
 
   /**
-   * Issue a code and send it over WhatsApp.
+   * Issue a code and send it, stepping one rung down the channel ladder for
+   * each resend to this number (see {@link PhoneOtpChannel}).
+   *
+   * Returns the channel actually used so the UI can say where to look for the
+   * code — "sent on WhatsApp" and "sent by SMS" are not interchangeable to the
+   * person waiting for it.
    *
    * Rate limits are enforced here rather than by the controller's `@Throttle`,
    * which is per-IP, in-memory and therefore per-replica — it resets on every
@@ -192,7 +219,7 @@ export class PhoneVerificationService {
     phone: string,
     purpose: PhoneOtpPurpose = 'profile',
     ip?: string,
-  ): Promise<void> {
+  ): Promise<PhoneOtpChannel> {
     const normalized = this.normalizePhone(phone);
     if (!normalized) {
       throw new PhoneOtpSendError('Enter a valid mobile number.');
@@ -200,11 +227,12 @@ export class PhoneVerificationService {
 
     if (this.devBypassEnabled()) {
       this.logger.warn(
-        `[phone] DEV bypass active (WhatsApp unconfigured, non-prod) — pretending to send OTP to ${normalized}. Use code ${DEV_BYPASS_OTP_CODE}.`,
+        `[phone] DEV bypass active (no channel configured, non-prod) — pretending to send OTP to ${normalized}. Use code ${DEV_BYPASS_OTP_CODE}.`,
       );
-      return;
+      return 'whatsapp';
     }
-    if (!this.isConfigured()) {
+    const ladder = this.availableChannels();
+    if (ladder.length === 0) {
       throw new ServiceUnavailableException(
         'Phone verification is not configured.',
       );
@@ -219,12 +247,27 @@ export class PhoneVerificationService {
       where: { phone: normalized, purpose, createdAt: { gte: dayAgo } },
     });
 
-    const code = this.generateCode();
+    // Pick the tier from how many codes this number has already been sent
+    // recently. Past the last rung we stay on it — a fourth resend repeats
+    // Verify rather than falling back up to a channel that already failed.
+    const recentSends = await this.prisma.phoneOtp.count({
+      where: {
+        phone: normalized,
+        purpose,
+        createdAt: { gte: new Date(now.getTime() - ESCALATION_WINDOW_MS) },
+      },
+    });
+    const channel = ladder[Math.min(recentSends, ladder.length - 1)];
+
+    // Twilio Verify issues and holds its own code; every other tier sends ours.
+    const code = channel === 'twilio_verify' ? null : this.generateCode();
+
     const record = await this.prisma.phoneOtp.create({
       data: {
         phone: normalized,
-        codeHash: this.hashCode(code),
+        codeHash: code ? this.hashCode(code) : '',
         purpose,
+        channel,
         sendCount: sendsToday + 1,
         lastSentAt: now,
         expiresAt: new Date(now.getTime() + OTP_TTL_MS),
@@ -244,26 +287,13 @@ export class PhoneVerificationService {
       data: { consumedAt: now },
     });
 
-    const templateName =
-      this.config.get<string>('WHATSAPP_OTP_TEMPLATE_NAME')?.trim() ||
-      'otp_verification';
-    const language =
-      this.config.get<string>('WHATSAPP_OTP_TEMPLATE_LANGUAGE')?.trim() ||
-      this.config.get<string>('WHATSAPP_DEFAULT_LANGUAGE')?.trim() ||
-      'en';
-
     try {
-      const wamid = await this.whatsapp.sendAuthenticationCode({
-        // The Cloud API wants E.164 digits with no `+`.
-        to: normalized.replace(/\D/g, ''),
-        templateName,
-        language,
-        code,
-      });
+      const providerId = await this.dispatch(channel, normalized, code);
       await this.prisma.phoneOtp.update({
         where: { id: record.id },
-        data: { wamid, deliveryStatus: 'accepted' },
+        data: { wamid: providerId, deliveryStatus: 'accepted' },
       });
+      return channel;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Burn the code: it never reached anyone, and leaving it live would let
@@ -278,12 +308,41 @@ export class PhoneVerificationService {
         },
       });
       this.logger.error(
-        `[phone] WhatsApp OTP send failed for ${normalized}: ${message}`,
+        `[phone] OTP send failed via ${channel} for ${normalized}: ${message}`,
       );
       throw new PhoneOtpSendError(
-        'Could not send the code on WhatsApp. Check the number and try again.',
+        'Could not send the verification code. Check the number and try again.',
       );
     }
+  }
+
+  /** Hand the send to the transport for this tier; returns the provider id. */
+  private async dispatch(
+    channel: PhoneOtpChannel,
+    phone: string,
+    code: string | null,
+  ): Promise<string> {
+    if (channel === 'twilio_verify') {
+      return this.twilio.startVerification(phone);
+    }
+    if (channel === 'sms') {
+      return this.twilio.sendSms({ to: phone, code: code! });
+    }
+
+    const templateName =
+      this.config.get<string>('WHATSAPP_OTP_TEMPLATE_NAME')?.trim() ||
+      'otp_verification';
+    const language =
+      this.config.get<string>('WHATSAPP_OTP_TEMPLATE_LANGUAGE')?.trim() ||
+      this.config.get<string>('WHATSAPP_DEFAULT_LANGUAGE')?.trim() ||
+      'en';
+    return this.whatsapp.sendAuthenticationCode({
+      // The Cloud API wants E.164 digits with no `+`.
+      to: phone.replace(/\D/g, ''),
+      templateName,
+      language,
+      code: code!,
+    });
   }
 
   private async assertWithinSendLimits(
@@ -385,6 +444,55 @@ export class PhoneVerificationService {
       return 'max_attempts_reached';
     }
 
+    // Twilio Verify rows hold no code of ours — Twilio generated it, so only
+    // Twilio can judge it. Our attempt counter still applies on top of theirs.
+    if (record.channel === 'twilio_verify') {
+      let status: string;
+      try {
+        status = await this.twilio.checkVerification(normalized, submitted);
+      } catch (err) {
+        // Twilio drops a verification once it expires or is used up, and then
+        // the check 404s. To the user that is the same as expired.
+        this.logger.warn(
+          `[phone] twilio verify check failed for ${normalized}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        await this.prisma.phoneOtp.update({
+          where: { id: record.id },
+          data: { consumedAt: new Date() },
+        });
+        return 'expired';
+      }
+
+      if (status === 'approved') {
+        await this.prisma.phoneOtp.update({
+          where: { id: record.id },
+          data: { consumedAt: new Date() },
+        });
+        return 'approved';
+      }
+
+      const updated = await this.prisma.phoneOtp.update({
+        where: { id: record.id },
+        data: { attempts: { increment: 1 } },
+        select: { attempts: true },
+      });
+      // Twilio's own terminal states end the code here too, so a dead
+      // verification cannot be retried against a live row.
+      const exhausted =
+        status === 'max_attempts_reached' ||
+        updated.attempts >= MAX_VERIFY_ATTEMPTS;
+      if (exhausted || status === 'expired' || status === 'canceled') {
+        await this.prisma.phoneOtp.update({
+          where: { id: record.id },
+          data: { consumedAt: new Date() },
+        });
+        return exhausted ? 'max_attempts_reached' : 'expired';
+      }
+      return 'pending';
+    }
+
     if (!this.codeMatches(submitted, record.codeHash)) {
       const updated = await this.prisma.phoneOtp.update({
         where: { id: record.id },
@@ -406,51 +514,6 @@ export class PhoneVerificationService {
       data: { consumedAt: new Date() },
     });
     return 'approved';
-  }
-
-  /**
-   * Delivery state of the newest code sent to a number.
-   *
-   * Exists because Meta's send call returns `accepted` (queued) even for a
-   * number that has no WhatsApp account — the `failed` verdict with error
-   * 131026 only arrives on the status webhook, after the send response has
-   * already gone back to the browser. The UI polls this once the resend
-   * countdown lapses so it can say "this number isn't on WhatsApp" instead of
-   * leaving the user staring at an empty code box.
-   */
-  async getDeliveryState(
-    phone: string,
-    purpose: PhoneOtpPurpose = 'profile',
-  ): Promise<PhoneOtpDeliveryState> {
-    if (this.devBypassEnabled()) {
-      return { status: 'delivered', notOnWhatsApp: false };
-    }
-
-    const normalized = this.normalizePhone(phone);
-    const record = await this.prisma.phoneOtp.findFirst({
-      where: {
-        phone: normalized,
-        purpose,
-        createdAt: { gte: new Date(Date.now() - DELIVERY_LOOKUP_WINDOW_MS) },
-      },
-      orderBy: { createdAt: 'desc' },
-      select: { deliveryStatus: true, failureCode: true },
-    });
-    if (!record) return { status: 'unknown', notOnWhatsApp: false };
-
-    if (record.deliveryStatus === 'failed') {
-      return {
-        status: 'failed',
-        notOnWhatsApp: record.failureCode === META_ERROR_UNDELIVERABLE,
-      };
-    }
-    if (
-      record.deliveryStatus === 'delivered' ||
-      record.deliveryStatus === 'read'
-    ) {
-      return { status: 'delivered', notOnWhatsApp: false };
-    }
-    return { status: 'pending', notOnWhatsApp: false };
   }
 
   /**

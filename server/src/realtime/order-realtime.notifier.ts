@@ -106,7 +106,6 @@ export class OrderRealtimeNotifier {
       where: { id: params.orderId },
       select: {
         brand: { select: { id: true } },
-        creator: { select: { displayName: true } },
       },
     });
     if (!order) {
@@ -119,7 +118,8 @@ export class OrderRealtimeNotifier {
     this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
       orderId: params.orderId,
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
-      creatorName: order.creator.displayName ?? null,
+      // Brand never sees the creator's real name in the order flow.
+      creatorName: 'Creator',
       deliveryDueAt: params.deliveryDueAt?.toISOString() ?? null,
       deliveryGraceDeadlineAt:
         params.deliveryGraceDeadlineAt?.toISOString() ?? null,

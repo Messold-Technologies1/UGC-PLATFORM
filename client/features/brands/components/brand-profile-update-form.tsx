@@ -100,7 +100,6 @@ function BrandProfileUpdateFormContent({
       contactEmail: initialProfile?.contactEmail ?? "",
       contactPhone: initialProfile?.contactPhone ?? "",
       brandName: initialProfile?.brandName ?? "",
-      brandPronunciation: initialProfile?.brandPronunciation ?? "",
       website: initialProfile?.website ?? "",
       instagramUrl: initialProfile?.instagramUrl ?? "",
       productType: initialProfile?.productType ?? "",
@@ -272,9 +271,6 @@ function BrandProfileUpdateFormContent({
         otherCategoryLabel: values.categories.includes("OTHER")
           ? values.otherCategoryText.trim()
           : null,
-        brandPronunciation: values.brandPronunciation.trim()
-          ? values.brandPronunciation.trim()
-          : null,
         brandPronunciationAudioKey: pronunciation.pendingPronunciationAudioKey,
       };
 
@@ -362,19 +358,6 @@ function BrandProfileUpdateFormContent({
                   {form.formState.errors.brandName.message}
                 </span>
               )}
-            </div>
-            
-            <div className="pe-field">
-              <label htmlFor="brandPronunciation">Brand pronunciation</label>
-              <div className="pe-input-wrap">
-                <input
-                  id="brandPronunciation"
-                  className="pe-input"
-                  disabled={pending}
-                  {...form.register("brandPronunciation")}
-                  placeholder="e.g. Ack-mee"
-                />
-              </div>
             </div>
           </div>
 

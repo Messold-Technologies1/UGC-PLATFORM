@@ -8,7 +8,6 @@ export type BrandProfileItemApi = {
   contactEmail: string | null;
   contactPhone: string | null;
   brandName: string | null;
-  brandPronunciation: string | null;
   brandPronunciationAudioKey: string | null;
   brandPronunciationAudioUrl: string | null;
   logoKey: string | null;

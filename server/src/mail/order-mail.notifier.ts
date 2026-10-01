@@ -12,6 +12,9 @@ import {
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { sendWhatsAppForEmail } from './whatsapp-bridge.util';
 
+/** Brand-facing order mail must never include the creator's real name. */
+const BRAND_HIDDEN_CREATOR_NAME = 'Creator';
+
 const orderMailInclude = {
   id: true,
   packageNameSnapshot: true,
@@ -83,7 +86,7 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const ctx: Record<string, string> = {
-        creatorName: order.creator.displayName,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
         orderId: order.id,
         actionUrl: this.brandOrderUrl(order.id),
       };
@@ -139,7 +142,7 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND,
         {
-          creatorName: order.creator.displayName,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
           orderId: order.id,
           deliveryDueAt: this.formatDate(deliveryDueAt),
           actionUrl: this.brandOrderUrl(order.id),
@@ -216,9 +219,8 @@ export class OrderMailNotifier {
 
       // loadOrder runs after the increment, so usageRightsExtraDays is fresh.
       const totalUsageDays = 30 + order.usageRightsExtraDays;
-      const base: Record<string, string> = {
+      const shared: Record<string, string> = {
         brandName: this.brandDisplayName(order.brand),
-        creatorName: order.creator.displayName,
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         daysAdded: String(daysAdded),
@@ -228,12 +230,20 @@ export class OrderMailNotifier {
       await this.sendToBrand(
         order,
         EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_BRAND,
-        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+        {
+          ...shared,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
+          actionUrl: this.brandOrderUrl(order.id),
+        },
       );
       await this.sendToCreator(
         order,
         EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_CREATOR,
-        { ...base, actionUrl: this.creatorOrderListUrl(order.id, 'completed') },
+        {
+          ...shared,
+          creatorName: order.creator.displayName,
+          actionUrl: this.creatorOrderListUrl(order.id, 'completed'),
+        },
       );
     });
   }
@@ -247,7 +257,7 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const ctx: Record<string, string> = {
-        creatorName: order.creator.displayName,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         deliveredAt: this.formatDate(params.deliveredAt),
@@ -285,7 +295,7 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND,
         {
-          creatorName: order.creator.displayName,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           actionUrl: this.brandOrderUrl(order.id),
@@ -309,7 +319,7 @@ export class OrderMailNotifier {
 
       await this.sendToBrand(order, EmailTemplateKey.ORDER_REJECTED_FOR_BRAND, {
         ...base,
-        creatorName: order.creator.displayName,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
         actionUrl: this.brandOrderUrl(order.id),
       });
 
@@ -381,7 +391,7 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_CANCELLED_FOR_BRAND,
         {
           ...base,
-          creatorName: order.creator.displayName,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
           actionUrl: this.brandOrderUrl(order.id),
         },
       );
@@ -569,7 +579,11 @@ export class OrderMailNotifier {
         profileType: 'brand',
         profileId: order.brand.id,
       },
-      context: { recipientName: name, ...context },
+      context: {
+        recipientName: name,
+        ...context,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
+      },
     });
     await sendWhatsAppForEmail(this.whatsapp, this.config, {
       to: phone,

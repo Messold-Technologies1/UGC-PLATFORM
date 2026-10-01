@@ -11,9 +11,13 @@ import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 import { authMeQueryKey } from "@/features/auth/hooks/use-me-query";
 import { registerAccount } from "@/features/auth/api/signup-account";
-import { sendSignupPhoneOtp } from "@/features/auth/api/phone-otp";
+import {
+  sendSignupPhoneOtp,
+  type PhoneOtpChannel,
+} from "@/features/auth/api/phone-otp";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
@@ -34,9 +38,11 @@ const signupSchema = z.object({
   phone: z
     .string()
     .regex(/^\+91[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
-  phoneOtpCode: z
-    .string()
-    .regex(/^\d{4,10}$/, "Enter the code sent to your phone"),
+  // Only demanded while the OTP step is switched on; with it off the field is
+  // never rendered, so a required schema would deadlock the form.
+  phoneOtpCode: env.phoneOtpEnabled
+    ? z.string().regex(/^\d{4,10}$/, "Enter the code we sent you")
+    : z.string().optional(),
 });
 
 type SignupData = z.infer<typeof signupSchema>;
@@ -83,9 +89,19 @@ export function UnifiedSignupForm() {
     : phoneValue ?? "";
   const phoneComplete = /^\+91[6-9]\d{9}$/.test(phoneValue ?? "");
 
+  /**
+   * With the OTP step switched off the code box never appears and no code is
+   * sent with the registration; the number is simply saved unverified.
+   */
+  const otpEnabled = env.phoneOtpEnabled;
   const [otpSent, setOtpSent] = useState(false);
   const [otpResendAt, setOtpResendAt] = useState<number | null>(null);
   const [, setOtpTick] = useState(0);
+  /**
+   * Channel the last code went out on. Each resend steps down the ladder
+   * (WhatsApp -> SMS), so the user has to be told where to look.
+   */
+  const [otpChannel, setOtpChannel] = useState<PhoneOtpChannel>("whatsapp");
   const resendSeconds = otpResendAt
     ? Math.max(0, Math.ceil((otpResendAt - Date.now()) / 1000))
     : 0;
@@ -98,11 +114,16 @@ export function UnifiedSignupForm() {
 
   const sendOtpMutation = useMutation({
     mutationFn: sendSignupPhoneOtp,
-    onSuccess: () => {
+    onSuccess: (result) => {
       setOtpSent(true);
       setOtpResendAt(Date.now() + 60_000);
+      setOtpChannel(result.channel);
       form.clearErrors("phoneOtpCode");
-      toast.success("Verification code sent");
+      toast.success(
+        result.channel === "whatsapp"
+          ? "Verification code sent on WhatsApp"
+          : "Verification code sent by SMS",
+      );
     },
     onError: (error) => {
       const status = isAxiosError(error) ? error.response?.status : undefined;
@@ -152,20 +173,21 @@ export function UnifiedSignupForm() {
       email: data.email.trim().toLowerCase(),
       password: data.password,
       phone: data.phone,
-      phoneOtpCode: data.phoneOtpCode,
+      ...(otpEnabled ? { phoneOtpCode: data.phoneOtpCode } : {}),
     });
   };
 
   const onInvalidSubmit = useCallback(() => {
-    if (otpSent) return;
+    if (!otpEnabled || otpSent) return;
     form.setError("phoneOtpCode", {
       type: "manual",
       message: "Please verify your number. Click Send OTP.",
     });
     document.getElementById("signup-phone")?.focus();
-  }, [form, otpSent]);
+  }, [form, otpEnabled, otpSent]);
 
-  const needsOtpWarning = !otpSent && Boolean(form.formState.errors.phoneOtpCode);
+  const needsOtpWarning =
+    otpEnabled && !otpSent && Boolean(form.formState.errors.phoneOtpCode);
 
   return (
     <>
@@ -299,6 +321,7 @@ export function UnifiedSignupForm() {
                 }}
               />
             </div>
+            {otpEnabled ? (
             <button
               type="button"
               onClick={handleSendOtp}
@@ -316,6 +339,7 @@ export function UnifiedSignupForm() {
                     ? "Resend"
                     : "Send OTP"}
             </button>
+            ) : null}
           </div>
           {form.formState.errors.phone ? (
             <FieldWarn>{form.formState.errors.phone.message}</FieldWarn>
@@ -324,7 +348,7 @@ export function UnifiedSignupForm() {
           ) : null}
         </div>
 
-        {otpSent ? (
+        {otpEnabled && otpSent ? (
           <div className="mb-3">
             <label htmlFor="signup-otp" className={authLabelClass}>
               Verification code
@@ -353,8 +377,8 @@ export function UnifiedSignupForm() {
               }
             />
             <p className="mt-1 text-[11.5px] text-[#a89ea3]">
-              Sent to +91 {phoneDigits}. It’s verified when you create your
-              account.
+              Sent {otpChannel === "whatsapp" ? "on WhatsApp" : "by SMS"} to +91{" "}
+              {phoneDigits}. It’s verified when you create your account.
             </p>
             {form.formState.errors.phoneOtpCode ? (
               <FieldWarn>{form.formState.errors.phoneOtpCode.message}</FieldWarn>

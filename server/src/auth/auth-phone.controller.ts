@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -22,7 +21,9 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { SendPhoneOtpDto } from './dto/send-phone-otp.dto';
 import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
 import { VerifyPhoneOtpResponseDto } from './dto/verify-phone-otp-response.dto';
+import { SendPhoneOtpResponseDto } from './dto/send-phone-otp-response.dto';
 import { PhoneVerificationService } from './phone-verification.service';
+import { clientIpFrom, toSendHttpException } from './phone-otp-request.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('auth')
@@ -36,16 +37,17 @@ export class AuthPhoneController {
 
   @Post('phone/send-otp')
   @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Send SMS OTP to phone (Twilio Verify). Authenticated user.',
+    summary:
+      'Send an OTP to a phone (WhatsApp, escalating to SMS on resend). Authenticated user.',
   })
-  @ApiNoContentResponse({ description: 'OTP sent' })
+  @ApiOkResponse({ type: SendPhoneOtpResponseDto })
   async sendOtp(
     @Body() dto: SendPhoneOtpDto,
     @Req() req: Request & { user: { id: string } },
-  ): Promise<void> {
+  ): Promise<SendPhoneOtpResponseDto> {
     const existing = await this.prisma.user.findFirst({
       where: {
         phone: dto.phone,
@@ -56,7 +58,16 @@ export class AuthPhoneController {
     if (existing) {
       throw new BadRequestException('Invalid request.');
     }
-    await this.phoneVerification.sendVerificationCode(dto.phone);
+    try {
+      const channel = await this.phoneVerification.sendVerificationCode(
+        dto.phone,
+        'profile',
+        clientIpFrom(req),
+      );
+      return { channel };
+    } catch (err) {
+      throw toSendHttpException(err);
+    }
   }
 
   @Post('phone/verify-otp')
@@ -82,7 +93,11 @@ export class AuthPhoneController {
       throw new BadRequestException('Invalid request.');
     }
 
-    const status = await this.phoneVerification.verifyCode(dto.phone, dto.code);
+    const status = await this.phoneVerification.verifyCode(
+      dto.phone,
+      dto.code,
+      'profile',
+    );
     const now = new Date();
 
     if (status === 'approved') {
@@ -120,7 +135,7 @@ export class AuthPhoneController {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    if (status === 'expired' || status === 'canceled') {
+    if (status === 'expired') {
       throw new BadRequestException({
         status,
         phoneVerified: false,

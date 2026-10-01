@@ -5,15 +5,20 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import {
   ApiCreatedResponse,
   ApiNoContentResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import { PhoneVerificationService } from './phone-verification.service';
+import { clientIpFrom, toSendHttpException } from './phone-otp-request.util';
+import { SendPhoneOtpResponseDto } from './dto/send-phone-otp-response.dto';
 import { SignupSendPhoneOtpDto } from './dto/signup-send-phone-otp.dto';
 import { SignupPresignUploadDto } from './dto/signup-presign-upload.dto';
 import {
@@ -37,23 +42,33 @@ export class AuthSignupController {
   ) {}
 
   @Post('phone/send-otp')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
     summary:
-      'Send SMS OTP for signup (unauthenticated; use before role-based register)',
+      'Send a signup OTP (WhatsApp, escalating to SMS on resend; unauthenticated)',
   })
-  @ApiNoContentResponse({ description: 'OTP sent' })
-  async sendSignupPhoneOtp(@Body() dto: SignupSendPhoneOtpDto): Promise<void> {
-    await this.phoneVerification.sendVerificationCode(dto.phone);
+  @ApiOkResponse({ type: SendPhoneOtpResponseDto })
+  async sendSignupPhoneOtp(
+    @Body() dto: SignupSendPhoneOtpDto,
+    @Req() req: Request,
+  ): Promise<SendPhoneOtpResponseDto> {
+    try {
+      const channel = await this.phoneVerification.sendVerificationCode(
+        dto.phone,
+        'signup',
+        clientIpFrom(req),
+      );
+      return { channel };
+    } catch (err) {
+      throw toSendHttpException(err);
+    }
   }
 
   @Post('presign/creator-portfolio-video')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @ApiOperation({
-    summary: 'Presign creator portfolio video upload before registration',
-  })
+  @ApiOperation({ summary: 'Presign creator portfolio video upload before registration' })
   @ApiCreatedResponse({ type: PresignUploadResponseDto })
   async presignCreatorPortfolioVideo(
     @Body() dto: SignupPresignUploadDto,
@@ -92,9 +107,7 @@ export class AuthSignupController {
   @Post('multipart/creator-portfolio-video/sign-part')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 200, ttl: 60_000 } })
-  @ApiOperation({
-    summary: 'Presign one part of a signup portfolio video upload',
-  })
+  @ApiOperation({ summary: 'Presign one part of a signup portfolio video upload' })
   @ApiCreatedResponse({ type: SignupSignMultipartPartResponseDto })
   async signCreatorPortfolioVideoPart(
     @Body() dto: SignupSignMultipartPartDto,
@@ -111,9 +124,7 @@ export class AuthSignupController {
   @Post('multipart/creator-portfolio-video/complete')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @ApiOperation({
-    summary: 'Finalize a signup portfolio video multipart upload',
-  })
+  @ApiOperation({ summary: 'Finalize a signup portfolio video multipart upload' })
   @ApiCreatedResponse({ type: SignupCompleteMultipartUploadResponseDto })
   async completeCreatorPortfolioVideoMultipart(
     @Body() dto: SignupCompleteMultipartUploadDto,
@@ -171,9 +182,7 @@ export class AuthSignupController {
   @Post('presign/brand-pronunciation')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @ApiOperation({
-    summary: 'Presign brand pronunciation audio upload before registration',
-  })
+  @ApiOperation({ summary: 'Presign brand pronunciation audio upload before registration' })
   @ApiCreatedResponse({ type: PresignUploadResponseDto })
   async presignBrandPronunciationSignup(
     @Body() dto: SignupPresignUploadDto,

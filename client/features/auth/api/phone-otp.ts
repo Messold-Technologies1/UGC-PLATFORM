@@ -5,6 +5,17 @@ export type SendPhoneOtpPayload = {
   phone: string;
 };
 
+/**
+ * Which channel the code went out on. Each resend steps one rung down the
+ * ladder (WhatsApp -> SMS -> Twilio Verify), so the UI has to tell the user
+ * where to look rather than assuming WhatsApp.
+ */
+export type PhoneOtpChannel = "whatsapp" | "sms" | "twilio_verify";
+
+export type SendPhoneOtpResult = {
+  channel: PhoneOtpChannel;
+};
+
 export type VerifyPhoneOtpPayload = {
   phone: string;
   code: string;
@@ -17,8 +28,12 @@ export type VerifyPhoneOtpResponse = {
 
 export async function sendPhoneOtp(
   payload: SendPhoneOtpPayload,
-): Promise<void> {
-  await api.post(ENDPOINTS.AUTH.PHONE_SEND_OTP, payload);
+): Promise<SendPhoneOtpResult> {
+  const { data } = await api.post<SendPhoneOtpResult>(
+    ENDPOINTS.AUTH.PHONE_SEND_OTP,
+    payload,
+  );
+  return data;
 }
 
 /**
@@ -27,8 +42,12 @@ export async function sendPhoneOtp(
  */
 export async function sendSignupPhoneOtp(
   payload: SendPhoneOtpPayload,
-): Promise<void> {
-  await api.post(ENDPOINTS.AUTH.SIGNUP_PHONE_SEND_OTP, payload);
+): Promise<SendPhoneOtpResult> {
+  const { data } = await api.post<SendPhoneOtpResult>(
+    ENDPOINTS.AUTH.SIGNUP_PHONE_SEND_OTP,
+    payload,
+  );
+  return data;
 }
 
 export async function verifyPhoneOtp(

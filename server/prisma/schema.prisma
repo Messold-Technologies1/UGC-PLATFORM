@@ -2087,3 +2087,66 @@ model NotificationLog {
   @@index([status, queuedAt])
   @@index([status, claimedAt])
 }
+
+/// A single WhatsApp OTP challenge for one phone number.
+///
+/// Replaces Twilio Verify, which held this state for us. Postgres rather than
+/// Redis on purpose: `REDIS_URL` is optional in this codebase (watermarking
+/// falls back to inline without it), and phone verification gates every signup
+/// — it must not inherit an optional dependency's uptime. Volume is a few
+/// hundred rows a day, and keeping them buys an audit trail for support
+/// ("was the code actually delivered?") and for abuse forensics.
+///
+/// The code itself is never stored: `codeHash` is an HMAC-SHA256 keyed with a
+/// server secret, so a database dump alone cannot be brute-forced back into
+/// live codes (a bare hash of a 6-digit code would fall in microseconds).
+model PhoneOtp {
+  id         String    @id @default(uuid()) @db.Uuid
+  /// E.164 with leading `+`, e.g. `+919876543210`.
+  phone      String
+  /// Empty for `twilio_verify` rows: Twilio owns that code, we never see it.
+  codeHash   String
+  /// Which flow issued this code; `signup` codes are consumed by
+  /// POST /auth/register, the rest by POST /auth/phone/verify-otp.
+  purpose    String
+  /// How this code was delivered: `whatsapp`, `sms` or `twilio_verify`. The
+  /// channel escalates with each resend for a number. It also decides how the
+  /// code is CHECKED — `twilio_verify` codes are generated and validated by
+  /// Twilio, so `codeHash` is empty for them and the check is a round trip.
+  channel    String    @default("whatsapp")
+  /// Failed verify attempts against THIS code. Lives here, not on `User`, so
+  /// the unauthenticated signup flow is counted too (it has no user row yet).
+  attempts   Int       @default(0)
+  /// How many codes have been issued to this phone in the current window;
+  /// carried forward on resend so the per-phone cap survives a new row.
+  sendCount  Int       @default(1)
+  lastSentAt DateTime  @default(now())
+  expiresAt  DateTime
+  /// Set the moment a code is accepted. A consumed row can never verify again.
+  consumedAt DateTime?
+  /// SHA-256 of the requesting IP — enough to rate-limit and correlate abuse
+  /// without storing the address itself.
+  ipHash     String?
+
+  /// Provider message id — Meta's `wamid...` for WhatsApp, Twilio's `SM...` /
+  /// `VE...` otherwise — plus the delivery outcome. For WhatsApp that outcome
+  /// arrives later on the status webhook: the Cloud API's 200 only means
+  /// `accepted` (queued), and `failureCode` 131026 (number not on WhatsApp)
+  /// lands seconds after the send call already returned.
+  wamid          String?
+  deliveryStatus String?
+  failureCode    Int?
+  failureDetail  String?
+  failedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone, purpose, createdAt])
+  @@index([expiresAt])
+  @@index([wamid])
+  // Supports the per-IP send-rate query, which would otherwise scan the table.
+  @@index([ipHash, createdAt])
+  // Supports the retention purge.
+  @@index([createdAt])
+}

@@ -135,4 +135,101 @@ export class WhatsAppCloudTransport {
     );
     return messageId;
   }
+
+  /**
+   * Send a one-time passcode using an **authentication-category** template.
+   *
+   * Authentication templates are their own shape: the code goes in the body
+   * placeholder *and* again as the button parameter, because the button is the
+   * "copy code" / autofill affordance that carries the passcode to the user's
+   * clipboard. Sending the same code twice is the documented payload, not a
+   * mistake.
+   *
+   * `sub_type` is configurable because Meta's expected value depends on how the
+   * template was built in WhatsApp Manager (`url` for the standard one-tap /
+   * copy-code authentication button). If Meta rejects the send with a component
+   * error, flip WHATSAPP_OTP_BUTTON_SUBTYPE rather than redeploying.
+   *
+   * Returns the `wamid`. As with {@link send}, that means Meta ACCEPTED the
+   * message — the delivered/failed outcome (including 131026 "not on WhatsApp")
+   * arrives later on the status webhook.
+   */
+  async sendAuthenticationCode(params: {
+    /** E.164 digits, no `+`. */
+    to: string;
+    templateName: string;
+    language: string;
+    code: string;
+  }): Promise<string> {
+    if (!this.phoneNumberId || !this.accessToken) {
+      throw new Error(
+        'WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN are required to send WhatsApp',
+      );
+    }
+
+    const buttonSubType =
+      this.config.get<string>('WHATSAPP_OTP_BUTTON_SUBTYPE')?.trim() || 'url';
+
+    const body = {
+      messaging_product: 'whatsapp',
+      to: params.to,
+      type: 'template',
+      template: {
+        name: params.templateName,
+        language: { code: params.language },
+        components: [
+          {
+            type: 'body',
+            parameters: [{ type: 'text', text: params.code }],
+          },
+          {
+            type: 'button',
+            sub_type: buttonSubType,
+            index: '0',
+            parameters: [{ type: 'text', text: params.code }],
+          },
+        ],
+      },
+    };
+
+    const url = `https://graph.facebook.com/${this.apiVersion}/${this.phoneNumberId}/messages`;
+    // Deliberately NOT logging the payload here (unlike `send`): it carries the
+    // live passcode, which must not land in application logs.
+    this.logger.log(
+      `[whatsapp] request template=${params.templateName} url=${url} (authentication; payload redacted)`,
+    );
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const raw = await res.text().catch(() => '');
+    if (!res.ok) {
+      this.logger.error(
+        `[whatsapp] auth template send failed status=${res.status} body=${raw || '<empty>'}`,
+      );
+      throw new Error(
+        `WhatsApp send failed (HTTP ${res.status}) template=${params.templateName}: ${raw}`,
+      );
+    }
+
+    let json: { messages?: Array<{ id?: string }> } = {};
+    try {
+      json = raw
+        ? (JSON.parse(raw) as { messages?: Array<{ id?: string }> })
+        : {};
+    } catch {
+      json = {};
+    }
+    const messageId = json.messages?.[0]?.id ?? 'unknown';
+    this.logger.log(
+      `accepted whatsapp auth template=${params.templateName} to=${params.to} messageId=${messageId} (queued — awaiting delivery status)`,
+    );
+    return messageId;
+  }
 }

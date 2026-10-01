@@ -125,6 +125,18 @@ export class PhoneVerificationService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
+    // Name the resolved ladder at boot. A tier silently missing its
+    // credentials looks identical to a tier that is working — every resend
+    // just repeats the previous channel — so the rungs have to be visible
+    // without reading the database.
+    const ladder = this.availableChannels();
+    this.logger.log(
+      `[phone] OTP channel ladder: ${
+        ladder.length ? ladder.join(' -> ') : '<none>'
+      } (whatsapp=${this.whatsAppAvailable()}, sms=${this.twilio.smsAvailable()}, twilio_verify=${this.twilio.verifyAvailable()}). ` +
+        'Both Twilio tiers additionally require TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.',
+    );
+
     if (!this.otpRequired()) {
       // Loud on purpose: this is a security control being switched off, and a
       // stray PHONE_OTP_ENABLED=false in a production env file should be

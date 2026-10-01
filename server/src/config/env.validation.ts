@@ -150,17 +150,16 @@ export const envValidationSchema = Joi.object({
   TWILIO_ACCOUNT_SID: Joi.string().optional(),
   TWILIO_AUTH_TOKEN: Joi.string().optional(),
   // One of these two enables the SMS tier. Prefer the Messaging Service: it
-  // owns sender selection, and for Indian traffic the DLT-registered sender id.
+  // owns sender selection and scales to more than one sender.
   TWILIO_MESSAGING_SERVICE_SID: Joi.string().optional(),
   TWILIO_FROM_NUMBER: Joi.string().optional(),
   // Enables the Twilio Verify tier.
   TWILIO_VERIFY_SERVICE_SID: Joi.string().optional(),
-  // Body for the SMS tier. In India this must match a DLT-registered template
-  // or carriers drop the message; `{{code}}` is substituted.
+  // Body for the SMS tier; `{{code}}` is substituted. Optional — a sensible
+  // default is used when unset.
   PHONE_OTP_SMS_TEMPLATE: Joi.string().optional(),
-  // Skip a tier without removing its credentials. Set PHONE_OTP_SMS_ENABLED
-  // to 'false' when plain SMS is not deliverable (e.g. no DLT registration);
-  // resends then go straight from WhatsApp to Verify.
+  // Skip a tier without removing its credentials. With PHONE_OTP_SMS_ENABLED
+  // set to 'false', resends go straight from WhatsApp to Verify.
   PHONE_OTP_SMS_ENABLED: Joi.string().valid('true', 'false').optional(),
   PHONE_OTP_VERIFY_ENABLED: Joi.string().valid('true', 'false').optional(),
 

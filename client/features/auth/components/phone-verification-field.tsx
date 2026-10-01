@@ -17,9 +17,18 @@ import {
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
 
-const PHONE_OTP_RESEND_SECONDS = 60;
+// Five minutes. Long enough that a slow WhatsApp delivery has clearly failed
+// before the user burns a rung of the channel ladder on a resend.
+const PHONE_OTP_RESEND_SECONDS = 300;
 const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const OTP_CODE_REGEX = /^\d{4,10}$/;
+
+/** `m:ss` while the resend lock runs, so a 5-minute wait reads sensibly. */
+function formatResendCountdown(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 export function normalizePhoneForOtp(raw: string): string {
   const trimmed = raw.trim();
@@ -338,7 +347,7 @@ verifyPhoneOtpMutation.mutate({ phone, code });
           ) : phoneOtpPending ? (
             "Sending..."
           ) : resendSecondsRemaining > 0 && activeOtpPhone ? (
-            `${resendSecondsRemaining}s`
+            formatResendCountdown(resendSecondsRemaining)
           ) : (
             "Send OTP"
           )}
@@ -383,9 +392,11 @@ verifyPhoneOtpMutation.mutate({ phone, code });
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Enter the code sent {otpChannel === "whatsapp" ? "on WhatsApp" : "by SMS"}{" "}
-            to {activeOtpPhone}.
+          <p className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
+            {otpChannel === "whatsapp"
+              ? "Code sent on WhatsApp"
+              : "Code sent by SMS"}{" "}
+            to {activeOtpPhone}
           </p>
           {otpError ? <p className="text-xs text-destructive">{otpError}</p> : null}
         </div>

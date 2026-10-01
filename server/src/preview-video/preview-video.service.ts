@@ -17,6 +17,12 @@ import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.u
 const ffmpegPath: string =
   process.env.FFMPEG_PATH || (ffmpegStatic as unknown as string) || 'ffmpeg';
 
+// Rollout escape hatch: when the encode settings change, the "source unchanged"
+// shortcut would otherwise keep every existing rendition as-is. Set this true
+// for a one-off backfill pass to re-encode every claimed row with the new
+// settings, then unset it.
+const FORCE_REGENERATE = process.env.PREVIEW_FORCE_REGENERATE === 'true';
+
 /**
  * Generates the small, faststart card-preview rendition used by the discovery
  * grid's hover-to-play. The source is the creator's "effective" preview video —
@@ -107,8 +113,10 @@ export class PreviewVideoService {
       return;
     }
 
-    // Source unchanged and a rendition already exists — nothing to encode.
+    // Source unchanged and a rendition already exists — nothing to encode
+    // (unless a forced rollout wants every row re-encoded with new settings).
     if (
+      !FORCE_REGENERATE &&
       sourceKey === creator.previewVideoSourceKey &&
       creator.previewVideoKey
     ) {
@@ -157,10 +165,19 @@ export class PreviewVideoService {
   }
 
   /**
-   * Downscale to <=720p (long edge preserved by scaling the height), drop audio
-   * (card previews are muted), cap the clip length, and move the moov atom to
+   * Produce the card-preview rendition: center-crop to a 9:16 portrait, cap the
+   * height (default 1080p, never upscale), re-encode to H.264/AAC (so HEVC/.mov
+   * sources become web-safe), KEEP the audio track (the card plays muted on
+   * hover and unmutes on click), cap the clip length, and move the moov atom to
    * the front (`+faststart`) so the browser can begin playback after the first
-   * few KB instead of buffering a whole raw upload.
+   * few KB instead of buffering the whole upload.
+   *
+   * Env:
+   *   PREVIEW_VIDEO_MAX_HEIGHT   portrait height cap (default 1080; width = 9:16)
+   *   PREVIEW_VIDEO_CRF          x264 quality, lower is better (default 24)
+   *   PREVIEW_VIDEO_PRESET       x264 preset (default veryfast)
+   *   PREVIEW_VIDEO_AUDIO_BITRATE  AAC bitrate (default 128k)
+   *   PREVIEW_VIDEO_MAX_SECONDS  clip length cap (default 8)
    */
   private async transcodePreview(
     source: Buffer,
@@ -174,6 +191,15 @@ export class PreviewVideoService {
       2,
       Number(process.env.PREVIEW_VIDEO_MAX_SECONDS) || 8,
     );
+    const maxHeight = Math.max(
+      360,
+      Number(process.env.PREVIEW_VIDEO_MAX_HEIGHT) || 1080,
+    );
+    const crf = String(
+      Math.min(51, Math.max(0, Number(process.env.PREVIEW_VIDEO_CRF) || 24)),
+    );
+    const preset = process.env.PREVIEW_VIDEO_PRESET || 'veryfast';
+    const audioBitrate = process.env.PREVIEW_VIDEO_AUDIO_BITRATE || '128k';
     try {
       await writeFile(inPath, source);
       await this.runFfmpeg([
@@ -183,19 +209,26 @@ export class PreviewVideoService {
         // Cap duration for a short hover clip — smaller object, faster start.
         '-t',
         String(maxDurationSec),
-        // Cap the height at 720 (never upscale); -2 keeps width even for H.264.
+        // Center-crop to a 9:16 portrait using the largest 9:16 region the
+        // source allows (no scaling/upscaling here), then scale the height down
+        // to the cap (never up; -2 keeps width even for H.264). setsar=1
+        // normalizes the pixel aspect so players don't re-stretch it.
         '-vf',
-        "scale=-2:'min(720,ih)'",
+        `crop='min(iw,ih*9/16)':'min(ih,iw*16/9)',scale=-2:'min(${maxHeight},ih)',setsar=1`,
         '-c:v',
         'libx264',
         '-preset',
-        'veryfast',
+        preset,
         '-crf',
-        '28',
+        crf,
         '-pix_fmt',
         'yuv420p',
-        // Muted previews — the audio track is dead weight.
-        '-an',
+        // Keep audio (card is muted on hover, unmuted on click). AAC for the web;
+        // a source with no audio track simply yields no audio, which is fine.
+        '-c:a',
+        'aac',
+        '-b:a',
+        audioBitrate,
         '-movflags',
         '+faststart',
         outPath,

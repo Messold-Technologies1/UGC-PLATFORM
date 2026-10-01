@@ -141,6 +141,9 @@ export class AuthService {
         'This phone number is already linked to another account.',
       );
     }
+    // Uniqueness still applies with verification switched off — two accounts
+    // on one number is a data problem either way.
+    if (!this.phoneVerification.otpRequired()) return;
     const status = await this.phoneVerification.verifyCode(
       phone,
       code,
@@ -206,11 +209,15 @@ export class AuthService {
     // so the account is created with a verified phone. Google signups omit it
     // and verify later in the post-auth setup step.
     const phone = dto.phone?.trim();
+    const otpRequired = this.phoneVerification.otpRequired();
     if (phone) {
-      if (!dto.phoneOtpCode?.trim()) {
+      if (otpRequired && !dto.phoneOtpCode?.trim()) {
         throw new BadRequestException('Phone verification code is required.');
       }
-      await this.assertSignupPhoneVerified(phone, dto.phoneOtpCode.trim());
+      await this.assertSignupPhoneVerified(
+        phone,
+        dto.phoneOtpCode?.trim() ?? '',
+      );
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
@@ -224,10 +231,16 @@ export class AuthService {
         ...(phone
           ? {
               phone,
-              phoneVerified: true,
-              phoneOtpLastStatus: 'approved',
-              phoneOtpLastPhone: phone,
-              phoneOtpLastAttemptAt: new Date(),
+              // Only true when a code actually proved it; with verification
+              // switched off the number is stored as unproven.
+              phoneVerified: otpRequired,
+              ...(otpRequired
+                ? {
+                    phoneOtpLastStatus: 'approved',
+                    phoneOtpLastPhone: phone,
+                    phoneOtpLastAttemptAt: new Date(),
+                  }
+                : {}),
             }
           : {}),
       },

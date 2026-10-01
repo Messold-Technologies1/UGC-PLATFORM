@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -113,7 +114,7 @@ export class PhoneOtpSendError extends Error {
  * so a marketing opt-out must never suppress it.
  */
 @Injectable()
-export class PhoneVerificationService {
+export class PhoneVerificationService implements OnModuleInit {
   private readonly logger = new Logger(PhoneVerificationService.name);
 
   constructor(
@@ -122,6 +123,32 @@ export class PhoneVerificationService {
     private readonly whatsapp: WhatsAppCloudTransport,
     private readonly twilio: TwilioOtpTransport,
   ) {}
+
+  onModuleInit(): void {
+    if (!this.otpRequired()) {
+      // Loud on purpose: this is a security control being switched off, and a
+      // stray PHONE_OTP_ENABLED=false in a production env file should be
+      // obvious in the boot logs rather than discovered later.
+      this.logger.warn(
+        '[phone] PHONE_OTP_ENABLED=false — phone verification is DISABLED. ' +
+          'Numbers are accepted and stored WITHOUT verification (phoneVerified stays false).',
+      );
+    }
+  }
+
+  /**
+   * Master switch for phone verification, default on.
+   *
+   * With `PHONE_OTP_ENABLED=false` no code is sent or demanded anywhere:
+   * registration completes without one and profile screens save a number
+   * directly. Numbers collected this way are stored with `phoneVerified` left
+   * false — the flag means "this number was proven", and nothing was proven, so
+   * turning the switch back on does not silently bless a backlog of unchecked
+   * numbers. (Admin review surfaces that flag, so it has to stay honest.)
+   */
+  otpRequired(): boolean {
+    return this.config.get<string>('PHONE_OTP_ENABLED') !== 'false';
+  }
 
   private whatsAppAvailable(): boolean {
     if (this.config.get<string>('WHATSAPP_ENABLED') === 'false') return false;
@@ -220,6 +247,12 @@ export class PhoneVerificationService {
     purpose: PhoneOtpPurpose = 'profile',
     ip?: string,
   ): Promise<PhoneOtpChannel> {
+    if (!this.otpRequired()) {
+      throw new ServiceUnavailableException(
+        'Phone verification is currently disabled.',
+      );
+    }
+
     const normalized = this.normalizePhone(phone);
     if (!normalized) {
       throw new PhoneOtpSendError('Enter a valid mobile number.');
@@ -412,6 +445,12 @@ export class PhoneVerificationService {
     code: string,
     purpose: PhoneOtpPurpose = 'profile',
   ): Promise<PhoneOtpCheckStatus> {
+    if (!this.otpRequired()) {
+      throw new ServiceUnavailableException(
+        'Phone verification is currently disabled.',
+      );
+    }
+
     const submitted = code.trim();
 
     if (this.devBypassEnabled()) {

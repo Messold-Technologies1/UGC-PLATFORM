@@ -2086,6 +2086,8 @@ model NotificationLog {
   @@index([eventKey, queuedAt])
   @@index([status, queuedAt])
   @@index([status, claimedAt])
+}
+
 /// A single WhatsApp OTP challenge for one phone number.
 ///
 /// Replaces Twilio Verify, which held this state for us. Postgres rather than

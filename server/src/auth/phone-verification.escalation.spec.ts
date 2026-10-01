@@ -142,4 +142,32 @@ describe('PhoneVerificationService channel escalation', () => {
       'whatsapp',
     );
   });
+
+  describe('PHONE_OTP_ENABLED kill switch', () => {
+    afterEach(() => {
+      delete env.PHONE_OTP_ENABLED;
+    });
+
+    it('is on by default', () => {
+      expect(buildService().otpRequired()).toBe(true);
+    });
+
+    it('refuses to send once switched off', async () => {
+      env.PHONE_OTP_ENABLED = 'false';
+      const service = buildService();
+      expect(service.otpRequired()).toBe(false);
+      await expect(service.sendVerificationCode(phone)).rejects.toThrow(
+        /disabled/i,
+      );
+      expect(whatsappMock.sendAuthenticationCode).not.toHaveBeenCalled();
+      expect(twilioMock.sendSms).not.toHaveBeenCalled();
+    });
+
+    it('refuses to verify once switched off, rather than approving blindly', async () => {
+      env.PHONE_OTP_ENABLED = 'false';
+      await expect(buildService().verifyCode(phone, '123456')).rejects.toThrow(
+        /disabled/i,
+      );
+    });
+  });
 });

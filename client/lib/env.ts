@@ -17,6 +17,21 @@ function readCreatorOnboardingMode(): CreatorOnboardingMode {
   return raw === "profile_first" ? "profile_first" : "approval_first";
 }
 
+/**
+ * Phone OTP master switch, default on. 'false' drops the OTP step from signup
+ * and the profile screens: the number is typed and saved directly.
+ *
+ * This only controls the UI. The server's own PHONE_OTP_ENABLED is what
+ * actually enforces it, so the two must be set together — a client that still
+ * shows the OTP step against a server with it switched off will get 503s from
+ * the send endpoint.
+ */
+function readPhoneOtpEnabled(): boolean {
+  const raw =
+    process.env.NEXT_PUBLIC_PHONE_OTP_ENABLED ?? process.env.PHONE_OTP_ENABLED;
+  return raw !== "false";
+}
+
 const apiUrl = normalizeBaseUrl(
   process.env.API_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
@@ -25,6 +40,7 @@ const apiUrl = normalizeBaseUrl(
 
 export const env = {
   apiUrl,
+  phoneOtpEnabled: readPhoneOtpEnabled(),
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
   authCookieName: process.env.AUTH_COOKIE_NAME || "accessToken",
   refreshCookieName: process.env.REFRESH_COOKIE_NAME || "refreshToken",

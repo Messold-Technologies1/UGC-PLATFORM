@@ -15,6 +15,7 @@ import {
   type PhoneOtpChannel,
 } from "@/features/auth/api/phone-otp";
 import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 
 const PHONE_OTP_RESEND_SECONDS = 60;
 const PHONE_E164_REGEX = /^\+\d{8,15}$/;
@@ -125,10 +126,18 @@ export function PhoneVerificationField({
     () => normalizePhoneForOtp(phoneInput),
     [phoneInput],
   );
-  const phoneVerified =
-    Boolean(normalizedPhone) &&
-    (verifiedPhone === normalizedPhone ||
-      initialVerifiedPhone === normalizedPhone);
+  /**
+   * With the OTP step switched off there is nothing to prove, so a well-formed
+   * number is treated as accepted and the parent form can submit. The number is
+   * still saved by that form's own update call, and the server records it as
+   * unverified.
+   */
+  const otpEnabled = env.phoneOtpEnabled;
+  const phoneVerified = otpEnabled
+    ? Boolean(normalizedPhone) &&
+      (verifiedPhone === normalizedPhone ||
+        initialVerifiedPhone === normalizedPhone)
+    : PHONE_E164_REGEX.test(normalizedPhone);
   const activeOtpPhone =
     otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
 
@@ -148,6 +157,12 @@ export function PhoneVerificationField({
   useEffect(() => {
     onVerifiedChange(phoneVerified);
   }, [onVerifiedChange, phoneVerified]);
+
+  useEffect(() => {
+    // Without an OTP round trip nothing else reports the number upwards.
+    if (otpEnabled || !phoneVerified) return;
+    onVerifiedPhone?.(normalizedPhone);
+  }, [normalizedPhone, onVerifiedPhone, otpEnabled, phoneVerified]);
 
   useEffect(() => {
     onOtpSentChange?.(Boolean(activeOtpPhone) && !phoneVerified);
@@ -304,6 +319,7 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             setPhoneError(null);
           }}
         />
+        {otpEnabled ? (
         <Button
           type="button"
           variant="ghost"
@@ -327,9 +343,10 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             "Send OTP"
           )}
         </Button>
+        ) : null}
       </div>
       {phoneError ? <p className="text-xs text-destructive">{phoneError}</p> : null}
-      {phoneVerified ? (
+      {otpEnabled && phoneVerified ? (
         <p className="text-xs font-medium text-green-600">
           Mobile number verified.
         </p>

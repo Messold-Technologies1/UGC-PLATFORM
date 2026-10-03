@@ -23,9 +23,6 @@ function isPrismaPoolTimeout(err: unknown): boolean {
   );
 }
 
-/** Total processing attempts before a delivery is terminal (`dead`). Mirrors
- *  WatermarkQueueService's cap so the safety net stops selecting exhausted rows. */
-const MAX_ATTEMPTS = 6;
 /** How old a stuck `processing` row must be before the safety net reclaims it. */
 const STALE_PROCESSING_MS = 600_000; // 10 min
 /** Rows fetched per page while draining the preview backlog. */
@@ -67,8 +64,15 @@ export class JobsService {
    * the same tick — one database wake serves every sweep and Neon can autosuspend
    * between them.
    *
-   * `dead` rows and those past the attempt budget are skipped so a poison
-   * delivery is not re-driven forever.
+   * This selects by state alone, NOT by attempt budget. Filtering out rows at
+   * the cap is what let a delivery strand: a run killed mid-encode (OOM,
+   * SIGTERM, a deploy) never reaches processDeliveryDirect's catch, so nothing
+   * parks the row, and it sits non-terminal at the cap where every recovery
+   * path ignores it — while assertDeliveryNotProcessing goes on refusing the
+   * creator's uploads for that revision. processDeliveryDirect caps at claim
+   * time instead, parking an exhausted delivery `dead` rather than running it,
+   * so a poison delivery still is not re-driven forever: it goes terminal on
+   * the next sweep and `dead` is excluded by the status filter below.
    */
   @Cron(RECONCILE_BACKSTOP_CRON)
   async processStuckWatermarks(): Promise<void> {
@@ -81,7 +85,6 @@ export class JobsService {
       const stuck = await this.prisma.orderDelivery.findMany({
         where: {
           createdAt: { lte: staleBefore },
-          previewAttempts: { lt: MAX_ATTEMPTS },
           order: { acceptedAt: null },
           OR: [
             { previewStatus: { in: ['pending', 'failed'] } },

@@ -126,7 +126,10 @@ export function useSubmitDeliveryFlowMutation() {
       });
     },
     onSuccess: async () => {
-      toast.success("Delivery submitted — processing preview…");
+      // No toast here: the caller owns the success message, and this hook used
+      // to add a second one that leaked our internal "preview" wording into the
+      // creator's view. The refetch below re-reads the delivery so the uploader
+      // locks itself immediately after a submit.
       await queryClient.invalidateQueries({ queryKey: ["orders", "creator"] });
     },
     onError: (error) => {

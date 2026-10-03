@@ -276,7 +276,9 @@ export function CreatorContentUploadCard({
           delete stagedUploadsCache[orderId];
           setPendingUpload(null);
           setSubmissionNote("");
-          toast.success("Content uploaded successfully!");
+          toast.success("Content submitted", {
+            description: "The brand will review it shortly.",
+          });
           onUploaded?.();
         },
       },

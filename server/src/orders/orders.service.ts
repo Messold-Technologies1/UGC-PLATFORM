@@ -3353,8 +3353,11 @@ export class OrdersService {
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
+    productReceivedAt: Date | null;
     deliveryDueAt: Date | null;
     deliveryGraceDeadlineAt: Date | null;
+    deliveredAt: Date | null;
+    revisionCount: number;
     createdAt: Date;
     updatedAt: Date;
     refundedAt?: Date | null;
@@ -3366,9 +3369,26 @@ export class OrdersService {
       resolvedAt: Date | null;
       openedBy: OrderDisputeOpenedBy;
     }>;
+    revisions?: Array<{
+      revisionNumber: number;
+      note: string | null;
+      createdAt: Date;
+    }>;
   }): OrderListSummaryDto {
     const hasBrief = order.briefSubmittedAt != null;
     const latestDispute = order.disputes?.[0];
+    // Mirrors attachRevisionSnapshots on the details path: the in-flight
+    // revision is the one numbered revisionCount, and only while the order is
+    // actually in a revision state. The list selects the highest-numbered row,
+    // which is that one. Without it a list card cannot date a revision — the
+    // revision clock runs from requestedAt, not from the order's own due date.
+    const revisionActive =
+      String(order.status) === 'REVISION_REQUESTED' ||
+      String(order.status) === 'REVISION_SUBMITTED';
+    const currentRevision =
+      revisionActive && order.revisionCount > 0
+        ? order.revisions?.find((r) => r.revisionNumber === order.revisionCount)
+        : undefined;
     return {
       id: order.id,
       status: order.status,
@@ -3383,8 +3403,20 @@ export class OrdersService {
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
       hasBrief,
       ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
+      productReceivedAt: order.productReceivedAt,
       deliveryDueAt: order.deliveryDueAt,
       deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
+      deliveredAt: order.deliveredAt,
+      revisionCount: order.revisionCount,
+      ...(currentRevision
+        ? {
+            currentRevision: {
+              revisionNumber: currentRevision.revisionNumber,
+              note: currentRevision.note ?? null,
+              requestedAt: currentRevision.createdAt,
+            },
+          }
+        : {}),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       refundedAt: order.refundedAt ?? null,
@@ -4359,8 +4391,11 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
+          productReceivedAt: true,
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
+          deliveredAt: true,
+          revisionCount: true,
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
@@ -4372,6 +4407,13 @@ export class OrdersService {
             orderBy: { openedAt: 'desc' },
             take: 1,
             select: { openedAt: true, resolvedAt: true, openedBy: true },
+          },
+          // Highest-numbered revision == the in-flight one (revisionCount).
+          // One batched relation load for the page, not a query per row.
+          revisions: {
+            orderBy: { revisionNumber: 'desc' },
+            take: 1,
+            select: { revisionNumber: true, note: true, createdAt: true },
           },
           creator: {
             select: {
@@ -4445,8 +4487,11 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
+          productReceivedAt: true,
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
+          deliveredAt: true,
+          revisionCount: true,
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
@@ -4458,6 +4503,13 @@ export class OrdersService {
             orderBy: { openedAt: 'desc' },
             take: 1,
             select: { openedAt: true, resolvedAt: true, openedBy: true },
+          },
+          // Highest-numbered revision == the in-flight one (revisionCount).
+          // One batched relation load for the page, not a query per row.
+          revisions: {
+            orderBy: { revisionNumber: 'desc' },
+            take: 1,
+            select: { revisionNumber: true, note: true, createdAt: true },
           },
           brand: {
             select: orderBrandSnapshotSelect,
@@ -4521,8 +4573,11 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
+          productReceivedAt: true,
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
+          deliveredAt: true,
+          revisionCount: true,
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
@@ -4536,6 +4591,13 @@ export class OrdersService {
             orderBy: { openedAt: 'desc' },
             take: 1,
             select: { openedAt: true, resolvedAt: true, openedBy: true },
+          },
+          // Highest-numbered revision == the in-flight one (revisionCount).
+          // One batched relation load for the page, not a query per row.
+          revisions: {
+            orderBy: { revisionNumber: 'desc' },
+            take: 1,
+            select: { revisionNumber: true, note: true, createdAt: true },
           },
           creator: {
             select: {

@@ -2719,7 +2719,17 @@ export class OrdersService {
     };
   }
 
-  /** Block re-submit while watermarked previews are still being generated. */
+  /**
+   * Block re-submit while the watermarked preview copies are still being
+   * generated for this order+revision.
+   *
+   * The message is deliberately written for a creator, not an engineer: the
+   * "preview" is something WE generate from the file she already sent (the
+   * brand reviews a watermarked copy until they accept), so phrasing it as
+   * "wait for previews to finish" reads as if the file she is holding was
+   * rejected. It is about her PREVIOUS upload, and because this guard also runs
+   * on the presign step it fires before the new file is even sent.
+   */
   private async assertDeliveryNotProcessing(
     orderId: string,
     revisionNumber: number,
@@ -2735,7 +2745,8 @@ export class OrdersService {
       delivery?.previewStatus === 'processing'
     ) {
       throw new BadRequestException(
-        'Your delivery is still being processed. Please wait for previews to finish.',
+        "Your content is already submitted — we're finishing up. No need to " +
+          'upload it again.',
       );
     }
   }
@@ -4029,10 +4040,14 @@ export class OrdersService {
           assets: true,
           note: true,
           createdAt: true,
+          previewStatus: true,
+          previewAttempts: true,
+          previewUpdatedAt: true,
           order: {
             select: {
               id: true,
               status: true,
+              acceptedAt: true,
               brand: {
                 select: {
                   brandName: true,
@@ -4045,6 +4060,26 @@ export class OrdersService {
       }),
     ]);
 
+    // On-read recovery, mirroring the brand path (listDeliveriesForBrand). The
+    // creator is blocked from re-submitting while her delivery sits in
+    // `pending`/`processing` (see assertDeliveryNotProcessing), so if a Redis
+    // failure stranded the watermark job she is the person most hurt by it and
+    // the one most likely to be looking. Re-drive it now that she is on the
+    // page rather than making her wait for the hourly backstop. Fire-and-forget
+    // no-op unless the row is genuinely owed and within its attempt budget.
+    const previewRows = rows as Array<{
+      id: string;
+      previewStatus: string | null;
+      previewAttempts: number;
+      previewUpdatedAt: Date | null;
+      order: { acceptedAt: Date | null } | null;
+    }>;
+    for (const row of previewRows) {
+      if (!row.order?.acceptedAt) {
+        this.watermarkQueue.redriveOnReadIfOwed(row);
+      }
+    }
+
     const items: CreatorDeliveryItemDto[] = rows.map((r: any) => ({
       id: r.id,
       orderId: r.orderId,
@@ -4052,6 +4087,7 @@ export class OrdersService {
       assets: mapDeliveryAssets(r.assets),
       note: r.note ?? null,
       createdAt: r.createdAt,
+      previewStatus: String(r.previewStatus),
       order: {
         id: r.order.id,
         status: String(r.order.status),

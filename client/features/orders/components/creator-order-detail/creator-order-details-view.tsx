@@ -36,7 +36,10 @@ import { useGetOrderRatingReviewQuery } from "../../hooks/use-get-order-rating-r
 
 import { ReasonPromptDialog } from "../reason-prompt-dialog";
 import { RaiseDisputeButton } from "../raise-dispute-button";
-import { DeliveryDeadlineDisplay } from "../delivery-deadline-display";
+import {
+  DeliveryDeadlineDisplay,
+  getDeliveryDeadlineFieldLabel,
+} from "../delivery-deadline-display";
 import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { BriefSummaryCard } from "../brand-order-detail/brief-summary-card";
@@ -821,7 +824,9 @@ export function CreatorOrderDetailsView({
             emptyLabel="No content uploaded yet — add your files to get started."
             footer={
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Due date</span>
+                <span className="text-sm text-muted-foreground">
+                  {getDeliveryDeadlineFieldLabel(order)}
+                </span>
                 <DeliveryDeadlineDisplay
                   order={order}
                   dateClassName="text-sm font-semibold text-foreground"
@@ -841,7 +846,9 @@ export function CreatorOrderDetailsView({
             banner={<RevisionNotesBanner order={order} />}
             footer={
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Due date</span>
+                <span className="text-sm text-muted-foreground">
+                  {getDeliveryDeadlineFieldLabel(order)}
+                </span>
                 <DeliveryDeadlineDisplay
                   order={order}
                   dateClassName="text-sm font-semibold text-foreground"

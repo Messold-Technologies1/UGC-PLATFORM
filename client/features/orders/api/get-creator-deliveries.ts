@@ -9,6 +9,18 @@ export interface CreatorDeliveryOrderSnapshot {
   brandLogoUrl?: string | null;
 }
 
+/**
+ * Watermark-preview state of a delivery. While it is "pending" or "processing"
+ * the server refuses another submit for the same revision, so the uploader has
+ * to show a processing state instead of a live upload button.
+ */
+export type DeliveryPreviewStatus =
+  | "pending"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "dead";
+
 export interface CreatorDeliveryItem {
   id: string;
   orderId: string;
@@ -16,7 +28,18 @@ export interface CreatorDeliveryItem {
   assets: OrderDeliveryAsset[];
   note?: string | null;
   createdAt: string;
+  previewStatus?: DeliveryPreviewStatus | string | null;
   order: CreatorDeliveryOrderSnapshot;
+}
+
+/** True while the server would reject a new submit for this delivery. */
+export function isDeliveryPreviewProcessing(
+  delivery: Pick<CreatorDeliveryItem, "previewStatus">,
+): boolean {
+  return (
+    delivery.previewStatus === "pending" ||
+    delivery.previewStatus === "processing"
+  );
 }
 
 export interface CreatorDeliveriesResponse {

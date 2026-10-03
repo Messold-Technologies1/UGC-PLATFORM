@@ -41,5 +41,15 @@ export class OrderDeliveryItemDto {
 
   @ApiProperty()
   createdAt!: Date;
+
+  @ApiPropertyOptional({
+    enum: ['pending', 'processing', 'ready', 'failed', 'dead'],
+    description:
+      'Watermark-preview state for this delivery. "pending"/"processing" means ' +
+      'the brand-facing preview copies are still being generated.',
+  })
+  @IsOptional()
+  @IsString()
+  previewStatus?: string;
 }
 

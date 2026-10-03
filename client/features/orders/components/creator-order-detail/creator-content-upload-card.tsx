@@ -162,11 +162,6 @@ export function CreatorContentUploadCard({
 }: Readonly<CreatorContentUploadCardProps>) {
   const { data, isLoading } = useGetCreatorOrderDeliveriesQuery(orderId, {
     enabled: Boolean(orderId),
-    // While a watermark run is in flight the server refuses a new submit, so
-    // poll until it clears and the uploader re-enables itself. Off otherwise —
-    // this query pages the creator's whole delivery list.
-    refetchInterval: (query) =>
-      findProcessingDelivery(query.state.data?.items ?? []) ? 8_000 : false,
   });
 
   const submitMutation = useSubmitDeliveryFlowMutation();
@@ -175,6 +170,14 @@ export function CreatorContentUploadCard({
   // Computed over ALL items, not the asset-filtered list further down: a
   // delivery row exists (and blocks a re-submit) from the moment it is
   // submitted. Declared up here so the handlers below close over it.
+  //
+  // No polling backs this. Once the watermark lands, the order moves to
+  // DELIVERED / REVISION_SUBMITTED and this card is replaced by its read-only
+  // variant anyway, and the `delivery.watermark_ready` socket event already
+  // refetches us (refetchOrderViews invalidates the whole "orders" prefix). A
+  // timer would only cover the case where the run fails, at the price of
+  // re-paging the creator's entire delivery list every few seconds — that one
+  // clears on the next ordinary refetch instead.
   const processingDelivery = findProcessingDelivery(data?.items ?? []);
   const isPreviewProcessing = processingDelivery !== null;
   const uploaderLocked = isUploading || isPreviewProcessing;
@@ -364,8 +367,7 @@ export function CreatorContentUploadCard({
                   Content submitted
                 </p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  We&apos;re finishing up — no need to upload again. This page
-                  updates on its own in a moment.
+                  We&apos;re finishing up — no need to upload again.
                 </p>
               </div>
             </div>

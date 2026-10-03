@@ -2700,6 +2700,14 @@ export class OrdersService {
           assets: assets as any,
           note: params.dto.note?.trim() || null,
           previewStatus: 'pending',
+          // A resubmit is new work on new files, so it gets a fresh retry
+          // budget. Without this reset the row keeps the attempts spent on the
+          // PREVIOUS video, and since WatermarkQueueService now parks an
+          // over-budget claim as `dead` instead of running it, an inherited
+          // exhausted counter would park this upload terminally the moment it
+          // is picked up — no preview, and the order never reaches DELIVERED.
+          previewAttempts: 0,
+          previewUpdatedAt: new Date(),
         },
         select: { id: true },
       });

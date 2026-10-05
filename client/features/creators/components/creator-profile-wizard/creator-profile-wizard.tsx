@@ -1699,24 +1699,6 @@ export function CreatorProfileWizard({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                className="cw-btn cw-btn-primary"
-                onClick={submitForReview}
-                disabled={pending || uploadingMedia}
-              >
-                {pending ? (
-                  <>
-                    <Spinner className="size-4" aria-hidden />
-                    Submitting…
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    Submit for review
-                  </>
-                )}
-              </button>
             </div>
           ) : null}
 

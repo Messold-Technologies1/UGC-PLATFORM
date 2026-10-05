@@ -16,6 +16,7 @@ import {
   Lightbulb,
   RotateCcw,
   Clock,
+  Send,
 } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
@@ -139,6 +140,11 @@ export function CreatorProfileWizard({
     Partial<Record<WizardStepId, boolean>>
   >({});
   const [completed, setCompleted] = useState<Set<WizardStepId>>(new Set());
+  // Steps the creator saved during this withdrawn-editing session. Drives the
+  // "you updated X, Y" summary in the resubmit banner.
+  const [changedSteps, setChangedSteps] = useState<Set<WizardStepId>>(
+    new Set(),
+  );
   const [submitted, setSubmitted] = useState(() =>
     Boolean(initialProfile.completeProfile),
   );
@@ -402,6 +408,11 @@ export function CreatorProfileWizard({
       pendingActionRef.current = null;
       if (!action) return;
       setCompleted((prev) => new Set(prev).add(action.completeId));
+      // Track per-step saves (not the final submit) so the resubmit banner can
+      // tell the creator exactly what they've changed this session.
+      if (!action.goLive) {
+        setChangedSteps((prev) => new Set(prev).add(action.completeId));
+      }
       setDirty(false);
       if (action.goLive) setSubmitted(true);
       setActiveIndex(action.nextIndex);
@@ -1259,6 +1270,23 @@ export function CreatorProfileWizard({
     handleContinue();
   }, [canEditFreely, activeStep.id, saveCurrentStep, handleContinue]);
 
+  // Submit (go live) from anywhere — the resubmit action for a withdrawn
+  // profile. Persists all current edits and submits. If something required is
+  // still missing, it jumps to Review so the creator can see the checklist.
+  const submitForReview = useCallback(() => {
+    if (goLiveMissing.length > 0) {
+      toast.error(`Still needed to submit: ${goLiveMissing.join(", ")}.`);
+      setActiveIndex(stepIndex.review);
+      return;
+    }
+    persist({
+      completeId: "review",
+      nextIndex: stepIndex["go-live"],
+      includePackages: true,
+      goLive: true,
+    });
+  }, [goLiveMissing, persist, stepIndex]);
+
   const handleBack = useCallback(() => {
     if (!confirmLeaveIfDirty()) return;
     setDirty(false);
@@ -1446,6 +1474,24 @@ export function CreatorProfileWizard({
   const uploadingMedia =
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
 
+  // Human-readable labels of the steps changed this session, in step order,
+  // for the resubmit banner ("You've updated: About You, Pricing").
+  const changedStepLabels = useMemo(
+    () =>
+      steps
+        .filter(
+          (step) =>
+            changedSteps.has(step.id) &&
+            step.id !== "review" &&
+            step.id !== "go-live",
+        )
+        .map((step) => step.label),
+    [steps, changedSteps],
+  );
+  // Show the resubmit affordances (header Submit button + banner) only while the
+  // profile is actually withdrawn and hasn't just been resubmitted this session.
+  const showResubmit = withdrawnEditing && !submitted;
+
   return (
     <div className="pe-scope cw-root">
       <div className="cw-mobile-stepper">
@@ -1569,25 +1615,50 @@ export function CreatorProfileWizard({
               )}
             </div>
             {showStepSave ? (
-              <button
-                type="button"
-                className="cw-btn cw-btn-primary"
-                style={{ marginLeft: "auto", alignSelf: "center" }}
-                onClick={onPrimaryAction}
-                disabled={pending || uploadingMedia}
+              <div
+                style={{
+                  marginLeft: "auto",
+                  alignSelf: "center",
+                  display: "flex",
+                  gap: "8px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
               >
-                {pending ? (
-                  <>
-                    <Spinner className="size-4" aria-hidden />
-                    Saving…
-                  </>
-                ) : (
-                  <>
-                    {continueLabel}
-                    {isLastStep ? null : <ArrowRight size={16} />}
-                  </>
-                )}
-              </button>
+                <button
+                  type="button"
+                  className={
+                    showResubmit
+                      ? "cw-btn cw-btn-ghost"
+                      : "cw-btn cw-btn-primary"
+                  }
+                  onClick={onPrimaryAction}
+                  disabled={pending || uploadingMedia}
+                >
+                  {pending ? (
+                    <>
+                      <Spinner className="size-4" aria-hidden />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      {continueLabel}
+                      {isLastStep ? null : <ArrowRight size={16} />}
+                    </>
+                  )}
+                </button>
+                {showResubmit ? (
+                  <button
+                    type="button"
+                    className="cw-btn cw-btn-primary"
+                    onClick={submitForReview}
+                    disabled={pending || uploadingMedia}
+                  >
+                    <Send size={16} />
+                    Submit for review
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
 
@@ -1625,7 +1696,7 @@ export function CreatorProfileWizard({
             </div>
           ) : null}
 
-          {withdrawnEditing ? (
+          {showResubmit ? (
             <div className="cw-review-banner" role="status">
               <div className="cw-review-banner-copy">
                 <RotateCcw
@@ -1638,11 +1709,41 @@ export function CreatorProfileWizard({
                     You&apos;ve reopened your profile for editing.
                   </p>
                   <p className="cw-review-banner-text">
-                    Save each step you change, then Submit for review again on
-                    the last step.
+                    {changedStepLabels.length > 0 ? (
+                      <>
+                        Updated this session:{" "}
+                        <strong>{changedStepLabels.join(", ")}</strong>. Your
+                        changes aren&apos;t live until you submit — click{" "}
+                        <strong>Submit for review</strong> to send it back.
+                      </>
+                    ) : (
+                      <>
+                        Save each step you change, then click{" "}
+                        <strong>Submit for review</strong> to send it back — your
+                        edits aren&apos;t live until you do.
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
+              <button
+                type="button"
+                className="cw-btn cw-btn-primary"
+                onClick={submitForReview}
+                disabled={pending || uploadingMedia}
+              >
+                {pending ? (
+                  <>
+                    <Spinner className="size-4" aria-hidden />
+                    Submitting…
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    Submit for review
+                  </>
+                )}
+              </button>
             </div>
           ) : null}
 

@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, MapPin, ArrowRight, Gift } from "lucide-react";
+import { Play, MapPin, ArrowRight, Gift, Volume2, VolumeX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
@@ -59,6 +59,13 @@ export const CreatorCard = memo(function CreatorCard({
     (creator.previewVideoUrl.startsWith("http://") ||
       creator.previewVideoUrl.startsWith("https://"));
 
+  // Runtime fallback: if the server preview fails to load (e.g. the rendition
+  // is missing / returns 403, or hasn't been generated yet), swap to the raw
+  // intro video so the card still plays instead of dying on its poster.
+  const introFallbackUrl = isHttpUrl(creator.introVideoUrl)
+    ? creator.introVideoUrl
+    : null;
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const [imageSrc, setImageSrc] = useState(stillImageSrc);
   // `srcAttached` latches true on the first hover and stays true so the loaded
@@ -67,8 +74,17 @@ export const CreatorCard = memo(function CreatorCard({
   // poster/video crossfade per hover.
   const [srcAttached, setSrcAttached] = useState(false);
   const [playing, setPlaying] = useState(false);
-  // Card previews are always muted — the server rendition is encoded without an
-  // audio track (see PreviewVideoService `-an`), so there's no sound to toggle.
+  // Previews autoplay muted on hover — browsers block unmuted autoplay without a
+  // user gesture. The rendition carries an audio track, so clicking the speaker
+  // toggle (a gesture) unmutes it. Starts muted and resets to muted per card.
+  const [muted, setMuted] = useState(true);
+  // Flips true once the preview source errors, switching the <video> to the
+  // intro fallback. Reset per card.
+  const [usePreviewFallback, setUsePreviewFallback] = useState(false);
+  const activeVideoUrl =
+    usePreviewFallback && introFallbackUrl
+      ? introFallbackUrl
+      : creator.previewVideoUrl;
   // Hover-intent timer: a mouse sweeping across the grid shouldn't kick off a
   // load+play (and a CDN connection) for every card it crosses.
   const hoverTimerRef = useRef<number | null>(null);
@@ -85,6 +101,8 @@ export const CreatorCard = memo(function CreatorCard({
     setImageSrc(stillImageSrc);
     setSrcAttached(false);
     setPlaying(false);
+    setMuted(true);
+    setUsePreviewFallback(false);
     clearHoverTimer();
     if (videoRef.current) {
       videoRef.current.pause();
@@ -190,6 +208,35 @@ export const CreatorCard = memo(function CreatorCard({
     [creator, onOpen],
   );
 
+  // Preview source failed to load — fall back to the raw intro once (if we have
+  // one that differs from the preview URL). Keeps the card playable through a
+  // missing/403 rendition instead of leaving it stuck on the poster.
+  const handleVideoError = useCallback(() => {
+    if (
+      !usePreviewFallback &&
+      introFallbackUrl &&
+      introFallbackUrl !== creator.previewVideoUrl
+    ) {
+      setUsePreviewFallback(true);
+    }
+  }, [usePreviewFallback, introFallbackUrl, creator.previewVideoUrl]);
+
+  // Toggle sound on the hovering preview. The click is the user gesture browsers
+  // require to allow unmuted playback; stop propagation so the card doesn't
+  // navigate to the profile.
+  const handleToggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMuted((prev) => {
+      const next = !prev;
+      const video = videoRef.current;
+      if (video) {
+        video.muted = next;
+        if (!next) void video.play().catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <article
       className="rcard"
@@ -227,10 +274,10 @@ export const CreatorCard = memo(function CreatorCard({
             ref={videoRef}
             // Once attached on first hover, the src stays put so the buffer is
             // retained for instant replay on later hovers.
-            src={srcAttached ? creator.previewVideoUrl! : undefined}
+            src={srcAttached ? activeVideoUrl! : undefined}
             poster={videoThumbnail || profileImage || undefined}
             className={cn("real-media", !playing && "opacity-0")}
-            muted
+            muted={muted}
             loop
             playsInline
             // metadata (not none): once the src is attached the browser fetches
@@ -238,7 +285,19 @@ export const CreatorCard = memo(function CreatorCard({
             preload="metadata"
             onCanPlay={handleCanPlay}
             onLoadedData={handleCanPlay}
+            onError={handleVideoError}
           />
+        ) : null}
+
+        {hasVideo && playing ? (
+          <button
+            type="button"
+            onClick={handleToggleMute}
+            aria-label={muted ? "Unmute preview" : "Mute preview"}
+            className="absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/75"
+          >
+            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
         ) : null}
 
         <div className="scrim" />

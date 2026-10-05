@@ -20,6 +20,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "backfill:preview-videos": "node dist/scripts/backfill-preview-videos.js",
+    "invalidate:preview-videos": "node dist/scripts/invalidate-preview-videos.js",
     "backfill:normalize-media": "node dist/scripts/backfill-normalize-media.js",
     "restore:original-videos": "node dist/scripts/restore-original-videos.js",
     "reenroll:completion-reminders": "node dist/scripts/reenroll-completion-reminders.js",

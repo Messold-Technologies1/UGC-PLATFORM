@@ -12,7 +12,9 @@ import {
   S3Client,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
+import { createWriteStream } from 'node:fs';
 import { PassThrough } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -760,6 +762,29 @@ export class StorageService {
       );
     }
     return Buffer.concat(chunks);
+  }
+
+  /**
+   * Stream an object straight to a local file, so memory stays flat regardless
+   * of how large it is.
+   *
+   * getObjectBuffer above is the counterpart for small objects, and it costs
+   * roughly TWICE the object's size at its peak: it collects the chunks into an
+   * array and then Buffer.concat's them, so both the parts and the whole exist
+   * at once. That is fine for a thumbnail and ruinous for a creator's 250 MB
+   * video — Buffers are external memory, outside the V8 heap, so the container
+   * OOM-kills the process rather than raising a catchable error. Anything of
+   * unknown or video size belongs here.
+   */
+  async downloadObjectToFile(key: string, destPath: string): Promise<void> {
+    const res = await this.s3.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    const body = res.Body as Readable | undefined;
+    if (!body) {
+      throw new Error(`Empty object body for key: ${key}`);
+    }
+    await pipeline(body, createWriteStream(destPath));
   }
 
   /**

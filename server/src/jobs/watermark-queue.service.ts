@@ -209,8 +209,60 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.worker?.close().catch(() => undefined);
+    // Force-close rather than draining. A graceful close waits for the active
+    // job, and an encode can run for minutes while the platform gives us
+    // seconds before SIGKILL — waiting would mean never reaching the release
+    // below, which is the whole point of handling the signal.
+    await this.worker?.close(true).catch(() => undefined);
     await this.queue?.close().catch(() => undefined);
+    await this.releaseInFlightClaims();
+  }
+
+  /**
+   * Hand back the claims this instance still holds, so a restart does not leave
+   * deliveries sitting in `processing`.
+   *
+   * On Railway every redeploy SIGTERMs the worker mid-encode, so this is the
+   * common case, not an edge one. Without it each of those deliveries waits out
+   * STALE_PROCESSING_MS before anything may reclaim it — ten minutes during
+   * which the creator cannot submit for that revision.
+   *
+   * The attempt is refunded because this shutdown is ours, not the delivery's
+   * fault. It matters: processDeliveryDirect parks an over-budget claim as
+   * `dead`, so without the refund six deploys landing during encodes would
+   * terminally kill a perfectly good video. Note this runs only for a GRACEFUL
+   * signal — an OOM kill or SIGKILL never reaches a shutdown hook, so a run
+   * that died because it was too big keeps its attempt, which is the right
+   * signal to keep.
+   *
+   * The `previewStatus = 'processing'` condition means a run that finished
+   * while we were shutting down keeps its own result. If an encode outlives
+   * this and a second instance claims the row, the duplicate is harmless:
+   * watermarkDelivery skips assets that already have a preview, and it is the
+   * same overlap the stale-reclaim window already allows.
+   */
+  private async releaseInFlightClaims(): Promise<void> {
+    const ids = [...this.processing];
+    if (ids.length === 0) return;
+    try {
+      const { count } = await this.prisma.orderDelivery.updateMany({
+        where: { id: { in: ids }, previewStatus: 'processing' },
+        data: {
+          previewStatus: 'pending',
+          previewAttempts: { decrement: 1 },
+          previewUpdatedAt: new Date(),
+        },
+      });
+      this.logger.log(
+        `watermark: shutdown released ${count}/${ids.length} in-flight claim(s)`,
+      );
+    } catch (err) {
+      // Nothing to do but say so: the stale-processing reclaim still covers
+      // these, just ten minutes later.
+      this.logger.error(
+        `watermark: could not release in-flight claims on shutdown: ${(err as Error)?.message}`,
+      );
+    }
   }
 
   /** Queue watermarking for a delivery. Never throws. */

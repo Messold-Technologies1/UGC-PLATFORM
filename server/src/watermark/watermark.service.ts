@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
@@ -51,6 +52,20 @@ function contentTypeForKey(key: string): string {
 export class WatermarkService {
   private readonly logger = new Logger(WatermarkService.name);
   private readonly text: string;
+  /**
+   * Where the encode's scratch files live. Both the source and the output are
+   * written here, so this must be REAL disk: if it resolves to a tmpfs mount
+   * the files are RAM, and streaming them past the heap buys nothing.
+   *
+   * os.tmpdir() is right on hosts where /tmp is disk-backed — Railway gives a
+   * service ~100 GB of ephemeral storage, and stock EC2 AMIs put /tmp on the
+   * root volume. It is wrong on a host that mounts /tmp as tmpfs (some
+   * hardened images, systemd's tmp.mount, `docker run --tmpfs /tmp`), and
+   * wrong whenever a faster or roomier disk exists — an instance-store NVMe on
+   * EC2, say. Hence the override: `stat -f -c %T <dir>` reporting `tmpfs` is
+   * the signal to set it.
+   */
+  private readonly scratchRoot: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -60,6 +75,16 @@ export class WatermarkService {
     config: ConfigService,
   ) {
     this.text = config.get<string>('WATERMARK_TEXT', 'Go Collab');
+    this.scratchRoot =
+      config.get<string>('WATERMARK_TMP_DIR')?.trim() || tmpdir();
+  }
+
+  /** A private directory for one encode, under the configured scratch root. */
+  private async makeScratchDir(): Promise<string> {
+    // The root may be a path the host has not created yet (a mounted volume,
+    // an instance-store directory); mkdtemp will not create it for us.
+    await mkdir(this.scratchRoot, { recursive: true });
+    return mkdtemp(join(this.scratchRoot, 'wm-'));
   }
 
   /**
@@ -236,9 +261,9 @@ export class WatermarkService {
   private async buildPreviewForAsset(
     asset: StoredDeliveryAsset,
   ): Promise<{ previewKey: string; previewUrl: string }> {
-    const source = await this.storage.getObjectBuffer(asset.key);
-
+    // Images stay on buffers: they are small, and sharp works in memory anyway.
     if (asset.kind === 'image') {
+      const source = await this.storage.getObjectBuffer(asset.key);
       const out = await this.watermarkImage(source);
       const previewKey = this.storage.buildDeliveryPreviewKey(asset.key);
       await this.storage.putObjectBuffer({
@@ -250,13 +275,8 @@ export class WatermarkService {
     }
 
     // video — normalize the preview container to mp4/H.264 for broad playback.
-    const out = await this.watermarkVideo(source, asset.key);
     const previewKey = this.storage.buildDeliveryPreviewKey(asset.key, 'mp4');
-    await this.storage.putObjectBuffer({
-      key: previewKey,
-      body: out,
-      contentType: 'video/mp4',
-    });
+    await this.watermarkVideoToStorage(asset.key, previewKey);
     return { previewKey, previewUrl: this.storage.buildCdnUrl(previewKey) };
   }
 
@@ -292,14 +312,32 @@ export class WatermarkService {
       .toBuffer();
   }
 
-  private async watermarkVideo(source: Buffer, sourceKey: string): Promise<Buffer> {
-    const dir = await mkdtemp(join(tmpdir(), 'wm-'));
+  /**
+   * Watermark a video from storage straight back to storage, without either
+   * copy ever being a Buffer.
+   *
+   * ffmpeg reads and writes files, so the only reason the old version held the
+   * video in memory was the trip in and out of S3. It downloaded the whole
+   * source into a Buffer, wrote it to disk, encoded, read the whole OUTPUT back
+   * into a second Buffer and uploaded that — and because the source Buffer
+   * stayed referenced while the output was built, both lived at once. On a
+   * 250 MB upload (the client's cap) at WATERMARK_CONCURRENCY=2 that is
+   * comfortably past a small container's memory limit, and Buffers are external
+   * memory, so the kernel SIGKILLs the process instead of throwing something
+   * catchable. Streaming both ends keeps memory flat and leaves the big files
+   * where they belong — on disk.
+   */
+  private async watermarkVideoToStorage(
+    sourceKey: string,
+    previewKey: string,
+  ): Promise<void> {
+    const dir = await this.makeScratchDir();
     const srcExt = sourceKey.split('.').pop()?.toLowerCase() || 'mp4';
     const inPath = join(dir, `in.${srcExt}`);
     const wmPath = join(dir, 'wm.png');
     const outPath = join(dir, 'out.mp4');
     try {
-      await writeFile(inPath, source);
+      await this.storage.downloadObjectToFile(sourceKey, inPath);
       // Square watermark canvas; scale2ref (no w/h args) stretches it to the
       // video's actual dimensions so the tiled text covers the whole frame,
       // whether the video is landscape or a vertical reel.
@@ -330,7 +368,11 @@ export class WatermarkService {
         outPath,
       ]);
 
-      return await readFile(outPath);
+      await this.storage.uploadStream({
+        key: previewKey,
+        body: createReadStream(outPath),
+        contentType: 'video/mp4',
+      });
     } finally {
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     }

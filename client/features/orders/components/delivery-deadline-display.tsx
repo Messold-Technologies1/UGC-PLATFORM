@@ -87,6 +87,24 @@ export function DeliveryDeadlineDisplay({
   );
 }
 
+/**
+ * Row label that stays truthful next to what <DeliveryDeadlineDisplay /> renders.
+ *
+ * A hardcoded "Due date" next to the component's output produces "Due date —
+ * Overdue" once the grace period has lapsed, and "Due date — Grace ends 5 Oct"
+ * during grace. Derive the label from the same timeline the value comes from.
+ */
+export function getDeliveryDeadlineFieldLabel(
+  order: DeliveryTimelineInput,
+): string {
+  const timeline = getOrderWorkTimeline(order);
+  if (timeline.phase === "overdue") return "Past grace period";
+  if (timeline.phase === "promised") return "Due date";
+  // grace renders "Grace ends <date>" and not_started/delivered render their own
+  // wording, so a neutral label is the only one that is correct in all three.
+  return "Delivery deadline";
+}
+
 export function getDeliveryDeadlineLabel(order: DeliveryTimelineInput): string {
   const timeline = getOrderWorkTimeline(order);
   if (timeline.phase === "not_started") return timeline.displayDateLabel;

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderDisputeOpenedBy, OrderStatus } from '@prisma/client';
+import { OrderCurrentRevisionDto } from './order-details-public.dto';
 
 export class OrderListSummaryDto {
   @ApiProperty({ example: 'uuid' })
@@ -62,6 +63,36 @@ export class OrderListSummaryDto {
     description: 'Final delivery cutoff after the grace period',
   })
   deliveryGraceDeadlineAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description:
+      'When the creator received the product. For an order that requires a ' +
+      'physical shipment this is where the delivery clock starts, so list ' +
+      'cards need it to render the same deadline the detail page does.',
+  })
+  productReceivedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    description:
+      'When the content was delivered. List cards show this as "Delivered on"; ' +
+      'without it they fall back to updatedAt, which moves on any later write.',
+  })
+  deliveredAt?: Date | null;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Revisions requested so far (0 for an order with none).',
+  })
+  revisionCount!: number;
+
+  @ApiPropertyOptional({
+    type: () => OrderCurrentRevisionDto,
+    description:
+      'The revision currently in flight, present only while the order is ' +
+      'REVISION_REQUESTED / REVISION_SUBMITTED. The revision clock runs from ' +
+      'its requestedAt, so a list card cannot date a revision without it.',
+  })
+  currentRevision?: OrderCurrentRevisionDto;
 
   @ApiProperty()
   createdAt!: Date;

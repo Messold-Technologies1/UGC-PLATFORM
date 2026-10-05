@@ -41,6 +41,16 @@ export interface OrderListSummary {
   briefId?: string;
   deliveryDueAt?: string | null;
   deliveryGraceDeadlineAt?: string | null;
+  /** When the content was delivered — "Delivered on" for list cards. */
+  deliveredAt?: string | null;
+  /** Revisions requested so far. */
+  revisionCount?: number;
+  /**
+   * The revision currently in flight. Present only while the order is
+   * REVISION_REQUESTED / REVISION_SUBMITTED — the revision clock runs from its
+   * requestedAt, so the deadline helpers need it to date a revision.
+   */
+  currentRevision?: OrderCurrentRevision;
   createdAt: string;
   updatedAt: string;
   expectedAmountPaise?: number;
@@ -100,7 +110,6 @@ export interface OrderDetailsPublic extends OrderListSummary {
   addOnsSnapshot: OrderAddOnSnapshot[];
   addOnsTotalSnapshot?: string | null;
   expectedAmountPaise: number;
-  deliveredAt?: string | null;
   acceptedAt?: string | null;
   creatorPaidAt?: string | null;
   revisionCount: number;
@@ -130,7 +139,6 @@ export interface OrderDetailsPublic extends OrderListSummary {
   coupon?: OrderCouponSummary | null;
   /** True when this was placed under a first-order-free promo. */
   isFreeOrder?: boolean;
-  currentRevision?: OrderCurrentRevision;
   /**
    * When a newer revision is pending, the previous request whose
    * notes belong with the video currently on screen.

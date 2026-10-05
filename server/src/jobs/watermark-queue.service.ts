@@ -303,9 +303,13 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
    * claim makes concurrent/duplicate calls (a polling client, two brand tabs)
    * cheap no-ops, so it is safe to call on every read.
    *
-   * The attempt-budget guard lives here, not in the claim: claimForProcessing
-   * does not cap attempts, so without this a poison delivery would be re-driven
-   * past its budget on every read. Mirrors the poller's `previewAttempts < max`.
+   * The attempt budget is NOT re-checked here. It used to be, which is what
+   * stranded a delivery whose runs were killed rather than throwing: the row
+   * stayed non-terminal at the cap, every recovery path skipped it for being
+   * over budget, and the submit guard went on refusing the creator's uploads
+   * forever. processDeliveryDirect now caps at claim time, so handing it an
+   * exhausted delivery costs one cheap claim and parks the row `dead` instead
+   * of running it. One choke point, every caller.
    */
   redriveOnReadIfOwed(row: {
     id: string;
@@ -313,8 +317,6 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     previewAttempts: number;
     previewUpdatedAt: Date | null;
   }): void {
-    if (row.previewAttempts >= this.maxAttempts()) return;
-
     const owed =
       row.previewStatus === 'pending' ||
       row.previewStatus === 'failed' ||
@@ -381,6 +383,23 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     const max = this.maxAttempts();
+
+    // The claim pushed this past its budget. That only happens when an earlier
+    // attempt was KILLED rather than throwing — an OOM kill mid-encode (the
+    // whole video is buffered in memory), a SIGTERM, a deploy. The catch below
+    // never ran for that attempt, so nothing parked the row, and it has been
+    // sitting in `processing` ever since.
+    //
+    // Park it now rather than burning another run. This is the load-bearing
+    // part: while the row reads `pending`/`processing`,
+    // OrdersService.assertDeliveryNotProcessing refuses the creator's next
+    // submit, so a row that never reaches a terminal state locks her out of
+    // that revision permanently. `dead` is terminal AND unblocks her.
+    if (attempt > max) {
+      await this.markDead(deliveryId, attempt, max);
+      return;
+    }
+
     await this.acquireInlineSlot();
     this.processing.add(deliveryId);
     try {

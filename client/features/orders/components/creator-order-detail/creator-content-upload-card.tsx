@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
   FileVideo,
   Loader2,
   Upload,
@@ -22,7 +23,8 @@ import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-f
 import { useGetCreatorOrderDeliveriesQuery } from "../../hooks/use-get-creator-deliveries-query";
 import type { OrderDeliveryAsset } from "../../api/get-brand-order-deliveries";
 import {
-  isDeliveryPreviewProcessing,
+  isDeliveryBeingProcessed,
+  isDeliveryUnprocessable,
   type CreatorDeliveryItem,
 } from "../../api/get-creator-deliveries";
 
@@ -79,33 +81,25 @@ function revisionLabel(revisionNumber?: number): string {
 }
 
 /**
- * The delivery whose watermark run would block a new submit.
- *
- * The server rejects a submit while the row for the order's CURRENT revision is
- * `pending`/`processing` (OrdersService.assertDeliveryNotProcessing). The
- * highest-revision row is that row: a new revision can only be requested from
- * DELIVERED / REVISION_SUBMITTED, and the order only reaches those states once
- * the previous revision's preview is `ready` — so an older row can never be the
- * one still processing.
+ * The delivery that decides what this card shows: the one for the order's
+ * CURRENT revision, which is always the highest-numbered row. A new revision
+ * can only be requested from DELIVERED / REVISION_SUBMITTED, and the order
+ * reaches those states only once the previous revision's watermark is ready, so
+ * an older row can never be the one still in flight.
  */
-function findProcessingDelivery(
+function findLatestDelivery(
   deliveries: CreatorDeliveryItem[],
 ): CreatorDeliveryItem | null {
-  const latest = deliveries.reduce<CreatorDeliveryItem | null>(
-    (best, current) => {
-      if (!best) return current;
-      if (current.revisionNumber !== best.revisionNumber) {
-        return current.revisionNumber > best.revisionNumber ? current : best;
-      }
-      return new Date(current.createdAt).getTime() >
-        new Date(best.createdAt).getTime()
-        ? current
-        : best;
-    },
-    null,
-  );
-
-  return latest && isDeliveryPreviewProcessing(latest) ? latest : null;
+  return deliveries.reduce<CreatorDeliveryItem | null>((best, current) => {
+    if (!best) return current;
+    if (current.revisionNumber !== best.revisionNumber) {
+      return current.revisionNumber > best.revisionNumber ? current : best;
+    }
+    return new Date(current.createdAt).getTime() >
+      new Date(best.createdAt).getTime()
+      ? current
+      : best;
+  }, null);
 }
 
 function toCarouselAssets(assets: OrderDeliveryAsset[]): CarouselAsset[] {
@@ -168,19 +162,22 @@ export function CreatorContentUploadCard({
   const isUploading = submitMutation.isPending;
 
   // Computed over ALL items, not the asset-filtered list further down: a
-  // delivery row exists (and blocks a re-submit) from the moment it is
-  // submitted. Declared up here so the handlers below close over it.
+  // delivery row exists (and locks this card) from the moment it is submitted.
+  // Declared up here so the handlers below close over it.
   //
   // No polling backs this. Once the watermark lands, the order moves to
   // DELIVERED / REVISION_SUBMITTED and this card is replaced by its read-only
   // variant anyway, and the `delivery.watermark_ready` socket event already
-  // refetches us (refetchOrderViews invalidates the whole "orders" prefix). A
-  // timer would only cover the case where the run fails, at the price of
-  // re-paging the creator's entire delivery list every few seconds — that one
-  // clears on the next ordinary refetch instead.
-  const processingDelivery = findProcessingDelivery(data?.items ?? []);
-  const isPreviewProcessing = processingDelivery !== null;
-  const uploaderLocked = isUploading || isPreviewProcessing;
+  // refetches us (refetchOrderViews invalidates the whole "orders" prefix).
+  const latestDelivery = findLatestDelivery(data?.items ?? []);
+  // Submitted and ours to finish — she is shown "submitted" and nothing else,
+  // including when a run has failed and is waiting to be retried.
+  const submissionInFlight =
+    latestDelivery !== null && isDeliveryBeingProcessed(latestDelivery);
+  // Terminal: nothing is retrying this any more, so she has to send a new file.
+  const needsNewUpload =
+    latestDelivery !== null && isDeliveryUnprocessable(latestDelivery);
+  const uploaderLocked = isUploading || submissionInFlight;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -265,7 +262,7 @@ export function CreatorContentUploadCard({
 
   function handleConfirmUpload() {
     if (!pendingUpload) return;
-    if (isPreviewProcessing) {
+    if (submissionInFlight) {
       toast.info("Your content is already submitted", {
         description: "We're finishing up — no need to upload it again.",
       });
@@ -356,7 +353,7 @@ export function CreatorContentUploadCard({
             onChange={handleFileSelect}
           />
 
-          {isPreviewProcessing ? (
+          {submissionInFlight ? (
             <div className="flex items-start gap-3 rounded-2xl border border-[#22c55e]/30 bg-[#22c55e]/5 p-4">
               <Loader2
                 className="mt-0.5 size-5 shrink-0 animate-spin text-[#22c55e]"
@@ -368,6 +365,25 @@ export function CreatorContentUploadCard({
                 </p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                   We&apos;re finishing up — no need to upload again.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {needsNewUpload ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+              <AlertTriangle
+                className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400"
+                aria-hidden
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  We couldn&apos;t process this video
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  Something about the file stopped us from preparing it for the
+                  brand. Please upload it again — re-exporting it, or sending an
+                  MP4, usually does the trick.
                 </p>
               </div>
             </div>
@@ -418,7 +434,7 @@ export function CreatorContentUploadCard({
                 </Button>
               </div>
             </div>
-          ) : isPreviewProcessing ? null : (
+          ) : submissionInFlight ? null : (
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}

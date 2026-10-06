@@ -19,9 +19,13 @@ import {
   type CreditOwner,
 } from './credit-owner.util';
 
-/** One row of the admin Credits view: a brand and the credit it holds. */
+/** One row of the admin Credits view: a brand or agency and the credit it holds. */
 export type AdminBrandCreditRow = {
-  brandId: string;
+  ownerType: 'brand' | 'agency';
+  /** Brand profile id when ownerType=brand; null for agencies. */
+  brandId: string | null;
+  /** Agency id when ownerType=agency; null for brands. */
+  agencyId: string | null;
   brandName: string | null;
   logoUrl: string | null;
   contactEmail: string | null;
@@ -30,7 +34,7 @@ export type AdminBrandCreditRow = {
   /** Locked by pending withdrawal requests, in paise. */
   heldPaise: number;
   currency: string;
-  /** Last wallet movement; null for a brand that has never held credit. */
+  /** Last wallet movement; null for an owner that has never held credit. */
   lastActivityAt: Date | null;
 };
 
@@ -627,7 +631,8 @@ export class WalletService {
   }
 
   async adminAdjust(params: {
-    brandId: string;
+    brandId?: string | null;
+    agencyId?: string | null;
     amountPaise: number;
     reason: string;
     adminUserId: string;
@@ -642,9 +647,13 @@ export class WalletService {
         'A reason is required for a manual adjustment',
       );
     }
+    const owner = {
+      brandId: params.brandId,
+      agencyId: params.agencyId,
+    };
     if (params.amountPaise > 0) {
       return this.credit({
-        brandId: params.brandId,
+        ...owner,
         amountPaise: params.amountPaise,
         type: WalletTransactionType.ADMIN_ADJUSTMENT_CREDIT,
         reason: params.reason.trim(),
@@ -652,7 +661,7 @@ export class WalletService {
       });
     }
     return this.debit({
-      brandId: params.brandId,
+      ...owner,
       amountPaise: -params.amountPaise,
       type: WalletTransactionType.ADMIN_ADJUSTMENT_DEBIT,
       reason: params.reason.trim(),
@@ -661,24 +670,24 @@ export class WalletService {
   }
 
   /**
-   * Every brand with its credit position, for the admin Credits view.
+   * Every brand and agency with its credit position, for the admin Credits view.
    *
    * A LEFT JOIN, not a scan of BrandWallet: the wallet row is created lazily on
-   * a brand's first credit or debit (see ensureWallet), so listing the wallet
-   * table alone would silently omit every brand that has never had credit.
-   * Brands without a wallet read as a genuine ₹0 rather than going missing.
+   * a buyer's first credit or debit (see ensureWallet), so listing the wallet
+   * table alone would silently omit every owner that has never had credit.
+   * Owners without a wallet read as a genuine ₹0 rather than going missing.
    *
    * Raw SQL for the ordering. Postgres sorts NULLs FIRST on a DESC ordering, so
-   * an ORM orderBy over the nullable wallet relation would float the ₹0 brands
+   * an ORM orderBy over the nullable wallet relation would float the ₹0 owners
    * to the top of a list whose whole purpose is showing who holds credit;
    * COALESCE ranks them as the zeros they are.
    */
   async listBrandCreditsForAdmin(params: {
     take?: number;
     skip?: number;
-    /** Include brands holding ₹0. Off by default — usually the shorter list. */
+    /** Include owners holding ₹0. Off by default — usually the shorter list. */
     includeZero?: boolean;
-    /** Case-insensitive brand-name filter. */
+    /** Case-insensitive name filter (brand name or agency name). */
     search?: string;
   }): Promise<{
     rows: AdminBrandCreditRow[];
@@ -691,40 +700,72 @@ export class WalletService {
     const includeZero = params.includeZero === true;
     const search = params.search?.trim();
 
-    const zeroFilter = includeZero
+    const brandZeroFilter = includeZero
       ? Prisma.empty
       : Prisma.sql`AND COALESCE(w."balancePaise", 0) > 0`;
-    const searchFilter = search
+    const agencyZeroFilter = includeZero
+      ? Prisma.empty
+      : Prisma.sql`AND COALESCE(w."balancePaise", 0) > 0`;
+    const brandSearchFilter = search
       ? Prisma.sql`AND b."brandName" ILIKE ${`%${search}%`}`
+      : Prisma.empty;
+    const agencySearchFilter = search
+      ? Prisma.sql`AND a.name ILIKE ${`%${search}%`}`
       : Prisma.empty;
 
     const [rows, countRows] = await Promise.all([
       this.prisma.$queryRaw<AdminBrandCreditRow[]>`
-        SELECT b.id AS "brandId",
-               b."brandName",
-               b."logoUrl",
-               b."contactEmail",
-               COALESCE(w."balancePaise", 0)::int AS "balancePaise",
-               COALESCE(w."heldPaise", 0)::int AS "heldPaise",
-               COALESCE(w.currency, 'INR') AS "currency",
-               w."updatedAt" AS "lastActivityAt"
-        FROM "BrandProfile" b
-        LEFT JOIN "BrandWallet" w ON w."brandId" = b.id
-        WHERE TRUE ${zeroFilter} ${searchFilter}
-        ORDER BY COALESCE(w."balancePaise", 0) DESC,
-                 b."brandName" ASC NULLS LAST,
-                 b.id ASC
+        SELECT * FROM (
+          SELECT 'brand'::text AS "ownerType",
+                 b.id AS "brandId",
+                 NULL::uuid AS "agencyId",
+                 b."brandName",
+                 b."logoUrl",
+                 b."contactEmail",
+                 COALESCE(w."balancePaise", 0)::int AS "balancePaise",
+                 COALESCE(w."heldPaise", 0)::int AS "heldPaise",
+                 COALESCE(w.currency, 'INR') AS "currency",
+                 w."updatedAt" AS "lastActivityAt"
+          FROM "BrandProfile" b
+          LEFT JOIN "BrandWallet" w ON w."brandId" = b.id
+          WHERE TRUE ${brandZeroFilter} ${brandSearchFilter}
+          UNION ALL
+          SELECT 'agency'::text AS "ownerType",
+                 NULL::uuid AS "brandId",
+                 a.id AS "agencyId",
+                 a.name AS "brandName",
+                 a."logoUrl",
+                 a."contactEmail",
+                 COALESCE(w."balancePaise", 0)::int AS "balancePaise",
+                 COALESCE(w."heldPaise", 0)::int AS "heldPaise",
+                 COALESCE(w.currency, 'INR') AS "currency",
+                 w."updatedAt" AS "lastActivityAt"
+          FROM "Agency" a
+          LEFT JOIN "BrandWallet" w ON w."agencyId" = a.id
+          WHERE TRUE ${agencyZeroFilter} ${agencySearchFilter}
+        ) q
+        ORDER BY COALESCE(q."balancePaise", 0) DESC,
+                 q."brandName" ASC NULLS LAST,
+                 COALESCE(q."brandId", q."agencyId") ASC
         LIMIT ${take} OFFSET ${skip}
       `,
-      // Totals span every match, not just this page: an admin reading "how much
-      // credit is outstanding" must not get the page subtotal.
       this.prisma.$queryRaw<{ count: bigint; balance: bigint; held: bigint }[]>`
         SELECT COUNT(*)::bigint AS count,
-               COALESCE(SUM(COALESCE(w."balancePaise", 0)), 0)::bigint AS balance,
-               COALESCE(SUM(COALESCE(w."heldPaise", 0)), 0)::bigint AS held
-        FROM "BrandProfile" b
-        LEFT JOIN "BrandWallet" w ON w."brandId" = b.id
-        WHERE TRUE ${zeroFilter} ${searchFilter}
+               COALESCE(SUM(q."balancePaise"), 0)::bigint AS balance,
+               COALESCE(SUM(q."heldPaise"), 0)::bigint AS held
+        FROM (
+          SELECT COALESCE(w."balancePaise", 0)::int AS "balancePaise",
+                 COALESCE(w."heldPaise", 0)::int AS "heldPaise"
+          FROM "BrandProfile" b
+          LEFT JOIN "BrandWallet" w ON w."brandId" = b.id
+          WHERE TRUE ${brandZeroFilter} ${brandSearchFilter}
+          UNION ALL
+          SELECT COALESCE(w."balancePaise", 0)::int AS "balancePaise",
+                 COALESCE(w."heldPaise", 0)::int AS "heldPaise"
+          FROM "Agency" a
+          LEFT JOIN "BrandWallet" w ON w."agencyId" = a.id
+          WHERE TRUE ${agencyZeroFilter} ${agencySearchFilter}
+        ) q
       `,
     ]);
 

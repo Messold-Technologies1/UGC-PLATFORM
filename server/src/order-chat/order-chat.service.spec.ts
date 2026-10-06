@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { OrderChatMessageType } from '@prisma/client';
 import { OrderChatService } from './order-chat.service';
+import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 describe('OrderChatService', () => {
   const orderId = 'order-1';
@@ -33,9 +34,10 @@ describe('OrderChatService', () => {
     emitReadUpdated: jest.fn(),
   };
 
-  const brandAccess = {
-    resolveBrandActorUserIdForProfile: jest.fn(),
-  };
+  const brandAccess = createBrandAccessMock({
+    brandId: 'brand-profile-1',
+    brandActorUserId: brandUserId,
+  });
 
   let service: OrderChatService;
 
@@ -43,6 +45,8 @@ describe('OrderChatService', () => {
     jest.clearAllMocks();
     prisma.order.findUnique.mockResolvedValue({
       briefAcceptedAt: new Date('2026-01-01T00:00:00.000Z'),
+      brandId: 'brand-profile-1',
+      agencyId: null,
       brand: { id: 'brand-profile-1' },
       creator: { userId: creatorUserId },
     });
@@ -50,7 +54,6 @@ describe('OrderChatService', () => {
     prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => unknown) =>
       fn(prisma),
     );
-    brandAccess.resolveBrandActorUserIdForProfile.mockResolvedValue(brandUserId);
     service = new OrderChatService(
       prisma as any,
       storage as any,

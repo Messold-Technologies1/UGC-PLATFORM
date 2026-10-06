@@ -706,10 +706,11 @@ export class OrdersService {
 
     await this.prisma.$transaction(async (tx) => {
       for (const other of others) {
-        if (other.creditsAppliedPaise > 0 && owner.brandId) {
+        if (other.creditsAppliedPaise > 0 && (owner.brandId || owner.agencyId)) {
           await this.wallet.releaseCheckoutReservation(
             {
               brandId: owner.brandId,
+              agencyId: owner.agencyId,
               orderId: other.id,
               amountPaise: other.creditsAppliedPaise,
             },
@@ -1736,6 +1737,7 @@ export class OrdersService {
         expectedAmountPaise: true,
         creditsAppliedPaise: true,
         brandId: true,
+        agencyId: true,
         couponId: true,
         discountAmountPaise: true,
       },
@@ -1808,6 +1810,7 @@ export class OrdersService {
         status: true,
         expectedAmountPaise: true,
         brandId: true,
+        agencyId: true,
         couponId: true,
         discountAmountPaise: true,
       },
@@ -1898,6 +1901,7 @@ export class OrdersService {
         id: true,
         status: true,
         brandId: true,
+        agencyId: true,
         creditsAppliedPaise: true,
       },
     });
@@ -2226,7 +2230,6 @@ export class OrdersService {
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
-    const owner = this.ownerCreateData(actor);
 
     await this.applyBriefTermination({
       orderId: params.orderId,
@@ -2237,7 +2240,7 @@ export class OrdersService {
       allowedStatuses: ['BRIEF_SUBMISSION_PENDING', 'BRIEF_SUBMITTED'],
       notAllowedMessage:
         'Order can only be cancelled before the creator accepts the brief',
-      requireBrandId: actor.brandId ?? actor.agencyId!,
+      requireOwnerActor: actor,
     });
   }
 
@@ -2300,7 +2303,7 @@ export class OrdersService {
    * it (cancelledByUserId) and which side it is attributed to
    * (cancelledOnBehalfOf), then notifies both parties — with the support wording
    * when an admin performed it (`bySupport`, known from the call path; resolve the
-   * actor's role to tell after the fact). `requireCreatorId` / `requireBrandId`
+   * actor's role to tell after the fact). `requireCreatorId` / `requireOwnerActor`
    * enforce ownership for the self-serve paths; the admin paths omit them.
    */
   private async applyBriefTermination(params: {
@@ -2312,7 +2315,9 @@ export class OrdersService {
     allowedStatuses: string[];
     notAllowedMessage: string;
     requireCreatorId?: string;
-    requireBrandId?: string;
+    requireOwnerActor?: Awaited<
+      ReturnType<BrandAccessService['resolveOrderActor']>
+    >;
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
@@ -2329,8 +2334,9 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
     if (params.requireCreatorId && order.creatorId !== params.requireCreatorId)
       throw new ForbiddenException('Not your order');
-    if (params.requireBrandId && order.brandId !== params.requireBrandId)
-      throw new ForbiddenException('Not your order');
+    if (params.requireOwnerActor) {
+      this.brandAccess.assertOwnsOrder(order, params.requireOwnerActor);
+    }
     if (!params.allowedStatuses.includes(String(order.status))) {
       throw new BadRequestException(params.notAllowedMessage);
     }
@@ -4243,6 +4249,15 @@ export class OrdersService {
                   logoUrl: true,
                 },
               },
+              agency: {
+                select: {
+                  name: true,
+                  logoUrl: true,
+                },
+              },
+              briefRef: {
+                select: { brandName: true },
+              },
             },
           },
         },
@@ -4269,21 +4284,33 @@ export class OrdersService {
       }
     }
 
-    const items: CreatorDeliveryItemDto[] = rows.map((r: any) => ({
-      id: r.id,
-      orderId: r.orderId,
-      revisionNumber: r.revisionNumber,
-      assets: mapDeliveryAssets(r.assets),
-      note: r.note ?? null,
-      createdAt: r.createdAt,
-      previewStatus: String(r.previewStatus),
-      order: {
-        id: r.order.id,
-        status: String(r.order.status),
-        brandName: r.order.brand?.brandName ?? '',
-        brandLogoUrl: r.order.brand?.logoUrl ?? null,
-      },
-    }));
+    const items: CreatorDeliveryItemDto[] = rows.map((r: any) => {
+      const agencyName = r.order.agency?.name?.trim() || null;
+      const clientBrandName = r.order.briefRef?.brandName?.trim() || null;
+      const brandName =
+        clientBrandName ||
+        r.order.brand?.brandName?.trim() ||
+        agencyName ||
+        '';
+      const brandLogoUrl =
+        r.order.agency?.logoUrl ?? r.order.brand?.logoUrl ?? null;
+
+      return {
+        id: r.id,
+        orderId: r.orderId,
+        revisionNumber: r.revisionNumber,
+        assets: mapDeliveryAssets(r.assets),
+        note: r.note ?? null,
+        createdAt: r.createdAt,
+        previewStatus: String(r.previewStatus),
+        order: {
+          id: r.order.id,
+          status: String(r.order.status),
+          brandName,
+          brandLogoUrl,
+        },
+      };
+    });
 
     return { items, total, page, limit };
   }
@@ -5344,6 +5371,7 @@ export class OrdersService {
         id: true,
         status: true,
         brandId: true,
+        agencyId: true,
         paidAt: true,
         creatorPaidAt: true,
         expectedAmountPaise: true,

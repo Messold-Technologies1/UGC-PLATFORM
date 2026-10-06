@@ -105,9 +105,9 @@ export class AdminWalletController {
 
   @Get('brands')
   @ApiOperation({
-    summary: 'Credit held by every brand (admin Credits view)',
+    summary: 'Credit held by every brand and agency (admin Credits view)',
     description:
-      'Lists brands with their total, held and spendable credit, biggest balance first. Includes brands that have never held credit (as ₹0) when includeZero is true. Totals in the response span every match, not just the page.',
+      'Lists brands and agencies with their total, held and spendable credit, biggest balance first. Includes owners that have never held credit (as ₹0) when includeZero is true. Totals in the response span every match, not just the page.',
   })
   @ApiOkResponse({ type: AdminBrandCreditsPageDto })
   async listBrandCredits(
@@ -140,10 +140,11 @@ export class AdminWalletController {
     transactions: WalletTransactionDto[];
     withdrawals: WalletWithdrawalDto[];
   }> {
+    const owner = { brandId };
     const [balance, transactions, withdrawals] = await Promise.all([
-      this.wallet.getBalance(brandId),
-      this.wallet.getTransactions(brandId, 200),
-      this.wallet.listWithdrawalsForBrand(brandId),
+      this.wallet.getBalance(owner),
+      this.wallet.getTransactions(owner, 200),
+      this.wallet.listWithdrawalsForBrand(owner),
     ]);
     return {
       balance,
@@ -169,6 +170,48 @@ export class AdminWalletController {
       reason: dto.reason,
       adminUserId: req.user.id,
     });
-    return this.wallet.getBalance(brandId);
+    return this.wallet.getBalance({ brandId });
+  }
+
+  @Get('agencies/:agencyId')
+  @ApiOperation({ summary: "An agency's credit balance, ledger and withdrawals" })
+  async agencyLedger(
+    @Param('agencyId', ParseUUIDPipe) agencyId: string,
+  ): Promise<{
+    balance: WalletBalanceDto;
+    transactions: WalletTransactionDto[];
+    withdrawals: WalletWithdrawalDto[];
+  }> {
+    const owner = { agencyId };
+    const [balance, transactions, withdrawals] = await Promise.all([
+      this.wallet.getBalance(owner),
+      this.wallet.getTransactions(owner, 200),
+      this.wallet.listWithdrawalsForBrand(owner),
+    ]);
+    return {
+      balance,
+      transactions: transactions.map((t) => WalletTransactionDto.from(t)),
+      withdrawals: withdrawals.map((w) => WalletWithdrawalDto.from(w)),
+    };
+  }
+
+  @Post('agencies/:agencyId/adjust')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Manually add or remove credit for an agency (support tool)',
+  })
+  @ApiOkResponse({ type: WalletBalanceDto })
+  async adjustAgency(
+    @Req() req: Request & { user: { id: string } },
+    @Param('agencyId', ParseUUIDPipe) agencyId: string,
+    @Body() dto: AdjustWalletDto,
+  ): Promise<WalletBalanceDto> {
+    await this.wallet.adminAdjust({
+      agencyId,
+      amountPaise: dto.amountPaise,
+      reason: dto.reason,
+      adminUserId: req.user.id,
+    });
+    return this.wallet.getBalance({ agencyId });
   }
 }

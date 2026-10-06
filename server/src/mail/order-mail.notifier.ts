@@ -105,7 +105,7 @@ export class OrderMailNotifier {
       const ctx: Record<string, string> = {
         creatorName: BRAND_HIDDEN_CREATOR_NAME,
         orderId: order.id,
-        actionUrl: this.brandOrderUrl(order.id),
+        actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
       };
       if (deliveryDueAt) {
         ctx.deliveryDueAt = this.formatDate(deliveryDueAt);
@@ -162,7 +162,7 @@ export class OrderMailNotifier {
           creatorName: BRAND_HIDDEN_CREATOR_NAME,
           orderId: order.id,
           deliveryDueAt: this.formatDate(deliveryDueAt),
-          actionUrl: this.brandOrderUrl(order.id),
+          actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
         },
       );
     });
@@ -223,7 +223,7 @@ export class OrderMailNotifier {
       await this.sendToBrand(
         order,
         EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_BRAND,
-        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+        { ...base, actionUrl: this.brandOrderUrl(order.id, order.agency?.id) },
       );
     });
   }
@@ -250,7 +250,7 @@ export class OrderMailNotifier {
         {
           ...shared,
           creatorName: BRAND_HIDDEN_CREATOR_NAME,
-          actionUrl: this.brandOrderUrl(order.id),
+          actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
         },
       );
       await this.sendToCreator(
@@ -278,7 +278,7 @@ export class OrderMailNotifier {
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         deliveredAt: this.formatDate(params.deliveredAt),
-        actionUrl: this.brandOrderUrl(order.id),
+        actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
       };
       if (params.revisionNumber > 0) {
         ctx.revisionNumber = String(params.revisionNumber);
@@ -315,7 +315,7 @@ export class OrderMailNotifier {
           creatorName: BRAND_HIDDEN_CREATOR_NAME,
           packageName: order.packageNameSnapshot,
           orderId: order.id,
-          actionUrl: this.brandOrderUrl(order.id),
+          actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
         },
       );
     });
@@ -337,7 +337,7 @@ export class OrderMailNotifier {
       await this.sendToBrand(order, EmailTemplateKey.ORDER_REJECTED_FOR_BRAND, {
         ...base,
         creatorName: BRAND_HIDDEN_CREATOR_NAME,
-        actionUrl: this.brandOrderUrl(order.id),
+        actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
       });
 
       await this.sendToCreator(
@@ -372,7 +372,7 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_BRAND,
         {
           ...base,
-          actionUrl: this.brandOrderUrl(order.id),
+          actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
         },
       );
 
@@ -409,7 +409,7 @@ export class OrderMailNotifier {
         {
           ...base,
           creatorName: BRAND_HIDDEN_CREATOR_NAME,
-          actionUrl: this.brandOrderUrl(order.id),
+          actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
         },
       );
 
@@ -446,7 +446,7 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_BRAND,
         {
           ...base,
-          actionUrl: this.brandOrderUrl(order.id),
+          actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
         },
       );
 
@@ -474,7 +474,7 @@ export class OrderMailNotifier {
           order.currency,
         ),
         refundedAt: this.formatDate(refundedAt),
-        actionUrl: this.brandOrderUrl(order.id),
+        actionUrl: this.brandOrderUrl(order.id, order.agency?.id),
       });
     });
   }
@@ -504,7 +504,7 @@ export class OrderMailNotifier {
       await this.sendToBrand(
         order,
         EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_BRAND,
-        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+        { ...base, actionUrl: this.brandOrderUrl(order.id, order.agency?.id) },
       );
 
       await this.sendToCreator(
@@ -544,7 +544,7 @@ export class OrderMailNotifier {
       await this.sendToBrand(
         order,
         EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_BRAND,
-        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+        { ...base, actionUrl: this.brandOrderUrl(order.id, order.agency?.id) },
       );
 
       await this.sendToCreator(
@@ -734,8 +734,9 @@ export class OrderMailNotifier {
     });
   }
 
-  private brandOrderUrl(orderId: string): string {
-    return `${this.frontendBase()}/brand/orders/${orderId}`;
+  private brandOrderUrl(orderId: string, agencyId?: string | null): string {
+    const base = agencyId ? 'agency' : 'brand';
+    return `${this.frontendBase()}/${base}/orders/${orderId}`;
   }
 
   private creatorOrderUrl(orderId: string): string {

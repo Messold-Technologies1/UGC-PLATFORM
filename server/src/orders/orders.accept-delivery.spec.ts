@@ -1,4 +1,5 @@
 import { OrdersService } from './orders.service';
+import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 /**
  * Wiring test for the Brand Collab hook: accepting a delivery must kick off the
@@ -14,11 +15,7 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
         update: orderUpdate,
       },
     };
-    const brandAccess = {
-      resolveBrandContext: jest.fn().mockResolvedValue({
-        brand: { id: 'brand-1' },
-      }),
-    };
+    const brandAccess = createBrandAccessMock();
     const orderMail = { notifyContentAccepted: jest.fn() };
     const orderPortfolioSync = {
       syncAcceptedOrder: jest.fn().mockResolvedValue({ status: 'created' }),

@@ -146,8 +146,26 @@ export class AdminWithdrawalDto extends WalletWithdrawalDto {
 
 /** One brand's credit position in the admin Credits list. */
 export class AdminBrandCreditDto {
-  @ApiProperty() brandId!: string;
-  @ApiProperty({ nullable: true }) brandName!: string | null;
+  @ApiProperty({ enum: ['brand', 'agency'] })
+  ownerType!: 'brand' | 'agency';
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Brand profile id when ownerType=brand.',
+  })
+  brandId!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Agency id when ownerType=agency.',
+  })
+  agencyId!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Brand name or agency name.',
+  })
+  brandName!: string | null;
   @ApiProperty({ nullable: true }) logoUrl!: string | null;
   @ApiProperty({ nullable: true }) contactEmail!: string | null;
   @ApiProperty({
@@ -164,13 +182,15 @@ export class AdminBrandCreditDto {
   @ApiProperty({
     nullable: true,
     description:
-      'Last wallet movement; null if the brand has never held credit.',
+      'Last wallet movement; null if the owner has never held credit.',
   })
   lastActivityAt!: Date | null;
 
   static from(row: AdminBrandCreditRow): AdminBrandCreditDto {
     return {
+      ownerType: row.ownerType,
       brandId: row.brandId,
+      agencyId: row.agencyId,
       brandName: row.brandName,
       logoUrl: row.logoUrl,
       contactEmail: row.contactEmail,

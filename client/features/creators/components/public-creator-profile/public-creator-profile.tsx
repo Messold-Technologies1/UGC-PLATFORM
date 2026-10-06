@@ -230,12 +230,16 @@ export function PublicCreatorProfile({
   // immediately without needing a manual page reload.
   const { data: meUser } = usePublicAuthUser();
   const isBrand = meUser?.roles?.includes("BRAND") ?? false;
+  const isAgency = meUser?.roles?.includes("AGENCY") ?? false;
+  const isBuyer = isBrand || isAgency;
   const router = useRouter();
 
   const bookHref = "/register";
-  // Logged-in brands go to the authenticated creator page which has the full
+  // Logged-in buyers go to the authenticated creator page which has the full
   // OrderModal + Razorpay checkout inside AuthProvider context
-  const brandBookHref = `/brand/creators?creatorId=${profile.id}`;
+  const buyerBookHref = isAgency
+    ? `/agency/creators?creatorId=${profile.id}`
+    : `/brand/creators?creatorId=${profile.id}`;
 
   const reviewsQuery = useCreatorRatingReviewsQuery(profile.id, {
     page: 1,
@@ -446,7 +450,7 @@ export function PublicCreatorProfile({
   );
 
   const handleBookClick = () => {
-    router.push(isBrand ? brandBookHref : bookHref);
+    router.push(isBuyer ? buyerBookHref : bookHref);
   };
 
   // Creators are anonymous to brands: the opaque public slug is the only
@@ -578,7 +582,7 @@ export function PublicCreatorProfile({
                     style={{ backgroundColor: BRAND_RED }}
                   >
                     <Zap className="size-4 fill-white" strokeWidth={0} />
-                    {isBrand ? "Book now" : "Book me on GoCollab"}
+                    {isBuyer ? "Book now" : "Book me on GoCollab"}
                   </button>
                   <button
                     type="button"
@@ -586,7 +590,7 @@ export function PublicCreatorProfile({
                     className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:border-neutral-400"
                   >
                     <MessageCircle className="size-4" />
-                    {isBrand ? "Place order" : "Message"}
+                    {isBuyer ? "Place order" : "Message"}
                   </button>
                 </div>
               </div>

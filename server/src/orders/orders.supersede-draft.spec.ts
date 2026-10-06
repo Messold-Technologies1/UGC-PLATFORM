@@ -35,6 +35,7 @@ describe('OrdersService: superseded checkout drafts', () => {
       {} as never,
       {} as never,
       wallet as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
     return { service, findMany, updateMany, wallet };
   }
@@ -43,14 +44,14 @@ describe('OrdersService: superseded checkout drafts', () => {
     return (
       service as unknown as {
         rejectOtherPendingOrdersForBrandCreator: (
-          brandId: string,
+          owner: { brandId?: string | null; agencyId?: string | null },
           creatorId: string,
           keepOrderId: string,
           checkoutSessionKey: string | null,
         ) => Promise<void>;
       }
     ).rejectOtherPendingOrdersForBrandCreator(
-      'brand-1',
+      { brandId: 'brand-1', agencyId: null },
       'creator-1',
       'keep-1',
       sessionKey,

@@ -168,7 +168,7 @@ function BrandCreditsPanel() {
         </div>
         <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Brands listed
+            Buyers listed
           </p>
           <p className="mt-1 text-xl font-bold">{total}</p>
         </div>
@@ -181,7 +181,7 @@ function BrandCreditsPanel() {
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search brand name"
+            placeholder="Search brand or agency"
             className="h-9 w-64 rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
           />
         </div>
@@ -195,7 +195,7 @@ function BrandCreditsPanel() {
             }}
             className="size-4 rounded border-border"
           />
-          Show brands with no credits
+          Show buyers with no credits
         </label>
       </div>
 
@@ -207,15 +207,15 @@ function BrandCreditsPanel() {
         </div>
       ) : isError ? (
         <div className="rounded-2xl border border-border/40 bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
-          Could not load brand credits.
+          Could not load buyer credits.
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-border/40 bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
           {search
-            ? "No brand matches that name."
+            ? "No buyer matches that name."
             : includeZero
-              ? "No brands yet."
-              : "No brand is holding credits right now."}
+              ? "No brands or agencies yet."
+              : "No buyer is holding credits right now."}
         </div>
       ) : (
         <>
@@ -223,7 +223,7 @@ function BrandCreditsPanel() {
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">Brand</th>
+                  <th className="px-4 py-3">Buyer</th>
                   <th className="px-4 py-3">Total credits</th>
                   <th className="px-4 py-3">Held</th>
                   <th className="px-4 py-3">Available</th>
@@ -232,10 +232,19 @@ function BrandCreditsPanel() {
               </thead>
               <tbody>
                 {items.map((b) => (
-                  <tr key={b.brandId} className="border-t border-border/30">
+                  <tr
+                    key={`${b.ownerType}:${b.brandId ?? b.agencyId}`}
+                    className="border-t border-border/30"
+                  >
                     <td className="px-4 py-3">
                       <span className="font-medium">
-                        {b.brandName?.trim() || "Unnamed Brand"}
+                        {b.brandName?.trim() ||
+                          (b.ownerType === "agency"
+                            ? "Unnamed Agency"
+                            : "Unnamed Brand")}
+                      </span>
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {b.ownerType}
                       </span>
                       {b.contactEmail ? (
                         <span className="block text-xs text-muted-foreground">
@@ -265,7 +274,7 @@ function BrandCreditsPanel() {
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
                 Page {page} of {totalPages} · {total}{" "}
-                {total === 1 ? "brand" : "brands"}
+                {total === 1 ? "buyer" : "buyers"}
               </span>
               <div className="flex gap-1.5">
                 <button

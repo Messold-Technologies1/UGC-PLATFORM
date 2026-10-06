@@ -56,9 +56,11 @@ export interface AdminWithdrawal extends WalletWithdrawal {
   brandBalancePaise: number;
 }
 
-/** A brand's credit position in the admin Credits list. */
+/** A brand or agency credit position in the admin Credits list. */
 export interface AdminBrandCredit {
-  brandId: string;
+  ownerType: "brand" | "agency";
+  brandId: string | null;
+  agencyId: string | null;
   brandName: string | null;
   logoUrl: string | null;
   contactEmail: string | null;
@@ -69,7 +71,7 @@ export interface AdminBrandCredit {
   /** Spendable now (balance - held), in paise. */
   availablePaise: number;
   currency: string;
-  /** Last wallet movement; null if the brand has never held credit. */
+  /** Last wallet movement; null if the owner has never held credit. */
   lastActivityAt: string | null;
 }
 

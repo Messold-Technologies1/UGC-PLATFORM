@@ -26,6 +26,12 @@ const orderBrandSnapshotSelect = {
   logoUrl: true,
 } as const;
 
+const orderAgencySnapshotSelect = {
+  id: true,
+  name: true,
+  logoUrl: true,
+} as const;
+
 const orderCreatorSnapshotSelect = {
   id: true,
   displayName: true,
@@ -151,6 +157,8 @@ export class ChatsService {
         select: {
           ...orderInboxSelect,
           brand: { select: orderBrandSnapshotSelect },
+          agency: { select: orderAgencySnapshotSelect },
+          briefRef: { select: { brandName: true } },
         },
       }),
     ]);
@@ -161,20 +169,33 @@ export class ChatsService {
       viewerUserId: params.creatorUserId,
     });
 
-    const items = pageRows.map((row) => ({
-      orderId: row.id,
-      status: row.status,
-      packageName: row.packageNameSnapshot,
-      isChatLocked: this.isChatLocked(row.status),
-      brand: {
-        id: row.brand!.id,
-        brandName: row.brand!.brandName,
-        logoUrl: row.brand!.logoUrl ?? null,
-      },
-      lastMessage: this.lastMessageFromOrder(row),
-      unreadCount: unreadByOrderId.get(row.id) ?? 0,
-      updatedAt: row.updatedAt.toISOString(),
-    }));
+    const items = pageRows.map((row) => {
+      const buyer = row.agency
+        ? {
+            id: row.agency.id,
+            brandName:
+              row.briefRef?.brandName?.trim() || row.agency.name,
+            logoUrl: row.agency.logoUrl ?? null,
+          }
+        : row.brand
+          ? {
+              id: row.brand.id,
+              brandName: row.brand.brandName,
+              logoUrl: row.brand.logoUrl ?? null,
+            }
+          : { id: '', brandName: 'Buyer', logoUrl: null };
+
+      return {
+        orderId: row.id,
+        status: row.status,
+        packageName: row.packageNameSnapshot,
+        isChatLocked: this.isChatLocked(row.status),
+        brand: buyer,
+        lastMessage: this.lastMessageFromOrder(row),
+        unreadCount: unreadByOrderId.get(row.id) ?? 0,
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    });
 
     return { items, total, page, limit };
   }
@@ -185,23 +206,24 @@ export class ChatsService {
     page?: number;
     limit?: number;
   }): Promise<BrandChatsListResponseDto> {
-    const ctx = await this.brandAccess.resolveBrandContext({
+    const actor = await this.brandAccess.resolveOrderActor({
       actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
+      brandProfileId: params.brandProfileId ?? null,
     });
-    const brand = this.brandAccess.requireBrandProfile(ctx);
+    const ownerWhere = this.brandAccess.orderOwnerWhere(actor);
 
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
     const where = {
-      brandId: brand.id,
+      ...ownerWhere,
       status: { notIn: CHAT_INBOX_EXCLUDED_STATUSES },
     };
 
-    const brandActorUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
-      brand.id,
-    );
+    const brandActorUserId = await this.brandAccess.resolveBuyerActorUserId({
+      brandId: actor.brandId,
+      agencyId: actor.agencyId,
+    });
 
     const [total, pageRows] = await this.prisma.$transaction([
       this.prisma.order.count({ where }),

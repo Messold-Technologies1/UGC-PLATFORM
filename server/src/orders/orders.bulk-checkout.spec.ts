@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 /**
  * Focused unit tests for the bulk-checkout path (one payment → many orders).
@@ -70,11 +71,7 @@ describe('OrdersService bulk checkout', () => {
       createOrder: jest.fn(() => Promise.resolve({ id: 'rzp-1' })),
       getPublicKeyId: jest.fn(() => 'key_test'),
     };
-    const brandAccess = {
-      resolveBrandContext: jest.fn(() =>
-        Promise.resolve({ brand: { id: 'brand-1' } }),
-      ),
-    };
+    const brandAccess = createBrandAccessMock();
     const coupons = {
       resolveForCheckout: jest.fn(() => Promise.resolve(null)),
       recordRedemption: jest.fn(() => Promise.resolve()),

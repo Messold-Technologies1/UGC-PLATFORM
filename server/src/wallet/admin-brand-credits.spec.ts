@@ -11,7 +11,9 @@ describe('AdminBrandCreditDto.from', () => {
   const row = (
     over: Partial<AdminBrandCreditRow> = {},
   ): AdminBrandCreditRow => ({
+    ownerType: 'brand',
     brandId: 'brand-1',
+    agencyId: null,
     brandName: 'Acme',
     logoUrl: null,
     contactEmail: 'team@acme.test',
@@ -51,9 +53,26 @@ describe('AdminBrandCreditDto.from', () => {
 
   it('carries the brand identity through for the list row', () => {
     const dto = AdminBrandCreditDto.from(row({ brandName: null }));
+    expect(dto.ownerType).toBe('brand');
     expect(dto.brandId).toBe('brand-1');
+    expect(dto.agencyId).toBeNull();
     expect(dto.brandName).toBeNull();
     expect(dto.contactEmail).toBe('team@acme.test');
     expect(dto.currency).toBe('INR');
+  });
+
+  it('carries agency identity for agency credit rows', () => {
+    const dto = AdminBrandCreditDto.from(
+      row({
+        ownerType: 'agency',
+        brandId: null,
+        agencyId: 'agency-1',
+        brandName: 'Northstar',
+      }),
+    );
+    expect(dto.ownerType).toBe('agency');
+    expect(dto.brandId).toBeNull();
+    expect(dto.agencyId).toBe('agency-1');
+    expect(dto.brandName).toBe('Northstar');
   });
 });

@@ -604,21 +604,23 @@ export class CreatorProfileService {
   }
 
   /**
-   * Best-effort brand the request is acting as, for per-brand "first order
-   * free" eligibility. Returns null for guests / non-brand viewers and never
-   * throws — a missing or inaccessible brand just means no eligibility flag.
+   * Best-effort buyer the request is acting as, for per-owner "first order
+   * free" eligibility. Returns null for guests / non-buyer viewers and never
+   * throws — a missing or inaccessible owner just means no eligibility flag.
    */
-  private async resolveViewerBrandId(
+  private async resolveViewerOrderOwner(
     actorUserId?: string | null,
     brandProfileId?: string | null,
-  ): Promise<string | null> {
+  ): Promise<{ brandId: string | null; agencyId: string | null } | null> {
     if (!actorUserId) return null;
     try {
-      const ctx = await this.brandAccess.resolveBrandContext({
+      const actor = await this.brandAccess.resolveOrderActor({
         actorUserId,
         brandProfileId: brandProfileId ?? null,
       });
-      return ctx.brandProfileId;
+      if (actor.agencyId) return { brandId: null, agencyId: actor.agencyId };
+      if (actor.brandId) return { brandId: actor.brandId, agencyId: null };
+      return null;
     } catch {
       return null;
     }
@@ -626,14 +628,14 @@ export class CreatorProfileService {
 
   /**
    * Among the given creators, which are "first order free" AND the viewing
-   * brand has not yet placed an order with (any order that reached paidAt —
-   * free or paid — consumes the promo). Empty set when no brand viewer.
+   * buyer has not yet placed an order with (any order that reached paidAt —
+   * free or paid — consumes the promo). Empty set when no buyer viewer.
    */
-  private async firstOrderFreeEligibleForBrand(
-    brandId: string | null,
+  private async firstOrderFreeEligibleForOwner(
+    owner: { brandId: string | null; agencyId: string | null } | null,
     creatorIds: string[],
   ): Promise<Set<string>> {
-    if (!brandId) return new Set();
+    if (!owner?.brandId && !owner?.agencyId) return new Set();
     const ids = [...new Set(creatorIds.filter(Boolean))];
     if (ids.length === 0) return new Set();
     const enabled = await this.prisma.creatorProfile.findMany({
@@ -642,9 +644,12 @@ export class CreatorProfileService {
     });
     const enabledIds = enabled.map((c) => c.id);
     if (enabledIds.length === 0) return new Set();
+    const ownerFilter = owner.agencyId
+      ? { agencyId: owner.agencyId }
+      : { brandId: owner.brandId! };
     const priorOrders = await this.prisma.order.findMany({
       where: {
-        brandId,
+        ...ownerFilter,
         creatorId: { in: enabledIds },
         paidAt: { not: null },
       },
@@ -656,22 +661,22 @@ export class CreatorProfileService {
   }
 
   /**
-   * Public per-brand "first order free" eligibility lookup for a set of
+   * Public per-buyer "first order free" eligibility lookup for a set of
    * creators. Powers the browse-grid badge overlay: the shared creators list
-   * stays cacheable, and this small per-brand call is layered on top client-
-   * side. Returns [] for guests / non-brand viewers.
+   * stays cacheable, and this small per-buyer call is layered on top client-
+   * side. Returns [] for guests / non-buyer viewers.
    */
   async firstOrderFreeEligibleIds(params: {
     actorUserId?: string | null;
     brandProfileId?: string | null;
     creatorIds: string[];
   }): Promise<string[]> {
-    const brandId = await this.resolveViewerBrandId(
+    const owner = await this.resolveViewerOrderOwner(
       params.actorUserId,
       params.brandProfileId,
     );
-    const set = await this.firstOrderFreeEligibleForBrand(
-      brandId,
+    const set = await this.firstOrderFreeEligibleForOwner(
+      owner,
       params.creatorIds,
     );
     return [...set];
@@ -1319,12 +1324,12 @@ export class CreatorProfileService {
       items.map((profile) => profile.id),
     );
 
-    const viewerBrandId = await this.resolveViewerBrandId(
+    const viewerOwner = await this.resolveViewerOrderOwner(
       viewer?.actorUserId,
       viewer?.brandProfileId,
     );
-    const eligibleFreeCreatorIds = await this.firstOrderFreeEligibleForBrand(
-      viewerBrandId,
+    const eligibleFreeCreatorIds = await this.firstOrderFreeEligibleForOwner(
+      viewerOwner,
       items.map((profile) => profile.id),
     );
 
@@ -1333,7 +1338,7 @@ export class CreatorProfileService {
         this.mapCreatorPublicListItemDto(
           p,
           orderCountsByCreatorId.get(p.id),
-          viewerBrandId ? eligibleFreeCreatorIds : undefined,
+          viewerOwner ? eligibleFreeCreatorIds : undefined,
         ),
       ),
       total,
@@ -1651,13 +1656,13 @@ export class CreatorProfileService {
       this.countCreatorOrders(profile.id),
       this.creatorReviews.listTopForCreator({ creatorId: profile.id }),
     ]);
-    const viewerBrandId = await this.resolveViewerBrandId(
+    const viewerOwner = await this.resolveViewerOrderOwner(
       viewerUserId,
       brandProfileId,
     );
-    const firstOrderFreeEligible = viewerBrandId
+    const firstOrderFreeEligible = viewerOwner
       ? (
-          await this.firstOrderFreeEligibleForBrand(viewerBrandId, [profile.id])
+          await this.firstOrderFreeEligibleForOwner(viewerOwner, [profile.id])
         ).has(profile.id)
       : undefined;
     const dto = this.mapCreatorProfileResponseDto(

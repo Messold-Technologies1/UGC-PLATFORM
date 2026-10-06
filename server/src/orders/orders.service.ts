@@ -110,14 +110,52 @@ type OrderBrandSnapshotDto = {
   logoUrl: string | null;
   contactFullName?: string | null;
   contactEmail?: string | null;
+  /** Present when the order was placed by an agency. */
+  agencyName?: string | null;
+  agencyLogoUrl?: string | null;
+  /** Client brand name from the attached brief (agency orders). */
+  clientBrandName?: string | null;
 };
 
-function toOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
-  const b = brand as OrderBrandSnapshotDto;
+function toOrderBrandSnapshotDto(
+  brand: unknown,
+  extras?: {
+    agencyName?: string | null;
+    agencyLogoUrl?: string | null;
+    clientBrandName?: string | null;
+  },
+): OrderBrandSnapshotDto {
+  const b = (brand ?? {}) as OrderBrandSnapshotDto;
+  const clientBrandName = extras?.clientBrandName?.trim() || null;
+  const agencyName = extras?.agencyName?.trim() || null;
   return {
-    id: b.id,
-    brandName: b.brandName ?? null,
-    logoUrl: b.logoUrl ?? null,
+    id: b.id ?? '',
+    // For agency orders, brandName is the client brand the creator is shooting for.
+    // For standalone brands, brandName is the brand profile name.
+    brandName: clientBrandName || b.brandName || agencyName || null,
+    logoUrl: extras?.agencyLogoUrl ?? b.logoUrl ?? null,
+    agencyName,
+    agencyLogoUrl: extras?.agencyLogoUrl ?? null,
+    clientBrandName,
+  };
+}
+
+function toAgencyOrderSnapshotDto(params: {
+  agency: {
+    id: string;
+    name: string;
+    logoUrl: string | null;
+  };
+  clientBrandName?: string | null;
+}): OrderBrandSnapshotDto {
+  const clientBrandName = params.clientBrandName?.trim() || null;
+  return {
+    id: params.agency.id,
+    brandName: clientBrandName || params.agency.name,
+    logoUrl: params.agency.logoUrl,
+    agencyName: params.agency.name,
+    agencyLogoUrl: params.agency.logoUrl,
+    clientBrandName,
   };
 }
 
@@ -500,10 +538,18 @@ export class OrdersService {
     actorUserId: string;
     brandProfileId?: string | null;
   }) {
-    return this.brandAccess.resolveBrandContext({
+    return this.brandAccess.resolveOrderActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId ?? null,
     });
+  }
+
+  private ownerCreateData(actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>) {
+    return this.brandAccess.orderOwnerCreateData(actor);
+  }
+
+  private ownerWhere(actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>) {
+    return this.brandAccess.orderOwnerWhere(actor);
   }
 
   private buildCheckoutSessionResult(params: {
@@ -551,7 +597,8 @@ export class OrdersService {
    */
   private async placeZeroRupeeOrder(params: {
     orderId: string;
-    brandId: string;
+    brandId?: string | null;
+    agencyId?: string | null;
     couponId: string | null;
     discountAmountPaise: number;
   }): Promise<void> {
@@ -559,7 +606,7 @@ export class OrdersService {
       where: { id: params.orderId },
       data: { status: 'BRIEF_SUBMISSION_PENDING', paidAt: new Date() },
     });
-    if (params.couponId) {
+    if (params.couponId && params.brandId) {
       await this.coupons.recordRedemption({
         couponId: params.couponId,
         brandId: params.brandId,
@@ -585,7 +632,7 @@ export class OrdersService {
    * eligible creator ids for the given candidates in one batched pair of queries.
    */
   private async firstOrderFreeEligibleCreatorIds(
-    brandId: string,
+    owner: { brandId?: string | null; agencyId?: string | null },
     creatorIds: string[],
   ): Promise<Set<string>> {
     const ids = [...new Set(creatorIds)];
@@ -596,10 +643,12 @@ export class OrdersService {
     });
     const enabledIds = enabled.map((c) => c.id);
     if (enabledIds.length === 0) return new Set();
-    // Which of the enabled creators has this brand already placed an order with?
+    const ownerFilter = owner.agencyId
+      ? { agencyId: owner.agencyId }
+      : { brandId: owner.brandId! };
     const priorOrders = await this.prisma.order.findMany({
       where: {
-        brandId,
+        ...ownerFilter,
         creatorId: { in: enabledIds },
         paidAt: { not: null },
       },
@@ -634,14 +683,17 @@ export class OrdersService {
    * still in PENDING_PAYMENT as paid.
    */
   private async rejectOtherPendingOrdersForBrandCreator(
-    brandId: string,
+    owner: { brandId?: string | null; agencyId?: string | null },
     creatorId: string,
     keepOrderId: string,
     checkoutSessionKey: string | null,
   ): Promise<void> {
+    const ownerFilter = owner.agencyId
+      ? { agencyId: owner.agencyId }
+      : { brandId: owner.brandId! };
     const others = await this.prisma.order.findMany({
       where: {
-        brandId,
+        ...ownerFilter,
         creatorId,
         status: 'PENDING_PAYMENT',
         checkoutBatchId: null,
@@ -654,10 +706,10 @@ export class OrdersService {
 
     await this.prisma.$transaction(async (tx) => {
       for (const other of others) {
-        if (other.creditsAppliedPaise > 0) {
+        if (other.creditsAppliedPaise > 0 && owner.brandId) {
           await this.wallet.releaseCheckoutReservation(
             {
-              brandId,
+              brandId: owner.brandId,
               orderId: other.id,
               amountPaise: other.creditsAppliedPaise,
             },
@@ -845,10 +897,11 @@ export class OrdersService {
      */
     checkoutSessionKey?: string | null;
   }): Promise<CheckoutSessionResult> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
     const checkoutSessionKey = params.checkoutSessionKey ?? null;
 
     const {
@@ -872,7 +925,7 @@ export class OrdersService {
     // are snapshotted on the order so the admin can settle payout/refund manually.
     const resolvedCoupon = await this.coupons.resolveForCheckout({
       code: params.couponCode,
-      brandId: brand.id,
+      ...owner,
       grossPaise: grossAmountPaise,
     });
     const discountAmountPaise = resolvedCoupon?.discountAmountPaise ?? 0;
@@ -894,7 +947,7 @@ export class OrdersService {
     // "First order free": this brand's first order with a promo creator is free
     // (₹0, creator paid ₹0) — independent of any coupon.
     const firstOrderFree = (
-      await this.firstOrderFreeEligibleCreatorIds(brand.id, [pkg.creatorId])
+      await this.firstOrderFreeEligibleCreatorIds(owner, [pkg.creatorId])
     ).has(pkg.creatorId);
 
     // Zero-rupee checkout: either a first-order-free creator, or a full-value
@@ -916,7 +969,7 @@ export class OrdersService {
         : { ...couponWriteData, isFreeOrder: false };
       const created = await this.prisma.order.create({
         data: {
-          brandId: brand.id,
+          ...owner,
           creatorId: pkg.creatorId,
           creatorPackageId: pkg.id,
           status: 'BRIEF_SUBMISSION_PENDING',
@@ -937,14 +990,14 @@ export class OrdersService {
         select: { id: true, currency: true },
       });
       await this.rejectOtherPendingOrdersForBrandCreator(
-        brand.id,
+        owner,
         pkg.creatorId,
         created.id,
         checkoutSessionKey,
       );
       await this.placeZeroRupeeOrder({
         orderId: created.id,
-        brandId: brand.id,
+        ...owner,
         couponId: firstOrderFree ? null : (resolvedCoupon?.couponId ?? null),
         discountAmountPaise: firstOrderFree ? 0 : discountAmountPaise,
       });
@@ -969,7 +1022,7 @@ export class OrdersService {
     let creditsToApply = 0;
     if (params.useCredits && netAmountPaise > 0) {
       // Only the SPENDABLE balance (excludes funds held for pending withdrawals).
-      const { availablePaise } = await this.wallet.getBalance(brand.id);
+      const { availablePaise } = await this.wallet.getBalance(owner);
       creditsToApply = Math.min(availablePaise, netAmountPaise);
       const remainder = netAmountPaise - creditsToApply;
       if (remainder > 0 && remainder < RAZORPAY_MIN_CHARGE_PAISE) {
@@ -984,7 +1037,7 @@ export class OrdersService {
       const created = await this.prisma.$transaction(async (tx) => {
         const order = await tx.order.create({
           data: {
-            brandId: brand.id,
+            ...owner,
             creatorId: pkg.creatorId,
             creatorPackageId: pkg.id,
             status:
@@ -1012,7 +1065,7 @@ export class OrdersService {
         // moved below creditsToApply since we read it, rolling back the order.
         await this.wallet.reserveForCheckout(
           {
-            brandId: brand.id,
+            ...owner,
             orderId: order.id,
             amountPaise: creditsToApply,
             createdByUserId: params.actorUserId,
@@ -1024,7 +1077,7 @@ export class OrdersService {
           await this.coupons.recordRedemption(
             {
               couponId: resolvedCoupon.couponId,
-              brandId: brand.id,
+              ...owner,
               orderId: order.id,
               discountAmountPaise,
             },
@@ -1035,7 +1088,7 @@ export class OrdersService {
       });
 
       await this.rejectOtherPendingOrdersForBrandCreator(
-        brand.id,
+        owner,
         pkg.creatorId,
         created.id,
         checkoutSessionKey,
@@ -1069,7 +1122,7 @@ export class OrdersService {
         orderId: created.id,
         amountPaise: razorpayChargePaise,
         currency: created.currency,
-        brandProfileId: brand.id,
+        brandProfileId: actor.brandId ?? actor.agencyId!,
         creatorProfileId: pkg.creatorId,
         creatorPackageId: pkg.id,
       });
@@ -1097,7 +1150,7 @@ export class OrdersService {
 
     const pendingForCreator = await this.prisma.order.findMany({
       where: {
-        brandId: brand.id,
+        ...owner,
         creatorId: pkg.creatorId,
         status: 'PENDING_PAYMENT',
         // Only drafts from THIS checkout attempt are reusable. Without this a
@@ -1147,7 +1200,7 @@ export class OrdersService {
             orderId: matchingPackageOrder.id,
             amountPaise: netAmountPaise,
             currency: matchingPackageOrder.currency,
-            brandProfileId: brand.id,
+            brandProfileId: actor.brandId ?? actor.agencyId!,
             creatorProfileId: pkg.creatorId,
             creatorPackageId: pkg.id,
           });
@@ -1158,7 +1211,7 @@ export class OrdersService {
         }
 
         await this.rejectOtherPendingOrdersForBrandCreator(
-          brand.id,
+          owner,
           pkg.creatorId,
           matchingPackageOrder.id,
           checkoutSessionKey,
@@ -1185,7 +1238,7 @@ export class OrdersService {
       // order is refreshed to a full-cash charge.
       if ((matchingPackageOrder.creditsAppliedPaise ?? 0) > 0) {
         await this.wallet.releaseCheckoutReservation({
-          brandId: brand.id,
+          ...owner,
           orderId: matchingPackageOrder.id,
           amountPaise: matchingPackageOrder.creditsAppliedPaise,
         });
@@ -1195,7 +1248,7 @@ export class OrdersService {
         orderId: matchingPackageOrder.id,
         amountPaise: netAmountPaise,
         currency: matchingPackageOrder.currency,
-        brandProfileId: brand.id,
+        brandProfileId: actor.brandId ?? actor.agencyId!,
         creatorProfileId: pkg.creatorId,
         creatorPackageId: pkg.id,
       });
@@ -1219,7 +1272,7 @@ export class OrdersService {
       });
 
       await this.rejectOtherPendingOrdersForBrandCreator(
-        brand.id,
+        owner,
         pkg.creatorId,
         matchingPackageOrder.id,
         checkoutSessionKey,
@@ -1243,7 +1296,7 @@ export class OrdersService {
 
     const created = await this.prisma.order.create({
       data: {
-        brandId: brand.id,
+        ...owner,
         creatorId: pkg.creatorId,
         creatorPackageId: pkg.id,
         status: 'PENDING_PAYMENT',
@@ -1267,7 +1320,7 @@ export class OrdersService {
       orderId: created.id,
       amountPaise: netAmountPaise,
       currency: created.currency,
-      brandProfileId: brand.id,
+      brandProfileId: actor.brandId ?? actor.agencyId!,
       creatorProfileId: pkg.creatorId,
       creatorPackageId: pkg.id,
     });
@@ -1278,7 +1331,7 @@ export class OrdersService {
     });
 
     await this.rejectOtherPendingOrdersForBrandCreator(
-      brand.id,
+      owner,
       pkg.creatorId,
       created.id,
       checkoutSessionKey,
@@ -1314,10 +1367,11 @@ export class OrdersService {
     }>;
     couponCode?: string | null;
   }): Promise<BulkCheckoutSessionResult> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     type DraftForItem = Awaited<
       ReturnType<OrdersService['computeOrderDraftForItem']>
@@ -1362,7 +1416,7 @@ export class OrdersService {
     // "First order free": each promo creator's first order for this brand is
     // free (₹0). Only the first occurrence per creator in this cart is free.
     const freeSet = await this.firstOrderFreeEligibleCreatorIds(
-      brand.id,
+      owner,
       drafts.map((d) => d.draft.pkg.creatorId),
     );
     const consumedFree = new Set<string>();
@@ -1386,7 +1440,7 @@ export class OrdersService {
       couponGrossTotalPaise > 0
         ? await this.coupons.resolveForCheckout({
             code: params.couponCode,
-            brandId: brand.id,
+            ...owner,
             grossPaise: couponGrossTotalPaise,
           })
         : null;
@@ -1414,7 +1468,7 @@ export class OrdersService {
 
     // Per-child order fields (status/paidAt/checkoutBatchId are added per branch).
     const buildChildData = (p: PlanItem) => ({
-      brandId: brand.id,
+      ...owner,
       creatorId: p.draft.pkg.creatorId,
       creatorPackageId: p.draft.pkg.id,
       packageNameSnapshot: p.draft.pkg.name,
@@ -1445,7 +1499,7 @@ export class OrdersService {
         async (tx) => {
           const batch = await tx.orderCheckoutBatch.create({
             data: {
-              brandId: brand.id,
+              ...owner,
               currency,
               expectedAmountPaise: 0,
               status: 'PAID',
@@ -1475,7 +1529,7 @@ export class OrdersService {
             await this.coupons.recordRedemption(
               {
                 couponId: resolvedCoupon.couponId,
-                brandId: brand.id,
+                ...owner,
                 checkoutBatchId: batch.id,
                 discountAmountPaise: totalDiscountPaise,
               },
@@ -1515,7 +1569,7 @@ export class OrdersService {
     const { batchId, orderIds } = await this.prisma.$transaction(async (tx) => {
       const batch = await tx.orderCheckoutBatch.create({
         data: {
-          brandId: brand.id,
+          ...owner,
           currency,
           expectedAmountPaise: netTotalPaise,
           status: 'PENDING_PAYMENT',
@@ -1553,7 +1607,7 @@ export class OrdersService {
       receipt: batchId,
       notes: {
         checkoutBatchId: batchId,
-        brandProfileId: brand.id,
+        brandProfileId: actor.brandId ?? actor.agencyId!,
         kind: 'bulk',
       },
     });
@@ -1586,16 +1640,17 @@ export class OrdersService {
     brandProfileId?: string | null;
     orderId: string;
   }): Promise<CheckoutSessionResult> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         creatorId: true,
         creatorPackageId: true,
         status: true,
@@ -1611,9 +1666,7 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException('Order not found');
     }
-    if (order.brandId !== brand.id) {
-      throw new ForbiddenException('Not your order');
-    }
+    this.brandAccess.assertOwnsOrder(order, actor);
     if (order.status !== 'PENDING_PAYMENT') {
       throw new BadRequestException('Order is not awaiting payment');
     }
@@ -1646,7 +1699,7 @@ export class OrdersService {
         orderId: order.id,
         amountPaise: razorpayChargePaise,
         currency: order.currency,
-        brandProfileId: brand.id,
+        brandProfileId: actor.brandId ?? actor.agencyId!,
         creatorProfileId: order.creatorId,
         creatorPackageId: order.creatorPackageId,
       });
@@ -1718,10 +1771,11 @@ export class OrdersService {
     });
 
     // Consume the coupon now that payment succeeded (one use per brand).
-    if (order.couponId) {
+    if (order.couponId && (order.brandId || order.agencyId)) {
       await this.coupons.recordRedemption({
         couponId: order.couponId,
         brandId: order.brandId,
+        agencyId: order.agencyId,
         orderId: order.id,
         discountAmountPaise: order.discountAmountPaise,
       });
@@ -1805,11 +1859,12 @@ export class OrdersService {
       });
 
       // Consume the cart-level coupon once for the whole batch (one use / brand).
-      if (batch.couponId) {
+      if (batch.couponId && (batch.brandId || batch.agencyId)) {
         await this.coupons.recordRedemption(
           {
             couponId: batch.couponId,
             brandId: batch.brandId,
+            agencyId: batch.agencyId,
             checkoutBatchId: batch.id,
             discountAmountPaise: batch.discountAmountPaise,
           },
@@ -1862,10 +1917,16 @@ export class OrdersService {
     // re-checks out fresh (which reserves credit again). Ordinary cash orders
     // stay PENDING_PAYMENT so the brand can simply retry the same payment.
     if (order.creditsAppliedPaise > 0) {
+      if (!order.brandId && !order.agencyId) {
+        throw new BadRequestException(
+          'Store credit release requires a brand or agency order',
+        );
+      }
       await this.prisma.$transaction(async (tx) => {
         await this.wallet.releaseCheckoutReservation(
           {
             brandId: order.brandId,
+            agencyId: order.agencyId,
             orderId: order.id,
             amountPaise: order.creditsAppliedPaise,
           },
@@ -1902,23 +1963,24 @@ export class OrdersService {
     orderId: string;
     briefId: string;
   }): Promise<void> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
         brandId: true,
+        agencyId: true,
         status: true,
         briefSubmittedAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id)
-      throw new ForbiddenException('Not your order');
+    this.brandAccess.assertOwnsOrder(order, actor);
     if (order.status !== 'BRIEF_SUBMISSION_PENDING') {
       throw new BadRequestException('Order is not awaiting brief submission');
     }
@@ -1927,7 +1989,13 @@ export class OrdersService {
     const now = new Date();
 
     const brief = await this.prisma.brief.findFirst({
-      where: { id: params.briefId, brandId: brand.id },
+      where: {
+        id: params.briefId,
+        OR: [
+          ...(order.brandId ? [{ brandId: order.brandId }] : []),
+          ...(order.agencyId ? [{ agencyId: order.agencyId }] : []),
+        ],
+      },
       select: {
         id: true,
         willShipPhysicalProductToCreator: true,
@@ -2154,10 +2222,11 @@ export class OrdersService {
       throw new BadRequestException('A cancellation note is required');
     }
 
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     await this.applyBriefTermination({
       orderId: params.orderId,
@@ -2168,7 +2237,7 @@ export class OrdersService {
       allowedStatuses: ['BRIEF_SUBMISSION_PENDING', 'BRIEF_SUBMITTED'],
       notAllowedMessage:
         'Order can only be cancelled before the creator accepts the brief',
-      requireBrandId: brand.id,
+      requireBrandId: actor.brandId ?? actor.agencyId!,
     });
   }
 
@@ -2249,7 +2318,7 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         creatorId: true,
         status: true,
         paidAt: true,
@@ -2279,9 +2348,15 @@ export class OrdersService {
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       if (shouldCredit) {
+        if (!order.brandId && !order.agencyId) {
+          throw new BadRequestException(
+            'Store credit refunds require a brand or agency order',
+          );
+        }
         await this.wallet.creditOrderCancellation(
           {
             brandId: order.brandId,
+            agencyId: order.agencyId,
             orderId: order.id,
             amountPaise: order.expectedAmountPaise,
             reason: params.note,
@@ -2352,23 +2427,23 @@ export class OrdersService {
     trackingId?: string | null;
     dispatchDateYmd: string;
   }): Promise<void> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         status: true,
         requiresPhysicalProductShipment: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id)
-      throw new ForbiddenException('Not your order');
+    this.brandAccess.assertOwnsOrder(order, actor);
     if (!order.requiresPhysicalProductShipment) {
       throw new BadRequestException(
         'This order does not require physical shipment to the creator',
@@ -2735,6 +2810,14 @@ export class OrdersService {
           assets: assets as any,
           note: params.dto.note?.trim() || null,
           previewStatus: 'pending',
+          // A resubmit is new work on new files, so it gets a fresh retry
+          // budget. Without this reset the row keeps the attempts spent on the
+          // PREVIOUS video, and since WatermarkQueueService now parks an
+          // over-budget claim as `dead` instead of running it, an inherited
+          // exhausted counter would park this upload terminally the moment it
+          // is picked up — no preview, and the order never reaches DELIVERED.
+          previewAttempts: 0,
+          previewUpdatedAt: new Date(),
         },
         select: { id: true },
       });
@@ -2754,7 +2837,17 @@ export class OrdersService {
     };
   }
 
-  /** Block re-submit while watermarked previews are still being generated. */
+  /**
+   * Block re-submit while the watermarked preview copies are still being
+   * generated for this order+revision.
+   *
+   * The message is deliberately written for a creator, not an engineer: the
+   * "preview" is something WE generate from the file she already sent (the
+   * brand reviews a watermarked copy until they accept), so phrasing it as
+   * "wait for previews to finish" reads as if the file she is holding was
+   * rejected. It is about her PREVIOUS upload, and because this guard also runs
+   * on the presign step it fires before the new file is even sent.
+   */
   private async assertDeliveryNotProcessing(
     orderId: string,
     revisionNumber: number,
@@ -2770,7 +2863,8 @@ export class OrdersService {
       delivery?.previewStatus === 'processing'
     ) {
       throw new BadRequestException(
-        'Your delivery is still being processed. Please wait for previews to finish.',
+        "Your content is already submitted — we're finishing up. No need to " +
+          'upload it again.',
       );
     }
   }
@@ -2781,25 +2875,24 @@ export class OrdersService {
     brandProfileId?: string | null;
     note?: string | null;
   }): Promise<void> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order: any = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         status: true,
         revisionCount: true,
         maxRevisionsSnapshot: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id)
-      throw new ForbiddenException('Not your order');
-
+    this.brandAccess.assertOwnsOrder(order, actor);
     const allowed = new Set(['DELIVERED', 'REVISION_SUBMITTED']);
     if (!allowed.has(String(order.status))) {
       throw new BadRequestException(
@@ -2886,16 +2979,17 @@ export class OrdersService {
     quantity?: number;
   }): Promise<CheckoutSessionResult> {
     const quantity = Math.max(1, Math.floor(params.quantity ?? 1));
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         creatorId: true,
         status: true,
         currency: true,
@@ -2904,9 +2998,7 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) {
-      throw new ForbiddenException('Not your order');
-    }
+    this.brandAccess.assertOwnsOrder(order, actor);
 
     // Same eligibility as requesting a revision, and only once the cap is hit.
     const allowed = new Set(['DELIVERED', 'REVISION_SUBMITTED']);
@@ -2974,7 +3066,7 @@ export class OrdersService {
           kind: 'revision_topup',
           revisionPurchaseId: purchase.id,
           platformOrderId: order.id,
-          brandProfileId: brand.id,
+          brandProfileId: actor.brandId ?? actor.agencyId!,
           creatorProfileId: order.creatorId,
         },
       });
@@ -3130,25 +3222,24 @@ export class OrdersService {
     quantity?: number;
   }): Promise<CheckoutSessionResult> {
     const quantity = Math.max(1, Math.floor(params.quantity ?? 1));
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         creatorId: true,
         status: true,
         currency: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) {
-      throw new ForbiddenException('Not your order');
-    }
+    this.brandAccess.assertOwnsOrder(order, actor);
 
     // Only offered once the order has completed successfully.
     const allowed = new Set(['ACCEPTED', 'CREATOR_PAYMENT_DONE']);
@@ -3215,7 +3306,7 @@ export class OrdersService {
           kind: 'usage_rights_topup',
           usageRightsPurchaseId: purchase.id,
           platformOrderId: order.id,
-          brandProfileId: brand.id,
+          brandProfileId: actor.brandId ?? actor.agencyId!,
           creatorProfileId: order.creatorId,
         },
       });
@@ -3339,15 +3430,19 @@ export class OrdersService {
       select: {
         id: true,
         brandId: true,
+        agencyId: true,
         creatorId: true,
         brand: { select: { userId: true } },
+        agency: { select: { ownerUserId: true } },
         creator: { select: { userId: true } },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
 
     const isAdminUser = await this.isAdminUser(params.viewerUserId);
-    const isBrand = order.brand.userId === params.viewerUserId;
+    const brandActorUserId =
+      order.agency?.ownerUserId ?? order.brand?.userId ?? null;
+    const isBrand = brandActorUserId === params.viewerUserId;
     const isCreator = order.creator.userId === params.viewerUserId;
     if (!isBrand && !isCreator && !isAdminUser) {
       throw new ForbiddenException('Not your order');
@@ -3400,8 +3495,11 @@ export class OrdersService {
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
     requiresPhysicalProductShipment: boolean;
+    productReceivedAt: Date | null;
     deliveryDueAt: Date | null;
     deliveryGraceDeadlineAt: Date | null;
+    deliveredAt: Date | null;
+    revisionCount: number;
     createdAt: Date;
     updatedAt: Date;
     refundedAt?: Date | null;
@@ -3413,9 +3511,26 @@ export class OrdersService {
       resolvedAt: Date | null;
       openedBy: OrderDisputeOpenedBy;
     }>;
+    revisions?: Array<{
+      revisionNumber: number;
+      note: string | null;
+      createdAt: Date;
+    }>;
   }): OrderListSummaryDto {
     const hasBrief = order.briefSubmittedAt != null;
     const latestDispute = order.disputes?.[0];
+    // Mirrors attachRevisionSnapshots on the details path: the in-flight
+    // revision is the one numbered revisionCount, and only while the order is
+    // actually in a revision state. The list selects the highest-numbered row,
+    // which is that one. Without it a list card cannot date a revision — the
+    // revision clock runs from requestedAt, not from the order's own due date.
+    const revisionActive =
+      String(order.status) === 'REVISION_REQUESTED' ||
+      String(order.status) === 'REVISION_SUBMITTED';
+    const currentRevision =
+      revisionActive && order.revisionCount > 0
+        ? order.revisions?.find((r) => r.revisionNumber === order.revisionCount)
+        : undefined;
     return {
       id: order.id,
       status: order.status,
@@ -3430,8 +3545,20 @@ export class OrdersService {
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
       hasBrief,
       ...(hasBrief && order.briefId ? { briefId: order.briefId } : {}),
+      productReceivedAt: order.productReceivedAt,
       deliveryDueAt: order.deliveryDueAt,
       deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
+      deliveredAt: order.deliveredAt,
+      revisionCount: order.revisionCount,
+      ...(currentRevision
+        ? {
+            currentRevision: {
+              revisionNumber: currentRevision.revisionNumber,
+              note: currentRevision.note ?? null,
+              requestedAt: currentRevision.createdAt,
+            },
+          }
+        : {}),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       refundedAt: order.refundedAt ?? null,
@@ -3688,16 +3815,17 @@ export class OrdersService {
     actorUserId: string;
     brandProfileId?: string | null;
   }): Promise<BrandOrderDetailsResponseDto> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order: any = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         status: true,
         packageNameSnapshot: true,
         deliverablesSnapshot: true,
@@ -3770,9 +3898,7 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id)
-      throw new ForbiddenException('Not your order');
-
+    this.brandAccess.assertOwnsOrder(order, actor);
     const { creator, brandId, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetails(orderFields);
     const creatorLanguages = Array.isArray(creator.profileLanguages)
@@ -3908,13 +4034,23 @@ export class OrdersService {
         brand: {
           select: orderBrandSnapshotSelect,
         },
+        agency: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+          },
+        },
+        briefRef: {
+          select: { brandName: true },
+        },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.creatorId !== creator.id)
       throw new ForbiddenException('Not your order');
 
-    const { brand, creatorId, ...orderFields } = order;
+    const { brand, agency, creatorId, briefRef, ...orderFields } = order;
     const mappedOrder = this.mapOrderDetails(orderFields);
 
     await this.attachRevisionSnapshots(mappedOrder, order);
@@ -3925,9 +4061,16 @@ export class OrdersService {
     const dispute = await this.loadLatestDispute(order.id);
     if (dispute) mappedOrder.dispute = dispute;
 
+    const buyerSnapshot = agency
+      ? toAgencyOrderSnapshotDto({
+          agency,
+          clientBrandName: briefRef?.brandName ?? null,
+        })
+      : toOrderBrandSnapshotDto(brand);
+
     return {
       order: mappedOrder,
-      brand: toOrderBrandSnapshotDto(brand),
+      brand: buyerSnapshot,
     };
   }
 
@@ -3936,19 +4079,18 @@ export class OrdersService {
     actorUserId: string;
     brandProfileId?: string | null;
   }): Promise<OrderDeliveriesResponseDto> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true, acceptedAt: true },
+      select: { id: true, brandId: true, agencyId: true, acceptedAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id)
-      throw new ForbiddenException('Not your order');
-
+    this.brandAccess.assertOwnsOrder(order, actor);
     const [rows, revisions]: [any[], any[]] = await Promise.all([
       (this.prisma as any).orderDelivery.findMany({
         where: { orderId: order.id },
@@ -4087,10 +4229,14 @@ export class OrdersService {
           assets: true,
           note: true,
           createdAt: true,
+          previewStatus: true,
+          previewAttempts: true,
+          previewUpdatedAt: true,
           order: {
             select: {
               id: true,
               status: true,
+              acceptedAt: true,
               brand: {
                 select: {
                   brandName: true,
@@ -4103,6 +4249,26 @@ export class OrdersService {
       }),
     ]);
 
+    // On-read recovery, mirroring the brand path (listDeliveriesForBrand). The
+    // creator is blocked from re-submitting while her delivery sits in
+    // `pending`/`processing` (see assertDeliveryNotProcessing), so if a Redis
+    // failure stranded the watermark job she is the person most hurt by it and
+    // the one most likely to be looking. Re-drive it now that she is on the
+    // page rather than making her wait for the hourly backstop. Fire-and-forget
+    // no-op unless the row is genuinely owed and within its attempt budget.
+    const previewRows = rows as Array<{
+      id: string;
+      previewStatus: string | null;
+      previewAttempts: number;
+      previewUpdatedAt: Date | null;
+      order: { acceptedAt: Date | null } | null;
+    }>;
+    for (const row of previewRows) {
+      if (!row.order?.acceptedAt) {
+        this.watermarkQueue.redriveOnReadIfOwed(row);
+      }
+    }
+
     const items: CreatorDeliveryItemDto[] = rows.map((r: any) => ({
       id: r.id,
       orderId: r.orderId,
@@ -4110,6 +4276,7 @@ export class OrdersService {
       assets: mapDeliveryAssets(r.assets),
       note: r.note ?? null,
       createdAt: r.createdAt,
+      previewStatus: String(r.previewStatus),
       order: {
         id: r.order.id,
         status: String(r.order.status),
@@ -4348,16 +4515,17 @@ export class OrdersService {
     limit?: number;
     status?: OrderStatus;
   }): Promise<BrandOrdersListResponseDto> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
     const where: Prisma.OrderWhereInput = {
-      brandId: brand.id,
+      ...owner,
       ...(params.status ? { status: params.status } : {}),
     };
 
@@ -4381,8 +4549,11 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
+          productReceivedAt: true,
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
+          deliveredAt: true,
+          revisionCount: true,
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
@@ -4394,6 +4565,13 @@ export class OrdersService {
             orderBy: { openedAt: 'desc' },
             take: 1,
             select: { openedAt: true, resolvedAt: true, openedBy: true },
+          },
+          // Highest-numbered revision == the in-flight one (revisionCount).
+          // One batched relation load for the page, not a query per row.
+          revisions: {
+            orderBy: { revisionNumber: 'desc' },
+            take: 1,
+            select: { revisionNumber: true, note: true, createdAt: true },
           },
           creator: {
             select: {
@@ -4467,8 +4645,11 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
+          productReceivedAt: true,
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
+          deliveredAt: true,
+          revisionCount: true,
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
@@ -4481,18 +4662,41 @@ export class OrdersService {
             take: 1,
             select: { openedAt: true, resolvedAt: true, openedBy: true },
           },
+          // Highest-numbered revision == the in-flight one (revisionCount).
+          // One batched relation load for the page, not a query per row.
+          revisions: {
+            orderBy: { revisionNumber: 'desc' },
+            take: 1,
+            select: { revisionNumber: true, note: true, createdAt: true },
+          },
           brand: {
             select: orderBrandSnapshotSelect,
+          },
+          agency: {
+            select: {
+              id: true,
+              name: true,
+              logoUrl: true,
+            },
+          },
+          briefRef: {
+            select: { brandName: true },
           },
         },
       }),
     ]);
 
     const items: CreatorOrderListItemDto[] = rows.map((r) => {
-      const { brand, ...orderFields } = r;
+      const { brand, agency, briefRef, ...orderFields } = r;
+      const buyerSnapshot = agency
+        ? toAgencyOrderSnapshotDto({
+            agency,
+            clientBrandName: briefRef?.brandName ?? null,
+          })
+        : toOrderBrandSnapshotDto(brand);
       return {
         order: this.mapOrderListSummary(orderFields),
-        brand: toOrderBrandSnapshotDto(brand),
+        brand: buyerSnapshot,
       };
     });
 
@@ -4503,18 +4707,19 @@ export class OrdersService {
     page?: number;
     limit?: number;
     brandId?: string;
+    agencyId?: string;
     statuses?: OrderStatus[];
   }): Promise<AdminOrdersListResponseDto> {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
 
-    // Base scope: the whole table, or a single brand's orders (admin brand-detail
-    // page). brandId is BrandProfile.id (== Order.brandId). Status-tab badges are
-    // counted over THIS scope, so they stay accurate regardless of pagination.
-    const baseWhere: Prisma.OrderWhereInput | undefined = params.brandId
-      ? { brandId: params.brandId }
-      : undefined;
+    // Base scope: the whole table, a single brand, or a single agency.
+    const baseWhere: Prisma.OrderWhereInput | undefined = params.agencyId
+      ? { agencyId: params.agencyId }
+      : params.brandId
+        ? { brandId: params.brandId }
+        : undefined;
 
     // The active status tab narrows the list (and its total) on top of the base
     // scope. The count badges deliberately ignore it — see statusCounts below.
@@ -4557,8 +4762,11 @@ export class OrdersService {
           briefSubmittedAt: true,
           briefAcceptedAt: true,
           requiresPhysicalProductShipment: true,
+          productReceivedAt: true,
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
+          deliveredAt: true,
+          revisionCount: true,
           createdAt: true,
           updatedAt: true,
           refundedAt: true,
@@ -4573,6 +4781,13 @@ export class OrdersService {
             take: 1,
             select: { openedAt: true, resolvedAt: true, openedBy: true },
           },
+          // Highest-numbered revision == the in-flight one (revisionCount).
+          // One batched relation load for the page, not a query per row.
+          revisions: {
+            orderBy: { revisionNumber: 'desc' },
+            take: 1,
+            select: { revisionNumber: true, note: true, createdAt: true },
+          },
           creator: {
             select: {
               id: true,
@@ -4585,6 +4800,12 @@ export class OrdersService {
           brand: {
             select: adminOrderBrandSnapshotSelect,
           },
+          agency: {
+            select: { id: true, name: true, logoUrl: true },
+          },
+          briefRef: {
+            select: { brandName: true },
+          },
         },
       }),
       statusCountsQuery,
@@ -4596,8 +4817,15 @@ export class OrdersService {
     }
 
     const items: AdminOrderListItemDto[] = rows.map((r) => {
-      const { creator, brand, cancelledByUser, briefAcceptedByUser, ...rest } =
-        r;
+      const {
+        creator,
+        brand,
+        agency,
+        briefRef,
+        cancelledByUser,
+        briefAcceptedByUser,
+        ...rest
+      } = r;
       return {
         order: this.mapOrderListSummary(rest),
         creator: {
@@ -4607,7 +4835,14 @@ export class OrdersService {
           profileImageUrl: creator.profileImageUrl ?? null,
           city: creator.city ?? null,
         },
-        brand: toAdminOrderBrandSnapshotDto(brand),
+        brand: brand
+          ? toAdminOrderBrandSnapshotDto(brand)
+          : agency
+            ? toAgencyOrderSnapshotDto({
+                agency,
+                clientBrandName: briefRef?.brandName,
+              })
+            : { id: '', brandName: null, logoUrl: null },
         cancelledByActor: this.mapOrderActionActor(cancelledByUser),
         briefAcceptedByActor: this.mapOrderActionActor(briefAcceptedByUser),
       };
@@ -4647,6 +4882,7 @@ export class OrdersService {
             productImageUrl: true,
             isProduct: true,
             willShipPhysicalProductToCreator: true,
+            wantsPhysicalProductReturned: true,
             shootLocationKind: true,
             shootLocationAddress: true,
             durationBucket: true,
@@ -4664,7 +4900,11 @@ export class OrdersService {
         brand: {
           select: {
             userId: true,
-            agency: { select: { ownerUserId: true } },
+          },
+        },
+        agency: {
+          select: {
+            ownerUserId: true,
           },
         },
         creator: { select: { userId: true } },
@@ -4673,7 +4913,7 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
 
     const brandActorUserId =
-      order.brand.userId ?? order.brand.agency?.ownerUserId ?? null;
+      order.agency?.ownerUserId ?? order.brand?.userId ?? null;
     const isParticipant =
       brandActorUserId === params.viewerUserId ||
       order.creator.userId === params.viewerUserId;
@@ -4711,6 +4951,8 @@ export class OrdersService {
           isProduct: order.briefRef.isProduct,
           willShipPhysicalProductToCreator:
             order.briefRef.willShipPhysicalProductToCreator,
+          wantsPhysicalProductReturned:
+            order.briefRef.wantsPhysicalProductReturned,
           shootLocationKind: order.briefRef.shootLocationKind ?? null,
           shootLocationAddress: order.briefRef.shootLocationAddress ?? null,
           durationBucket: order.briefRef.durationBucket ?? null,
@@ -4750,18 +4992,18 @@ export class OrdersService {
     brandProfileId?: string | null;
     orderId: string;
   }): Promise<void> {
-    const { brand } = await this.resolveBrandActor({
+    const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true, status: true, acceptedAt: true },
+      select: { id: true, brandId: true, agencyId: true, status: true, acceptedAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id)
-      throw new ForbiddenException('Not your order');
+    this.brandAccess.assertOwnsOrder(order, actor);
     if (order.acceptedAt) return;
 
     if (order.status !== 'DELIVERED' && order.status !== 'REVISION_SUBMITTED') {
@@ -4801,7 +5043,7 @@ export class OrdersService {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true, creatorId: true, status: true },
+      select: { id: true, brandId: true, agencyId: true, creatorId: true, status: true },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -4819,12 +5061,11 @@ export class OrdersService {
     }
 
     if (params.openedBy === 'BRAND') {
-      const { brand } = await this.resolveBrandActor({
+      const actor = await this.resolveBrandActor({
         actorUserId: params.openerUserId,
         brandProfileId: params.brandProfileId,
       });
-      if (order.brandId !== brand.id)
-        throw new ForbiddenException('Not your order');
+      this.brandAccess.assertOwnsOrder(order, actor);
     } else {
       const creator = await this.prisma.creatorProfile.findUnique({
         where: { userId: params.openerUserId },
@@ -4908,7 +5149,7 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true,
+        brandId: true, agencyId: true,
         creatorId: true,
         status: true,
         preDisputeStatus: true,
@@ -4917,12 +5158,11 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
 
     if (params.openedBy === 'BRAND') {
-      const { brand } = await this.resolveBrandActor({
+      const actor = await this.resolveBrandActor({
         actorUserId: params.openerUserId,
         brandProfileId: params.brandProfileId,
       });
-      if (order.brandId !== brand.id)
-        throw new ForbiddenException('Not your order');
+      this.brandAccess.assertOwnsOrder(order, actor);
     } else {
       const creator = await this.prisma.creatorProfile.findUnique({
         where: { userId: params.openerUserId },
@@ -5145,9 +5385,15 @@ export class OrdersService {
         },
       });
       if (shouldCredit) {
+        if (!order.brandId && !order.agencyId) {
+          throw new BadRequestException(
+            'Store credit refunds require a brand or agency order',
+          );
+        }
         await this.wallet.creditOrderCancellation(
           {
             brandId: order.brandId,
+            agencyId: order.agencyId,
             orderId: order.id,
             amountPaise: order.expectedAmountPaise,
             reason:

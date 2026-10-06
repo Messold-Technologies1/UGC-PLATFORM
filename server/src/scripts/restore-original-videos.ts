@@ -42,8 +42,25 @@
  *   # actually restore:
  *   APPLY=true node dist/scripts/restore-original-videos.js
  *
- * Env: APPLY=true to execute (default dry-run). Needs the usual app env
- * (DATABASE_URL, AWS_*, S3_BUCKET_NAME, CDN_BASE_URL).
+ * Re-runs & the delete-marker cutoff (IMPORTANT for reconnects):
+ *   When this script restores a video it also DELETES the old downscaled file.
+ *   The bucket is versioned, so that delete only adds a NEW delete marker — which
+ *   looks exactly like a "deleted original" to the next scan. Without a cutoff a
+ *   re-run would (a) re-count those tombstones (the "remaining" number climbs
+ *   instead of dropping) and (b) risk matching them back to already-restored rows
+ *   and undoing the recovery. Set RESTORE_ORIGINALS_DELETED_BEFORE to an instant
+ *   just before your FIRST restore run: the real originals were deleted by the old
+ *   normalization long before that, so anything delete-marked at/after it is this
+ *   script's own cleanup and is ignored. Exact contentHash (HASH) restores are
+ *   always safe; timestamp and intro restores only run when the cutoff is set.
+ *
+ * Env:
+ *   APPLY=true                        execute (default dry-run)
+ *   RESTORE_ORIGINALS_DELETED_BEFORE  ISO instant; ignore delete markers at/after
+ *                                     it (this script's own cleanup). Strongly
+ *                                     recommended for any re-run. Enables the
+ *                                     timestamp + intro restore paths.
+ * Needs the usual app env (DATABASE_URL, AWS_*, S3_BUCKET_NAME, CDN_BASE_URL).
  */
 import { createHash } from 'node:crypto';
 import type { Readable } from 'node:stream';
@@ -63,6 +80,21 @@ import { StorageModule } from '../storage/storage.module';
 import { StorageService } from '../storage/storage.service';
 
 const APPLY = process.env.APPLY === 'true';
+
+// Delete markers created at/after this instant are treated as tombstones this
+// restore itself produced (deleting the old downscaled file after repointing the
+// row), NOT as originals to recover. Set it to just before your first restore run
+// so re-runs after a reconnect don't re-count — or worse, "restore" — the files
+// this script deleted. When unset, only exact-content (HASH) portfolio restores
+// run; timestamp and intro restores are held back for safety.
+const DELETED_BEFORE = process.env.RESTORE_ORIGINALS_DELETED_BEFORE
+  ? new Date(process.env.RESTORE_ORIGINALS_DELETED_BEFORE)
+  : null;
+if (DELETED_BEFORE && Number.isNaN(DELETED_BEFORE.getTime())) {
+  throw new Error(
+    `RESTORE_ORIGINALS_DELETED_BEFORE is not a valid date: ${process.env.RESTORE_ORIGINALS_DELETED_BEFORE}`,
+  );
+}
 
 @Module({
   imports: [
@@ -101,6 +133,20 @@ async function main(): Promise<void> {
       ? 'APPLY=true — changes WILL be written to S3 and the database'
       : 'DRY RUN — no changes will be made (set APPLY=true to execute)',
   );
+  if (DELETED_BEFORE) {
+    logger.log(
+      `only recovering originals deleted before ${DELETED_BEFORE.toISOString()} — ` +
+        "newer delete markers are treated as this script's own cleanup",
+    );
+  } else {
+    logger.warn(
+      'RESTORE_ORIGINALS_DELETED_BEFORE is not set. On a re-run the "remaining" ' +
+        'count will include the downscaled files this script already deleted, and ' +
+        'timestamp + intro restores are disabled for safety (only exact contentHash ' +
+        'matches restore). Set it to just before your first restore run for an ' +
+        'accurate count and to re-enable those paths.',
+    );
+  }
 
   const app = await NestFactory.createApplicationContext(RestoreModule, {
     logger: ['error', 'warn', 'log'],
@@ -114,6 +160,7 @@ async function main(): Promise<void> {
     restored: 0,
     byHash: 0,
     byTimestamp: 0,
+    repaired: 0,
     manual: 0,
     errors: 0,
   };
@@ -168,6 +215,9 @@ async function main(): Promise<void> {
       versionIdMarker = res.NextVersionIdMarker;
     }
 
+    // Return EVERY delete-marked key (cutoff is applied by the caller). Repair
+    // needs the full set — a row pointing at a key the cutoff would hide still
+    // has to be undeleted.
     const out: DeletedOriginal[] = [];
     for (const [key, e] of versionsByKey) {
       if (!e.latestMarker || e.data.length === 0) continue; // live, or no bytes to restore
@@ -180,6 +230,12 @@ async function main(): Promise<void> {
       });
     }
     return out;
+  }
+
+  /** Delete markers older than the cutoff are genuine originals deleted by the
+   *  old normalization; newer ones are this restore's own cleanup tombstones. */
+  function isRestorable(d: DeletedOriginal): boolean {
+    return !DELETED_BEFORE || d.deletedAt < DELETED_BEFORE.getTime();
   }
 
   async function hashVersion(key: string, versionId: string): Promise<string> {
@@ -201,30 +257,70 @@ async function main(): Promise<void> {
     );
   }
 
-  // ── Portfolio videos ────────────────────────────────────────────────────
-  const creatorIds = (
+  // ── Phase 1: discover every deleted original up front (one listing pass) ──
+  // so we can report how many are still owed before touching anything. Each run
+  // only ever finds originals that STILL have a delete marker, so this number
+  // shrinks every run and is your resume/progress gauge.
+  const portfolioCreatorIds = (
     await prisma.creatorPortfolioVideo.findMany({
       select: { creatorId: true },
       distinct: ['creatorId'],
     })
   ).map((r) => r.creatorId);
 
-  logger.log(
-    `scanning ${creatorIds.length} creators for deleted portfolio originals`,
-  );
-
-  for (const creatorId of creatorIds) {
+  const portfolioByCreator = new Map<string, DeletedOriginal[]>();
+  for (const creatorId of portfolioCreatorIds) {
     const prefix = `creator-portfolio/${creatorId}/videos/`;
-    let deleted: DeletedOriginal[];
     try {
-      deleted = await listDeletedOriginals(prefix);
+      const deleted = await listDeletedOriginals(prefix);
+      if (deleted.length > 0) portfolioByCreator.set(creatorId, deleted);
     } catch (err) {
       stats.errors++;
       logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
-      continue;
     }
-    if (deleted.length === 0) continue;
+  }
 
+  const introCreators = await prisma.creatorProfile.findMany({
+    where: { introVideoKey: { not: null } },
+    select: { id: true, introVideoKey: true },
+  });
+  const introByCreator = new Map<
+    string,
+    { introVideoKey: string | null; deleted: DeletedOriginal[] }
+  >();
+  for (const c of introCreators) {
+    const prefix = `creator-profile/${c.id}/intro/`;
+    try {
+      const deleted = await listDeletedOriginals(prefix);
+      if (deleted.length > 0)
+        introByCreator.set(c.id, { introVideoKey: c.introVideoKey, deleted });
+    } catch (err) {
+      stats.errors++;
+      logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
+    }
+  }
+
+  const portfolioRemaining = [...portfolioByCreator.values()].reduce(
+    (n, d) => n + d.filter(isRestorable).length,
+    0,
+  );
+  const introRemaining = [...introByCreator.values()].reduce(
+    (n, e) => n + e.deleted.filter(isRestorable).length,
+    0,
+  );
+  const totalRemaining = portfolioRemaining + introRemaining;
+  let processed = 0;
+  logger.log(
+    `remaining to restore: ${totalRemaining} deleted original(s) — ` +
+      `${portfolioRemaining} portfolio across ${portfolioByCreator.size} creator(s), ` +
+      `${introRemaining} intro across ${introByCreator.size} creator(s)`,
+  );
+  if (totalRemaining === 0) {
+    logger.log('nothing left to restore — all originals are already live');
+  }
+
+  // ── Phase 2: restore ──────────────────────────────────────────────────────
+  for (const [creatorId, deleted] of portfolioByCreator) {
     const rows = await prisma.creatorPortfolioVideo.findMany({
       where: { creatorId },
       select: {
@@ -235,8 +331,45 @@ async function main(): Promise<void> {
       },
     });
 
-    const remainingRows = [...rows];
-    const remainingDeleted = [...deleted];
+    // REPAIR: finish interrupted restores. A row already repointed to an
+    // original whose delete marker was never removed (crash/kill between repoint
+    // and undelete) serves a 403 — the DB advertises a key S3 still considers
+    // deleted. Just undelete it; the row already claims this exact key, so no
+    // matching is needed and the cutoff doesn't apply.
+    const repairedKeys = new Set<string>();
+    for (const row of rows) {
+      if (!row.videoKey) continue;
+      const marked = deleted.find((d) => d.key === row.videoKey);
+      if (!marked) continue;
+      repairedKeys.add(marked.key);
+      stats.repaired++;
+      logger.log(
+        `REPAIR: ${marked.key} → row ${row.id} repointed but still delete-marked; undeleting${APPLY ? '' : ' [dry-run]'}`,
+      );
+      if (APPLY) {
+        await undelete(marked).catch((err) => {
+          stats.errors++;
+          logger.error(
+            `repair undelete failed for ${marked.key}: ${(err as Error)?.message}`,
+          );
+        });
+        await prisma.creatorProfile
+          .update({
+            where: { id: creatorId },
+            data: { previewVideoStatus: 'pending', previewVideoAttempts: 0 },
+          })
+          .catch(() => undefined);
+      }
+    }
+
+    // Rows already pointing at a (now-repaired) key are done; restore only the
+    // rest, and only against genuine pre-campaign originals.
+    const remainingRows = rows.filter(
+      (r) => !(r.videoKey && repairedKeys.has(r.videoKey)),
+    );
+    const remainingDeleted = deleted.filter(
+      (d) => isRestorable(d) && !repairedKeys.has(d.key),
+    );
 
     // PRIMARY: exact contentHash match.
     for (const orig of [...remainingDeleted]) {
@@ -262,10 +395,13 @@ async function main(): Promise<void> {
     );
     if (remainingDeleted.length > 0) {
       if (
+        DELETED_BEFORE &&
         remainingDeleted.length === restoreCandidates.length &&
         restoreCandidates.length > 0
       ) {
         // Pair each leftover original to the row whose normalize time is closest.
+        // Only safe with a cutoff set, so this script's own delete tombstones are
+        // already excluded and can't be paired back onto restored rows.
         const pool = [...restoreCandidates];
         for (const orig of remainingDeleted) {
           pool.sort(
@@ -284,7 +420,11 @@ async function main(): Promise<void> {
         for (const orig of remainingDeleted) {
           stats.manual++;
           logger.warn(
-            `MANUAL: ${orig.key} (creator ${creatorId}) — no contentHash match and leftover counts don't line up (${remainingDeleted.length} originals vs ${restoreCandidates.length} rows)`,
+            `MANUAL: ${orig.key} (creator ${creatorId}) — ${
+              !DELETED_BEFORE
+                ? 'timestamp matching disabled (set RESTORE_ORIGINALS_DELETED_BEFORE to enable)'
+                : `no contentHash match and leftover counts don't line up (${remainingDeleted.length} originals vs ${restoreCandidates.length} rows)`
+            }`,
           );
         }
       }
@@ -312,8 +452,9 @@ async function main(): Promise<void> {
       if (APPLY) await undelete(orig).catch(() => undefined);
       return;
     }
+    processed++;
     logger.log(
-      `${confidence}: restore ${orig.key} → row ${row.id} (was ${staleKey})${APPLY ? '' : ' [dry-run]'}`,
+      `${confidence}: restore ${orig.key} → row ${row.id} (${processed}/${totalRemaining})${APPLY ? '' : ' [dry-run]'}`,
     );
     if (!APPLY) {
       countRestore(confidence);
@@ -352,35 +493,56 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── Intro videos ─────────────────────────────────────────────────────────
-  const introCreators = await prisma.creatorProfile.findMany({
-    where: { introVideoKey: { not: null } },
-    select: { id: true, introVideoKey: true },
-  });
-  logger.log(
-    `scanning ${introCreators.length} creators for deleted intro originals`,
-  );
+  // ── Phase 2 (intro) ────────────────────────────────────────────────────
+  for (const [introCreatorId, entry] of introByCreator) {
+    const c = { id: introCreatorId, introVideoKey: entry.introVideoKey };
 
-  for (const c of introCreators) {
-    const prefix = `creator-profile/${c.id}/intro/`;
-    let deleted: DeletedOriginal[];
-    try {
-      deleted = await listDeletedOriginals(prefix);
-    } catch (err) {
-      stats.errors++;
-      logger.error(`list failed for ${prefix}: ${(err as Error)?.message}`);
+    // REPAIR: the profile already points at this intro key but it's still
+    // delete-marked (interrupted restore → 403). Undelete it; no matching or
+    // cutoff needed, the profile already claims this exact key.
+    const markedCurrent = c.introVideoKey
+      ? entry.deleted.find((d) => d.key === c.introVideoKey)
+      : undefined;
+    if (markedCurrent) {
+      stats.repaired++;
+      logger.log(
+        `REPAIR (intro): ${markedCurrent.key} → creator ${c.id} repointed but still delete-marked; undeleting${APPLY ? '' : ' [dry-run]'}`,
+      );
+      if (APPLY) {
+        await undelete(markedCurrent).catch((err) => {
+          stats.errors++;
+          logger.error(
+            `repair undelete failed for ${markedCurrent.key}: ${(err as Error)?.message}`,
+          );
+        });
+        await prisma.creatorProfile
+          .update({
+            where: { id: c.id },
+            data: { previewVideoStatus: 'pending', previewVideoAttempts: 0 },
+          })
+          .catch(() => undefined);
+      }
       continue;
     }
-    if (deleted.length === 0) continue;
-    // One intro per creator: the most recently deleted original is the pre-swap
-    // intro we want back.
-    const orig = deleted.sort((a, b) => b.deletedAt - a.deletedAt)[0];
-    if (c.introVideoKey === orig.key) {
-      if (APPLY) await undelete(orig).catch(() => undefined);
+
+    // RESTORE: one intro per creator; the most recently deleted RESTORABLE
+    // original is the pre-swap intro we want back.
+    const restorable = entry.deleted.filter(isRestorable);
+    if (restorable.length === 0) continue;
+    const orig = restorable.sort((a, b) => b.deletedAt - a.deletedAt)[0];
+    // Without a cutoff, "most recently deleted" could be this script's own
+    // tombstone (deleting the old downscaled intro), which is always newer than
+    // the genuine original — restoring it would re-break the intro. Hold back.
+    if (!DELETED_BEFORE) {
+      stats.manual++;
+      logger.warn(
+        `MANUAL (intro): ${orig.key} → creator ${c.id} — set RESTORE_ORIGINALS_DELETED_BEFORE to enable intro restore safely`,
+      );
       continue;
     }
+    processed++;
     logger.log(
-      `INTRO: restore ${orig.key} → creator ${c.id} (was ${c.introVideoKey})${APPLY ? '' : ' [dry-run]'}`,
+      `INTRO: restore ${orig.key} → creator ${c.id} (was ${c.introVideoKey}) (${processed}/${totalRemaining})${APPLY ? '' : ' [dry-run]'}`,
     );
     if (!APPLY) {
       stats.restored++;
@@ -413,7 +575,8 @@ async function main(): Promise<void> {
 
   logger.log(
     `${APPLY ? 'restore complete' : 'dry run complete'}: ${stats.restored} restored ` +
-      `(hash=${stats.byHash} timestamp=${stats.byTimestamp}), ${stats.manual} need manual review, ${stats.errors} errors`,
+      `(hash=${stats.byHash} timestamp=${stats.byTimestamp}), ${stats.repaired} repaired ` +
+      `(interrupted undelete), ${stats.manual} need manual review, ${stats.errors} errors`,
   );
   await app.close();
 }

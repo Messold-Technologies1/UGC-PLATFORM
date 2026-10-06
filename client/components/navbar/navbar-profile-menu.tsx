@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LogOut, Shield, UserRound } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -16,8 +16,10 @@ import {
   getInitialsFromUser,
 } from "@/lib/account-user";
 import { Spinner } from "@/components/ui/spinner";
-import type { WorkspaceRole } from "@/features/auth/hooks/use-me-query";
-import { workspaceAccountHref } from "@/features/auth/lib/workspace-menu";
+import {
+  resolveActiveWorkspace,
+  workspaceAccountHref,
+} from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
 import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog";
 
@@ -30,30 +32,32 @@ export function NavbarProfileMenu({
 }) {
   const { user, logout, isLoggingOut } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
 
   if (!user) return null;
 
   const display = getDisplayNameFromUser(user);
   const initials = getInitialsFromUser(user);
-  const activeWorkspace: WorkspaceRole | null =
-    pathname === "/brand" || pathname.startsWith("/brand/")
-      ? "BRAND"
-      : pathname === "/creator" || pathname.startsWith("/creator/")
-        ? "CREATOR"
-        : (user.primaryRole ?? null);
-  const brandProfileHref = workspaceAccountHref("BRAND");
-  const creatorProfileHref = workspaceAccountHref("CREATOR");
+  const activeWorkspace = resolveActiveWorkspace(pathname, user);
+  const profileHref =
+    activeWorkspace === "BRAND" ||
+    activeWorkspace === "AGENCY" ||
+    activeWorkspace === "CREATOR"
+      ? workspaceAccountHref(activeWorkspace)
+      : workspaceAccountHref("CREATOR");
   const isBrandPath =
-    pathname === brandProfileHref || pathname.startsWith("/brand/");
+    pathname === "/brand/settings/profile" || pathname.startsWith("/brand/");
+  const isAgencyPath =
+    pathname === "/agency/settings/profile" || pathname.startsWith("/agency/");
   const isCreatorPath =
-    pathname === creatorProfileHref || pathname.startsWith("/creator/");
+    pathname === "/creator/account" || pathname.startsWith("/creator/");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const showPasswordSecurity =
     !pathname.startsWith("/admin") &&
     (isBrandPath ||
+      isAgencyPath ||
       isCreatorPath ||
       activeWorkspace === "BRAND" ||
+      activeWorkspace === "AGENCY" ||
       activeWorkspace === "CREATOR");
 
   const wrapNavigate = (fn?: () => void) => () => {
@@ -97,16 +101,11 @@ export function NavbarProfileMenu({
                 )}
               >
                 <Link
-                  href={
-                    activeWorkspace === "BRAND"
-                      ? brandProfileHref
-                      : creatorProfileHref
-                  }
+                  href={profileHref}
                   className={cn(
                     accountMenuItemClass,
                     "w-full",
-                    (pathname === brandProfileHref ||
-                      pathname === creatorProfileHref) &&
+                    pathname === profileHref &&
                       "bg-accent/80 text-accent-foreground",
                   )}
                   onClick={wrapNavigate()}
@@ -205,17 +204,12 @@ export function NavbarProfileMenu({
                 {!pathname.startsWith("/admin") && (
                   <>
                     <Link
-                      href={
-                        activeWorkspace === "BRAND"
-                          ? brandProfileHref
-                          : creatorProfileHref
-                      }
+                      href={profileHref}
                       role="menuitem"
                       className={cn(
                         accountMenuItemClass,
                         "w-full",
-                        (pathname === brandProfileHref ||
-                          pathname === creatorProfileHref) &&
+                        pathname === profileHref &&
                           "bg-accent/80 text-accent-foreground",
                       )}
                     >

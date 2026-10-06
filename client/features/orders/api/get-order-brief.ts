@@ -18,6 +18,7 @@ export interface OrderBriefPayload {
   productPageUrl?: string | null;
   isProduct: boolean;
   willShipPhysicalProductToCreator: boolean;
+  wantsPhysicalProductReturned: boolean;
   shootLocationKind?: string | null;
   shootLocationAddress?: string | null;
   durationBucket?: string | null;

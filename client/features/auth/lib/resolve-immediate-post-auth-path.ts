@@ -11,7 +11,7 @@ export function resolveImmediatePostAuthPath(
   user: AuthUser,
   callbackUrl: string | null,
 ): string {
-  // Signed up (Google or email+password) but hasn't picked creator/brand yet —
+  // Signed up (Google or email+password) but hasn't picked a workspace role yet —
   // send them to the post-signup role-choice step, preserving any callback.
   if (user.roles.length === 0 && !user.primaryRole) {
     return `/onboarding/role${
@@ -25,6 +25,17 @@ export function resolveImmediatePostAuthPath(
 
   if (user.primaryRole === "ADMIN") {
     return "/admin";
+  }
+
+  if (
+    (user.primaryRole === "AGENCY" || user.roles.includes("AGENCY")) &&
+    !user.hasAgencyProfile
+  ) {
+    return `/onboarding/agency${
+      callbackUrl
+        ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
+        : ""
+    }`;
   }
 
   // Brand Google signup / incomplete brand: finish brand name (+ optional phone/logo).

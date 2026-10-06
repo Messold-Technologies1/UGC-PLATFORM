@@ -173,8 +173,9 @@ export function UnifiedSignupForm() {
 
   const handleGoogle = useCallback(() => {
     setGoogleLoading(true);
-    // No role param: the user chooses creator/brand after Google returns. The
-    // Terms of Service / Privacy Policy consent is collected on that screen.
+    // No role param: the user chooses creator/brand/agency after Google
+    // returns. The Terms of Service / Privacy Policy consent is collected on
+    // that screen.
     startGoogleOAuth({ callbackUrl });
   }, [callbackUrl]);
 
@@ -206,7 +207,7 @@ export function UnifiedSignupForm() {
         Create your account
       </h2>
       <p className="mt-1.5 mb-4 text-[13px] text-[#8B8489]">
-        Start with email — you’ll choose Creator or Brand next.
+        Start with email — you’ll choose Creator, Brand, or Agency next.
       </p>
 
       <form

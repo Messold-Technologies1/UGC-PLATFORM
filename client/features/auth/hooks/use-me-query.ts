@@ -33,6 +33,8 @@ export type AuthUser = {
   creatorProfileComplete?: boolean;
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
+  /** Set when the user owns an agency profile. */
+  agencyProfileId?: string | null;
   activeBrandProfileId: string | null;
   accessibleBrands: AccessibleBrandSummary[];
   /** Whether this admin can open Settings and create other admin users. */

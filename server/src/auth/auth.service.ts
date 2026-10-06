@@ -13,7 +13,6 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
-import type { RegisterAgencyDto } from './dto/register-agency.dto';
 import { SignupRegistrationService } from './signup-registration.service';
 import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { PhoneVerificationService } from './phone-verification.service';
@@ -46,6 +45,7 @@ export type MeUser = {
   hasCreatorProfile: boolean;
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
+  agencyProfileId: string | null;
   activeBrandProfileId: string | null;
   accessibleBrands: MeBrandSummary[];
   /** Present when `roles` includes CREATOR; null if no creator profile yet. */
@@ -89,11 +89,7 @@ type MeLookupUser = {
     brandName: string | null;
     logoUrl: string | null;
   } | null;
-  ownedAgency: {
-    id: string;
-    lastActiveBrandProfileId: string | null;
-    brands: MeBrandSummary[];
-  } | null;
+  ownedAgency: { id: string } | null;
 };
 
 const ME_WORKSPACE_ROLES = ['CREATOR', 'BRAND', 'ADMIN', 'AGENCY'] as const;
@@ -310,24 +306,13 @@ export class AuthService {
     return { user: me, accessToken, refreshToken, expiresIn };
   }
 
-  async registerAgency(
-    dto: RegisterAgencyDto,
-    meta?: { ipAddress?: string; userAgent?: string },
-  ): Promise<AuthResult> {
-    const userId = await this.signupRegistration.registerAgencyUser(dto);
-    this.logger.log(
-      `[auth] register success role=AGENCY userId=${userId} ip=${meta?.ipAddress ?? 'n/a'}`,
-    );
-    return this.authResultAfterSignup(userId, meta);
-  }
-
   /**
-   * Post-signup "choose your role" step. Attaches CREATOR or BRAND to an
-   * already-authenticated account that signed up (via Google or email+password)
-   * without a role. CREATOR also gets a creator profile so the client can drop
-   * them straight onto Edit Profile; BRAND gets the role only and the client
-   * routes to the brand setup screen to collect brand details. The one
-   * email = one workspace role rule is enforced (a cross-role attempt throws
+   * Post-signup "choose your role" step. Attaches CREATOR, BRAND, or AGENCY to
+   * an already-authenticated account that signed up (via Google or
+   * email+password) without a role. CREATOR also gets a creator profile so the
+   * client can drop them straight onto Edit Profile; BRAND/AGENCY may continue
+   * to a setup step when they still need profile details. The one email = one
+   * workspace role rule is enforced (a cross-role attempt throws
    * ConflictException). Returns the refreshed `me` payload.
    *
    * `meta` carries the Meta attribution identifiers captured in the user's own
@@ -337,12 +322,12 @@ export class AuthService {
    */
   async onboardWorkspaceRole(
     userId: string,
-    role: Extract<RoleName, 'CREATOR' | 'BRAND'>,
+    role: Extract<RoleName, 'CREATOR' | 'BRAND' | 'AGENCY'>,
     meta?: MetaBrowserAttribution,
   ): Promise<MeUser> {
     if (role === RoleName.CREATOR) {
       await this.signupRegistration.onboardExistingUserAsCreator(userId, meta);
-    } else {
+    } else if (role === RoleName.BRAND) {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -367,6 +352,10 @@ export class AuthService {
           forcePrimary: true,
         });
       }
+    } else {
+      await this.ensureUserHasRole(userId, RoleName.AGENCY, {
+        forcePrimary: true,
+      });
     }
 
     this.logger.log(`[auth] onboard role=${role} userId=${userId}`);
@@ -416,8 +405,8 @@ export class AuthService {
     // (legacy per-role login forms), it must still match the account's primary
     // role. When omitted, the role is detected from the email and the client
     // routes by the account's primary role after login. A user with no
-    // workspace role yet (signed up but never chose creator/brand) logs in
-    // fine, and the client sends them to the role-choice step.
+    // workspace role yet (signed up but never chose creator/brand/agency)
+    // logs in fine, and the client sends them to the role-choice step.
     if (dto.role && user.primaryRole?.name !== dto.role) {
       this.logger.warn(
         `[auth] login failed reason=role_mismatch userId=${user.id} requestedRole=${dto.role} primaryRole=${user.primaryRole?.name ?? 'none'} ip=${meta?.ipAddress ?? 'n/a'}`,
@@ -569,7 +558,7 @@ export class AuthService {
 
   private async ensureUserHasRole(
     userId: string,
-    roleName: Extract<RoleName, 'BRAND' | 'CREATOR'>,
+    roleName: Extract<RoleName, 'BRAND' | 'CREATOR' | 'AGENCY'>,
     opts?: { forcePrimary?: boolean },
   ): Promise<void> {
     const role = await this.prisma.role.findUnique({
@@ -591,8 +580,9 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    // One email = one workspace role. Never attach CREATOR/BRAND on top of a
-    // different primary, and never force-switch primary between workspaces.
+    // One email = one workspace role. Never attach CREATOR/BRAND/AGENCY on top
+    // of a different primary, and never force-switch primary between
+    // workspaces.
     const primaryName = user.primaryRole?.name ?? null;
     if (
       primaryName &&
@@ -887,14 +877,7 @@ export class AuthService {
           select: { id: true, brandName: true, logoUrl: true },
         },
         ownedAgency: {
-          select: {
-            id: true,
-            lastActiveBrandProfileId: true,
-            brands: {
-              select: { id: true, brandName: true, logoUrl: true },
-              orderBy: { createdAt: 'asc' },
-            },
-          },
+          select: { id: true },
         },
       },
     })) as MeLookupUser | null;
@@ -926,24 +909,9 @@ export class AuthService {
         logoUrl: user.brandProfile.logoUrl,
       });
     }
-    if (user.ownedAgency?.brands?.length) {
-      for (const b of user.ownedAgency.brands) {
-        if (!accessibleBrands.some((x) => x.id === b.id)) {
-          accessibleBrands.push(b);
-        }
-      }
-    }
-
-    let activeBrandProfileId: string | null =
-      user.ownedAgency?.lastActiveBrandProfileId ?? null;
-    if (
-      activeBrandProfileId &&
-      !accessibleBrands.some((b) => b.id === activeBrandProfileId)
-    ) {
-      activeBrandProfileId = null;
-    }
-    if (!activeBrandProfileId && accessibleBrands.length === 1) {
-      activeBrandProfileId = accessibleBrands[0].id;
+    let activeBrandProfileId: string | null = null;
+    if (!user.ownedAgency && accessibleBrands.length === 1) {
+      activeBrandProfileId = accessibleBrands[0]!.id;
     }
 
     const me: MeUser = {
@@ -956,6 +924,7 @@ export class AuthService {
       hasCreatorProfile: !!user.creatorProfile,
       hasBrandProfile: !!user.brandProfile,
       hasAgencyProfile: !!user.ownedAgency,
+      agencyProfileId: user.ownedAgency?.id ?? null,
       activeBrandProfileId,
       accessibleBrands,
       canManageAdmins: isSuperAdminEmail(user.email),

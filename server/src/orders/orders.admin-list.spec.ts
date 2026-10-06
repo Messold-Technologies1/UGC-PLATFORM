@@ -76,13 +76,13 @@ describe('OrdersService.listOrdersForAdmin', () => {
     );
   });
 
-  it('scopes counts to a single brand when brandId is given', async () => {
+  it('scopes counts to a single agency when agencyId is given', async () => {
     const { service, groupBy } = makeService();
 
-    await service.listOrdersForAdmin({ brandId: 'brand-1' });
+    await service.listOrdersForAdmin({ agencyId: 'agency-1' });
 
     expect(groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { brandId: 'brand-1' } }),
+      expect.objectContaining({ where: { agencyId: 'agency-1' } }),
     );
   });
 });

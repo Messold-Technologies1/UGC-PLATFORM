@@ -33,9 +33,8 @@ import {
   WalletWithdrawalDto,
 } from './dto/wallet.dto';
 
-// Brand-facing "Credits" API. All endpoints resolve the acting brand from the
-// request (standalone owner or agency acting for a managed brand) exactly like
-// the orders/coupons brand endpoints do.
+// Brand/agency-facing "Credits" API. Resolves the acting buyer from the request
+// (standalone brand or agency owner) exactly like orders/coupons endpoints do.
 @ApiTags('Credits')
 @ApiBearerAuth()
 @Controller('wallet')
@@ -47,46 +46,44 @@ export class WalletController {
     private readonly brandAccess: BrandAccessService,
   ) {}
 
-  private async brandId(
-    req: Request & { user: { id: string } },
-  ): Promise<string> {
-    const { brand } = await this.brandAccess.resolveBrandContext(
+  private async creditOwner(req: Request & { user: { id: string } }) {
+    const actor = await this.brandAccess.resolveOrderActor(
       brandActorParams(req),
     );
-    return brand.id;
+    return { brandId: actor.brandId, agencyId: actor.agencyId };
   }
 
   @Get()
-  @ApiOperation({ summary: 'Current credit balance for the brand' })
+  @ApiOperation({ summary: 'Current credit balance for the brand or agency' })
   @ApiOkResponse({ type: WalletBalanceDto })
   async balance(
     @Req() req: Request & { user: { id: string } },
   ): Promise<WalletBalanceDto> {
-    return this.wallet.getBalance(await this.brandId(req));
+    return this.wallet.getBalance(await this.creditOwner(req));
   }
 
   @Get('transactions')
-  @ApiOperation({ summary: 'Credit transaction history for the brand' })
+  @ApiOperation({ summary: 'Credit transaction history for the brand or agency' })
   @ApiOkResponse({ type: [WalletTransactionDto] })
   async transactions(
     @Req() req: Request & { user: { id: string } },
     @Query('limit') limit?: string,
   ): Promise<WalletTransactionDto[]> {
     const rows = await this.wallet.getTransactions(
-      await this.brandId(req),
+      await this.creditOwner(req),
       limit ? Number(limit) : 50,
     );
     return rows.map((t) => WalletTransactionDto.from(t));
   }
 
   @Get('withdrawals')
-  @ApiOperation({ summary: "The brand's refund/withdrawal requests" })
+  @ApiOperation({ summary: "The buyer's refund/withdrawal requests" })
   @ApiOkResponse({ type: [WalletWithdrawalDto] })
   async withdrawals(
     @Req() req: Request & { user: { id: string } },
   ): Promise<WalletWithdrawalDto[]> {
     const rows = await this.wallet.listWithdrawalsForBrand(
-      await this.brandId(req),
+      await this.creditOwner(req),
     );
     return rows.map((w) => WalletWithdrawalDto.from(w));
   }
@@ -101,9 +98,9 @@ export class WalletController {
     @Req() req: Request & { user: { id: string } },
     @Body() dto: CreateWithdrawalDto,
   ): Promise<WalletWithdrawalDto> {
-    const brandId = await this.brandId(req);
+    const owner = await this.creditOwner(req);
     const withdrawal = await this.wallet.requestWithdrawal({
-      brandId,
+      ...owner,
       requestedByUserId: req.user.id,
       amountPaise: dto.amountPaise,
       brandNote: dto.brandNote ?? null,
@@ -119,10 +116,10 @@ export class WalletController {
     @Req() req: Request & { user: { id: string } },
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<WalletWithdrawalDto> {
-    const brandId = await this.brandId(req);
+    const owner = await this.creditOwner(req);
     const withdrawal = await this.wallet.cancelWithdrawalByBrand({
       withdrawalId: id,
-      brandId,
+      ...owner,
     });
     return WalletWithdrawalDto.from(withdrawal);
   }

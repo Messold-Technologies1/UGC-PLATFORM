@@ -39,7 +39,7 @@ export type ResolvedRecipient = {
   /** The account, for the User.status gate and for log attribution. */
   userId: string | null;
   /** Gates the per-profile opt-in booleans. Omitted for `alwaysSend` events. */
-  profileType?: 'creator' | 'brand';
+  profileType?: 'creator' | 'brand' | 'agency';
   profileId?: string;
   email: string | null;
   phone: string | null;

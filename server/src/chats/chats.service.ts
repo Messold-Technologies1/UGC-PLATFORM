@@ -185,10 +185,11 @@ export class ChatsService {
     page?: number;
     limit?: number;
   }): Promise<BrandChatsListResponseDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const brand = this.brandAccess.requireBrandProfile(ctx);
 
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);

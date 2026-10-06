@@ -20,6 +20,7 @@ export class CreateBriefDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   brandName?: string;
 
   @ApiPropertyOptional()
@@ -88,6 +89,15 @@ export class CreateBriefDto {
   @IsOptional()
   @IsBoolean()
   willShipPhysicalProductToCreator?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Set true if the buyer wants the physical product returned after the shoot. Only valid when willShipPhysicalProductToCreator is true. Return shipping is arranged by the brand/agency.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  wantsPhysicalProductReturned?: boolean;
 
   @ApiPropertyOptional({ enum: BriefShootLocationKind })
   @IsOptional()

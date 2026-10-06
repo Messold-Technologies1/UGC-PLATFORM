@@ -6,7 +6,28 @@ import {
 } from '@nestjs/common';
 import { RoleName } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { brandAccessSelect, type ResolvedBrandContext } from './brand-access.types';
+import {
+  brandAccessSelect,
+  type BrandAccessProfile,
+  type ResolvedAgencyContext,
+  type ResolvedBrandContext,
+} from './brand-access.types';
+
+export type ResolvedOrderActor = {
+  brand: BrandAccessProfile | null;
+  agency: (ResolvedAgencyContext & {
+    name: string;
+    logoUrl: string | null;
+    contactFullName: string;
+    contactEmail: string;
+    contactPhone: string | null;
+  }) | null;
+  brandId: string | null;
+  agencyId: string | null;
+  actorUserId: string;
+  brandActorUserId: string;
+  isAgencyWorkspace: boolean;
+};
 
 @Injectable()
 export class BrandAccessService {
@@ -25,30 +46,17 @@ export class BrandAccessService {
     return user.userRoles.some((ur) => ur.role.name === RoleName.ADMIN);
   }
 
-  brandActorUserId(brand: {
-    userId: string | null;
-    agency: { ownerUserId: string } | null;
-  }): string {
+  brandActorUserId(brand: { userId: string | null }): string {
     if (brand.userId) return brand.userId;
-    const ownerId = brand.agency?.ownerUserId;
-    if (!ownerId) {
-      throw new NotFoundException('Brand has no associated user');
-    }
-    return ownerId;
+    throw new NotFoundException('Brand has no associated user');
   }
 
   async getAgencyForOwner(ownerUserId: string) {
     return this.prisma.agency.findUnique({
       where: { ownerUserId },
-      include: {
-        brands: {
-          select: {
-            id: true,
-            brandName: true,
-            logoUrl: true,
-          },
-          orderBy: { createdAt: 'asc' },
-        },
+      select: {
+        id: true,
+        brandNames: true,
       },
     });
   }
@@ -57,12 +65,39 @@ export class BrandAccessService {
     actorUserId: string;
     brandProfileId?: string | null;
   }): Promise<ResolvedBrandContext> {
+    const actor = await this.resolveOrderActor(params);
+    return {
+      brand: actor.brand,
+      agency: actor.agency
+        ? { id: actor.agency.id, ownerUserId: actor.agency.ownerUserId }
+        : null,
+      brandProfileId: actor.brandId,
+      agencyId: actor.agencyId,
+      actorUserId: actor.actorUserId,
+      brandActorUserId: actor.brandActorUserId,
+      isAgencyWorkspace: actor.isAgencyWorkspace,
+    };
+  }
+
+  async resolveOrderActor(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+  }): Promise<ResolvedOrderActor> {
     const explicitId = params.brandProfileId?.trim() || null;
 
     if (explicitId) {
       const brand = await this.loadBrandById(explicitId);
       await this.assertActorCanAccessBrand(params.actorUserId, brand);
-      return this.toContext(brand, params.actorUserId);
+      const brandActorUserId = this.brandActorUserId(brand);
+      return {
+        brand,
+        agency: null,
+        brandId: brand.id,
+        agencyId: null,
+        actorUserId: params.actorUserId,
+        brandActorUserId,
+        isAgencyWorkspace: false,
+      };
     }
 
     const standalone = await this.prisma.brandProfile.findUnique({
@@ -70,70 +105,85 @@ export class BrandAccessService {
       select: brandAccessSelect,
     });
     if (standalone) {
-      return this.toContext(standalone, params.actorUserId);
+      const brandActorUserId = this.brandActorUserId(standalone);
+      return {
+        brand: standalone,
+        agency: null,
+        brandId: standalone.id,
+        agencyId: null,
+        actorUserId: params.actorUserId,
+        brandActorUserId,
+        isAgencyWorkspace: false,
+      };
     }
 
     const agency = await this.prisma.agency.findUnique({
       where: { ownerUserId: params.actorUserId },
       select: {
         id: true,
-        lastActiveBrandProfileId: true,
-        brands: { select: { id: true }, orderBy: { createdAt: 'asc' } },
+        ownerUserId: true,
+        name: true,
+        logoUrl: true,
+        contactFullName: true,
+        contactEmail: true,
+        contactPhone: true,
       },
     });
     if (!agency) {
       throw new NotFoundException('Brand profile not found');
     }
 
-    if (agency.brands.length === 0) {
-      throw new BadRequestException(
-        'No brand profiles under this agency. Create a brand first.',
-      );
-    }
+    return {
+      brand: null,
+      agency,
+      brandId: null,
+      agencyId: agency.id,
+      actorUserId: params.actorUserId,
+      brandActorUserId: agency.ownerUserId,
+      isAgencyWorkspace: true,
+    };
+  }
 
-    let targetId: string | null = agency.lastActiveBrandProfileId;
-    if (targetId && !agency.brands.some((b) => b.id === targetId)) {
-      targetId = null;
+  orderOwnerCreateData(actor: ResolvedOrderActor): {
+    brandId: string | null;
+    agencyId: string | null;
+  } {
+    if (actor.agencyId) {
+      return { brandId: null, agencyId: actor.agencyId };
     }
-    if (!targetId && agency.brands.length === 1) {
-      targetId = agency.brands[0]!.id;
+    if (actor.brandId) {
+      return { brandId: actor.brandId, agencyId: null };
     }
-    if (!targetId) {
-      throw new BadRequestException(
-        'Active brand is required. Select a brand or send X-Brand-Profile-Id.',
-      );
-    }
+    throw new BadRequestException('Order owner is required');
+  }
 
-    const brand = await this.loadBrandById(targetId);
-    return this.toContext(brand, params.actorUserId);
+  orderOwnerWhere(actor: ResolvedOrderActor): {
+    brandId?: string;
+    agencyId?: string;
+  } {
+    if (actor.agencyId) return { agencyId: actor.agencyId };
+    if (actor.brandId) return { brandId: actor.brandId };
+    throw new BadRequestException('Order owner is required');
+  }
+
+  assertOwnsOrder(
+    order: { brandId: string | null; agencyId: string | null },
+    actor: ResolvedOrderActor,
+  ): void {
+    if (actor.brandId && order.brandId === actor.brandId) return;
+    if (actor.agencyId && order.agencyId === actor.agencyId) return;
+    throw new ForbiddenException('Not your order');
   }
 
   private async assertActorCanAccessBrand(
     actorUserId: string,
     brand: {
       userId: string | null;
-      agencyId: string | null;
-      agency: { ownerUserId: string } | null;
     },
   ): Promise<void> {
     if (await this.isAdmin(actorUserId)) return;
     if (brand.userId === actorUserId) return;
-    if (brand.agency?.ownerUserId === actorUserId) return;
     throw new ForbiddenException('Not allowed to access this brand');
-  }
-
-  private toContext(
-    brand: Awaited<ReturnType<typeof this.loadBrandById>>,
-    actorUserId: string,
-  ): ResolvedBrandContext {
-    const brandActorUserId = this.brandActorUserId(brand);
-    return {
-      brand,
-      brandProfileId: brand.id,
-      actorUserId,
-      brandActorUserId,
-      isAgencyManaged: brand.agencyId != null,
-    };
   }
 
   private async loadBrandById(id: string) {
@@ -147,6 +197,18 @@ export class BrandAccessService {
     return brand;
   }
 
+  requireBrandProfile(ctx: ResolvedBrandContext | ResolvedOrderActor): BrandAccessProfile {
+    const brand = ctx.brand;
+    const brandId =
+      'brandProfileId' in ctx ? ctx.brandProfileId : ctx.brandId;
+    if (!brand || !brandId) {
+      throw new BadRequestException(
+        'This action requires a standalone brand profile.',
+      );
+    }
+    return brand;
+  }
+
   async resolveBrandActorUserIdForProfile(
     brandProfileId: string,
   ): Promise<string> {
@@ -154,12 +216,29 @@ export class BrandAccessService {
       where: { id: brandProfileId },
       select: {
         userId: true,
-        agency: { select: { ownerUserId: true } },
       },
     });
     if (!brand) {
       throw new NotFoundException('Brand profile not found');
     }
     return this.brandActorUserId(brand);
+  }
+
+  async resolveBuyerActorUserId(params: {
+    brandId?: string | null;
+    agencyId?: string | null;
+  }): Promise<string> {
+    if (params.agencyId) {
+      const agency = await this.prisma.agency.findUnique({
+        where: { id: params.agencyId },
+        select: { ownerUserId: true },
+      });
+      if (!agency) throw new NotFoundException('Agency not found');
+      return agency.ownerUserId;
+    }
+    if (params.brandId) {
+      return this.resolveBrandActorUserIdForProfile(params.brandId);
+    }
+    throw new NotFoundException('Order has no buyer');
   }
 }

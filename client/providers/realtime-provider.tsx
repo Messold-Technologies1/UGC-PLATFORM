@@ -178,7 +178,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         queryKey: ["orders", "brief", e.orderId],
       });
 
-      const creatorLabel = e.creatorName?.trim() || "Creator";
+      const creatorLabel = "Creator";
       const description = `${creatorLabel} accepted your brief`;
 
       toast.success("Brief accepted", {

@@ -13,6 +13,11 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  creditOwnerWhere,
+  normalizeCreditOwner,
+  type CreditOwner,
+} from './credit-owner.util';
 
 /** One row of the admin Credits view: a brand and the credit it holds. */
 export type AdminBrandCreditRow = {
@@ -101,19 +106,24 @@ export class WalletService {
     return amountPaise;
   }
 
-  /** Get or lazily create the brand's wallet, returning its id. */
+  /** Get or lazily create the buyer's wallet, returning its id. */
   private async ensureWallet(
-    brandId: string,
+    owner: CreditOwner,
     tx: Prisma.TransactionClient,
   ): Promise<{ id: string }> {
-    const existing = await tx.brandWallet.findUnique({
-      where: { brandId },
+    const normalized = normalizeCreditOwner(owner);
+    const where = creditOwnerWhere(normalized);
+    const existing = await tx.brandWallet.findFirst({
+      where,
       select: { id: true },
     });
     if (existing) return existing;
     try {
       return await tx.brandWallet.create({
-        data: { brandId },
+        data: {
+          brandId: normalized.brandId,
+          agencyId: normalized.agencyId,
+        },
         select: { id: true },
       });
     } catch (err) {
@@ -121,8 +131,8 @@ export class WalletService {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
       ) {
-        return tx.brandWallet.findUniqueOrThrow({
-          where: { brandId },
+        return tx.brandWallet.findFirstOrThrow({
+          where,
           select: { id: true },
         });
       }
@@ -200,10 +210,11 @@ export class WalletService {
     return tx ? fn(tx) : this.prisma.$transaction(fn);
   }
 
-  /** Add credit to a brand's wallet. Composable via `tx`. */
+  /** Add credit to a buyer's wallet. Composable via `tx`. */
   async credit(
     params: {
-      brandId: string;
+      brandId?: string | null;
+      agencyId?: string | null;
       amountPaise: number;
       type: WalletTransactionType;
     } & WalletMovementMeta,
@@ -214,7 +225,7 @@ export class WalletService {
       throw new BadRequestException(`${params.type} is not a credit type`);
     }
     return this.run(async (t) => {
-      const wallet = await this.ensureWallet(params.brandId, t);
+      const wallet = await this.ensureWallet(params, t);
       const next = await this.applyWalletMutation(
         wallet.id,
         (cur) => ({
@@ -229,13 +240,14 @@ export class WalletService {
   }
 
   /**
-   * Remove credit from a brand's wallet (respecting held funds — you can never
+   * Remove credit from a buyer's wallet (respecting held funds — you can never
    * spend money reserved for a pending withdrawal). Throws BadRequestException
    * if the SPENDABLE balance is short. Composable via `tx`.
    */
   async debit(
     params: {
-      brandId: string;
+      brandId?: string | null;
+      agencyId?: string | null;
       amountPaise: number;
       type: WalletTransactionType;
     } & WalletMovementMeta,
@@ -246,7 +258,7 @@ export class WalletService {
       throw new BadRequestException(`${params.type} is not a debit type`);
     }
     return this.run(async (t) => {
-      const wallet = await this.ensureWallet(params.brandId, t);
+      const wallet = await this.ensureWallet(params, t);
       const next = await this.applyWalletMutation(
         wallet.id,
         (cur) => {
@@ -269,7 +281,8 @@ export class WalletService {
 
   async creditOrderCancellation(
     params: {
-      brandId: string;
+      brandId?: string | null;
+      agencyId?: string | null;
       orderId: string;
       amountPaise: number;
       reason?: string | null;
@@ -279,6 +292,7 @@ export class WalletService {
     return this.credit(
       {
         brandId: params.brandId,
+        agencyId: params.agencyId,
         amountPaise: params.amountPaise,
         type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
         orderId: params.orderId,
@@ -290,7 +304,8 @@ export class WalletService {
 
   async reserveForCheckout(
     params: {
-      brandId: string;
+      brandId?: string | null;
+      agencyId?: string | null;
       orderId: string;
       amountPaise: number;
       createdByUserId?: string | null;
@@ -300,6 +315,7 @@ export class WalletService {
     return this.debit(
       {
         brandId: params.brandId,
+        agencyId: params.agencyId,
         amountPaise: params.amountPaise,
         type: WalletTransactionType.ORDER_CHECKOUT_DEBIT,
         orderId: params.orderId,
@@ -310,12 +326,18 @@ export class WalletService {
   }
 
   async releaseCheckoutReservation(
-    params: { brandId: string; orderId: string; amountPaise: number },
+    params: {
+      brandId?: string | null;
+      agencyId?: string | null;
+      orderId: string;
+      amountPaise: number;
+    },
     tx?: Prisma.TransactionClient,
   ): Promise<{ balanceAfterPaise: number }> {
     return this.credit(
       {
         brandId: params.brandId,
+        agencyId: params.agencyId,
         amountPaise: params.amountPaise,
         type: WalletTransactionType.CHECKOUT_REVERSAL_CREDIT,
         orderId: params.orderId,
@@ -326,9 +348,13 @@ export class WalletService {
 
   // ── Reads ───────────────────────────────────────────────────────────────────
 
-  async getBalance(brandId: string): Promise<WalletBalance> {
-    const wallet = await this.prisma.brandWallet.findUnique({
-      where: { brandId },
+  async getBalance(owner: CreditOwner | string): Promise<WalletBalance> {
+    const normalized =
+      typeof owner === 'string'
+        ? normalizeCreditOwner({ brandId: owner })
+        : normalizeCreditOwner(owner);
+    const wallet = await this.prisma.brandWallet.findFirst({
+      where: creditOwnerWhere(normalized),
       select: { balancePaise: true, heldPaise: true, currency: true },
     });
     const balancePaise = wallet?.balancePaise ?? 0;
@@ -342,9 +368,13 @@ export class WalletService {
     };
   }
 
-  async getTransactions(brandId: string, limit = 50) {
-    const wallet = await this.prisma.brandWallet.findUnique({
-      where: { brandId },
+  async getTransactions(owner: CreditOwner | string, limit = 50) {
+    const normalized =
+      typeof owner === 'string'
+        ? normalizeCreditOwner({ brandId: owner })
+        : normalizeCreditOwner(owner);
+    const wallet = await this.prisma.brandWallet.findFirst({
+      where: creditOwnerWhere(normalized),
       select: { id: true },
     });
     if (!wallet) return [];
@@ -355,9 +385,13 @@ export class WalletService {
     });
   }
 
-  async listWithdrawalsForBrand(brandId: string) {
+  async listWithdrawalsForBrand(owner: CreditOwner | string) {
+    const normalized =
+      typeof owner === 'string'
+        ? normalizeCreditOwner({ brandId: owner })
+        : normalizeCreditOwner(owner);
     return this.prisma.walletWithdrawal.findMany({
-      where: { brandId },
+      where: creditOwnerWhere(normalized),
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -365,23 +399,26 @@ export class WalletService {
   // ── Withdrawals (hold model) ─────────────────────────────────────────────────
 
   /**
-   * Brand requests to withdraw store credit. The amount is LOCKED (held) so it
+   * Buyer requests to withdraw store credit. The amount is LOCKED (held) so it
    * cannot also be spent at checkout, but it is NOT removed from the balance —
    * that only happens when an admin completes the withdrawal.
    */
   async requestWithdrawal(params: {
-    brandId: string;
+    brandId?: string | null;
+    agencyId?: string | null;
     requestedByUserId: string;
     amountPaise: number;
     brandNote?: string | null;
   }) {
     const amount = this.assertPositive(params.amountPaise);
+    const owner = normalizeCreditOwner(params);
     return this.prisma.$transaction(async (tx) => {
-      const wallet = await this.ensureWallet(params.brandId, tx);
+      const wallet = await this.ensureWallet(owner, tx);
       const withdrawal = await tx.walletWithdrawal.create({
         data: {
           walletId: wallet.id,
-          brandId: params.brandId,
+          brandId: owner.brandId,
+          agencyId: owner.agencyId,
           amountPaise: amount,
           status: WalletWithdrawalStatus.REQUESTED,
           holdModel: true,
@@ -413,7 +450,8 @@ export class WalletService {
     withdrawal: {
       id: string;
       walletId: string;
-      brandId: string;
+      brandId: string | null;
+      agencyId: string | null;
       amountPaise: number;
       holdModel: boolean;
     },
@@ -452,14 +490,19 @@ export class WalletService {
 
   async cancelWithdrawalByBrand(params: {
     withdrawalId: string;
-    brandId: string;
+    brandId?: string | null;
+    agencyId?: string | null;
   }) {
+    const owner = normalizeCreditOwner(params);
     return this.prisma.$transaction(async (tx) => {
       const withdrawal = await tx.walletWithdrawal.findUnique({
         where: { id: params.withdrawalId },
       });
       if (!withdrawal) throw new NotFoundException('Withdrawal not found');
-      if (withdrawal.brandId !== params.brandId) {
+      const owns =
+        (owner.brandId && withdrawal.brandId === owner.brandId) ||
+        (owner.agencyId && withdrawal.agencyId === owner.agencyId);
+      if (!owns) {
         throw new ForbiddenException('Not your withdrawal');
       }
       if (withdrawal.status !== WalletWithdrawalStatus.REQUESTED) {
@@ -467,7 +510,7 @@ export class WalletService {
           'Only a pending withdrawal can be cancelled',
         );
       }
-      await this.unwindPendingWithdrawal(tx, withdrawal, 'Cancelled by brand');
+      await this.unwindPendingWithdrawal(tx, withdrawal, 'Cancelled by buyer');
       return tx.walletWithdrawal.update({
         where: { id: withdrawal.id },
         data: {
@@ -496,6 +539,7 @@ export class WalletService {
             balancePaise: true,
             heldPaise: true,
             brand: { select: { id: true, brandName: true } },
+            agency: { select: { id: true, name: true } },
           },
         },
       },

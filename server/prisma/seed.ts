@@ -29,7 +29,6 @@ const permissionsByRole: Record<RoleName, string[]> = {
     'APPROVE_DELIVERY',
   ],
   AGENCY: [
-    'MANAGE_AGENCY_BRANDS',
     'SEARCH_CREATORS',
     'CREATE_ORDER',
     'REQUEST_REVISION',

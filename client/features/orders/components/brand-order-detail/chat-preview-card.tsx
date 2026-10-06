@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { OrderCreatorSnapshot } from "../../api/types";
@@ -19,6 +23,7 @@ function getInitials(name: string) {
 }
 
 export function ChatPreviewCard({ creator, orderId }: ChatPreviewCardProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const creatorName = creator.displayName || "Creator";
 
   return (
@@ -36,7 +41,7 @@ export function ChatPreviewCard({ creator, orderId }: ChatPreviewCardProps) {
           </div>
         </div>
         <Link
-          href={`/brand/messages?orderId=${orderId}`}
+          href={remapBuyerHref(`/brand/messages?orderId=${orderId}`, workspaceBase)}
           className="text-xs font-bold text-primary hover:underline"
         >
           View all messages

@@ -618,7 +618,7 @@ export class CreatorProfileService {
         actorUserId,
         brandProfileId: brandProfileId ?? null,
       });
-      return ctx.brand.id;
+      return ctx.brandProfileId;
     } catch {
       return null;
     }

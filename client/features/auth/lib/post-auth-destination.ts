@@ -2,10 +2,11 @@ import type { AuthUser, WorkspaceRole } from "../hooks/use-me-query";
 import { resolveCreatorOnboardingPath } from "./resolve-creator-onboarding-path";
 import { canUseWorkspaceRole } from "./workspace-defaulting";
 
-export type PostAuthRole = "creator" | "brand" | "admin";
+export type PostAuthRole = "creator" | "brand" | "agency" | "admin";
 
 const CREATOR_FALLBACK = "/creator/account";
 const BRAND_FALLBACK = "/brand/creators";
+const AGENCY_FALLBACK = "/agency/creators";
 const ADMIN_FALLBACK = "/admin";
 
 /** Minimal identity used to pick a workspace home after login / session restore. */
@@ -25,7 +26,8 @@ function canUseLandingRole(
 
 function landingPathForRole(role: string | null | undefined): string | null {
   if (role === "ADMIN") return ADMIN_FALLBACK;
-  if (role === "BRAND" || role === "AGENCY") return BRAND_FALLBACK;
+  if (role === "AGENCY") return AGENCY_FALLBACK;
+  if (role === "BRAND") return BRAND_FALLBACK;
   if (role === "CREATOR") return CREATOR_FALLBACK;
   return null;
 }
@@ -52,6 +54,7 @@ export function isPublicPostAuthContinuePath(path: string): boolean {
 function toPostAuthRole(r: WorkspaceRole): PostAuthRole {
   if (r === "ADMIN") return "admin";
   if (r === "CREATOR") return "creator";
+  if (r === "AGENCY") return "agency";
   return "brand";
 }
 
@@ -134,20 +137,24 @@ export function postAuthDestinationForRole(
 ): string {
   if (!callbackUrl?.trim()) {
     if (role === "admin") return ADMIN_FALLBACK;
-    return role === "creator" ? CREATOR_FALLBACK : BRAND_FALLBACK;
+    if (role === "creator") return CREATOR_FALLBACK;
+    return role === "agency" ? AGENCY_FALLBACK : BRAND_FALLBACK;
   }
   if (!callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
     if (role === "admin") return ADMIN_FALLBACK;
-    return role === "creator" ? CREATOR_FALLBACK : BRAND_FALLBACK;
+    if (role === "creator") return CREATOR_FALLBACK;
+    return role === "agency" ? AGENCY_FALLBACK : BRAND_FALLBACK;
   }
   const path = callbackUrl.split("?")[0] ?? callbackUrl;
   if (isPublicPostAuthContinuePath(path)) return callbackUrl;
   if (role === "admin" && path.startsWith("/admin")) return callbackUrl;
+  if (role === "agency" && path.startsWith("/agency")) return callbackUrl;
   if (role === "brand" && path.startsWith("/brand")) return callbackUrl;
   if (role === "creator" && path.startsWith("/creator")) return callbackUrl;
   
   if (role === "admin") return ADMIN_FALLBACK;
-  return role === "creator" ? CREATOR_FALLBACK : BRAND_FALLBACK;
+  if (role === "creator") return CREATOR_FALLBACK;
+  return role === "agency" ? AGENCY_FALLBACK : BRAND_FALLBACK;
 }
 
 export function postAuthContinuePath(callbackUrl: string | null): string {

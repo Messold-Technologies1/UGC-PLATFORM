@@ -1,4 +1,4 @@
-/** Fields persisted when an agency registers via POST /auth/register?role=agency */
+/** Fields persisted when creating an agency profile for an account owner. */
 export type CreateAgencyAtSignupInput = {
   name: string;
   contactFullName: string;

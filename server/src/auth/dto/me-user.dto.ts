@@ -56,6 +56,12 @@ export class MeUserDto {
 
   @ApiPropertyOptional({
     nullable: true,
+    description: 'Agency profile id when the user owns an agency.',
+  })
+  agencyProfileId!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
     description: 'Last active brand for agency owners (server-validated).',
   })
   activeBrandProfileId!: string | null;

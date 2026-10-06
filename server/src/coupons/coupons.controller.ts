@@ -28,15 +28,19 @@ export class CouponsController {
   @RequiredWorkspace('BRAND')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
-    summary: 'List active coupons for the current brand, flagging used ones',
+    summary:
+      'List active coupons for the current brand or agency, flagging used ones',
   })
   @ApiOkResponse({ type: [AvailableCouponDto] })
   async available(
     @Req() req: Request & { user: { id: string } },
   ): Promise<AvailableCouponDto[]> {
-    const { brand } = await this.brandAccess.resolveBrandContext(
+    const actor = await this.brandAccess.resolveOrderActor(
       brandActorParams(req),
     );
-    return this.coupons.listAvailableForBrand(brand.id);
+    return this.coupons.listAvailableForOwner({
+      brandId: actor.brandId,
+      agencyId: actor.agencyId,
+    });
   }
 }

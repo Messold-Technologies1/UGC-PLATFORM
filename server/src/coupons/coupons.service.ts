@@ -254,16 +254,30 @@ export class CouponsService {
     await this.prisma.coupon.delete({ where: { id } });
   }
 
-  // ---- Brand-facing -------------------------------------------------------
+  // ---- Brand / agency facing ------------------------------------------------
 
-  async listAvailableForBrand(brandId: string): Promise<AvailableCouponDto[]> {
+  async listAvailableForOwner(owner: {
+    brandId?: string | null;
+    agencyId?: string | null;
+  }): Promise<AvailableCouponDto[]> {
+    const brandId = owner.brandId?.trim() || null;
+    const agencyId = owner.agencyId?.trim() || null;
+    if (Boolean(brandId) === Boolean(agencyId)) {
+      throw new BadRequestException(
+        'Exactly one of brandId or agencyId is required',
+      );
+    }
+
     const coupons = await this.prisma.coupon.findMany({
       where: { active: true },
       orderBy: { createdAt: 'desc' },
     });
     if (coupons.length === 0) return [];
     const redemptions = await this.prisma.couponRedemption.findMany({
-      where: { brandId, couponId: { in: coupons.map((c) => c.id) } },
+      where: {
+        couponId: { in: coupons.map((c) => c.id) },
+        ...(agencyId ? { agencyId } : { brandId: brandId! }),
+      },
       select: { couponId: true },
     });
     const usedCouponIds = new Set(redemptions.map((r) => r.couponId));
@@ -278,34 +292,55 @@ export class CouponsService {
     }));
   }
 
+  /** @deprecated Prefer listAvailableForOwner */
+  async listAvailableForBrand(brandId: string): Promise<AvailableCouponDto[]> {
+    return this.listAvailableForOwner({ brandId });
+  }
+
   // ---- Checkout integration ----------------------------------------------
 
   /**
-   * Validate a coupon for a brand at checkout and compute its discount against
-   * the given gross total. Throws a 400 on any problem (unknown/inactive code,
-   * already redeemed by this brand, or a discount that would leave the net below
-   * the payment-gateway minimum). Returns null only when no code was supplied.
+   * Validate a coupon for a brand/agency at checkout and compute its discount
+   * against the given gross total. Throws a 400 on any problem (unknown/inactive
+   * code, already redeemed by this buyer, or a discount that would leave the net
+   * below the payment-gateway minimum). Returns null only when no code was
+   * supplied.
    */
   async resolveForCheckout(params: {
     code?: string | null;
-    brandId: string;
+    brandId?: string | null;
+    agencyId?: string | null;
     grossPaise: number;
   }): Promise<ResolvedCoupon | null> {
     const raw = params.code?.trim();
     if (!raw) return null;
     const code = CouponsService.normalizeCode(raw);
+    const brandId = params.brandId?.trim() || null;
+    const agencyId = params.agencyId?.trim() || null;
+    if (Boolean(brandId) === Boolean(agencyId)) {
+      throw new BadRequestException(
+        'Exactly one of brandId or agencyId is required',
+      );
+    }
 
     const coupon = await this.prisma.coupon.findUnique({ where: { code } });
     if (!coupon || !coupon.active) {
       throw new BadRequestException('This coupon is invalid or no longer active');
     }
 
-    const alreadyUsed = await this.prisma.couponRedemption.findUnique({
-      where: {
-        couponId_brandId: { couponId: coupon.id, brandId: params.brandId },
-      },
-      select: { id: true },
-    });
+    const alreadyUsed = agencyId
+      ? await this.prisma.couponRedemption.findUnique({
+          where: {
+            couponId_agencyId: { couponId: coupon.id, agencyId },
+          },
+          select: { id: true },
+        })
+      : await this.prisma.couponRedemption.findUnique({
+          where: {
+            couponId_brandId: { couponId: coupon.id, brandId: brandId! },
+          },
+          select: { id: true },
+        });
     if (alreadyUsed) {
       throw new BadRequestException('You have already used this coupon');
     }
@@ -335,14 +370,14 @@ export class CouponsService {
   }
 
   /**
-   * Record that a brand consumed a coupon on a paid order/batch. Idempotent: the
-   * (couponId, brandId) unique constraint means a duplicate capture (or a second
-   * paid order racing the same coupon) is swallowed rather than throwing.
+   * Record that a buyer consumed a coupon on a paid order/batch. Idempotent: the
+   * unique constraint means a duplicate capture is swallowed rather than throwing.
    */
   async recordRedemption(
     params: {
       couponId: string;
-      brandId: string;
+      brandId?: string | null;
+      agencyId?: string | null;
       orderId?: string;
       checkoutBatchId?: string;
       discountAmountPaise: number;
@@ -350,11 +385,19 @@ export class CouponsService {
     client?: Prisma.TransactionClient,
   ): Promise<void> {
     const db = client ?? this.prisma;
+    const brandId = params.brandId?.trim() || null;
+    const agencyId = params.agencyId?.trim() || null;
+    if (Boolean(brandId) === Boolean(agencyId)) {
+      throw new BadRequestException(
+        'Exactly one of brandId or agencyId is required',
+      );
+    }
     try {
       await db.couponRedemption.create({
         data: {
           couponId: params.couponId,
-          brandId: params.brandId,
+          brandId,
+          agencyId,
           orderId: params.orderId ?? null,
           checkoutBatchId: params.checkoutBatchId ?? null,
           discountAmountPaise: params.discountAmountPaise,
@@ -366,7 +409,7 @@ export class CouponsService {
         err.code === 'P2002'
       ) {
         this.logger.debug(
-          `coupon redemption already recorded coupon=${params.couponId} brand=${params.brandId}`,
+          `coupon redemption already recorded coupon=${params.couponId} brand=${brandId} agency=${agencyId}`,
         );
         return;
       }

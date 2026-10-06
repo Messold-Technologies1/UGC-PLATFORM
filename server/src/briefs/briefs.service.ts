@@ -10,7 +10,9 @@ import {
   BriefShootLocationKind,
   BriefToneStyle,
 } from '@prisma/client';
+import { AgencyService } from '../agency/agency.service';
 import { BrandAccessService } from '../brand-access/brand-access.service';
+import type { ResolvedBrandContext } from '../brand-access/brand-access.types';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -64,6 +66,7 @@ function mapBriefRow(b: {
   productImageUrl: string | null;
   isProduct: boolean;
   willShipPhysicalProductToCreator: boolean;
+  wantsPhysicalProductReturned: boolean;
   shootLocationKind: BriefShootLocationKind | null;
   shootLocationAddress: string | null;
   durationBucket: BriefDurationBucket | null;
@@ -92,6 +95,7 @@ function mapBriefRow(b: {
     productImageUrl: b.productImageUrl ?? null,
     isProduct: b.isProduct,
     willShipPhysicalProductToCreator: b.willShipPhysicalProductToCreator,
+    wantsPhysicalProductReturned: b.wantsPhysicalProductReturned,
     shootLocationKind: b.shootLocationKind ?? null,
     shootLocationAddress: b.shootLocationAddress ?? null,
     durationBucket: b.durationBucket ?? null,
@@ -113,8 +117,24 @@ export class BriefsService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
+    private readonly agencyService: AgencyService,
     private readonly ordersService: OrdersService,
   ) {}
+
+  private assertBriefOwnedByContext(
+    brief: { brandId: string | null; agencyId: string | null },
+    ctx: ResolvedBrandContext,
+  ): void {
+    if (ctx.brand && brief.brandId === ctx.brand.id) return;
+    if (ctx.agency && brief.agencyId === ctx.agency.id) return;
+    throw new ForbiddenException('Not your brief');
+  }
+
+  private briefListWhere(ctx: ResolvedBrandContext) {
+    if (ctx.agency) return { agencyId: ctx.agency.id };
+    if (ctx.brand) return { brandId: ctx.brand.id };
+    throw new ForbiddenException('Not allowed to list briefs');
+  }
 
   private assertTempBriefProductImageKeyOwner(
     brandUserId: string,
@@ -166,19 +186,27 @@ export class BriefsService {
     brandProfileId?: string | null;
     dto: CreateBriefDto;
   }): Promise<{ id: string }> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    const brand = ctx.brand;
 
     const isProduct = params.dto.isProduct ?? true;
     const shipsPhysical =
       isProduct && (params.dto.willShipPhysicalProductToCreator ?? false);
+    const wantsReturned =
+      shipsPhysical && (params.dto.wantsPhysicalProductReturned ?? false);
     const productImageKey = params.dto.productImageKey?.trim() ?? '';
 
     if (!isProduct && params.dto.willShipPhysicalProductToCreator) {
       throw new BadRequestException(
         'willShipPhysicalProductToCreator is only allowed for product briefs',
+      );
+    }
+    if (!shipsPhysical && params.dto.wantsPhysicalProductReturned) {
+      throw new BadRequestException(
+        'wantsPhysicalProductReturned requires willShipPhysicalProductToCreator',
       );
     }
 
@@ -200,32 +228,51 @@ export class BriefsService {
 
     const script = normalizeScriptInput(params.dto.script);
 
-    const profileBrandName = brand.brandName?.trim() ?? '';
     const providedBrandName = params.dto.brandName?.trim() ?? '';
     let briefBrandName: string;
-    if (profileBrandName) {
-      briefBrandName = profileBrandName;
-    } else if (providedBrandName) {
+    let shouldPersistBrandNameOnProfile = false;
+
+    if (ctx.isAgencyWorkspace) {
+      if (!providedBrandName) {
+        throw new BadRequestException('Brand name is required on agency briefs.');
+      }
       briefBrandName = providedBrandName;
+    } else if (!brand) {
+      throw new BadRequestException('Brand profile not found');
     } else {
-      throw new BadRequestException(
-        'Brand name is required on your first brief. Enter your brand name to continue.',
-      );
+      const profileBrandName = brand.brandName?.trim() ?? '';
+      if (profileBrandName) {
+        briefBrandName = profileBrandName;
+      } else if (providedBrandName) {
+        briefBrandName = providedBrandName;
+        shouldPersistBrandNameOnProfile = true;
+      } else {
+        throw new BadRequestException(
+          'Brand name is required on your first brief. Enter your brand name to continue.',
+        );
+      }
     }
 
-    const shouldPersistBrandName = !profileBrandName;
-
     const created = await this.prisma.$transaction(async (tx) => {
-      if (shouldPersistBrandName) {
+      if (shouldPersistBrandNameOnProfile && brand && !ctx.isAgencyWorkspace) {
         await tx.brandProfile.update({
           where: { id: brand.id },
           data: { brandName: briefBrandName },
         });
       }
 
+      if (ctx.isAgencyWorkspace && ctx.agency) {
+        await this.agencyService.recordBrandNameFromBrief(
+          ctx.agency.id,
+          briefBrandName,
+          tx,
+        );
+      }
+
       return tx.brief.create({
         data: {
-          brandId: brand.id,
+          brandId: brand?.id ?? null,
+          agencyId: ctx.agency?.id ?? null,
           brandName: briefBrandName,
           brandPronunciationAudioKey: params.dto.brandPronunciationAudioKey,
           brandPronunciationAudioUrl: params.dto.brandPronunciationAudioUrl,
@@ -237,6 +284,7 @@ export class BriefsService {
           productPageUrl: params.dto.productPageUrl,
           isProduct,
           willShipPhysicalProductToCreator: shipsPhysical,
+          wantsPhysicalProductReturned: wantsReturned,
           shootLocationKind: params.dto.shootLocationKind,
           shootLocationAddress: params.dto.shootLocationAddress,
           durationBucket: params.dto.durationBucket,
@@ -280,13 +328,13 @@ export class BriefsService {
     actorUserId: string;
     brandProfileId?: string | null;
   }): Promise<BriefDto[]> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
 
     const rows = await this.prisma.brief.findMany({
-      where: { brandId: brand.id },
+      where: this.briefListWhere(ctx),
       orderBy: { createdAt: 'desc' },
     });
 
@@ -298,14 +346,14 @@ export class BriefsService {
     brandProfileId?: string | null;
     briefId: string;
   }): Promise<BriefDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
 
     const brief = await this.prisma.brief.findUnique({ where: { id: params.briefId } });
     if (!brief) throw new NotFoundException('Brief not found');
-    if (brief.brandId !== brand.id) throw new ForbiddenException('Not your brief');
+    this.assertBriefOwnedByContext(brief, ctx);
 
     return mapBriefRow(brief);
   }
@@ -316,7 +364,7 @@ export class BriefsService {
     briefId: string;
     dto: UpdateBriefDto;
   }): Promise<BriefDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
@@ -325,8 +373,7 @@ export class BriefsService {
       where: { id: params.briefId },
     });
     if (!existing) throw new NotFoundException('Brief not found');
-    if (existing.brandId !== brand.id)
-      throw new ForbiddenException('Not your brief');
+    this.assertBriefOwnedByContext(existing, ctx);
 
     const dto = params.dto;
     const isProduct = dto.isProduct ?? existing.isProduct;
@@ -334,10 +381,19 @@ export class BriefsService {
       isProduct &&
       (dto.willShipPhysicalProductToCreator ??
         existing.willShipPhysicalProductToCreator);
+    const wantsReturned =
+      shipsPhysical &&
+      (dto.wantsPhysicalProductReturned ??
+        existing.wantsPhysicalProductReturned);
 
     if (!isProduct && dto.willShipPhysicalProductToCreator) {
       throw new BadRequestException(
         'willShipPhysicalProductToCreator is only allowed for product briefs',
+      );
+    }
+    if (!shipsPhysical && dto.wantsPhysicalProductReturned) {
+      throw new BadRequestException(
+        'wantsPhysicalProductReturned requires willShipPhysicalProductToCreator',
       );
     }
 
@@ -362,6 +418,7 @@ export class BriefsService {
     const data: Record<string, unknown> = {
       isProduct,
       willShipPhysicalProductToCreator: shipsPhysical,
+      wantsPhysicalProductReturned: wantsReturned,
     };
     const setIfDefined = (key: keyof UpdateBriefDto): void => {
       if (dto[key] !== undefined) data[key as string] = dto[key];
@@ -388,6 +445,18 @@ export class BriefsService {
     }
     if (script !== undefined) {
       data.script = script as unknown;
+    }
+
+    if (
+      ctx.isAgencyWorkspace &&
+      ctx.agency &&
+      dto.brandName !== undefined &&
+      dto.brandName?.trim()
+    ) {
+      await this.agencyService.recordBrandNameFromBrief(
+        ctx.agency.id,
+        dto.brandName.trim(),
+      );
     }
 
     // Switching to a service brief clears any existing product image.
@@ -432,18 +501,22 @@ export class BriefsService {
     brandProfileId?: string | null;
     briefId: string;
   }): Promise<void> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
 
     const existing = await this.prisma.brief.findUnique({
       where: { id: params.briefId },
-      select: { id: true, brandId: true, productImageKey: true },
+      select: {
+        id: true,
+        brandId: true,
+        agencyId: true,
+        productImageKey: true,
+      },
     });
     if (!existing) throw new NotFoundException('Brief not found');
-    if (existing.brandId !== brand.id)
-      throw new ForbiddenException('Not your brief');
+    this.assertBriefOwnedByContext(existing, ctx);
 
     // A brief attached to an order backs that order's creative record
     // (Order.briefId). Deleting it would strip the brief the creator works
@@ -470,17 +543,20 @@ export class BriefsService {
     briefId: string;
     orderId: string;
   }): Promise<void> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    if (!ctx.isAgencyWorkspace) {
+      this.brandAccess.requireBrandProfile(ctx);
+    }
 
     const brief = await this.prisma.brief.findUnique({
       where: { id: params.briefId },
-      select: { id: true, brandId: true },
+      select: { id: true, brandId: true, agencyId: true },
     });
     if (!brief) throw new NotFoundException('Brief not found');
-    if (brief.brandId !== brand.id) throw new ForbiddenException('Not your brief');
+    this.assertBriefOwnedByContext(brief, ctx);
 
     await this.ordersService.submitBrief({
       actorUserId: params.actorUserId,
@@ -503,13 +579,22 @@ export class BriefsService {
     briefId: string;
     orderIds: string[];
   }): Promise<AttachBriefToOrdersResponseDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const ctx = await this.brandAccess.resolveBrandContext({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
+    if (!ctx.isAgencyWorkspace) {
+      this.brandAccess.requireBrandProfile(ctx);
+    }
 
     const brief = await this.prisma.brief.findFirst({
-      where: { id: params.briefId, brandId: brand.id },
+      where: {
+        id: params.briefId,
+        OR: [
+          ...(ctx.brandProfileId ? [{ brandId: ctx.brandProfileId }] : []),
+          ...(ctx.agencyId ? [{ agencyId: ctx.agencyId }] : []),
+        ],
+      },
       select: { id: true, isProduct: true, productImageKey: true },
     });
     if (!brief) throw new NotFoundException('Brief not found');
@@ -530,11 +615,16 @@ export class BriefsService {
           select: {
             id: true,
             brandId: true,
+            agencyId: true,
             status: true,
             briefSubmittedAt: true,
           },
         });
-        if (!order || order.brandId !== brand.id) {
+        const owns =
+          !!order &&
+          ((ctx.brandProfileId && order.brandId === ctx.brandProfileId) ||
+            (ctx.agencyId && order.agencyId === ctx.agencyId));
+        if (!owns) {
           results.push({
             orderId,
             status: 'FAILED',

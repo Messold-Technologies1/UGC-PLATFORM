@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, MapPin, Clock, FileText, Megaphone } from "lucide-react";
@@ -55,6 +59,7 @@ export function OrderCollaborationCard({
   creator,
   index,
 }: OrderCollaborationCardProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const [usageModalOpen, setUsageModalOpen] = useState(false);
   const group = getStatusGroup(order.status);
   const spineColor = SPINE_COLOR[group] ?? "#e5e5e5";
@@ -186,7 +191,7 @@ export function OrderCollaborationCard({
                 </button>
               ) : null}
               <Link
-                href={`/brand/orders/${order.id}`}
+                href={remapBuyerHref(`/brand/orders/${order.id}`, workspaceBase)}
                 id={`view-order-${order.id}`}
                 className="inline-flex items-center gap-1.5 rounded-[11px] border border-border bg-card px-3.5 py-[7px] text-[13px] font-bold text-foreground shadow-sm transition-all duration-150 hover:bg-muted shrink-0 whitespace-nowrap"
               >

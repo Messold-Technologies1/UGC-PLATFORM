@@ -252,7 +252,6 @@ export class BrandProfileService {
     return {
       id: profile.id,
       userId: profile.userId ?? null,
-      agencyId: profile.agencyId ?? null,
       email: profile.user?.email ?? profile.contactEmail ?? '',
       contactFullName: profile.contactFullName ?? null,
       contactEmail: profile.contactEmail ?? null,
@@ -310,72 +309,6 @@ export class BrandProfileService {
     });
   }
 
-  async createBrandProfileForAgency(params: {
-    agencyId: string;
-    actorUserId: string;
-    dto: CreateBrandProfileDto;
-  }): Promise<BrandProfileResponseDto> {
-    const logoKey = params.dto.logoKey?.trim();
-    if (logoKey) {
-      this.assertTempBrandLogoKeyOwner(params.actorUserId, logoKey);
-    }
-
-    const pronunciationAudioKey = params.dto.brandPronunciationAudioKey?.trim();
-    if (pronunciationAudioKey) {
-      this.assertTempBrandPronunciationAudioKeyOwner(
-        params.actorUserId,
-        pronunciationAudioKey,
-      );
-    }
-
-    const selectedCategories = [...new Set(params.dto.categories ?? [])];
-    const includesOther = selectedCategories.includes(BrandCategory.OTHER);
-    const otherCategoryLabel = includesOther
-      ? (params.dto.otherCategoryLabel ?? '').trim()
-      : '';
-    if (includesOther && !otherCategoryLabel) {
-      throw new BadRequestException(
-        'otherCategoryLabel is required for OTHER category',
-      );
-    }
-
-    const brandProfileId = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.brandProfile.create({
-        data: {
-          agencyId: params.agencyId,
-          brandName: params.dto.brandName?.trim() || null,
-          contactFullName: params.dto.contactFullName.trim(),
-          contactEmail: params.dto.contactEmail?.trim() || null,
-          contactPhone: params.dto.contactPhone?.trim() || null,
-          website: params.dto.website?.trim() || null,
-          instagramUrl: params.dto.instagramUrl?.trim() || null,
-          productType: params.dto.productType ?? null,
-          otherCategoryLabel: includesOther ? otherCategoryLabel : null,
-        } as any,
-        select: { id: true },
-      });
-
-      if (selectedCategories.length) {
-        await tx.brandProfileBrandCategory.createMany({
-          data: selectedCategories.map((category) => ({
-            brandProfileId: created.id,
-            category,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      return created.id;
-    });
-
-    return this.finalizeBrandProfileAssetsAndLoad({
-      brandProfileId,
-      actorUserId: params.actorUserId,
-      logoKey,
-      pronunciationAudioKey,
-    });
-  }
-
   private async finalizeBrandProfileAssetsAndLoad(params: {
     brandProfileId: string;
     actorUserId: string;
@@ -415,7 +348,6 @@ export class BrandProfileService {
       select: {
         id: true,
         userId: true,
-        agencyId: true,
         contactFullName: true,
         contactEmail: true,
         contactPhone: true,
@@ -583,15 +515,36 @@ export class BrandProfileService {
     const page = query.page ?? 1;
     const limit = Math.min(query.limit ?? 20, 50);
     const skip = (page - 1) * limit;
+    const search = query.search?.trim() || '';
+    const like = search
+      ? { contains: search, mode: 'insensitive' as const }
+      : null;
 
     const where = {
       deletedAt: null,
       brandProfile: {
         isNot: null,
       },
-      OR: [
-        { primaryRole: { name: RoleName.BRAND } },
-        { userRoles: { some: { role: { name: RoleName.BRAND } } } },
+      AND: [
+        {
+          OR: [
+            { primaryRole: { name: RoleName.BRAND } },
+            { userRoles: { some: { role: { name: RoleName.BRAND } } } },
+          ],
+        },
+        ...(like
+          ? [
+              {
+                OR: [
+                  { email: like },
+                  { name: like },
+                  { brandProfile: { is: { brandName: like } } },
+                  { brandProfile: { is: { contactFullName: like } } },
+                  { brandProfile: { is: { contactPhone: like } } },
+                ],
+              },
+            ]
+          : []),
       ],
     };
 
@@ -843,12 +796,14 @@ export class BrandProfileService {
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId ?? null,
     });
+    if (!ctx.brandProfileId) {
+      throw new NotFoundException('Brand profile not found');
+    }
     const profile = await this.prisma.brandProfile.findUnique({
       where: { id: ctx.brandProfileId },
       select: {
         id: true,
         userId: true,
-        agencyId: true,
         contactFullName: true,
         contactEmail: true,
         contactPhone: true,
@@ -883,9 +838,13 @@ export class BrandProfileService {
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId ?? null,
     });
+    const brandProfileId = ctx.brandProfileId;
+    if (!brandProfileId) {
+      throw new NotFoundException('Brand profile not found');
+    }
     const userId = params.actorUserId;
     const existing: any = await this.prisma.brandProfile.findUnique({
-      where: { id: ctx.brandProfileId },
+      where: { id: brandProfileId },
       select: {
         id: true,
         logoKey: true,
@@ -1022,14 +981,14 @@ export class BrandProfileService {
     if (!hasScalarUpdates && !hasCategoryUpdates) {
       return this.getBrandProfileForActor({
         actorUserId: userId,
-        brandProfileId: ctx.brandProfileId,
+        brandProfileId,
       });
     }
 
     await this.prisma.$transaction(async (tx) => {
       if (hasScalarUpdates) {
         await tx.brandProfile.update({
-          where: { id: ctx.brandProfileId },
+          where: { id: brandProfileId },
           data: data as any,
         });
       }
@@ -1054,13 +1013,13 @@ export class BrandProfileService {
             );
           }
           await tx.brandProfile.update({
-            where: { id: ctx.brandProfileId },
+            where: { id: brandProfileId },
             data: { otherCategoryLabel: trimmed } as any,
           });
         } else {
           // If OTHER is not selected, clear any stored custom label.
           await tx.brandProfile.update({
-            where: { id: ctx.brandProfileId },
+            where: { id: brandProfileId },
             data: { otherCategoryLabel: null } as any,
           });
         }

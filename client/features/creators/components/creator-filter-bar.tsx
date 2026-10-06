@@ -1,6 +1,14 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -131,6 +139,12 @@ const FilterPopover = memo(function FilterPopover({
 }: FilterPopoverProps) {
   const isOpen = openId === id;
   const popoverRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Horizontal correction (px) that keeps the panel inside the viewport. The
+  // trigger row wraps at some desktop widths, so a panel anchored to its
+  // trigger can otherwise sit entirely off-screen — e.g. "More filters" is
+  // right-aligned but wraps to the *left* edge of the row around 1280px/1536px.
+  const [clampX, setClampX] = useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -140,6 +154,41 @@ const FilterPopover = memo(function FilterPopover({
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [isOpen, onOpenChange]);
+
+  useLayoutEffect(() => {
+    // A stale offset from the previous open is harmless: it is applied to the
+    // DOM when this runs, so `reposition` subtracts it back out below.
+    if (!isOpen) return;
+
+    const GUTTER = 12;
+
+    function reposition() {
+      const panel = panelRef.current;
+      if (!panel) return;
+      setClampX((current) => {
+        const rect = panel.getBoundingClientRect();
+        // Undo the correction already applied so the natural box is measured.
+        const left = rect.left - current;
+        const right = rect.right - current;
+        const viewport = document.documentElement.clientWidth;
+        const overflowLeft = GUTTER - left;
+        const overflowRight = right - (viewport - GUTTER);
+        let next = 0;
+        if (overflowLeft > 0) next = overflowLeft;
+        else if (overflowRight > 0)
+          next = -Math.min(overflowRight, left - GUTTER);
+        return Math.abs(next - current) < 0.5 ? current : next;
+      });
+    }
+
+    reposition();
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [isOpen]);
 
   return (
     <div className="relative" ref={popoverRef}>
@@ -180,12 +229,18 @@ const FilterPopover = memo(function FilterPopover({
           />
 
           <div
+            ref={panelRef}
             role="dialog"
             className={cn(
-              "absolute top-[calc(100%+9px)] z-46 rounded-2xl border border-gray-200 bg-white p-4 shadow-lg filter-popover-enter",
-              wide ? "w-[460px] max-w-[92vw]" : "w-[340px] max-w-[92vw]",
+              "absolute top-[calc(100%+9px)] z-46 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-4 shadow-lg filter-popover-enter [scrollbar-width:thin]",
+              wide
+                ? "w-[460px] max-w-[calc(100vw-1.5rem)]"
+                : "w-[340px] max-w-[calc(100vw-1.5rem)]",
               alignRight ? "right-0" : "left-0",
             )}
+            // `translate` (not `transform`) so the correction composes with the
+            // pop-in keyframes instead of being overridden by them.
+            style={clampX ? { translate: `${clampX}px` } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             {children}
@@ -840,7 +895,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 role="tab"
                 aria-selected={mode === "smart"}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-[13px] font-bold transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] font-bold transition-colors sm:gap-2 sm:px-4 sm:text-[13px]",
                   mode === "smart"
                     ? "bg-white text-foreground shadow-sm"
                     : "bg-transparent text-muted-foreground",
@@ -857,7 +912,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 role="tab"
                 aria-selected={mode === "manual"}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-[13px] font-bold transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] font-bold transition-colors sm:gap-2 sm:px-4 sm:text-[13px]",
                   mode === "manual"
                     ? "bg-white text-foreground shadow-sm"
                     : "bg-transparent text-muted-foreground",
@@ -886,313 +941,38 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
             </div>
           ) : (
             <>
-              <div className="relative w-full min-[480px]:min-w-[240px] min-[480px]:w-auto min-[480px]:flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  type="search"
-                  value={localSearch}
-                  onChange={(e) => {
-                    setLocalSearch(e.target.value);
-                    debouncedSearchChange(e.target.value);
-                  }}
-                  placeholder="Search creators by keyword…"
-                  aria-label="Search creators"
-                  className="h-[44px] w-full rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-                />
-                {localSearch ? (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-foreground"
-                    onClick={() => {
-                      setLocalSearch("");
-                      commitField("search", "");
+              {/* Search + the phone "Filters" button wrap together, so the
+                  button never ends up alone on a line below a half-empty
+                  search field. */}
+              <div className="flex flex-1 items-center gap-2.5">
+                <div className="relative min-w-[150px] flex-1 min-[480px]:min-w-[240px]">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    type="search"
+                    value={localSearch}
+                    onChange={(e) => {
+                      setLocalSearch(e.target.value);
+                      debouncedSearchChange(e.target.value);
                     }}
-                  >
-                    <X className="size-4" />
-                  </button>
-                ) : null}
-              </div>
-              <div
-                className={cn(
-                  landingPage ? "hidden lg:contents" : "hidden xl:contents",
-                )}
-              >
-                  <FilterPopover
-                    id="category"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="Category"
-                    icon={<Grid3X3 className="size-[15px]" />}
-                    activeCount={categoryCount}
-                    wide
-                  >
-                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                      Content Category
-                    </h5>
-                    {categoryItems.length === 0 ? (
-                      <p className="py-2 text-xs text-muted-foreground">
-                        {categorySuggestionsQuery.isPending
-                          ? "Loading…"
-                          : "No categories available."}
-                      </p>
-                    ) : (
-                      <ChipGrid
-                        items={categoryItems}
-                        selected={filters.categories}
-                        onToggle={(slug) =>
-                          toggleArrayField("categories", slug)
-                        }
-                      />
-                    )}
-                  </FilterPopover>
-
-                  <FilterPopover
-                    id="price"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="Price"
-                    icon={<Zap className="size-[15px]" />}
-                    activeCount={priceCount}
-                  >
-                    <PriceRangeBody
-                      minPrice={filters.minPrice}
-                      maxPrice={filters.maxPrice}
-                      onCommit={(min, max) =>
-                        onChange({ ...filters, minPrice: min, maxPrice: max })
-                      }
-                    />
-                  </FilterPopover>
-
-                  <FilterPopover
-                    id="followers"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="Followers"
-                    icon={<Grid3X3 className="size-[15px]" />}
-                    activeCount={followersCount}
-                  >
-                    <FollowersBody
-                      minFollowers={filters.minFollowers}
-                      maxFollowers={filters.maxFollowers}
-                      onChange={(min, max) =>
-                        onChange({
-                          ...filters,
-                          minFollowers: min,
-                          maxFollowers: max,
-                        })
-                      }
-                    />
-                  </FilterPopover>
-
-                  {/* Delivery & Language stay inline only on very wide (2xl) screens; on laptop (xl) they live inside "More filters" */}
-                  <div className="hidden 2xl:contents">
-                    <FilterPopover
-                      id="delivery"
-                      openId={openPopover}
-                      onOpenChange={setOpenPopover}
-                      label="Delivery"
-                      icon={<Clock className="size-[15px]" />}
-                      activeCount={deliveryCount}
-                    >
-                      <DeliveryWithinBody
-                        maxDeliveryDays={filters.maxDeliveryDays}
-                        onChange={(value) =>
-                          onChange({ ...filters, maxDeliveryDays: value })
-                        }
-                      />
-                    </FilterPopover>
-
-                    <FilterPopover
-                      id="language"
-                      openId={openPopover}
-                      onOpenChange={setOpenPopover}
-                      label="Language"
-                      icon={<Globe className="size-[15px]" />}
-                      activeCount={langCount}
-                    >
-                      <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                        Language
-                      </h5>
-                      <ChipGrid
-                        items={getFacetItems("LANGUAGE")}
-                        selected={filters.language}
-                        onToggle={(slug) => toggleArrayField("language", slug)}
-                      />
-                    </FilterPopover>
-                  </div>
-
-                  <FilterPopover
-                    id="age"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="Age"
-                    icon={<Calendar className="size-[15px]" />}
-                    activeCount={ageCount}
-                  >
-                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                      Age Group
-                    </h5>
-                    <CheckboxRow
-                      items={AGE_GROUP_OPTIONS}
-                      selected={filters.ageGroup}
-                      onToggle={(v) => commitField("ageGroup", v)}
-                    />
-                  </FilterPopover>
-
-                  <div
-                    className="mx-0.5 h-[26px] w-px bg-gray-200"
-                    aria-hidden
+                    placeholder="Search creators by keyword…"
+                    aria-label="Search creators"
+                    className="h-[44px] w-full rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                   />
-
-                  <FilterPopover
-                    id="more"
-                    openId={openPopover}
-                    onOpenChange={setOpenPopover}
-                    label="More filters"
-                    icon={<SlidersHorizontal className="size-[15px]" />}
-                    activeCount={moreCount}
-                    wide
-                    alignRight
-                  >
-                    <div className="max-h-[60vh] overflow-y-auto overscroll-y-contain pr-1 [scrollbar-width:thin]">
-                      {/* Delivery & Language are surfaced here on laptop (xl); on 2xl they have their own inline buttons */}
-                      <div className="mb-4 2xl:hidden">
-                        <DeliveryWithinBody
-                          maxDeliveryDays={filters.maxDeliveryDays}
-                          onChange={(value) =>
-                            onChange({ ...filters, maxDeliveryDays: value })
-                          }
-                        />
-                      </div>
-
-                      <div className="mb-4 2xl:hidden">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Language
-                        </h5>
-                        <ChipGrid
-                          items={getFacetItems("LANGUAGE")}
-                          selected={filters.language}
-                          onToggle={(slug) => toggleArrayField("language", slug)}
-                        />
-                      </div>
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Appearance
-                        </h5>
-                        <ChipGrid
-                          items={getFacetItems("APPEARANCE")}
-                          selected={filters.appearance}
-                          onToggle={(slug) =>
-                            toggleArrayField("appearance", slug)
-                          }
-                        />
-                      </div>
-
-                      {MORE_FACET_SECTIONS.map(
-                        ({ dimension, label, filterKey }) => {
-                          const items = getFacetItems(dimension);
-                          if (items.length === 0) return null;
-                          return (
-                            <div key={dimension} className="mb-4">
-                              <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                                {label}
-                              </h5>
-                              <ChipGrid
-                                items={items}
-                                selected={filters[filterKey] as string[]}
-                                onToggle={(slug) =>
-                                  toggleArrayField(
-                                    filterKey as ArrayFilterKey,
-                                    slug,
-                                  )
-                                }
-                              />
-                            </div>
-                          );
-                        },
-                      )}
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Gender
-                        </h5>
-                        <CheckboxRow
-                          items={GENDER_OPTIONS}
-                          selected={filters.gender}
-                          onToggle={(v) => commitField("gender", v)}
-                        />
-                      </div>
-
-                    {restrictionNames.length > 0 && (
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Open to
-                        </h5>
-                        <ChipGrid
-                          items={contentPreferenceItems}
-                          selected={filters.restrictions}
-                          onToggle={(slug) =>
-                            toggleArrayField("restrictions", slug)
-                          }
-                        />
-                      </div>
-                    )}
-
-                      <div className="mb-4">
-                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-                          Location
-                        </h5>
-                        <Input
-                          placeholder="e.g. Mumbai, Delhi, Bengaluru"
-                          value={localCity}
-                          onChange={(e) => {
-                            setLocalCity(e.target.value);
-                            debouncedCityChange(e.target.value);
-                          }}
-                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
-                        />
-                      </div>
-
-                      <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5">
-                        <div>
-                          <div className="text-[13px] font-semibold text-foreground">
-                            On-location shoots
-                          </div>
-                          <div className="text-[11.5px] text-muted-foreground">
-                            Films at your store or venue
-                          </div>
-                        </div>
-                        <Switch
-                          checked={filters.onLocationAvailable}
-                          onCheckedChange={(checked) =>
-                            commitField("onLocationAvailable", checked)
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5 border-t border-gray-200 pt-3.5 mt-1">
-                      <button
-                        type="button"
-                        className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-gray-50"
-                        onClick={onClear}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="flex-1 rounded-lg bg-foreground px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-foreground/90"
-                        onClick={() => setOpenPopover(null)}
-                      >
-                        Show {isPending ? "…" : total}
-                      </button>
-                    </div>
-                  </FilterPopover>
+                  {localSearch ? (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-foreground"
+                      onClick={() => {
+                        setLocalSearch("");
+                        commitField("search", "");
+                      }}
+                    >
+                      <X className="size-4" />
+                    </button>
+                  ) : null}
                 </div>
-
-                <div className={cn(landingPage ? "flex lg:hidden" : "flex xl:hidden")}>
+                <div className="flex lg:hidden">
                   <Drawer>
                     <DrawerTrigger asChild>
                       <button className="inline-flex h-[44px] items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 text-[13.5px] font-semibold text-foreground shadow-sm transition-colors hover:bg-gray-50">
@@ -1384,6 +1164,290 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                       </DrawerFooter>
                     </DrawerContent>
                   </Drawer>
+                </div>
+              </div>
+
+              {/* The filter buttons wrap as a single group. Before, they were
+                  laid out with `contents`, so at widths where the row was a
+                  little too narrow (~1280px and ~1536px) only the last button
+                  ("More filters") dropped to a second line on its own. */}
+              <div className="hidden min-w-0 flex-wrap items-center gap-2.5 lg:flex">
+                  <FilterPopover
+                    id="category"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Category"
+                    icon={<Grid3X3 className="size-[15px]" />}
+                    activeCount={categoryCount}
+                    wide
+                  >
+                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Content Category
+                    </h5>
+                    {categoryItems.length === 0 ? (
+                      <p className="py-2 text-xs text-muted-foreground">
+                        {categorySuggestionsQuery.isPending
+                          ? "Loading…"
+                          : "No categories available."}
+                      </p>
+                    ) : (
+                      <ChipGrid
+                        items={categoryItems}
+                        selected={filters.categories}
+                        onToggle={(slug) =>
+                          toggleArrayField("categories", slug)
+                        }
+                      />
+                    )}
+                  </FilterPopover>
+
+                  <FilterPopover
+                    id="price"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Price"
+                    icon={<Zap className="size-[15px]" />}
+                    activeCount={priceCount}
+                  >
+                    <PriceRangeBody
+                      minPrice={filters.minPrice}
+                      maxPrice={filters.maxPrice}
+                      onCommit={(min, max) =>
+                        onChange({ ...filters, minPrice: min, maxPrice: max })
+                      }
+                    />
+                  </FilterPopover>
+
+                  <FilterPopover
+                    id="followers"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Followers"
+                    icon={<Grid3X3 className="size-[15px]" />}
+                    activeCount={followersCount}
+                  >
+                    <FollowersBody
+                      minFollowers={filters.minFollowers}
+                      maxFollowers={filters.maxFollowers}
+                      onChange={(min, max) =>
+                        onChange({
+                          ...filters,
+                          minFollowers: min,
+                          maxFollowers: max,
+                        })
+                      }
+                    />
+                  </FilterPopover>
+
+                  {/* Delivery & Language only go inline once the whole bar
+                      still fits on one line with them (~1700px); below that
+                      they live inside "More filters" so the bar doesn't gain a
+                      second row just to hold two extra buttons. */}
+                  <div className="hidden min-[1700px]:contents">
+                    <FilterPopover
+                      id="delivery"
+                      openId={openPopover}
+                      onOpenChange={setOpenPopover}
+                      label="Delivery"
+                      icon={<Clock className="size-[15px]" />}
+                      activeCount={deliveryCount}
+                    >
+                      <DeliveryWithinBody
+                        maxDeliveryDays={filters.maxDeliveryDays}
+                        onChange={(value) =>
+                          onChange({ ...filters, maxDeliveryDays: value })
+                        }
+                      />
+                    </FilterPopover>
+
+                    <FilterPopover
+                      id="language"
+                      openId={openPopover}
+                      onOpenChange={setOpenPopover}
+                      label="Language"
+                      icon={<Globe className="size-[15px]" />}
+                      activeCount={langCount}
+                    >
+                      <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                        Language
+                      </h5>
+                      <ChipGrid
+                        items={getFacetItems("LANGUAGE")}
+                        selected={filters.language}
+                        onToggle={(slug) => toggleArrayField("language", slug)}
+                      />
+                    </FilterPopover>
+                  </div>
+
+                  <FilterPopover
+                    id="age"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="Age"
+                    icon={<Calendar className="size-[15px]" />}
+                    activeCount={ageCount}
+                  >
+                    <h5 className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Age Group
+                    </h5>
+                    <CheckboxRow
+                      items={AGE_GROUP_OPTIONS}
+                      selected={filters.ageGroup}
+                      onToggle={(v) => commitField("ageGroup", v)}
+                    />
+                  </FilterPopover>
+
+                  <div
+                    className="mx-0.5 h-[26px] w-px bg-gray-200"
+                    aria-hidden
+                  />
+
+                  <FilterPopover
+                    id="more"
+                    openId={openPopover}
+                    onOpenChange={setOpenPopover}
+                    label="More filters"
+                    icon={<SlidersHorizontal className="size-[15px]" />}
+                    activeCount={moreCount}
+                    wide
+                    alignRight
+                  >
+                    <div className="max-h-[60vh] overflow-y-auto overscroll-y-contain pr-1 [scrollbar-width:thin]">
+                      {/* Delivery & Language are surfaced here on narrower
+                          desktops; past ~1700px they have inline buttons. */}
+                      <div className="mb-4 min-[1700px]:hidden">
+                        <DeliveryWithinBody
+                          maxDeliveryDays={filters.maxDeliveryDays}
+                          onChange={(value) =>
+                            onChange({ ...filters, maxDeliveryDays: value })
+                          }
+                        />
+                      </div>
+
+                      <div className="mb-4 min-[1700px]:hidden">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Language
+                        </h5>
+                        <ChipGrid
+                          items={getFacetItems("LANGUAGE")}
+                          selected={filters.language}
+                          onToggle={(slug) => toggleArrayField("language", slug)}
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Appearance
+                        </h5>
+                        <ChipGrid
+                          items={getFacetItems("APPEARANCE")}
+                          selected={filters.appearance}
+                          onToggle={(slug) =>
+                            toggleArrayField("appearance", slug)
+                          }
+                        />
+                      </div>
+
+                      {MORE_FACET_SECTIONS.map(
+                        ({ dimension, label, filterKey }) => {
+                          const items = getFacetItems(dimension);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={dimension} className="mb-4">
+                              <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                                {label}
+                              </h5>
+                              <ChipGrid
+                                items={items}
+                                selected={filters[filterKey] as string[]}
+                                onToggle={(slug) =>
+                                  toggleArrayField(
+                                    filterKey as ArrayFilterKey,
+                                    slug,
+                                  )
+                                }
+                              />
+                            </div>
+                          );
+                        },
+                      )}
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Gender
+                        </h5>
+                        <CheckboxRow
+                          items={GENDER_OPTIONS}
+                          selected={filters.gender}
+                          onToggle={(v) => commitField("gender", v)}
+                        />
+                      </div>
+
+                    {restrictionNames.length > 0 && (
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Open to
+                        </h5>
+                        <ChipGrid
+                          items={contentPreferenceItems}
+                          selected={filters.restrictions}
+                          onToggle={(slug) =>
+                            toggleArrayField("restrictions", slug)
+                          }
+                        />
+                      </div>
+                    )}
+
+                      <div className="mb-4">
+                        <h5 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Location
+                        </h5>
+                        <Input
+                          placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                          value={localCity}
+                          onChange={(e) => {
+                            setLocalCity(e.target.value);
+                            debouncedCityChange(e.target.value);
+                          }}
+                          className="h-9 rounded-lg border-gray-200 bg-white text-[13px] shadow-none"
+                        />
+                      </div>
+
+                      <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5">
+                        <div>
+                          <div className="text-[13px] font-semibold text-foreground">
+                            On-location shoots
+                          </div>
+                          <div className="text-[11.5px] text-muted-foreground">
+                            Films at your store or venue
+                          </div>
+                        </div>
+                        <Switch
+                          checked={filters.onLocationAvailable}
+                          onCheckedChange={(checked) =>
+                            commitField("onLocationAvailable", checked)
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5 border-t border-gray-200 pt-3.5 mt-1">
+                      <button
+                        type="button"
+                        className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-gray-50"
+                        onClick={onClear}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        className="flex-1 rounded-lg bg-foreground px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-foreground/90"
+                        onClick={() => setOpenPopover(null)}
+                      >
+                        Show {isPending ? "…" : total}
+                      </button>
+                    </div>
+                  </FilterPopover>
                 </div>
             </>
           )}

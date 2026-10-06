@@ -32,14 +32,17 @@ export class OrderChatRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
+        brandId: true,
+        agencyId: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
     });
     if (!order) throw new Error('Order not found');
-    const brandUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
-      order.brand.id,
-    );
+    const brandUserId = await this.brandAccess.resolveBuyerActorUserId({
+      brandId: order.brandId ?? order.brand?.id ?? null,
+      agencyId: order.agencyId,
+    });
     return { brandUserId, creatorUserId: order.creator.userId };
   }
 

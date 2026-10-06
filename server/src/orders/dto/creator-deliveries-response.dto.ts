@@ -37,6 +37,15 @@ export class CreatorDeliveryItemDto {
   @ApiProperty()
   createdAt!: Date;
 
+  @ApiProperty({
+    enum: ['pending', 'processing', 'ready', 'failed', 'dead'],
+    description:
+      'Watermark-preview state for this delivery. While it is "pending" or ' +
+      '"processing" the creator cannot submit another file for the same ' +
+      'revision — the uploader must show a processing state instead.',
+  })
+  previewStatus!: string;
+
   @ApiProperty({ type: () => CreatorDeliveryOrderSnapshotDto })
   order!: CreatorDeliveryOrderSnapshotDto;
 }

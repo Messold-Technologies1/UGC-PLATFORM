@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,6 +48,7 @@ export function ImportSharedWishlistDialog({
   creatorCount,
   sourceBrandName,
 }: ImportSharedWishlistDialogProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState(`${shortlistName} (copy)`);
@@ -71,7 +76,7 @@ export function ImportSharedWishlistDialog({
           : "All creators were already in that wishlist";
       toast.success(addedLabel, { description: `"${wishlist.name}"` });
       handleOpenChange(false);
-      router.push(`/brand/wishlists/${result.wishlistId}`);
+      router.push(remapBuyerHref(`/brand/wishlists/${result.wishlistId}`, workspaceBase));
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? "Failed to import shortlist");
     }
@@ -84,7 +89,7 @@ export function ImportSharedWishlistDialog({
       const result = await importMutation.mutateAsync({ name });
       toast.success(`Created "${name}" with ${result.addedCount} creators`);
       handleOpenChange(false);
-      router.push(`/brand/wishlists/${result.wishlistId}`);
+      router.push(remapBuyerHref(`/brand/wishlists/${result.wishlistId}`, workspaceBase));
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? "Failed to create wishlist");
     }
@@ -211,7 +216,7 @@ export function ImportSharedWishlistDialog({
 
         <div className="border-t border-border/40 px-5 py-3">
           <Link
-            href="/brand/wishlists"
+            href={remapBuyerHref("/brand/wishlists", workspaceBase)}
             onClick={() => handleOpenChange(false)}
             className="flex items-center gap-1 text-sm font-medium text-rose-500 hover:underline"
           >

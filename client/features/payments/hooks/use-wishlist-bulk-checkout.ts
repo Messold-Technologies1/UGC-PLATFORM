@@ -1,5 +1,9 @@
 "use client";
 
+import { buyerWorkspaceBaseFromPathname, remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { usePathname } from "next/navigation";
+
 import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -31,6 +35,8 @@ function getErrorMessage(error: unknown): string {
  * brand to their orders list where all the new orders appear.
  */
 export function useWishlistBulkCheckout() {
+  const pathname = usePathname();
+  const workspaceBase = buyerWorkspaceBaseFromPathname(pathname);
   const router = useRouter();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -75,7 +81,7 @@ export function useWishlistBulkCheckout() {
           toast.success("Orders placed", {
             description: "No payment needed — redirecting to your orders...",
           });
-          router.replace("/brand/orders");
+          router.replace(remapBuyerHref("/brand/orders", workspaceBase));
           router.refresh();
           return true;
         }
@@ -98,7 +104,7 @@ export function useWishlistBulkCheckout() {
             toast.success("Payment successful", {
               description: "Redirecting to your orders...",
             });
-            router.replace("/brand/orders");
+            router.replace(remapBuyerHref("/brand/orders", workspaceBase));
             router.refresh();
           },
           onDismiss: () => setIsProcessing(false),

@@ -49,7 +49,6 @@ export const brandProfileUpdateSchema = z.object({
   contactEmail: z.string(),
   contactPhone: z.string(),
   brandName: z.string().trim().min(1, "Brand name is required"),
-  brandPronunciation: z.string(),
   website: z
     .string()
     .refine(

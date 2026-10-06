@@ -133,6 +133,12 @@ function BriefDetails({
             label="Ship physical product"
             value={willShipProduct ? "Yes" : "No"}
           />
+          {willShipProduct ? (
+            <DetailRow
+              label="Want product returned"
+              value={brief.wantsPhysicalProductReturned ? "Yes" : "No"}
+            />
+          ) : null}
         </div>
         <div className="space-y-1">
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">

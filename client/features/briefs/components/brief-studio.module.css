@@ -150,10 +150,37 @@
   padding: 16px 24px;
   border-top: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 12px;
   flex-shrink: 0;
   background: color-mix(in oklab, var(--muted) 40%, white);
+}
+
+.panelFootActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.panelFootWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
+  background: color-mix(in srgb, #fef3c7 80%, white);
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.panelFootWarningIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .panelFootSpacer {

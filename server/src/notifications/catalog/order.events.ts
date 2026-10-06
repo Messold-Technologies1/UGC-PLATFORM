@@ -67,7 +67,7 @@ export const orderEvents = defineEvents({
       const order = await loadOrder(ctx, id);
       if (!order) return null;
       return toCreator(order, {
-        brandName: brandDisplayName(order.brand),
+        brandName: brandDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         briefSubmittedAt: formatDate(order.briefSubmittedAt),
@@ -148,7 +148,7 @@ export const orderEvents = defineEvents({
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           rejectionNote: order.cancellationReason ?? '',
-          brandName: brandDisplayName(order.brand),
+          brandName: brandDisplayName(order),
           actionUrl: creatorOrderUrl(ctx, order.id),
         }),
       );
@@ -173,7 +173,7 @@ export const orderEvents = defineEvents({
       return toCreator(
         order,
         omitBlank({
-          brandName: brandDisplayName(order.brand),
+          brandName: brandDisplayName(order),
           orderId: order.id,
           courierName: order.courierName ?? '',
           trackingId: order.trackingId ?? '',
@@ -228,7 +228,7 @@ export const orderEvents = defineEvents({
       return toCreator(
         order,
         omitBlank({
-          brandName: brandDisplayName(order.brand),
+          brandName: brandDisplayName(order),
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           revisionNumber: String(order.revisionCount),
@@ -260,7 +260,7 @@ export const orderEvents = defineEvents({
         select: { revisionsAdded: true },
       });
       return toCreator(order, {
-        brandName: brandDisplayName(order.brand),
+        brandName: brandDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         revisionsAdded: String(purchase?.revisionsAdded ?? 0),
@@ -288,7 +288,7 @@ export const orderEvents = defineEvents({
         select: { revisionsAdded: true },
       });
       return toBrand(ctx, order, {
-        brandName: brandDisplayName(order.brand),
+        brandName: brandDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         revisionsAdded: String(purchase?.revisionsAdded ?? 0),
@@ -319,7 +319,7 @@ export const orderEvents = defineEvents({
         select: { daysAdded: true },
       });
       return toBrand(ctx, order, {
-        brandName: brandDisplayName(order.brand),
+        brandName: brandDisplayName(order),
         creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
@@ -350,7 +350,7 @@ export const orderEvents = defineEvents({
         select: { daysAdded: true },
       });
       return toCreator(order, {
-        brandName: brandDisplayName(order.brand),
+        brandName: brandDisplayName(order),
         creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
@@ -407,7 +407,7 @@ export const orderEvents = defineEvents({
       const order = await loadOrder(ctx, id);
       if (!order) return null;
       return toCreator(order, {
-        brandName: brandDisplayName(order.brand),
+        brandName: brandDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         actionUrl: creatorOrderUrl(ctx, order.id),
@@ -475,7 +475,7 @@ export const orderEvents = defineEvents({
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           resolutionNotes: order.cancellationReason ?? '',
-          brandName: brandDisplayName(order.brand),
+          brandName: brandDisplayName(order),
           actionUrl: creatorOrderUrl(ctx, order.id),
         }),
       );
@@ -524,7 +524,7 @@ export const orderEvents = defineEvents({
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           cancellationNote: order.cancellationReason ?? '',
-          brandName: brandDisplayName(order.brand),
+          brandName: brandDisplayName(order),
           actionUrl: creatorOrderUrl(ctx, order.id),
         }),
       );

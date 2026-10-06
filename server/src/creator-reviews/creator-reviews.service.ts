@@ -18,6 +18,7 @@ const DEFAULT_TOP_REVIEWS_LIMIT = 3;
 
 const reviewInclude = {
   brand: { select: { id: true, brandName: true, logoUrl: true } },
+  agency: { select: { id: true, name: true, logoUrl: true } },
 } as const;
 
 function formatAvgRating(value: number | null | undefined): string | null {
@@ -32,8 +33,28 @@ type ReviewRow = {
   rating: number;
   review: string | null;
   createdAt: Date;
-  brand: { id: string; brandName: string | null; logoUrl: string | null };
+  brand: { id: string; brandName: string | null; logoUrl: string | null } | null;
+  agency: { id: string; name: string; logoUrl: string | null } | null;
 };
+
+function reviewerSnapshot(row: ReviewRow): {
+  id: string;
+  brandName: string | null;
+  logoUrl: string | null;
+} {
+  if (row.agency) {
+    return {
+      id: row.agency.id,
+      brandName: row.agency.name,
+      logoUrl: row.agency.logoUrl ?? null,
+    };
+  }
+  return {
+    id: row.brand?.id ?? '',
+    brandName: row.brand?.brandName ?? null,
+    logoUrl: row.brand?.logoUrl ?? null,
+  };
+}
 
 function mapReview(row: ReviewRow): CreatorRatingReviewDto {
   return {
@@ -42,11 +63,7 @@ function mapReview(row: ReviewRow): CreatorRatingReviewDto {
     creatorId: row.creatorId,
     rating: row.rating,
     review: row.review ?? null,
-    brand: {
-      id: row.brand.id,
-      brandName: row.brand.brandName,
-      logoUrl: row.brand.logoUrl ?? null,
-    },
+    brand: reviewerSnapshot(row),
     createdAt: row.createdAt,
   };
 }
@@ -55,11 +72,7 @@ function mapTopReview(row: ReviewRow): CreatorTopReviewDto {
   return {
     rating: row.rating,
     review: row.review ?? null,
-    brand: {
-      id: row.brand.id,
-      brandName: row.brand.brandName,
-      logoUrl: row.brand.logoUrl ?? null,
-    },
+    brand: reviewerSnapshot(row),
   };
 }
 
@@ -76,7 +89,7 @@ export class CreatorReviewsService {
     orderId: string;
     dto: CreateCreatorRatingReviewDto;
   }): Promise<CreateCreatorRatingReviewResponseDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
+    const actor = await this.brandAccess.resolveOrderActor({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
@@ -86,15 +99,14 @@ export class CreatorReviewsService {
       select: {
         id: true,
         brandId: true,
+        agencyId: true,
         creatorId: true,
         status: true,
         acceptedAt: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.brandId !== brand.id) {
-      throw new ForbiddenException('Not your order');
-    }
+    this.brandAccess.assertOwnsOrder(order, actor);
 
     const status = String(order.status);
     const reviewableStatuses = new Set([
@@ -119,13 +131,15 @@ export class CreatorReviewsService {
       throw new ConflictException('This order has already been rated');
     }
 
+    const owner = this.brandAccess.orderOwnerCreateData(actor);
     const reviewText = params.dto.review?.trim();
     const { row, avgRating, reviewCount } = await this.prisma.$transaction(
       async (tx) => {
         const createdRow = await tx.creatorRatingReview.create({
           data: {
             orderId: order.id,
-            brandId: brand.id,
+            brandId: owner.brandId ?? null,
+            agencyId: owner.agencyId ?? null,
             creatorId: order.creatorId,
             rating: params.dto.rating,
             review: reviewText && reviewText.length > 0 ? reviewText : null,
@@ -185,8 +199,10 @@ export class CreatorReviewsService {
           select: {
             id: true,
             userId: true,
-            agency: { select: { ownerUserId: true } },
           },
+        },
+        agency: {
+          select: { ownerUserId: true },
         },
         creator: { select: { userId: true } },
       },
@@ -194,7 +210,7 @@ export class CreatorReviewsService {
     if (!order) throw new NotFoundException('Order not found');
 
     const brandActorUserId =
-      order.brand.userId ?? order.brand.agency?.ownerUserId ?? null;
+      order.agency?.ownerUserId ?? order.brand?.userId ?? null;
     const isBrand = brandActorUserId === params.viewerUserId;
     const isCreator = order.creator.userId === params.viewerUserId;
     if (!isBrand && !isCreator) {

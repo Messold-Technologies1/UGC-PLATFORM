@@ -304,6 +304,14 @@ export class WhatsAppService implements OnModuleInit {
       });
       return profile?.whatsappNotificationsEnabled ?? false;
     }
+    // Agency has no per-profile WhatsApp opt-out yet — allow once the agency exists.
+    if (gate.profileType === 'agency') {
+      const agency = await this.prisma.agency.findUnique({
+        where: { id: gate.profileId },
+        select: { id: true },
+      });
+      return Boolean(agency);
+    }
     const profile = await this.prisma.brandProfile.findUnique({
       where: { id: gate.profileId },
       select: { whatsappNotificationsEnabled: true },

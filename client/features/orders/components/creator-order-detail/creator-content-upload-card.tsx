@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
   FileVideo,
   Upload,
   UploadCloud,
@@ -20,7 +21,11 @@ import { toast } from "sonner";
 import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-flow-mutation";
 import { useGetCreatorOrderDeliveriesQuery } from "../../hooks/use-get-creator-deliveries-query";
 import type { OrderDeliveryAsset } from "../../api/get-brand-order-deliveries";
-import type { CreatorDeliveryItem } from "../../api/get-creator-deliveries";
+import {
+  isDeliveryBeingProcessed,
+  isDeliveryUnprocessable,
+  type CreatorDeliveryItem,
+} from "../../api/get-creator-deliveries";
 
 const MAX_FILE_SIZE_MB = 250;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1_000_000;
@@ -72,6 +77,28 @@ function formatDateTime(value?: string | null): string | null {
 function revisionLabel(revisionNumber?: number): string {
   if (!revisionNumber) return "Initial delivery";
   return `Revision ${revisionNumber}`;
+}
+
+/**
+ * The delivery that decides what this card shows: the one for the order's
+ * CURRENT revision, which is always the highest-numbered row. A new revision
+ * can only be requested from DELIVERED / REVISION_SUBMITTED, and the order
+ * reaches those states only once the previous revision's watermark is ready, so
+ * an older row can never be the one still in flight.
+ */
+function findLatestDelivery(
+  deliveries: CreatorDeliveryItem[],
+): CreatorDeliveryItem | null {
+  return deliveries.reduce<CreatorDeliveryItem | null>((best, current) => {
+    if (!best) return current;
+    if (current.revisionNumber !== best.revisionNumber) {
+      return current.revisionNumber > best.revisionNumber ? current : best;
+    }
+    return new Date(current.createdAt).getTime() >
+      new Date(best.createdAt).getTime()
+      ? current
+      : best;
+  }, null);
 }
 
 function toCarouselAssets(assets: OrderDeliveryAsset[]): CarouselAsset[] {
@@ -132,6 +159,24 @@ export function CreatorContentUploadCard({
 
   const submitMutation = useSubmitDeliveryFlowMutation();
   const isUploading = submitMutation.isPending;
+
+  // Computed over ALL items, not the asset-filtered list further down: a
+  // delivery row exists (and locks this card) from the moment it is submitted.
+  // Declared up here so the handlers below close over it.
+  //
+  // No polling backs this. Once the watermark lands, the order moves to
+  // DELIVERED / REVISION_SUBMITTED and this card is replaced by its read-only
+  // variant anyway, and the `delivery.watermark_ready` socket event already
+  // refetches us (refetchOrderViews invalidates the whole "orders" prefix).
+  const latestDelivery = findLatestDelivery(data?.items ?? []);
+  // Submitted and ours to finish — she is shown "submitted" and nothing else,
+  // including when a run has failed and is waiting to be retried.
+  const submissionInFlight =
+    latestDelivery !== null && isDeliveryBeingProcessed(latestDelivery);
+  // Terminal: nothing is retrying this any more, so she has to send a new file.
+  const needsNewUpload =
+    latestDelivery !== null && isDeliveryUnprocessable(latestDelivery);
+  const uploaderLocked = isUploading || submissionInFlight;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -194,7 +239,7 @@ export function CreatorContentUploadCard({
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (isUploading) return;
+    if (uploaderLocked) return;
     setIsDragOver(true);
   }
 
@@ -208,7 +253,7 @@ export function CreatorContentUploadCard({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    if (isUploading) return;
+    if (uploaderLocked) return;
     if (e.dataTransfer.files.length > 0) {
       stageFiles(e.dataTransfer.files);
     }
@@ -216,6 +261,12 @@ export function CreatorContentUploadCard({
 
   function handleConfirmUpload() {
     if (!pendingUpload) return;
+    if (submissionInFlight) {
+      toast.info("Your content is already submitted", {
+        description: "We're finishing up — no need to upload it again.",
+      });
+      return;
+    }
     const note = withNote ? submissionNote.trim() || undefined : undefined;
     submitMutation.mutate(
       { orderId, files: pendingUpload.files, note },
@@ -224,7 +275,9 @@ export function CreatorContentUploadCard({
           delete stagedUploadsCache[orderId];
           setPendingUpload(null);
           setSubmissionNote("");
-          toast.success("Content uploaded successfully!");
+          toast.success("Content submitted", {
+            description: "The brand will review it shortly.",
+          });
           onUploaded?.();
         },
       },
@@ -299,6 +352,25 @@ export function CreatorContentUploadCard({
             onChange={handleFileSelect}
           />
 
+          {needsNewUpload ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+              <AlertTriangle
+                className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400"
+                aria-hidden
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  We couldn&apos;t process this video
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  Something about the file stopped us from preparing it for the
+                  brand. Please upload it again — re-exporting it, or sending an
+                  MP4, usually does the trick.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           {pendingUpload ? (
             <div className="rounded-2xl border border-border/50 bg-muted/30 p-4">
               {previewAssets.length > 0 && (
@@ -327,7 +399,7 @@ export function CreatorContentUploadCard({
                 <Button
                   type="button"
                   className="h-10 flex-1 rounded-xl bg-[#22c55e] font-bold text-white shadow-sm hover:bg-[#22c55e]/90"
-                  disabled={isUploading}
+                  disabled={uploaderLocked}
                   onClick={handleConfirmUpload}
                 >
                   {isUploading ? (
@@ -344,7 +416,7 @@ export function CreatorContentUploadCard({
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : submissionInFlight ? null : (
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -371,7 +443,7 @@ export function CreatorContentUploadCard({
                 variant="outline"
                 className="h-9 gap-1.5 rounded-xl border-border/50 text-xs font-semibold"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
+                disabled={uploaderLocked}
               >
                 Choose Files
               </Button>

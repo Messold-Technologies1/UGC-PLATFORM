@@ -119,23 +119,26 @@ export class WalletWithdrawalDto {
 }
 
 export class AdminWithdrawalDto extends WalletWithdrawalDto {
-  @ApiProperty() brandId!: string;
+  @ApiProperty({ nullable: true }) brandId!: string | null;
+  @ApiPropertyOptional({ nullable: true }) agencyId?: string | null;
   @ApiProperty({ nullable: true }) brandName!: string | null;
-  @ApiProperty({ description: "Brand's current credit balance, in paise." })
+  @ApiProperty({ description: "Buyer's current credit balance, in paise." })
   brandBalancePaise!: number;
 
   static fromAdmin(
     w: WalletWithdrawal & {
       wallet: {
         balancePaise: number;
-        brand: { id: string; brandName: string | null };
+        brand: { id: string; brandName: string | null } | null;
+        agency?: { id: string; name: string } | null;
       };
     },
   ): AdminWithdrawalDto {
     return {
       ...WalletWithdrawalDto.from(w),
       brandId: w.brandId,
-      brandName: w.wallet.brand.brandName,
+      agencyId: w.agencyId,
+      brandName: w.wallet.brand?.brandName ?? w.wallet.agency?.name ?? null,
       brandBalancePaise: w.wallet.balancePaise,
     };
   }

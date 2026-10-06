@@ -61,6 +61,13 @@ export class BriefDto {
   })
   willShipPhysicalProductToCreator!: boolean;
 
+  @ApiProperty({
+    description:
+      'Whether the buyer wants the physical product returned after the shoot. Only meaningful when willShipPhysicalProductToCreator is true.',
+    default: false,
+  })
+  wantsPhysicalProductReturned!: boolean;
+
   @ApiPropertyOptional({ enum: BriefShootLocationKind })
   shootLocationKind?: BriefShootLocationKind | null;
 

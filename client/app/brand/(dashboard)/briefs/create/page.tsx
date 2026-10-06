@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
 import {
+  AlertTriangle,
   ArrowRight,
   Check,
   Smartphone,
@@ -22,7 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
@@ -45,10 +48,16 @@ import {
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import { useUpdateBriefMutation } from "@/features/briefs/hooks/use-update-brief-mutation";
 import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
+import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
+import { useAgencyProfileMeQuery } from "@/features/agency/hooks/use-agency-profile-me-query";
+import { uniqueBrandNames } from "@/features/agency/lib/unique-brand-names";
+import { BrandNameCombobox } from "@/features/briefs/components/brand-name-combobox";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
+import { useMeQuery } from "@/features/auth/hooks/use-me-query";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
+import { resolveClientActiveBrandId } from "@/features/brands/lib/active-brand";
 import {
   presignBrandPronunciationUpload,
   putBlobToPresignedUrl,
@@ -220,6 +229,7 @@ function buildCreateBriefSchema(requireBrandName: boolean) {
     productImageUrl: optionalUrl("Image URL"),
     isProduct: z.boolean().optional(),
     willShipPhysicalProductToCreator: z.boolean().optional(),
+    wantsPhysicalProductReturned: z.boolean().optional(),
     shootLocationKind: z.enum(shootLocationKinds).optional(),
     shootLocationAddress: z.string().trim().optional(),
     durationBucket: z.enum(durationBuckets).optional(),
@@ -312,6 +322,7 @@ const createBriefDefaultValues: CreateBriefValues = {
   productImageUrl: "",
   isProduct: true,
   willShipPhysicalProductToCreator: false,
+  wantsPhysicalProductReturned: false,
   shootLocationAddress: "",
   contentType: [],
   toneStyle: [],
@@ -328,6 +339,94 @@ function optionalString(value: string | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+const BRIEF_FIELD_ERROR_ORDER = [
+  "brandName",
+  "productName",
+  "productDescription",
+  "productImageKey",
+  "productImageUrl",
+  "productPageUrl",
+  "brandLogoUrl",
+  "contentType",
+  "toneStyle",
+  "shootLocationKind",
+  "shootLocationAddress",
+  "durationBucket",
+  "keyNoteToInclude",
+  "ctaNote",
+  "referenceLinks",
+  "scriptText",
+  "scriptOption",
+  "willShipPhysicalProductToCreator",
+  "wantsPhysicalProductReturned",
+  "finalNotes",
+] as const;
+
+function briefFieldErrorLabel(
+  field: string,
+  offerLabels: ReturnType<typeof getBriefOfferLabels>,
+): string {
+  switch (field) {
+    case "brandName":
+      return "Brand name";
+    case "productName":
+      return offerLabels.name;
+    case "productDescription":
+      return offerLabels.description;
+    case "productImageKey":
+    case "productImageUrl":
+      return offerLabels.image;
+    case "productPageUrl":
+      return offerLabels.pageUrl;
+    case "brandLogoUrl":
+      return "Brand logo URL";
+    case "contentType":
+      return "Content type";
+    case "toneStyle":
+      return "Tone";
+    case "shootLocationKind":
+      return "Shoot location";
+    case "shootLocationAddress":
+      return "Location address";
+    case "durationBucket":
+      return "Duration";
+    case "keyNoteToInclude":
+      return "Key points";
+    case "ctaNote":
+      return "Call to action";
+    case "referenceLinks":
+      return "Reference links";
+    case "scriptText":
+      return "Script";
+    case "scriptOption":
+      return "Script option";
+    case "willShipPhysicalProductToCreator":
+      return "Ship physical product";
+    case "wantsPhysicalProductReturned":
+      return "Want product returned";
+    case "finalNotes":
+      return "Do's and don'ts";
+    default:
+      return field;
+  }
+}
+
+function listMissingBriefFieldLabels(
+  errors: Record<string, unknown>,
+  offerLabels: ReturnType<typeof getBriefOfferLabels>,
+): string[] {
+  const keys = Object.keys(errors);
+  const ordered = BRIEF_FIELD_ERROR_ORDER.filter((key) => key in errors);
+  const extras = keys.filter(
+    (key) => !(BRIEF_FIELD_ERROR_ORDER as readonly string[]).includes(key),
+  );
+  const labels = [...ordered, ...extras].map((key) =>
+    briefFieldErrorLabel(key, offerLabels),
+  );
+  // Product image can error on both key and url — keep one label.
+  return [...new Set(labels)];
+}
+
 function toReferenceLinks(value: string | undefined) {
   return (value ?? "")
     .split(/\r?\n/)
@@ -337,18 +436,24 @@ function toReferenceLinks(value: string | undefined) {
 
 function toCreateBriefPayload(
   values: CreateBriefValues,
-  includeBrandName: boolean,
+  options: {
+    includeBrandName: boolean;
+    fallbackBrandName?: string;
+  },
 ): CreateBriefPayload {
   const referenceLinks = toReferenceLinks(values.referenceLinks);
   const scriptText = optionalString(values.scriptText);
   const isProduct = values.isProduct ?? true;
   const shipsPhysical =
     isProduct && (values.willShipPhysicalProductToCreator ?? false);
+  const wantsReturned =
+    shipsPhysical && (values.wantsPhysicalProductReturned ?? false);
   const productImageKey = values.productImageKey?.trim();
-  const brandName = optionalString(values.brandName);
+  const brandName =
+    optionalString(values.brandName) ?? optionalString(options.fallbackBrandName);
 
   return {
-    ...(includeBrandName && brandName ? { brandName } : {}),
+    ...(options.includeBrandName && brandName ? { brandName } : {}),
     industry: optionalString(values.industry),
     brandLogoUrl: optionalString(values.brandLogoUrl),
     brandPronunciationAudioKey: optionalString(
@@ -363,6 +468,7 @@ function toCreateBriefPayload(
     isProduct,
     ...(isProduct && productImageKey ? { productImageKey } : {}),
     willShipPhysicalProductToCreator: shipsPhysical,
+    wantsPhysicalProductReturned: wantsReturned,
     shootLocationKind: values.shootLocationKind as
       | BriefShootLocationKind
       | undefined,
@@ -388,6 +494,101 @@ function toCreateBriefPayload(
   };
 }
 
+function BriefBrandNameFields({
+  isAgencyBriefAuthor,
+  needsBrandName,
+  effectiveBrandName,
+  existingBrandNames,
+  form,
+}: Readonly<{
+  isAgencyBriefAuthor: boolean;
+  needsBrandName: boolean;
+  effectiveBrandName: string;
+  existingBrandNames: string[];
+  form: UseFormReturn<CreateBriefValues>;
+}>) {
+  if (isAgencyBriefAuthor) {
+    return (
+      <div className="space-y-2 min-w-0">
+        <Label
+          htmlFor="brandName"
+          className="text-xs font-semibold text-foreground/80"
+        >
+          Brand Name <span className="text-destructive">*</span>
+        </Label>
+        <Controller
+          name="brandName"
+          control={form.control}
+          render={({ field }) => (
+            <BrandNameCombobox
+              id="brandName"
+              value={field.value ?? ""}
+              options={existingBrandNames}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              invalid={!!form.formState.errors.brandName}
+              placeholder="Type or pick a brand"
+            />
+          )}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Pick a brand you already briefed, or type a new name. Matching names
+          are treated as the same brand.
+        </p>
+        {form.formState.errors.brandName ? (
+          <p className="text-[11px] text-destructive mt-1">
+            {form.formState.errors.brandName.message}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (needsBrandName) {
+    return (
+      <div className="space-y-2 min-w-0">
+        <Label
+          htmlFor="brandName"
+          className="text-xs font-semibold text-foreground/80"
+        >
+          Brand Name <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id="brandName"
+          placeholder="GlowUp Skincare"
+          className="rounded-lg bg-white"
+          {...form.register("brandName")}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Saved on your brand profile for future briefs.
+        </p>
+        {form.formState.errors.brandName ? (
+          <p className="text-[11px] text-destructive mt-1">
+            {form.formState.errors.brandName.message}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 min-w-0">
+      <Label
+        htmlFor="brandName"
+        className="text-xs font-semibold text-foreground/80"
+      >
+        Brand Name
+      </Label>
+      <Input
+        id="brandName"
+        value={effectiveBrandName}
+        readOnly
+        className="rounded-lg bg-muted/40"
+      />
+    </div>
+  );
+}
+
 function getScriptOptionLabel(value: ScriptOptionValue) {
   switch (value) {
     case "BRAND_PROVIDED":
@@ -402,6 +603,7 @@ function getScriptOptionLabel(value: ScriptOptionValue) {
 
 function CreateBriefPageContent() {
   const router = useRouter();
+  const workspaceBase = useBuyerWorkspaceBase();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const isFromOrder = !!orderId;
@@ -434,11 +636,36 @@ function CreateBriefPageContent() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
+  const { data: meUser = null } = useMeQuery();
+  const activeBrandId = meUser ? resolveClientActiveBrandId(meUser) : null;
+  const isAgencyBriefAuthor = workspaceBase === "/agency";
+  const { data: agencyProfile } = useAgencyProfileMeQuery({
+    enabled: isAgencyBriefAuthor,
+  });
+  const { data: briefsList } = useListBriefsQuery({
+    enabled: isAgencyBriefAuthor,
+  });
+  const existingBrandNames = useMemo(
+    () =>
+      uniqueBrandNames([
+        ...(agencyProfile?.brandNames ?? []),
+        ...(meUser?.accessibleBrands.map((brand) => brand.brandName) ?? []),
+        ...(briefsList?.items.map((brief) => brief.brandName) ?? []),
+      ]),
+    [agencyProfile?.brandNames, briefsList?.items, meUser?.accessibleBrands],
+  );
+  const activeBrandName =
+    meUser?.accessibleBrands
+      .find((brand) => brand.id === activeBrandId)
+      ?.brandName?.trim() ?? "";
   const profileBrandName =
     brandProfileState?.kind === "ready"
       ? brandProfileState.profile.brandName?.trim() ?? ""
       : "";
-  const needsBrandName = !profileBrandName;
+  const effectiveBrandName = isAgencyBriefAuthor
+    ? ""
+    : profileBrandName || activeBrandName;
+  const needsBrandName = isAgencyBriefAuthor || !effectiveBrandName;
 
   const createBriefSchema = useMemo(
     () => buildCreateBriefSchema(needsBrandName),
@@ -516,7 +743,7 @@ function CreateBriefPageContent() {
         return;
       }
 
-      router.push(`/brand/briefs/${result.id}`);
+      router.push(remapBuyerHref(`/brand/briefs/${result.id}`, workspaceBase));
     },
   });
 
@@ -525,13 +752,13 @@ function CreateBriefPageContent() {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(draftStorageKey);
       }
-      router.push(`/brand/briefs/${updated.id}`);
+      router.push(remapBuyerHref(`/brand/briefs/${updated.id}`, workspaceBase));
     },
   });
 
   const submitBriefMutation = useSubmitBriefMutation({
     onSuccess: () => {
-      router.push(`/brand/orders/${orderId}`);
+      router.push(remapBuyerHref(`/brand/orders/${orderId}`, workspaceBase));
     },
   });
 
@@ -547,6 +774,10 @@ function CreateBriefPageContent() {
   const watchWillShip = useWatch({
     control: form.control,
     name: "willShipPhysicalProductToCreator",
+  });
+  const watchWantsReturned = useWatch({
+    control: form.control,
+    name: "wantsPhysicalProductReturned",
   });
   const watchIsProduct = useWatch({
     control: form.control,
@@ -588,7 +819,7 @@ function CreateBriefPageContent() {
 
     const profile = brandProfileState.profile;
     const defaults: Partial<CreateBriefValues> = {
-      brandName: profile.brandName ?? undefined,
+      brandName: effectiveBrandName || undefined,
       brandLogoUrl: profile.logoUrl ?? undefined,
       brandPronunciationAudioKey:
         profile.brandPronunciationAudioKey ?? undefined,
@@ -613,14 +844,14 @@ function CreateBriefPageContent() {
         });
       }
     });
-  }, [brandProfileState, form]);
+  }, [brandProfileState, effectiveBrandName, form]);
 
   const onSubmit = (data: CreateBriefValues) => {
     if (isEditMode && editBriefId) {
-      const payload: Partial<CreateBriefPayload> = toCreateBriefPayload(
-        data,
-        true,
-      );
+      const payload: Partial<CreateBriefPayload> = toCreateBriefPayload(data, {
+        includeBrandName: true,
+        fallbackBrandName: effectiveBrandName,
+      });
       // The stored product image key is finalized (not a temp upload key).
       // Only send productImageKey when the user actually replaced the image,
       // otherwise the backend would reject the non-temp key.
@@ -634,7 +865,12 @@ function CreateBriefPageContent() {
       updateBriefMutation.mutate({ id: editBriefId, payload });
       return;
     }
-    createBriefMutation.mutate(toCreateBriefPayload(data, needsBrandName));
+    createBriefMutation.mutate(
+      toCreateBriefPayload(data, {
+        includeBrandName: needsBrandName || (!profileBrandName && !!activeBrandName),
+        fallbackBrandName: effectiveBrandName,
+      }),
+    );
   };
 
   const handleProductImageSelect = (file: File | null) => {
@@ -672,6 +908,10 @@ function CreateBriefPageContent() {
         shouldDirty: true,
         shouldValidate: true,
       });
+      form.setValue("wantsPhysicalProductReturned", false, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
       handleRemoveProductImage();
     }
   };
@@ -683,6 +923,12 @@ function CreateBriefPageContent() {
   const isProductImageUploadPending = uploadProductImageMutation.isPending;
   const isUploadPending =
     isPronunciationUploadPending || isProductImageUploadPending;
+  const { errors: formErrors, submitCount } = form.formState;
+  const missingFieldLabels =
+    submitCount > 0
+      ? listMissingBriefFieldLabels(formErrors, offerLabels)
+      : [];
+  const missingRequiredFields = missingFieldLabels.length > 0;
 
   const [showBanner, setShowBanner] = useState<boolean>(isFromOrder);
   const [newLink, setNewLink] = useState("");
@@ -743,6 +989,8 @@ function CreateBriefPageContent() {
       isProduct: editBrief.isProduct ?? true,
       willShipPhysicalProductToCreator:
         editBrief.willShipPhysicalProductToCreator ?? false,
+      wantsPhysicalProductReturned:
+        editBrief.wantsPhysicalProductReturned ?? false,
       shootLocationKind: editBrief.shootLocationKind ?? undefined,
       shootLocationAddress: editBrief.shootLocationAddress ?? "",
       durationBucket: editBrief.durationBucket ?? undefined,
@@ -918,30 +1166,13 @@ function CreateBriefPageContent() {
                   </div>
                   <div className="space-y-6">
                   <div className="grid gap-6 lg:grid-cols-2">
-                    {needsBrandName ? (
-                      <div className="space-y-2 min-w-0">
-                        <Label
-                          htmlFor="brandName"
-                          className="text-xs font-semibold text-foreground/80"
-                        >
-                          Brand Name <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="brandName"
-                          placeholder="GlowUp Skincare"
-                          className="rounded-lg bg-white"
-                          {...form.register("brandName")}
-                        />
-                        <p className="text-[11px] text-muted-foreground">
-                          Saved on your brand profile for future briefs.
-                        </p>
-                        {form.formState.errors.brandName && (
-                          <p className="text-[11px] text-destructive mt-1">
-                            {form.formState.errors.brandName.message}
-                          </p>
-                        )}
-                      </div>
-                    ) : null}
+                    <BriefBrandNameFields
+                      isAgencyBriefAuthor={isAgencyBriefAuthor}
+                      needsBrandName={needsBrandName}
+                      effectiveBrandName={effectiveBrandName}
+                      existingBrandNames={existingBrandNames}
+                      form={form}
+                    />
                     <div className="space-y-2 min-w-0">
                       <Label
                         htmlFor="productName"
@@ -1006,33 +1237,77 @@ function CreateBriefPageContent() {
                   </div>
 
                   {isProductBrief ? (
-                  <div className={styles.productTypeRow}>
-                    <div className="min-w-0">
-                      <Label
-                        htmlFor="willShipPhysicalProductToCreator"
-                        className={styles.productTypeRowLabel}
-                      >
-                        Will you ship a physical product to the creator?
-                      </Label>
-                      <p className={styles.productTypeRowHint}>
-                        Enable if you&apos;ll send the product for the video.
-                      </p>
+                    <div className="space-y-3">
+                      <div className={styles.productTypeRow}>
+                        <div className="min-w-0">
+                          <Label
+                            htmlFor="willShipPhysicalProductToCreator"
+                            className={styles.productTypeRowLabel}
+                          >
+                            Will you ship a physical product to the creator?
+                          </Label>
+                          <p className={styles.productTypeRowHint}>
+                            Enable if you&apos;ll send the product for the video.
+                          </p>
+                        </div>
+                        <Switch
+                          id="willShipPhysicalProductToCreator"
+                          checked={watchWillShip ?? false}
+                          onCheckedChange={(checked) => {
+                            form.setValue(
+                              "willShipPhysicalProductToCreator",
+                              checked,
+                              {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              },
+                            );
+                            if (!checked) {
+                              form.setValue(
+                                "wantsPhysicalProductReturned",
+                                false,
+                                {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                },
+                              );
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {watchWillShip ? (
+                        <div className={styles.productTypeRow}>
+                          <div className="min-w-0">
+                            <Label
+                              htmlFor="wantsPhysicalProductReturned"
+                              className={styles.productTypeRowLabel}
+                            >
+                              Do you want the physical product back?
+                            </Label>
+                            <p className={styles.productTypeRowHint}>
+                              Return shipping must be arranged from your side
+                              (brand/agency). The creator does not cover return
+                              shipping.
+                            </p>
+                          </div>
+                          <Switch
+                            id="wantsPhysicalProductReturned"
+                            checked={watchWantsReturned ?? false}
+                            onCheckedChange={(checked) => {
+                              form.setValue(
+                                "wantsPhysicalProductReturned",
+                                checked,
+                                {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                },
+                              );
+                            }}
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                    <Switch
-                      id="willShipPhysicalProductToCreator"
-                      checked={watchWillShip ?? false}
-                      onCheckedChange={(checked) => {
-                        form.setValue(
-                          "willShipPhysicalProductToCreator",
-                          checked,
-                          {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          },
-                        );
-                      }}
-                    />
-                  </div>
                   ) : null}
 
                   <div className="space-y-2 min-w-0">
@@ -1663,6 +1938,20 @@ function CreateBriefPageContent() {
             </div>
 
             <div className={styles.panelFoot}>
+              {missingRequiredFields ? (
+                <div className={styles.panelFootWarning} role="alert">
+                  <AlertTriangle
+                    className={`${styles.panelFootWarningIcon} size-4`}
+                    aria-hidden
+                  />
+                  <span>
+                    {missingFieldLabels.length === 1
+                      ? `Looks like ${missingFieldLabels[0]} is still empty — fill that in above and try again.`
+                      : `Looks like a few things are still empty: ${missingFieldLabels.join(", ")}. Fill those in above and try again.`}
+                  </span>
+                </div>
+              ) : null}
+              <div className={styles.panelFootActions}>
               {!isEditMode && (
                 <Button
                   type="button"
@@ -1719,6 +2008,7 @@ function CreateBriefPageContent() {
                   </>
                 )}
               </Button>
+              </div>
             </div>
           </section>
 

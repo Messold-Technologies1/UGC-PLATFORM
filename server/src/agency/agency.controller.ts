@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -19,14 +20,11 @@ import type { Request } from 'express';
 import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
-import { CreateBrandProfileDto } from '../brand-profile/dto/create-brand-profile.dto';
-import { BrandProfileResponseDto } from '../brand-profile/dto/brand-profile-response.dto';
 import { PresignUploadResponseDto } from '../brand-profile/dto/presign-brand-logo-upload.dto';
 import { AgencyService } from './agency.service';
+import { CreateAgencyProfileDto } from './dto/create-agency-profile.dto';
+import { UpdateAgencyProfileDto } from './dto/update-agency-profile.dto';
 import { AgencyProfileResponseDto } from './dto/agency-profile-response.dto';
-import { AgencyBrandSummaryDto } from './dto/agency-brand-summary.dto';
-import { SwitchAgencyBrandDto } from './dto/switch-agency-brand.dto';
-import { SwitchAgencyBrandResponseDto } from './dto/switch-agency-brand-response.dto';
 import { PresignAgencyLogoUploadDto } from './dto/presign-agency-logo-upload.dto';
 
 @ApiTags('Agency')
@@ -34,6 +32,33 @@ import { PresignAgencyLogoUploadDto } from './dto/presign-agency-logo-upload.dto
 @Controller('agency')
 export class AgencyController {
   constructor(private readonly agencyService: AgencyService) {}
+
+  @Post('profile')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Create owned agency profile for the authenticated user (post-signup agency setup)',
+  })
+  @ApiCreatedResponse({ type: AgencyProfileResponseDto })
+  async createMyAgencyProfile(
+    @Body() dto: CreateAgencyProfileDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<AgencyProfileResponseDto> {
+    return this.agencyService.createOwnedAgencyProfile(req.user.id, dto);
+  }
+
+  @Patch('profile')
+  @RequiredWorkspace('AGENCY')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @ApiOperation({ summary: 'Update agency profile for the authenticated owner' })
+  @ApiOkResponse({ type: AgencyProfileResponseDto })
+  async updateMyAgencyProfile(
+    @Body() dto: UpdateAgencyProfileDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<AgencyProfileResponseDto> {
+    return this.agencyService.updateAgencyProfileForOwner(req.user.id, dto);
+  }
 
   @Post('profile/uploads/presign')
   @UseGuards(JwtAuthGuard)
@@ -56,48 +81,5 @@ export class AgencyController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<AgencyProfileResponseDto> {
     return this.agencyService.getAgencyProfileForOwner(req.user.id);
-  }
-
-  @Get('brands')
-  @RequiredWorkspace('AGENCY')
-  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @ApiOperation({ summary: 'List brands managed by this agency' })
-  @ApiOkResponse({ type: AgencyBrandSummaryDto, isArray: true })
-  async listAgencyBrands(
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<AgencyBrandSummaryDto[]> {
-    return this.agencyService.listBrandsForAgency(req.user.id);
-  }
-
-  @Post('brands')
-  @RequiredWorkspace('AGENCY')
-  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a brand profile under this agency' })
-  @ApiCreatedResponse({ type: BrandProfileResponseDto })
-  async createAgencyBrand(
-    @Body() dto: CreateBrandProfileDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<BrandProfileResponseDto> {
-    return this.agencyService.createBrandUnderAgency({
-      ownerUserId: req.user.id,
-      dto,
-    });
-  }
-
-  @Post('brands/switch')
-  @RequiredWorkspace('AGENCY')
-  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Set the active brand for this agency session' })
-  @ApiOkResponse({ type: SwitchAgencyBrandResponseDto })
-  async switchActiveBrand(
-    @Body() dto: SwitchAgencyBrandDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<SwitchAgencyBrandResponseDto> {
-    return this.agencyService.switchActiveBrand({
-      ownerUserId: req.user.id,
-      brandProfileId: dto.brandProfileId,
-    });
   }
 }

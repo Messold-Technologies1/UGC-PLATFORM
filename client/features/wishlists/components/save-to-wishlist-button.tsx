@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -92,6 +96,7 @@ export function SaveToWishlistButton({
   creatorCategory,
   variant = "full",
 }: SaveToWishlistButtonProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -411,7 +416,7 @@ export function SaveToWishlistButton({
           {/* Footer */}
           <div className="border-t border-border/40 px-5 py-3">
             <Link
-              href="/brand/wishlists"
+              href={remapBuyerHref("/brand/wishlists", workspaceBase)}
               onClick={() => handleOpenChange(false)}
               className="text-sm font-medium text-rose-500 hover:underline flex items-center gap-1"
             >

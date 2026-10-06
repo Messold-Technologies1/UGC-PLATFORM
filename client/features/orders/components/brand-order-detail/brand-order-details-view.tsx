@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
@@ -70,6 +74,7 @@ function BrandOrderDetailsSkeleton() {
 }
 
 export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsViewProps>) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const { data, isLoading, isError, error } =
     useGetBrandOrderDetailsQuery(orderId);
   const { data: orderBriefData } = useGetOrderBriefQuery(orderId);
@@ -126,7 +131,7 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
                   "The brand order details request did not return usable data."}
               </p>
               <Button asChild variant="outline" className="rounded-xl">
-                <Link href="/brand/orders">
+                <Link href={remapBuyerHref("/brand/orders", workspaceBase)}>
                   <ArrowLeft className="w-4 h-4" />
                   Back to orders
                 </Link>

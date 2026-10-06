@@ -632,7 +632,10 @@ model CreatorPayoutDetails {
 
 model Order {
   id               String      @id @default(uuid()) @db.Uuid
-  brandId          String      @db.Uuid
+  /// Standalone brand buyer. Null when the order was placed by an agency.
+  brandId          String?     @db.Uuid
+  /// Agency buyer. Null when the order was placed by a standalone brand.
+  agencyId         String?     @db.Uuid
   creatorId        String      @db.Uuid
   /// Cleared if the listing package row is removed; use snapshot fields for purchased terms.
   creatorPackageId String?     @db.Uuid
@@ -754,7 +757,8 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  brand                BrandProfile               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand                BrandProfile?              @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency               Agency?                    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   creator              CreatorProfile             @relation("OrderCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   package              CreatorPackage?            @relation(fields: [creatorPackageId], references: [id], onDelete: SetNull)
   briefRef             Brief?                     @relation(fields: [briefId], references: [id], onDelete: SetNull)
@@ -775,16 +779,19 @@ model Order {
   portfolioVideos      CreatorPortfolioVideo[]    @relation("OrderPortfolioVideos")
 
   @@index([brandId, createdAt])
+  @@index([agencyId, createdAt])
   @@index([creatorId, createdAt])
   @@index([brandId, lastChatActivityAt(sort: Desc)])
+  @@index([agencyId, lastChatActivityAt(sort: Desc)])
   @@index([creatorId, lastChatActivityAt(sort: Desc)])
   @@index([status, createdAt])
   @@index([deliveryGraceDeadlineAt])
   @@index([briefId])
   @@index([checkoutBatchId])
-  /// Serves the checkout lookup for a brand's open drafts with one creator
-  /// (brandId + creatorId + status), which ran unindexed before.
+  /// Serves the checkout lookup for a buyer's open drafts with one creator
+  /// (brandId/agencyId + creatorId + status), which ran unindexed before.
   @@index([brandId, creatorId, status])
+  @@index([agencyId, creatorId, status])
 }
 
 enum OrderCheckoutBatchStatus {
@@ -800,7 +807,8 @@ enum OrderCheckoutBatchStatus {
 /// order via `Order.razorpayOrderId`.
 model OrderCheckoutBatch {
   id                  String                   @id @default(uuid()) @db.Uuid
-  brandId             String                   @db.Uuid
+  brandId             String?                  @db.Uuid
+  agencyId            String?                  @db.Uuid
   status              OrderCheckoutBatchStatus @default(PENDING_PAYMENT)
   currency            String                   @default("INR")
   /// Grand total (sum of every child order's expectedAmountPaise); the amount
@@ -821,11 +829,13 @@ model OrderCheckoutBatch {
   discountAmountPaise Int     @default(0)
   grossAmountPaise    Int     @default(0)
 
-  brand  BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  coupon Coupon?      @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  coupon Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
   orders Order[]
 
   @@index([brandId, createdAt])
+  @@index([agencyId, createdAt])
 }
 
 enum OrderRevisionPurchaseStatus {
@@ -933,8 +943,9 @@ enum BriefToneStyle {
 }
 
 model Brief {
-  id      String @id @default(uuid()) @db.Uuid
-  brandId String @db.Uuid
+  id        String  @id @default(uuid()) @db.Uuid
+  brandId   String? @db.Uuid
+  agencyId  String? @db.Uuid
 
   /// Brand / campaign context (frontend can "auto pick" from BrandProfile)
   brandName                  String?
@@ -956,6 +967,9 @@ model Brief {
 
   /// Logistics: brand will mail / courier a physical item to the creator for the shoot
   willShipPhysicalProductToCreator Boolean @default(false)
+  /// When shipping a physical product: buyer wants the item returned after the shoot.
+  /// Return shipping is arranged by the brand/agency (not the creator).
+  wantsPhysicalProductReturned Boolean @default(false)
 
   /// Production guidance
   shootLocationKind    BriefShootLocationKind? @default(CREATOR_DECIDES)
@@ -979,10 +993,12 @@ model Brief {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  brand  BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   orders Order[]
 
   @@index([brandId, createdAt])
+  @@index([agencyId, createdAt])
 }
 
 enum OrderChatMessageType {
@@ -1267,23 +1283,30 @@ model CreatorRestrictionSuggestion {
 }
 
 model Agency {
-  id                       String   @id @default(uuid()) @db.Uuid
-  ownerUserId              String   @unique @db.Uuid
-  name                     String
-  logoKey                  String?
-  logoUrl                  String?
-  website                  String?
-  contactFullName          String
-  contactEmail             String
-  contactPhone             String?
-  contactPhoneVerified     Boolean  @default(false)
-  lastActiveBrandProfileId String?  @unique @db.Uuid
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  id                   String   @id @default(uuid()) @db.Uuid
+  ownerUserId          String   @unique @db.Uuid
+  name                 String
+  logoKey              String?
+  logoUrl              String?
+  website              String?
+  contactFullName      String
+  contactEmail         String
+  contactPhone         String?
+  contactPhoneVerified Boolean  @default(false)
+  /// Brand names collected from brief submissions (no BrandProfile linkage).
+  brandNames           String[] @default([])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  owner           User           @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  brands          BrandProfile[]
-  lastActiveBrand BrandProfile?  @relation("AgencyLastActiveBrand", fields: [lastActiveBrandProfileId], references: [id], onDelete: SetNull)
+  owner           User                 @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  briefs          Brief[]
+  orders          Order[]
+  checkoutBatches OrderCheckoutBatch[]
+  couponRedemptions CouponRedemption[]
+  wallet          BrandWallet?
+  walletWithdrawals WalletWithdrawal[]
+  ratingReviews   CreatorRatingReview[]
+  wishlists       BrandWishlist[]
 
   @@index([ownerUserId])
 }
@@ -1291,7 +1314,6 @@ model Agency {
 model BrandProfile {
   id                           String            @id @default(uuid()) @db.Uuid
   userId                       String?           @unique @db.Uuid
-  agencyId                     String?           @db.Uuid
   brandName                    String?
   logoKey                      String?
   logoUrl                      String?
@@ -1313,8 +1335,6 @@ model BrandProfile {
   updatedAt                    DateTime          @updatedAt
 
   user                User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agency              Agency?                     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  agencyLastActiveFor Agency?                     @relation("AgencyLastActiveBrand")
   orders              Order[]
   checkoutBatches     OrderCheckoutBatch[]
   briefs              Brief[]
@@ -1322,13 +1342,14 @@ model BrandProfile {
   wishlists           BrandWishlist[]
   brandCategories     BrandProfileBrandCategory[]
   ratingReviews       CreatorRatingReview[]
-
-  @@index([agencyId])
+  couponRedemptions   CouponRedemption[]
 }
 
 model BrandWishlist {
   id           String    @id @default(uuid()) @db.Uuid
-  brandId      String    @db.Uuid
+  /// Owner — brand XOR agency (exactly one set).
+  brandId      String?   @db.Uuid
+  agencyId     String?   @db.Uuid
   name         String
   shareToken   String?   @unique
   shareEnabled Boolean   @default(false)
@@ -1336,11 +1357,14 @@ model BrandWishlist {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  brand    BrandProfile           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand    BrandProfile?          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency   Agency?                @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   creators BrandWishlistCreator[]
 
   @@unique([brandId, name])
+  @@unique([agencyId, name])
   @@index([brandId, createdAt])
+  @@index([agencyId, createdAt])
 }
 
 model BrandWishlistCreator {
@@ -1394,7 +1418,9 @@ model CreatorStats {
 model CreatorRatingReview {
   id        String   @id @default(uuid()) @db.Uuid
   orderId   String   @unique @db.Uuid
-  brandId   String   @db.Uuid
+  /// Buyer who left the review — brand XOR agency.
+  brandId   String?  @db.Uuid
+  agencyId  String?  @db.Uuid
   creatorId String   @db.Uuid
   rating    Int
   review    String?
@@ -1402,11 +1428,13 @@ model CreatorRatingReview {
   updatedAt DateTime @updatedAt
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  brand   BrandProfile   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand   BrandProfile?  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency  Agency?        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@index([creatorId, createdAt])
   @@index([brandId, createdAt])
+  @@index([agencyId, createdAt])
 }
 
 model CreatorFeature {
@@ -1753,25 +1781,30 @@ model Coupon {
   @@index([active])
 }
 
-/// One row per (coupon, brand) once the brand has consumed the coupon on a PAID
-/// order/batch. The unique constraint enforces "each brand can use a coupon only
-/// once". Created at payment capture, not at checkout, so abandoned checkouts do
-/// not burn a redemption.
+/// One row per (coupon, brand) or (coupon, agency) once the buyer has consumed
+/// the coupon on a PAID order/batch. Unique constraints enforce "each buyer can
+/// use a coupon only once". Created at payment capture, not at checkout, so
+/// abandoned checkouts do not burn a redemption.
 model CouponRedemption {
-  id                  String   @id @default(uuid()) @db.Uuid
-  couponId            String   @db.Uuid
-  brandId             String   @db.Uuid
+  id                  String  @id @default(uuid()) @db.Uuid
+  couponId            String  @db.Uuid
+  brandId             String? @db.Uuid
+  agencyId            String? @db.Uuid
   /// The paid order that consumed the coupon (single checkout), if applicable.
-  orderId             String?  @db.Uuid
+  orderId             String? @db.Uuid
   /// The paid bulk batch that consumed the coupon (bulk checkout), if applicable.
-  checkoutBatchId     String?  @db.Uuid
-  discountAmountPaise Int      @default(0)
+  checkoutBatchId     String? @db.Uuid
+  discountAmountPaise Int     @default(0)
   redeemedAt          DateTime @default(now())
 
-  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  coupon Coupon       @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
   @@unique([couponId, brandId])
+  @@unique([couponId, agencyId])
   @@index([brandId])
+  @@index([agencyId])
 }
 
 // ─── Store-credit wallet ("Credits" in the UI) ───────────────────────────────
@@ -1811,7 +1844,8 @@ enum WalletWithdrawalStatus {
 
 model BrandWallet {
   id           String   @id @default(uuid()) @db.Uuid
-  brandId      String   @unique @db.Uuid
+  brandId      String?  @unique @db.Uuid
+  agencyId     String?  @unique @db.Uuid
   /// Cached total credit in paise; always equals the sum of the ledger.
   balancePaise Int      @default(0)
   /// Portion of balancePaise locked by pending withdrawal requests. The money
@@ -1822,11 +1856,13 @@ model BrandWallet {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  brand        BrandProfile        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand        BrandProfile?       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency       Agency?             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
   withdrawals  WalletWithdrawal[]
 
   @@index([brandId])
+  @@index([agencyId])
 }
 
 /// Append-only ledger. One row per balance movement; never updated or deleted.
@@ -1869,7 +1905,8 @@ model WalletTransaction {
 model WalletWithdrawal {
   id                String                 @id @default(uuid()) @db.Uuid
   walletId          String                 @db.Uuid
-  brandId           String                 @db.Uuid
+  brandId           String?                @db.Uuid
+  agencyId          String?                @db.Uuid
   amountPaise       Int
   status            WalletWithdrawalStatus @default(REQUESTED)
   /// True for the hold model (money locked on request via BrandWallet.heldPaise,
@@ -1887,10 +1924,12 @@ model WalletWithdrawal {
   updatedAt         DateTime               @updatedAt
 
   wallet       BrandWallet         @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agency       Agency?             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   transactions WalletTransaction[]
 
   @@index([status, createdAt])
   @@index([brandId, createdAt])
+  @@index([agencyId, createdAt])
   @@index([walletId])
 }
 

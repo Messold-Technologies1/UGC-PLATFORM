@@ -154,7 +154,9 @@ export function CreatorOrderSummaryCard({
   const platformFeePercent = Math.round(PLATFORM_FEE_RATE * 100);
   const netPayout = cancelled ? 0 : creatorEarnings;
 
-  const brandLabel = brandDisplayName(brand.brandName);
+  const brandLabel = brand.agencyName?.trim()
+    ? brandDisplayName(brand.agencyName)
+    : brandDisplayName(brand.brandName);
   const [isAddOnsExpanded, setIsAddOnsExpanded] = useState(false);
 
   const showDeadline =
@@ -174,7 +176,7 @@ export function CreatorOrderSummaryCard({
               className="rounded-xl object-cover sm:rounded-2xl"
             />
             <AvatarFallback className="rounded-xl bg-primary/10 text-xs font-bold text-primary sm:rounded-2xl sm:text-sm">
-              {brandInitials(brand.brandName)}
+              {brandInitials(brand.agencyName?.trim() || brand.brandName)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
@@ -182,8 +184,19 @@ export function CreatorOrderSummaryCard({
               Order from
             </p>
             <p className="truncate text-base font-bold text-foreground">
-              {brandLabel}
+              {brand.agencyName?.trim()
+                ? brandDisplayName(brand.agencyName)
+                : brandLabel}
             </p>
+            {brand.agencyName?.trim() &&
+            (brand.clientBrandName?.trim() || brand.brandName?.trim()) ? (
+              <p className="truncate text-sm text-muted-foreground">
+                Brand:{" "}
+                {brandDisplayName(
+                  brand.clientBrandName?.trim() || brand.brandName,
+                )}
+              </p>
+            ) : null}
           </div>
         </div>
 

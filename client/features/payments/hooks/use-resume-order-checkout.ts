@@ -1,5 +1,9 @@
 "use client";
 
+import { buyerWorkspaceBaseFromPathname, remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { usePathname } from "next/navigation";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
@@ -32,6 +36,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function useResumeOrderCheckout(orderId: string, packageName: string) {
+  const pathname = usePathname();
+  const workspaceBase = buyerWorkspaceBaseFromPathname(pathname);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -81,7 +87,7 @@ export function useResumeOrderCheckout(orderId: string, packageName: string) {
             description: "Redirecting to order details...",
           });
           router.replace(
-            `/brand/orders/${encodeURIComponent(paidOrderId)}`,
+            remapBuyerHref(`/brand/orders/${encodeURIComponent(paidOrderId)}`, workspaceBase),
           );
           router.refresh();
         },

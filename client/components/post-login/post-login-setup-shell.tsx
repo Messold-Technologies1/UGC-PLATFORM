@@ -10,6 +10,7 @@ const dashboardMainColumnClass =
 const dashboardContentClass: Record<PostAuthRole, string> = {
   creator: dashboardMainColumnClass,
   brand: "w-full max-w-none",
+  agency: "w-full max-w-none",
   admin: dashboardMainColumnClass,
 };
 

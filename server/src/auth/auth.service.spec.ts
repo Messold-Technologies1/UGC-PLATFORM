@@ -89,6 +89,7 @@ describe('AuthService', () => {
       hasCreatorProfile: true,
       hasBrandProfile: false,
       hasAgencyProfile: false,
+      agencyProfileId: null,
       activeBrandProfileId: null,
       accessibleBrands: [],
       canManageAdmins: false,
@@ -154,6 +155,7 @@ describe('AuthService', () => {
       creatorApprovalStatus: ApprovalStatus.APPROVED,
       hasBrandProfile: true,
       hasAgencyProfile: false,
+      agencyProfileId: null,
       activeBrandProfileId: 'brand-profile-1',
       canManageAdmins: false,
     });
@@ -185,6 +187,7 @@ describe('AuthService', () => {
       creatorApprovalStatus: ApprovalStatus.PENDING,
       hasBrandProfile: false,
       hasAgencyProfile: false,
+      agencyProfileId: null,
       activeBrandProfileId: null,
       accessibleBrands: [],
       canManageAdmins: false,

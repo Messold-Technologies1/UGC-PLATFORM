@@ -8,7 +8,6 @@ export type UpdateBrandProfilePayload = {
   contactFullName?: string;
   contactEmail?: string | null;
   contactPhone?: string;
-  brandPronunciation?: string | null;
   brandPronunciationAudioKey?: string | null;
   website?: string | null;
   instagramUrl?: string | null;

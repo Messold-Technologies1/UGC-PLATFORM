@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import Link from "next/link";
 import type { ReactElement, ReactNode } from "react";
 import { cloneElement, isValidElement } from "react";
@@ -148,9 +152,10 @@ export function BriefSummaryCard({
   briefHref,
   actions,
 }: Readonly<BriefSummaryCardProps>) {
+  const workspaceBase = useBuyerWorkspaceBase();
   if (!brief) return null;
 
-  const fullBriefHref = briefHref ?? (briefId ? `/brand/briefs/${briefId}` : null);
+  const fullBriefHref = briefHref ?? (briefId ? remapBuyerHref(`/brand/briefs/${briefId}`, workspaceBase) : null);
 
   const isProductBrief = brief.isProduct ?? true;
   const offerLabels = getBriefOfferLabels(isProductBrief);

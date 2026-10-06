@@ -14,7 +14,8 @@
  */
 export type WhatsAppNotificationGate =
   | { profileType: 'creator'; profileId: string }
-  | { profileType: 'brand'; profileId: string };
+  | { profileType: 'brand'; profileId: string }
+  | { profileType: 'agency'; profileId: string };
 
 export type SendWhatsAppParams = {
   /** Recipient phone in any format; normalized to E.164 digits before sending. */

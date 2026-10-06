@@ -48,6 +48,19 @@ export const orderSelect = {
       agency: { select: { ownerUserId: true } },
     },
   },
+  // An order has exactly one buyer: a standalone brand or an agency. Both
+  // columns are nullable, so every buyer-side helper below checks the agency
+  // first and falls back to the brand.
+  agency: {
+    select: {
+      id: true,
+      name: true,
+      contactEmail: true,
+      contactPhone: true,
+      contactFullName: true,
+      ownerUserId: true,
+    },
+  },
   creator: {
     select: {
       id: true,
@@ -70,10 +83,16 @@ export async function loadOrder(
   });
 }
 
-export function brandDisplayName(brand: OrderRow['brand']): string {
+/**
+ * Counterparty label for creator-facing copy (`{{brandName}}`). Agency orders
+ * must show the agency name — never the client brand behind it.
+ */
+export function brandDisplayName(order: OrderRow): string {
+  if (order.agency?.name?.trim()) return order.agency.name.trim();
+  if (!order.brand) return 'Brand';
   return resolveBrandMailDisplayName({
-    contactFullName: brand.contactFullName,
-    brandName: brand.brandName,
+    contactFullName: order.brand.contactFullName,
+    brandName: order.brand.brandName,
     fallback: 'Brand',
   });
 }
@@ -112,14 +131,53 @@ export function toCreator(
 }
 
 /**
- * Addresses the brand side. The account is resolved through BrandAccessService
- * because an agency-managed brand's mail goes to the agency owner.
+ * Addresses the buyer side of an order.
+ *
+ * An agency order goes to the agency owner, gated on the agency. Otherwise the
+ * account is resolved through BrandAccessService, because an agency-managed
+ * brand's mail goes to the agency owner too.
  */
 export async function toBrand(
   ctx: EventContext,
   order: OrderRow,
   vars: TemplateVars,
 ): Promise<ResolvedRecipient> {
+  if (order.agency) {
+    const owner = await ctx.prisma.user.findUnique({
+      where: { id: order.agency.ownerUserId },
+      select: { id: true, email: true, name: true, phone: true },
+    });
+    return {
+      userId: owner?.id ?? null,
+      profileType: 'agency',
+      profileId: order.agency.id,
+      email: resolveBrandMailAddress({
+        contactEmail: order.agency.contactEmail,
+        accountEmail: owner?.email,
+      }),
+      phone: order.agency.contactPhone?.trim() || owner?.phone?.trim() || null,
+      vars: {
+        recipientName: resolveBrandMailDisplayName({
+          contactFullName: order.agency.contactFullName,
+          brandName: order.agency.name,
+          accountName: owner?.name,
+        }),
+        ...vars,
+      },
+    };
+  }
+
+  // Neither buyer set: the row is unusable, so address nobody. The step service
+  // skips a recipient with no address rather than sending into the void.
+  if (!order.brand) {
+    return {
+      userId: null,
+      email: null,
+      phone: null,
+      vars: { recipientName: 'Brand', ...vars },
+    };
+  }
+
   const brandUserId = await ctx.brandAccess.resolveBrandActorUserIdForProfile(
     order.brand.id,
   );

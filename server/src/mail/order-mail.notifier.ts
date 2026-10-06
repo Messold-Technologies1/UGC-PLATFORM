@@ -16,6 +16,9 @@ import {
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { sendWhatsAppForEmail } from './whatsapp-bridge.util';
 
+/** Brand-facing order mail must never include the creator's real name. */
+const BRAND_HIDDEN_CREATOR_NAME = 'Creator';
+
 const orderMailInclude = {
   id: true,
   packageNameSnapshot: true,
@@ -32,8 +35,21 @@ const orderMailInclude = {
       contactPhone: true,
       contactFullName: true,
       userId: true,
-      agency: { select: { ownerUserId: true } },
     },
+  },
+  agency: {
+    select: {
+      id: true,
+      name: true,
+      logoUrl: true,
+      contactEmail: true,
+      contactPhone: true,
+      contactFullName: true,
+      ownerUserId: true,
+    },
+  },
+  briefRef: {
+    select: { brandName: true },
   },
   creator: {
     select: {
@@ -66,7 +82,7 @@ export class OrderMailNotifier {
       const order = await this.loadOrder(orderId);
       if (!order) return;
 
-      const brandName = this.brandDisplayName(order.brand);
+      const brandName = this.brandDisplayName(order.brand, order);
       await this.sendToCreator(
         order,
         EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR,
@@ -87,7 +103,7 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const ctx: Record<string, string> = {
-        creatorName: order.creator.displayName,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
         orderId: order.id,
         actionUrl: this.brandOrderUrl(order.id),
       };
@@ -116,7 +132,7 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const ctx: Record<string, string> = {
-        brandName: this.brandDisplayName(order.brand),
+        brandName: this.brandDisplayName(order.brand, order),
         orderId: order.id,
         courierName: params.courierName,
         dispatchedAt: this.formatDate(params.dispatchedAt),
@@ -143,7 +159,7 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND,
         {
-          creatorName: order.creator.displayName,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
           orderId: order.id,
           deliveryDueAt: this.formatDate(deliveryDueAt),
           actionUrl: this.brandOrderUrl(order.id),
@@ -163,7 +179,7 @@ export class OrderMailNotifier {
       );
 
       const vars: Record<string, string> = {
-        brandName: this.brandDisplayName(order.brand),
+        brandName: this.brandDisplayName(order.brand, order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         revisionNumber: String(order.revisionCount),
@@ -189,7 +205,7 @@ export class OrderMailNotifier {
 
       // loadOrder runs after the cap increment, so maxRevisionsSnapshot is fresh.
       const base: Record<string, string> = {
-        brandName: this.brandDisplayName(order.brand),
+        brandName: this.brandDisplayName(order.brand, order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         revisionsAdded: String(revisionsAdded),
@@ -220,9 +236,8 @@ export class OrderMailNotifier {
 
       // loadOrder runs after the increment, so usageRightsExtraDays is fresh.
       const totalUsageDays = 30 + order.usageRightsExtraDays;
-      const base: Record<string, string> = {
-        brandName: this.brandDisplayName(order.brand),
-        creatorName: order.creator.displayName,
+      const shared: Record<string, string> = {
+        brandName: this.brandDisplayName(order.brand, order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         daysAdded: String(daysAdded),
@@ -232,12 +247,20 @@ export class OrderMailNotifier {
       await this.sendToBrand(
         order,
         EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_BRAND,
-        { ...base, actionUrl: this.brandOrderUrl(order.id) },
+        {
+          ...shared,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
+          actionUrl: this.brandOrderUrl(order.id),
+        },
       );
       await this.sendToCreator(
         order,
         EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_CREATOR,
-        { ...base, actionUrl: this.creatorOrderListUrl(order.id, 'completed') },
+        {
+          ...shared,
+          creatorName: order.creator.displayName,
+          actionUrl: this.creatorOrderListUrl(order.id, 'completed'),
+        },
       );
     });
   }
@@ -251,7 +274,7 @@ export class OrderMailNotifier {
       if (!order) return;
 
       const ctx: Record<string, string> = {
-        creatorName: order.creator.displayName,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         deliveredAt: this.formatDate(params.deliveredAt),
@@ -278,7 +301,7 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_CONTENT_ACCEPTED_FOR_CREATOR,
         {
-          brandName: this.brandDisplayName(order.brand),
+          brandName: this.brandDisplayName(order.brand, order),
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           actionUrl: this.creatorOrderUrl(order.id),
@@ -289,7 +312,7 @@ export class OrderMailNotifier {
         order,
         EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND,
         {
-          creatorName: order.creator.displayName,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           actionUrl: this.brandOrderUrl(order.id),
@@ -313,7 +336,7 @@ export class OrderMailNotifier {
 
       await this.sendToBrand(order, EmailTemplateKey.ORDER_REJECTED_FOR_BRAND, {
         ...base,
-        creatorName: order.creator.displayName,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
         actionUrl: this.brandOrderUrl(order.id),
       });
 
@@ -322,7 +345,7 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR,
         {
           ...base,
-          brandName: this.brandDisplayName(order.brand),
+          brandName: this.brandDisplayName(order.brand, order),
           actionUrl: this.creatorOrderUrl(order.id),
         },
       );
@@ -358,7 +381,7 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_CREATOR,
         {
           ...base,
-          brandName: this.brandDisplayName(order.brand),
+          brandName: this.brandDisplayName(order.brand, order),
           actionUrl: this.creatorOrderUrl(order.id),
         },
       );
@@ -385,7 +408,7 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_CANCELLED_FOR_BRAND,
         {
           ...base,
-          creatorName: order.creator.displayName,
+          creatorName: BRAND_HIDDEN_CREATOR_NAME,
           actionUrl: this.brandOrderUrl(order.id),
         },
       );
@@ -395,7 +418,7 @@ export class OrderMailNotifier {
         EmailTemplateKey.ORDER_CANCELLED_FOR_CREATOR,
         {
           ...base,
-          brandName: this.brandDisplayName(order.brand),
+          brandName: this.brandDisplayName(order.brand, order),
           actionUrl: this.creatorOrderUrl(order.id),
         },
       );
@@ -572,21 +595,25 @@ export class OrderMailNotifier {
       );
       return;
     }
+    const buyerGate = order.agency
+      ? ({ profileType: 'agency' as const, profileId: order.agency.id })
+      : ({ profileType: 'brand' as const, profileId: order.brand!.id });
     await this.mail.send({
       to: email,
       templateKey,
-      notificationGate: {
-        profileType: 'brand',
-        profileId: order.brand.id,
+      notificationGate: buyerGate,
+      context: {
+        recipientName: name,
+        ...context,
+        creatorName: BRAND_HIDDEN_CREATOR_NAME,
       },
-      context: { recipientName: name, ...context },
     });
     await sendWhatsAppForEmail(this.whatsapp, this.config, {
       to: phone,
       emailKey: templateKey,
       recipientName: name,
       actionUrl: context.actionUrl,
-      gate: { profileType: 'brand', profileId: order.brand.id },
+      gate: buyerGate,
     });
   }
 
@@ -622,13 +649,36 @@ export class OrderMailNotifier {
       recipientName: this.creatorDisplayName(order),
       actionUrl: context.actionUrl,
       gate: { profileType: 'creator', profileId: order.creator.id },
-      extraBodyVars: [this.brandDisplayName(order.brand)],
+      extraBodyVars: [this.brandDisplayName(order.brand, order)],
     });
   }
 
   private async resolveBrandRecipient(
     order: OrderMailRow,
   ): Promise<{ email: string | null; name: string; phone: string | null }> {
+    if (order.agency) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: order.agency.ownerUserId },
+        select: { email: true, name: true, phone: true },
+      });
+      const email = resolveBrandMailAddress({
+        contactEmail: order.agency.contactEmail,
+        accountEmail: user?.email,
+      });
+      const name = resolveBrandMailDisplayName({
+        contactFullName: order.agency.contactFullName,
+        brandName: order.agency.name,
+        accountName: user?.name,
+      });
+      const phone =
+        order.agency.contactPhone?.trim() || user?.phone?.trim() || null;
+      return { email, name, phone };
+    }
+
+    if (!order.brand) {
+      return { email: null, name: 'Brand', phone: null };
+    }
+
     const brandUserId =
       await this.brandAccess.resolveBrandActorUserIdForProfile(order.brand.id);
     const user = await this.prisma.user.findUnique({
@@ -644,7 +694,6 @@ export class OrderMailNotifier {
       brandName: order.brand.brandName,
       accountName: user?.name,
     });
-    // Prefer the brand's stated contact phone, else the account phone.
     const phone =
       order.brand.contactPhone?.trim() || user?.phone?.trim() || null;
     return { email, name, phone };
@@ -666,7 +715,18 @@ export class OrderMailNotifier {
     );
   }
 
-  private brandDisplayName(brand: OrderMailRow['brand']): string {
+  /**
+   * Counterparty label for creator-facing mail/WhatsApp (`{{brandName}}`).
+   * Agency orders must use the agency name — never the brief's client brand name.
+   */
+  private brandDisplayName(
+    brand: OrderMailRow['brand'] | OrderMailRow['agency'] | null | undefined,
+    order?: OrderMailRow,
+  ): string {
+    if (order?.agency?.name?.trim()) {
+      return order.agency.name.trim();
+    }
+    if (!brand || !('brandName' in brand)) return 'Brand';
     return resolveBrandMailDisplayName({
       contactFullName: brand.contactFullName,
       brandName: brand.brandName,

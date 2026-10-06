@@ -3,13 +3,13 @@ import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * Body for POST /auth/onboarding/role — the post-signup "choose your role"
- * step. Only CREATOR and BRAND are self-selectable; ADMIN and AGENCY are
- * provisioned through other flows.
+ * step. CREATOR, BRAND, and AGENCY are self-selectable; ADMIN is provisioned
+ * through a separate flow.
  */
 export class OnboardingRoleDto {
-  @ApiProperty({ enum: ['CREATOR', 'BRAND'], example: 'CREATOR' })
-  @IsIn(['CREATOR', 'BRAND'])
-  role!: 'CREATOR' | 'BRAND';
+  @ApiProperty({ enum: ['CREATOR', 'BRAND', 'AGENCY'], example: 'CREATOR' })
+  @IsIn(['CREATOR', 'BRAND', 'AGENCY'])
+  role!: 'CREATOR' | 'BRAND' | 'AGENCY';
 
   /**
    * Meta attribution cookies read in the user's own browser at this step. Stored

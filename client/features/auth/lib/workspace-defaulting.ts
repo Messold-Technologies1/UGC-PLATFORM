@@ -6,14 +6,10 @@ export function canUseWorkspaceRole(
 ): role is WorkspaceRole {
   if (!role) return false;
   if (role === "AGENCY") {
-    return user.hasAgencyProfile && user.accessibleBrands.length > 0;
+    return user.hasAgencyProfile;
   }
   if (role === "BRAND") {
-    return (
-      user.hasBrandProfile ||
-      (user.hasAgencyProfile && user.accessibleBrands.length > 0) ||
-      user.accessibleBrands.length > 0
-    );
+    return user.hasBrandProfile || user.accessibleBrands.length > 0;
   }
   return true;
 }

@@ -28,12 +28,6 @@ export interface AuthTokens {
   expiresIn: string;
 }
 
-export type MeBrandSummary = {
-  id: string;
-  brandName: string | null;
-  logoUrl: string | null;
-};
-
 export type MeUser = {
   id: string;
   email: string;
@@ -46,8 +40,8 @@ export type MeUser = {
   hasBrandProfile: boolean;
   hasAgencyProfile: boolean;
   agencyProfileId: string | null;
-  activeBrandProfileId: string | null;
-  accessibleBrands: MeBrandSummary[];
+  /** Standalone brand profile id when the user owns one (not multi-brand). */
+  brandProfileId: string | null;
   /** Present when `roles` includes CREATOR; null if no creator profile yet. */
   creatorApprovalStatus?: ApprovalStatus | null;
   /** Creator's one-way Go-Live latch. Drives the post-login redirect to finish setup. */
@@ -84,7 +78,7 @@ type MeLookupUser = {
     completeProfile: boolean;
     creatorApproval: { status: ApprovalStatus } | null;
   } | null;
-  brandProfile: { id: string; brandName: string | null; logoUrl: string | null } | null;
+  brandProfile: { id: string } | null;
   ownedAgency: { id: string } | null;
 };
 
@@ -877,7 +871,7 @@ export class AuthService {
           },
         },
         brandProfile: {
-          select: { id: true, brandName: true, logoUrl: true },
+          select: { id: true },
         },
         ownedAgency: {
           select: { id: true },
@@ -904,19 +898,6 @@ export class AuthService {
       primaryRole = roles[0];
     }
 
-    const accessibleBrands: MeBrandSummary[] = [];
-    if (user.brandProfile) {
-      accessibleBrands.push({
-        id: user.brandProfile.id,
-        brandName: user.brandProfile.brandName,
-        logoUrl: user.brandProfile.logoUrl,
-      });
-    }
-    let activeBrandProfileId: string | null = null;
-    if (!user.ownedAgency && accessibleBrands.length === 1) {
-      activeBrandProfileId = accessibleBrands[0]!.id;
-    }
-
     const me: MeUser = {
       id: user.id,
       email: user.email,
@@ -928,8 +909,7 @@ export class AuthService {
       hasBrandProfile: !!user.brandProfile,
       hasAgencyProfile: !!user.ownedAgency,
       agencyProfileId: user.ownedAgency?.id ?? null,
-      activeBrandProfileId,
-      accessibleBrands,
+      brandProfileId: user.brandProfile?.id ?? null,
       canManageAdmins: isSuperAdminEmail(user.email),
     };
 

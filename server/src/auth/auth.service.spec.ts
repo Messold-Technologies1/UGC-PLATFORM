@@ -90,8 +90,7 @@ describe('AuthService', () => {
       hasBrandProfile: false,
       hasAgencyProfile: false,
       agencyProfileId: null,
-      activeBrandProfileId: null,
-      accessibleBrands: [],
+      brandProfileId: null,
       canManageAdmins: false,
     });
 
@@ -156,7 +155,7 @@ describe('AuthService', () => {
       hasBrandProfile: true,
       hasAgencyProfile: false,
       agencyProfileId: null,
-      activeBrandProfileId: 'brand-profile-1',
+      brandProfileId: 'brand-profile-1',
       canManageAdmins: false,
     });
     expect(result?.roles).toEqual(expect.arrayContaining(['BRAND', 'CREATOR']));
@@ -188,8 +187,7 @@ describe('AuthService', () => {
       hasBrandProfile: false,
       hasAgencyProfile: false,
       agencyProfileId: null,
-      activeBrandProfileId: null,
-      accessibleBrands: [],
+      brandProfileId: null,
       canManageAdmins: false,
     });
   });

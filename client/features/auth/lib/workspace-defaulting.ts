@@ -9,9 +9,17 @@ export function canUseWorkspaceRole(
     return user.hasAgencyProfile;
   }
   if (role === "BRAND") {
-    return user.hasBrandProfile || user.accessibleBrands.length > 0;
+    return user.hasBrandProfile;
   }
   return true;
+}
+
+/** Brand or agency buyer can use the buyer workspace (orders, wishlists, etc.). */
+export function userCanUseBrandWorkspace(user: AuthUser): boolean {
+  if (user.roles.includes("AGENCY") && user.hasAgencyProfile) {
+    return true;
+  }
+  return user.roles.includes("BRAND") && user.hasBrandProfile;
 }
 
 export function getRecoverableProfileRole(user: AuthUser): WorkspaceRole | null {

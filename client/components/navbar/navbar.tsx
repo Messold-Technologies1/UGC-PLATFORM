@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/tooltip";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
-import { BrandSwitcher } from "@/features/brands/components/brand-switcher";
 import { useAuth } from "@/providers/auth-provider";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { SITE_NAME } from "@/config/site";
@@ -436,9 +435,6 @@ export function Navbar({ className }: { className?: string } = {}) {
                       Your profile is under review
                     </TooltipContent>
                   </Tooltip>
-                )}
-                {(pathname === "/brand" || pathname.startsWith("/brand/")) && (
-                  <BrandSwitcher />
                 )}
                 <span data-tour="nav-notifications" className="inline-flex">
                   <NotificationDropdown />

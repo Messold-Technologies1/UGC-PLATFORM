@@ -12,12 +12,6 @@ export type CreatorApprovalStatus =
   | "SELF_COMPLETED"
   | "WITHDRAWN";
 
-export type AccessibleBrandSummary = {
-  id: string;
-  brandName: string | null;
-  logoUrl: string | null;
-};
-
 export type AuthUser = {
   id: string;
   email: string;
@@ -35,8 +29,8 @@ export type AuthUser = {
   hasAgencyProfile: boolean;
   /** Set when the user owns an agency profile. */
   agencyProfileId?: string | null;
-  activeBrandProfileId: string | null;
-  accessibleBrands: AccessibleBrandSummary[];
+  /** Standalone brand profile id when the user owns one. */
+  brandProfileId?: string | null;
   /** Whether this admin can open Settings and create other admin users. */
   canManageAdmins?: boolean;
 };

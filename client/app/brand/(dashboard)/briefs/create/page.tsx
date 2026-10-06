@@ -55,9 +55,7 @@ import { BrandNameCombobox } from "@/features/briefs/components/brand-name-combo
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
-import { useMeQuery } from "@/features/auth/hooks/use-me-query";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
-import { resolveClientActiveBrandId } from "@/features/brands/lib/active-brand";
 import {
   presignBrandPronunciationUpload,
   putBlobToPresignedUrl,
@@ -636,8 +634,6 @@ function CreateBriefPageContent() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
-  const { data: meUser = null } = useMeQuery();
-  const activeBrandId = meUser ? resolveClientActiveBrandId(meUser) : null;
   const isAgencyBriefAuthor = workspaceBase === "/agency";
   const { data: agencyProfile } = useAgencyProfileMeQuery({
     enabled: isAgencyBriefAuthor,
@@ -649,22 +645,15 @@ function CreateBriefPageContent() {
     () =>
       uniqueBrandNames([
         ...(agencyProfile?.brandNames ?? []),
-        ...(meUser?.accessibleBrands.map((brand) => brand.brandName) ?? []),
         ...(briefsList?.items.map((brief) => brief.brandName) ?? []),
       ]),
-    [agencyProfile?.brandNames, briefsList?.items, meUser?.accessibleBrands],
+    [agencyProfile?.brandNames, briefsList?.items],
   );
-  const activeBrandName =
-    meUser?.accessibleBrands
-      .find((brand) => brand.id === activeBrandId)
-      ?.brandName?.trim() ?? "";
   const profileBrandName =
     brandProfileState?.kind === "ready"
       ? brandProfileState.profile.brandName?.trim() ?? ""
       : "";
-  const effectiveBrandName = isAgencyBriefAuthor
-    ? ""
-    : profileBrandName || activeBrandName;
+  const effectiveBrandName = isAgencyBriefAuthor ? "" : profileBrandName;
   const needsBrandName = isAgencyBriefAuthor || !effectiveBrandName;
 
   const createBriefSchema = useMemo(
@@ -867,7 +856,7 @@ function CreateBriefPageContent() {
     }
     createBriefMutation.mutate(
       toCreateBriefPayload(data, {
-        includeBrandName: needsBrandName || (!profileBrandName && !!activeBrandName),
+        includeBrandName: needsBrandName || !profileBrandName,
         fallbackBrandName: effectiveBrandName,
       }),
     );

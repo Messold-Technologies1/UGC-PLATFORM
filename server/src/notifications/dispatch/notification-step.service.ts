@@ -290,14 +290,12 @@ export class NotificationStepService {
       });
       return readFlag(p, channel);
     }
-    // Agency has no per-profile opt-out yet — allow once the agency exists.
-    // Mirrors MailService's gate so both paths treat agency buyers alike.
     if (recipient.profileType === 'agency') {
-      const agency = await this.prisma.agency.findUnique({
+      const a = await this.prisma.agency.findUnique({
         where: { id: recipient.profileId },
-        select: { id: true },
+        select,
       });
-      return Boolean(agency);
+      return readFlag(a, channel);
     }
     const p = await this.prisma.brandProfile.findUnique({
       where: { id: recipient.profileId },

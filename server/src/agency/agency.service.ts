@@ -5,9 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RoleName } from '@prisma/client';
-import {
-  PresignUploadResponseDto,
-} from '../brand-profile/dto/presign-brand-logo-upload.dto';
+import { PresignUploadResponseDto } from '../brand-profile/dto/presign-brand-logo-upload.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { CreateAgencyAtSignupInput } from './dto/create-agency-at-signup.input';
@@ -104,6 +102,8 @@ export class AgencyService {
         contactPhone,
         contactPhoneVerified: input.contactPhoneVerified,
         website,
+        emailNotificationsEnabled: true,
+        whatsappNotificationsEnabled: true,
       },
       select: {
         id: true,
@@ -455,7 +455,7 @@ export class AgencyService {
     const skip = (page - 1) * limit;
     const search = query.search?.trim() || '';
     const like = search
-      ? ({ contains: search, mode: 'insensitive' as const })
+      ? { contains: search, mode: 'insensitive' as const }
       : null;
 
     const where = like

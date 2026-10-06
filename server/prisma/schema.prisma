@@ -1295,6 +1295,12 @@ model Agency {
   contactPhoneVerified Boolean  @default(false)
   /// Brand names collected from brief submissions (no BrandProfile linkage).
   brandNames           String[] @default([])
+  /// Opt-in for transactional/order emails. Set true at signup, like the brand
+  /// and creator columns; agencies that predate these were backfilled true,
+  /// since the gate used to let every agency through.
+  emailNotificationsEnabled    Boolean  @default(false)
+  /// Opt-in for WhatsApp notifications.
+  whatsappNotificationsEnabled Boolean  @default(false)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

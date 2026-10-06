@@ -27,6 +27,8 @@ type Options = {
   userStatus?: UserStatus;
   resolveNull?: boolean;
   subject?: string;
+  /** Which side of the buyer XOR this order belongs to. */
+  buyer?: 'brand' | 'agency';
 };
 
 function build(opts: Options = {}) {
@@ -80,6 +82,12 @@ function build(opts: Options = {}) {
       }),
     },
     creatorProfile: { findUnique: jest.fn() },
+    agency: {
+      findUnique: jest.fn().mockResolvedValue({
+        emailNotificationsEnabled: opts.optedIn ?? true,
+        whatsappNotificationsEnabled: opts.optedIn ?? true,
+      }),
+    },
     user: {
       findUnique: jest
         .fn()
@@ -124,8 +132,8 @@ function build(opts: Options = {}) {
               ? null
               : {
                   userId: 'u1',
-                  profileType: 'brand',
-                  profileId: 'b1',
+                  profileType: opts.buyer ?? 'brand',
+                  profileId: opts.buyer === 'agency' ? 'a1' : 'b1',
                   email: 'brand@example.com',
                   phone: '919812345678',
                   vars: {
@@ -224,6 +232,34 @@ describe('NotificationStepService.deliver', () => {
 
   it('respects the per-profile opt-in', async () => {
     const { service, ses, whatsapp } = build({ optedIn: false });
+
+    const outcomes = await service.deliver(job);
+
+    expect(outcomes.every((o) => o.reason === 'opted_out')).toBe(true);
+    expect(ses.send).not.toHaveBeenCalled();
+    expect(whatsapp.send).not.toHaveBeenCalled();
+  });
+
+  it('reads the agency opt-in for an agency-owned order', async () => {
+    const { service, ses, whatsapp, prisma } = build({ buyer: 'agency' });
+
+    const outcomes = await service.deliver(job);
+
+    expect(prisma.agency.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'a1' } }),
+    );
+    // The brand table is the wrong one to ask about an agency buyer.
+    expect(prisma.brandProfile.findUnique).not.toHaveBeenCalled();
+    expect(outcomes.every((o) => o.result === 'sent')).toBe(true);
+    expect(ses.send).toHaveBeenCalled();
+    expect(whatsapp.send).toHaveBeenCalled();
+  });
+
+  it('respects an agency that has opted out', async () => {
+    const { service, ses, whatsapp } = build({
+      buyer: 'agency',
+      optedIn: false,
+    });
 
     const outcomes = await service.deliver(job);
 

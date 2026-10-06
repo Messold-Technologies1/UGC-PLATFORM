@@ -30,6 +30,7 @@ describe('OrdersService.listOrdersForAdmin', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     return { service, count, findMany, groupBy };
   }

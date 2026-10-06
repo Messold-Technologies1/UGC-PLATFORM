@@ -310,6 +310,10 @@ export const ENDPOINTS = {
         `/api/admin/wallet/brands/${encodeURIComponent(brandId)}`,
       BRAND_ADJUST: (brandId: string) =>
         `/api/admin/wallet/brands/${encodeURIComponent(brandId)}/adjust`,
+      AGENCY_LEDGER: (agencyId: string) =>
+        `/api/admin/wallet/agencies/${encodeURIComponent(agencyId)}`,
+      AGENCY_ADJUST: (agencyId: string) =>
+        `/api/admin/wallet/agencies/${encodeURIComponent(agencyId)}/adjust`,
     },
   },
   COUPONS: {

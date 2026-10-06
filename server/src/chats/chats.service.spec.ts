@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { OrderChatMessageType, OrderStatus } from '@prisma/client';
 import { ChatsService } from './chats.service';
+import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 describe('ChatsService', () => {
   const prisma = {
@@ -10,15 +11,19 @@ describe('ChatsService', () => {
     $transaction: jest.fn(),
   };
 
-  const brandAccess = {
-    resolveBrandContext: jest.fn(),
-    resolveBrandActorUserIdForProfile: jest.fn(),
-  };
+  let brandAccess = createBrandAccessMock({
+    brandId: 'brand-1',
+    brandActorUserId: 'agency-owner',
+  });
 
   let service: ChatsService;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    brandAccess = createBrandAccessMock({
+      brandId: 'brand-1',
+      brandActorUserId: 'agency-owner',
+    });
     service = new ChatsService(prisma as any, brandAccess as any);
   });
 
@@ -37,6 +42,8 @@ describe('ChatsService', () => {
           lastChatMessageType: OrderChatMessageType.TEXT,
           lastChatMessageText: 'Hello',
           brand: { id: 'brand-2', brandName: 'Beta', logoUrl: 'https://logo' },
+          agency: null,
+          briefRef: null,
         },
         {
           id: 'order-a',
@@ -49,6 +56,8 @@ describe('ChatsService', () => {
           lastChatMessageType: null,
           lastChatMessageText: null,
           brand: { id: 'brand-1', brandName: 'Acme', logoUrl: null },
+          agency: null,
+          briefRef: null,
         },
       ];
       prisma.$transaction.mockResolvedValue([2, pageRows]);
@@ -84,6 +93,44 @@ describe('ChatsService', () => {
       );
     });
 
+    it('maps agency-owned orders to an agency buyer snapshot', async () => {
+      prisma.creatorProfile.findUnique.mockResolvedValue({ id: 'creator-1' });
+      prisma.$transaction.mockResolvedValue([
+        1,
+        [
+          {
+            id: 'order-agency',
+            status: OrderStatus.ACCEPTED,
+            packageNameSnapshot: 'UGC 30s',
+            updatedAt: new Date('2025-05-03T00:00:00Z'),
+            lastChatActivityAt: new Date('2025-05-03T00:00:00Z'),
+            lastChatMessageId: null,
+            lastChatMessageSenderUserId: null,
+            lastChatMessageType: null,
+            lastChatMessageText: null,
+            brand: null,
+            agency: {
+              id: 'agency-1',
+              name: 'Northstar Agency',
+              logoUrl: 'https://agency-logo',
+            },
+            briefRef: { brandName: 'Client Co' },
+          },
+        ],
+      ]);
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      const result = await service.listChatsForCreator({
+        creatorUserId: 'user-1',
+      });
+
+      expect(result.items[0].brand).toEqual({
+        id: 'agency-1',
+        brandName: 'Client Co',
+        logoUrl: 'https://agency-logo',
+      });
+    });
+
     it('throws when creator profile is missing', async () => {
       prisma.creatorProfile.findUnique.mockResolvedValue(null);
       await expect(
@@ -94,10 +141,6 @@ describe('ChatsService', () => {
 
   describe('listChatsForBrand', () => {
     it('returns chat threads for the resolved brand', async () => {
-      brandAccess.resolveBrandContext.mockResolvedValue({
-        brand: { id: 'brand-1' },
-      });
-      brandAccess.resolveBrandActorUserIdForProfile.mockResolvedValue('agency-owner');
       const pageRows = [
         {
           id: 'order-1',
@@ -130,6 +173,7 @@ describe('ChatsService', () => {
       expect(prisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
+            brandId: 'brand-1',
             status: {
               notIn: expect.arrayContaining([
                 OrderStatus.PENDING_PAYMENT,
@@ -140,6 +184,59 @@ describe('ChatsService', () => {
           }),
         }),
       );
+      expect(brandAccess.resolveBuyerActorUserId).toHaveBeenCalledWith({
+        brandId: 'brand-1',
+        agencyId: null,
+      });
+    });
+
+    it('lists agency-owned order chats without requiring a brand profile', async () => {
+      brandAccess = createBrandAccessMock({
+        brandId: null,
+        agencyId: 'agency-1',
+        brandActorUserId: 'agency-owner',
+      });
+      service = new ChatsService(prisma as any, brandAccess as any);
+
+      prisma.$transaction.mockResolvedValue([
+        1,
+        [
+          {
+            id: 'order-agency',
+            status: OrderStatus.ACCEPTED,
+            packageNameSnapshot: 'Package',
+            updatedAt: new Date('2025-05-03T00:00:00Z'),
+            lastChatActivityAt: new Date('2025-05-03T00:00:00Z'),
+            lastChatMessageId: null,
+            lastChatMessageSenderUserId: null,
+            lastChatMessageType: null,
+            lastChatMessageText: null,
+            creator: {
+              id: 'creator-1',
+              displayName: 'Riya',
+              introVideoUrl: null,
+              city: 'Mumbai',
+            },
+          },
+        ],
+      ]);
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      const result = await service.listChatsForBrand({
+        actorUserId: 'agency-owner',
+      });
+
+      expect(result.items).toHaveLength(1);
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ agencyId: 'agency-1' }),
+        }),
+      );
+      expect(brandAccess.requireBrandProfile).not.toHaveBeenCalled();
+      expect(brandAccess.resolveBuyerActorUserId).toHaveBeenCalledWith({
+        brandId: null,
+        agencyId: 'agency-1',
+      });
     });
   });
 });

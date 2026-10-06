@@ -1,4 +1,5 @@
 import { OrdersService } from './orders.service';
+import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 /**
  * Admin "act on behalf" for the order brief flow: an admin can accept / reject
@@ -8,7 +9,10 @@ import { OrdersService } from './orders.service';
  * required for reject/cancel. Self-serve actions still record their own actor.
  */
 describe('OrdersService admin brief actions on behalf', () => {
-  function makeService(order: Record<string, unknown> | null) {
+  function makeService(
+    order: Record<string, unknown> | null,
+    brandAccessOptions?: Parameters<typeof createBrandAccessMock>[0],
+  ) {
     const orderUpdate = jest.fn().mockResolvedValue({
       id: 'order-1',
       status: 'BRIEF_ACCEPTED',
@@ -36,11 +40,7 @@ describe('OrdersService admin brief actions on behalf', () => {
       notifyBriefRejectedByCreator: jest.fn(),
       notifyBriefAccepted: jest.fn(),
     };
-    const brandAccess = {
-      resolveBrandContext: jest
-        .fn()
-        .mockResolvedValue({ brand: { id: 'brand-1' } }),
-    };
+    const brandAccess = createBrandAccessMock(brandAccessOptions);
 
     const wallet = {
       creditOrderCancellation: jest.fn().mockResolvedValue({
@@ -60,12 +60,13 @@ describe('OrdersService admin brief actions on behalf', () => {
       {} as never,
       wallet as never,
     );
-    return { service, orderUpdate, orderRealtime, orderMail, wallet };
+    return { service, orderUpdate, orderRealtime, orderMail, wallet, brandAccess };
   }
 
   const awaitingAcceptance = {
     id: 'order-1',
     brandId: 'brand-1',
+    agencyId: null,
     creatorId: 'creator-1',
     status: 'BRIEF_SUBMITTED',
     briefSubmittedAt: new Date(),
@@ -251,5 +252,63 @@ describe('OrdersService admin brief actions on behalf', () => {
     );
     expect(orderMail.notifyBriefRejectedByCreator).toHaveBeenCalled();
     expect(orderMail.notifyOrderCancelledBySupport).not.toHaveBeenCalled();
+  });
+
+  it('self-serve brand cancel owns brand orders via assertOwnsOrder', async () => {
+    const { service, orderUpdate, orderMail, brandAccess } =
+      makeService(awaitingAcceptance);
+
+    await service.cancelOrderByBrand({
+      actorUserId: 'user-1',
+      orderId: 'order-1',
+      note: 'Changing brief scope.',
+    });
+
+    expect(brandAccess.assertOwnsOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ brandId: 'brand-1', agencyId: null }),
+      expect.objectContaining({ brandId: 'brand-1' }),
+    );
+    expect(orderUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'REJECTED',
+          cancelledByUserId: 'user-1',
+          cancelledOnBehalfOf: 'BRAND',
+        }),
+      }),
+    );
+    expect(orderMail.notifyOrderCancelledByBrand).toHaveBeenCalled();
+  });
+
+  it('self-serve agency cancel owns agency orders (not brandId compare)', async () => {
+    const agencyOrder = {
+      ...awaitingAcceptance,
+      brandId: null,
+      agencyId: 'agency-1',
+    };
+    const { service, orderUpdate, brandAccess } = makeService(agencyOrder, {
+      brandId: null,
+      agencyId: 'agency-1',
+      actorUserId: 'agency-owner',
+    });
+
+    await service.cancelOrderByBrand({
+      actorUserId: 'agency-owner',
+      orderId: 'order-1',
+      note: 'Client pulled the brief.',
+    });
+
+    expect(brandAccess.assertOwnsOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ brandId: null, agencyId: 'agency-1' }),
+      expect.objectContaining({ agencyId: 'agency-1' }),
+    );
+    expect(orderUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          cancelledByUserId: 'agency-owner',
+          cancelledOnBehalfOf: 'BRAND',
+        }),
+      }),
+    );
   });
 });

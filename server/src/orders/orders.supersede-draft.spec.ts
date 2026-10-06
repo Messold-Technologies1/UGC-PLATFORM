@@ -43,14 +43,14 @@ describe('OrdersService: superseded checkout drafts', () => {
     return (
       service as unknown as {
         rejectOtherPendingOrdersForBrandCreator: (
-          brandId: string,
+          owner: { brandId?: string | null; agencyId?: string | null },
           creatorId: string,
           keepOrderId: string,
           checkoutSessionKey: string | null,
         ) => Promise<void>;
       }
     ).rejectOtherPendingOrdersForBrandCreator(
-      'brand-1',
+      { brandId: 'brand-1', agencyId: null },
       'creator-1',
       'keep-1',
       sessionKey,

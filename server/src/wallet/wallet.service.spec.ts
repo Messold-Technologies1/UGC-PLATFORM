@@ -26,7 +26,9 @@ class FakePrisma {
     findUnique: async ({ where }: any) => {
       const w = where.brandId
         ? [...this.wallets.values()].find((x) => x.brandId === where.brandId)
-        : this.wallets.get(where.id);
+        : where.agencyId
+          ? [...this.wallets.values()].find((x) => x.agencyId === where.agencyId)
+          : this.wallets.get(where.id);
       return w ? { ...w } : null;
     },
     findUniqueOrThrow: async (args: any) => {
@@ -34,8 +36,26 @@ class FakePrisma {
       if (!w) throw new Error('wallet not found');
       return w;
     },
+    findFirst: async ({ where }: any) => {
+      const w = [...this.wallets.values()].find((x) => {
+        if (where?.brandId) return x.brandId === where.brandId;
+        if (where?.agencyId) return x.agencyId === where.agencyId;
+        return false;
+      });
+      return w ? { ...w } : null;
+    },
+    findFirstOrThrow: async (args: any) => {
+      const w = await this.brandWallet.findFirst(args);
+      if (!w) throw new Error('wallet not found');
+      return w;
+    },
     create: async ({ data }: any) => {
-      if ([...this.wallets.values()].some((x) => x.brandId === data.brandId)) {
+      const clash = [...this.wallets.values()].some(
+        (x) =>
+          (data.brandId && x.brandId === data.brandId) ||
+          (data.agencyId && x.agencyId === data.agencyId),
+      );
+      if (clash) {
         const e: any = new Error('unique');
         e.code = 'P2002';
         Object.setPrototypeOf(
@@ -47,7 +67,8 @@ class FakePrisma {
       }
       const w = {
         id: this.id('wallet'),
-        brandId: data.brandId,
+        brandId: data.brandId ?? null,
+        agencyId: data.agencyId ?? null,
         balancePaise: data.balancePaise ?? 0,
         heldPaise: data.heldPaise ?? 0,
         currency: data.currency ?? 'INR',

@@ -4,6 +4,7 @@ import {
   OrdersService,
   USAGE_RIGHTS_DAYS_PER_ADDON,
 } from './orders.service';
+import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 /**
  * Unit tests for the "buy extra usage rights" path (non-refundable 30-day
@@ -72,11 +73,7 @@ describe('OrdersService extra-usage-rights purchase', () => {
       createOrder: jest.fn(() => Promise.resolve({ id: 'rzp-1' })),
       getPublicKeyId: jest.fn(() => 'key_test'),
     };
-    const brandAccess = {
-      resolveBrandContext: jest.fn(() =>
-        Promise.resolve({ brand: { id: 'brand-1' } }),
-      ),
-    };
+    const brandAccess = createBrandAccessMock();
     const orderMail = { notifyExtraUsageRightsPurchased: jest.fn() };
     const orderRealtime = { emitOrderUsageRightsPurchased: jest.fn() };
 
@@ -87,6 +84,7 @@ describe('OrdersService extra-usage-rights purchase', () => {
       orderMail as any,
       {} as any,
       brandAccess as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,

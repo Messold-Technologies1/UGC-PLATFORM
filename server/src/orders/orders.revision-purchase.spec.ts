@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 import { OrdersService, REVISIONS_PER_ADDON } from './orders.service';
+import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 /**
  * Unit tests for the "buy extra revisions" path. Everything the service touches
@@ -70,11 +71,7 @@ describe('OrdersService extra-revisions purchase', () => {
       createOrder: jest.fn(() => Promise.resolve({ id: 'rzp-1' })),
       getPublicKeyId: jest.fn(() => 'key_test'),
     };
-    const brandAccess = {
-      resolveBrandContext: jest.fn(() =>
-        Promise.resolve({ brand: { id: 'brand-1' } }),
-      ),
-    };
+    const brandAccess = createBrandAccessMock();
     const orderMail = { notifyExtraRevisionsPurchased: jest.fn() };
     const orderRealtime = { emitOrderRevisionsPurchased: jest.fn() };
 
@@ -85,6 +82,7 @@ describe('OrdersService extra-revisions purchase', () => {
       orderMail as any,
       {} as any,
       brandAccess as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,

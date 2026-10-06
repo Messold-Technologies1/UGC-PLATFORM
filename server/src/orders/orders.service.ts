@@ -4818,6 +4818,7 @@ export class OrdersService {
             productImageUrl: true,
             isProduct: true,
             willShipPhysicalProductToCreator: true,
+            wantsPhysicalProductReturned: true,
             shootLocationKind: true,
             shootLocationAddress: true,
             durationBucket: true,
@@ -4886,6 +4887,8 @@ export class OrdersService {
           isProduct: order.briefRef.isProduct,
           willShipPhysicalProductToCreator:
             order.briefRef.willShipPhysicalProductToCreator,
+          wantsPhysicalProductReturned:
+            order.briefRef.wantsPhysicalProductReturned,
           shootLocationKind: order.briefRef.shootLocationKind ?? null,
           shootLocationAddress: order.briefRef.shootLocationAddress ?? null,
           durationBucket: order.briefRef.durationBucket ?? null,

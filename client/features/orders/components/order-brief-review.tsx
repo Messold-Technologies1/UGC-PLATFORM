@@ -358,9 +358,16 @@ function BrandProductSection({
               {brief.productName?.trim() || "—"}
             </Field>
             {isProductBrief ? (
-              <Field label="Ship Physical Product">
-                {brief.willShipPhysicalProductToCreator ? "Yes" : "No"}
-              </Field>
+              <>
+                <Field label="Ship Physical Product">
+                  {brief.willShipPhysicalProductToCreator ? "Yes" : "No"}
+                </Field>
+                {brief.willShipPhysicalProductToCreator ? (
+                  <Field label="Want Product Returned">
+                    {brief.wantsPhysicalProductReturned ? "Yes" : "No"}
+                  </Field>
+                ) : null}
+              </>
             ) : null}
             {brief.productPageUrl ? (
               <Field label={offerLabels.pageLink}>

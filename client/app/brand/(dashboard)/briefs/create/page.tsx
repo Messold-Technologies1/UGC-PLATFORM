@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
 import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
 import {
+  AlertTriangle,
   ArrowRight,
   Check,
   Smartphone,
@@ -228,6 +229,7 @@ function buildCreateBriefSchema(requireBrandName: boolean) {
     productImageUrl: optionalUrl("Image URL"),
     isProduct: z.boolean().optional(),
     willShipPhysicalProductToCreator: z.boolean().optional(),
+    wantsPhysicalProductReturned: z.boolean().optional(),
     shootLocationKind: z.enum(shootLocationKinds).optional(),
     shootLocationAddress: z.string().trim().optional(),
     durationBucket: z.enum(durationBuckets).optional(),
@@ -320,6 +322,7 @@ const createBriefDefaultValues: CreateBriefValues = {
   productImageUrl: "",
   isProduct: true,
   willShipPhysicalProductToCreator: false,
+  wantsPhysicalProductReturned: false,
   shootLocationAddress: "",
   contentType: [],
   toneStyle: [],
@@ -334,6 +337,94 @@ const createBriefDefaultValues: CreateBriefValues = {
 function optionalString(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+const BRIEF_FIELD_ERROR_ORDER = [
+  "brandName",
+  "productName",
+  "productDescription",
+  "productImageKey",
+  "productImageUrl",
+  "productPageUrl",
+  "brandLogoUrl",
+  "contentType",
+  "toneStyle",
+  "shootLocationKind",
+  "shootLocationAddress",
+  "durationBucket",
+  "keyNoteToInclude",
+  "ctaNote",
+  "referenceLinks",
+  "scriptText",
+  "scriptOption",
+  "willShipPhysicalProductToCreator",
+  "wantsPhysicalProductReturned",
+  "finalNotes",
+] as const;
+
+function briefFieldErrorLabel(
+  field: string,
+  offerLabels: ReturnType<typeof getBriefOfferLabels>,
+): string {
+  switch (field) {
+    case "brandName":
+      return "Brand name";
+    case "productName":
+      return offerLabels.name;
+    case "productDescription":
+      return offerLabels.description;
+    case "productImageKey":
+    case "productImageUrl":
+      return offerLabels.image;
+    case "productPageUrl":
+      return offerLabels.pageUrl;
+    case "brandLogoUrl":
+      return "Brand logo URL";
+    case "contentType":
+      return "Content type";
+    case "toneStyle":
+      return "Tone";
+    case "shootLocationKind":
+      return "Shoot location";
+    case "shootLocationAddress":
+      return "Location address";
+    case "durationBucket":
+      return "Duration";
+    case "keyNoteToInclude":
+      return "Key points";
+    case "ctaNote":
+      return "Call to action";
+    case "referenceLinks":
+      return "Reference links";
+    case "scriptText":
+      return "Script";
+    case "scriptOption":
+      return "Script option";
+    case "willShipPhysicalProductToCreator":
+      return "Ship physical product";
+    case "wantsPhysicalProductReturned":
+      return "Want product returned";
+    case "finalNotes":
+      return "Do's and don'ts";
+    default:
+      return field;
+  }
+}
+
+function listMissingBriefFieldLabels(
+  errors: Record<string, unknown>,
+  offerLabels: ReturnType<typeof getBriefOfferLabels>,
+): string[] {
+  const keys = Object.keys(errors);
+  const ordered = BRIEF_FIELD_ERROR_ORDER.filter((key) => key in errors);
+  const extras = keys.filter(
+    (key) => !(BRIEF_FIELD_ERROR_ORDER as readonly string[]).includes(key),
+  );
+  const labels = [...ordered, ...extras].map((key) =>
+    briefFieldErrorLabel(key, offerLabels),
+  );
+  // Product image can error on both key and url — keep one label.
+  return [...new Set(labels)];
 }
 
 function toReferenceLinks(value: string | undefined) {
@@ -355,6 +446,8 @@ function toCreateBriefPayload(
   const isProduct = values.isProduct ?? true;
   const shipsPhysical =
     isProduct && (values.willShipPhysicalProductToCreator ?? false);
+  const wantsReturned =
+    shipsPhysical && (values.wantsPhysicalProductReturned ?? false);
   const productImageKey = values.productImageKey?.trim();
   const brandName =
     optionalString(values.brandName) ?? optionalString(options.fallbackBrandName);
@@ -375,6 +468,7 @@ function toCreateBriefPayload(
     isProduct,
     ...(isProduct && productImageKey ? { productImageKey } : {}),
     willShipPhysicalProductToCreator: shipsPhysical,
+    wantsPhysicalProductReturned: wantsReturned,
     shootLocationKind: values.shootLocationKind as
       | BriefShootLocationKind
       | undefined,
@@ -681,6 +775,10 @@ function CreateBriefPageContent() {
     control: form.control,
     name: "willShipPhysicalProductToCreator",
   });
+  const watchWantsReturned = useWatch({
+    control: form.control,
+    name: "wantsPhysicalProductReturned",
+  });
   const watchIsProduct = useWatch({
     control: form.control,
     name: "isProduct",
@@ -810,6 +908,10 @@ function CreateBriefPageContent() {
         shouldDirty: true,
         shouldValidate: true,
       });
+      form.setValue("wantsPhysicalProductReturned", false, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
       handleRemoveProductImage();
     }
   };
@@ -821,6 +923,12 @@ function CreateBriefPageContent() {
   const isProductImageUploadPending = uploadProductImageMutation.isPending;
   const isUploadPending =
     isPronunciationUploadPending || isProductImageUploadPending;
+  const { errors: formErrors, submitCount } = form.formState;
+  const missingFieldLabels =
+    submitCount > 0
+      ? listMissingBriefFieldLabels(formErrors, offerLabels)
+      : [];
+  const missingRequiredFields = missingFieldLabels.length > 0;
 
   const [showBanner, setShowBanner] = useState<boolean>(isFromOrder);
   const [newLink, setNewLink] = useState("");
@@ -881,6 +989,8 @@ function CreateBriefPageContent() {
       isProduct: editBrief.isProduct ?? true,
       willShipPhysicalProductToCreator:
         editBrief.willShipPhysicalProductToCreator ?? false,
+      wantsPhysicalProductReturned:
+        editBrief.wantsPhysicalProductReturned ?? false,
       shootLocationKind: editBrief.shootLocationKind ?? undefined,
       shootLocationAddress: editBrief.shootLocationAddress ?? "",
       durationBucket: editBrief.durationBucket ?? undefined,
@@ -1127,33 +1237,77 @@ function CreateBriefPageContent() {
                   </div>
 
                   {isProductBrief ? (
-                  <div className={styles.productTypeRow}>
-                    <div className="min-w-0">
-                      <Label
-                        htmlFor="willShipPhysicalProductToCreator"
-                        className={styles.productTypeRowLabel}
-                      >
-                        Will you ship a physical product to the creator?
-                      </Label>
-                      <p className={styles.productTypeRowHint}>
-                        Enable if you&apos;ll send the product for the video.
-                      </p>
+                    <div className="space-y-3">
+                      <div className={styles.productTypeRow}>
+                        <div className="min-w-0">
+                          <Label
+                            htmlFor="willShipPhysicalProductToCreator"
+                            className={styles.productTypeRowLabel}
+                          >
+                            Will you ship a physical product to the creator?
+                          </Label>
+                          <p className={styles.productTypeRowHint}>
+                            Enable if you&apos;ll send the product for the video.
+                          </p>
+                        </div>
+                        <Switch
+                          id="willShipPhysicalProductToCreator"
+                          checked={watchWillShip ?? false}
+                          onCheckedChange={(checked) => {
+                            form.setValue(
+                              "willShipPhysicalProductToCreator",
+                              checked,
+                              {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              },
+                            );
+                            if (!checked) {
+                              form.setValue(
+                                "wantsPhysicalProductReturned",
+                                false,
+                                {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                },
+                              );
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {watchWillShip ? (
+                        <div className={styles.productTypeRow}>
+                          <div className="min-w-0">
+                            <Label
+                              htmlFor="wantsPhysicalProductReturned"
+                              className={styles.productTypeRowLabel}
+                            >
+                              Do you want the physical product back?
+                            </Label>
+                            <p className={styles.productTypeRowHint}>
+                              Return shipping must be arranged from your side
+                              (brand/agency). The creator does not cover return
+                              shipping.
+                            </p>
+                          </div>
+                          <Switch
+                            id="wantsPhysicalProductReturned"
+                            checked={watchWantsReturned ?? false}
+                            onCheckedChange={(checked) => {
+                              form.setValue(
+                                "wantsPhysicalProductReturned",
+                                checked,
+                                {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                },
+                              );
+                            }}
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                    <Switch
-                      id="willShipPhysicalProductToCreator"
-                      checked={watchWillShip ?? false}
-                      onCheckedChange={(checked) => {
-                        form.setValue(
-                          "willShipPhysicalProductToCreator",
-                          checked,
-                          {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                          },
-                        );
-                      }}
-                    />
-                  </div>
                   ) : null}
 
                   <div className="space-y-2 min-w-0">
@@ -1784,6 +1938,20 @@ function CreateBriefPageContent() {
             </div>
 
             <div className={styles.panelFoot}>
+              {missingRequiredFields ? (
+                <div className={styles.panelFootWarning} role="alert">
+                  <AlertTriangle
+                    className={`${styles.panelFootWarningIcon} size-4`}
+                    aria-hidden
+                  />
+                  <span>
+                    {missingFieldLabels.length === 1
+                      ? `Looks like ${missingFieldLabels[0]} is still empty — fill that in above and try again.`
+                      : `Looks like a few things are still empty: ${missingFieldLabels.join(", ")}. Fill those in above and try again.`}
+                  </span>
+                </div>
+              ) : null}
+              <div className={styles.panelFootActions}>
               {!isEditMode && (
                 <Button
                   type="button"
@@ -1840,6 +2008,7 @@ function CreateBriefPageContent() {
                   </>
                 )}
               </Button>
+              </div>
             </div>
           </section>
 

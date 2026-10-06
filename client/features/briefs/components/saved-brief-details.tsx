@@ -236,12 +236,22 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                     <DetailRow label={offerLabels.pageLink} value={null} />
                   )}
                   {brief.isProduct !== false ? (
-                    <DetailRow
-                      label="Ship physical product"
-                      value={
-                        brief.willShipPhysicalProductToCreator ? "Yes" : "No"
-                      }
-                    />
+                    <>
+                      <DetailRow
+                        label="Ship physical product"
+                        value={
+                          brief.willShipPhysicalProductToCreator ? "Yes" : "No"
+                        }
+                      />
+                      {brief.willShipPhysicalProductToCreator ? (
+                        <DetailRow
+                          label="Want product returned"
+                          value={
+                            brief.wantsPhysicalProductReturned ? "Yes" : "No"
+                          }
+                        />
+                      ) : null}
+                    </>
                   ) : null}
                   <div className="space-y-1 md:col-span-2">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">

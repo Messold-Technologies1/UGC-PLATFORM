@@ -66,6 +66,7 @@ function mapBriefRow(b: {
   productImageUrl: string | null;
   isProduct: boolean;
   willShipPhysicalProductToCreator: boolean;
+  wantsPhysicalProductReturned: boolean;
   shootLocationKind: BriefShootLocationKind | null;
   shootLocationAddress: string | null;
   durationBucket: BriefDurationBucket | null;
@@ -94,6 +95,7 @@ function mapBriefRow(b: {
     productImageUrl: b.productImageUrl ?? null,
     isProduct: b.isProduct,
     willShipPhysicalProductToCreator: b.willShipPhysicalProductToCreator,
+    wantsPhysicalProductReturned: b.wantsPhysicalProductReturned,
     shootLocationKind: b.shootLocationKind ?? null,
     shootLocationAddress: b.shootLocationAddress ?? null,
     durationBucket: b.durationBucket ?? null,
@@ -193,11 +195,18 @@ export class BriefsService {
     const isProduct = params.dto.isProduct ?? true;
     const shipsPhysical =
       isProduct && (params.dto.willShipPhysicalProductToCreator ?? false);
+    const wantsReturned =
+      shipsPhysical && (params.dto.wantsPhysicalProductReturned ?? false);
     const productImageKey = params.dto.productImageKey?.trim() ?? '';
 
     if (!isProduct && params.dto.willShipPhysicalProductToCreator) {
       throw new BadRequestException(
         'willShipPhysicalProductToCreator is only allowed for product briefs',
+      );
+    }
+    if (!shipsPhysical && params.dto.wantsPhysicalProductReturned) {
+      throw new BadRequestException(
+        'wantsPhysicalProductReturned requires willShipPhysicalProductToCreator',
       );
     }
 
@@ -275,6 +284,7 @@ export class BriefsService {
           productPageUrl: params.dto.productPageUrl,
           isProduct,
           willShipPhysicalProductToCreator: shipsPhysical,
+          wantsPhysicalProductReturned: wantsReturned,
           shootLocationKind: params.dto.shootLocationKind,
           shootLocationAddress: params.dto.shootLocationAddress,
           durationBucket: params.dto.durationBucket,
@@ -371,10 +381,19 @@ export class BriefsService {
       isProduct &&
       (dto.willShipPhysicalProductToCreator ??
         existing.willShipPhysicalProductToCreator);
+    const wantsReturned =
+      shipsPhysical &&
+      (dto.wantsPhysicalProductReturned ??
+        existing.wantsPhysicalProductReturned);
 
     if (!isProduct && dto.willShipPhysicalProductToCreator) {
       throw new BadRequestException(
         'willShipPhysicalProductToCreator is only allowed for product briefs',
+      );
+    }
+    if (!shipsPhysical && dto.wantsPhysicalProductReturned) {
+      throw new BadRequestException(
+        'wantsPhysicalProductReturned requires willShipPhysicalProductToCreator',
       );
     }
 
@@ -399,6 +418,7 @@ export class BriefsService {
     const data: Record<string, unknown> = {
       isProduct,
       willShipPhysicalProductToCreator: shipsPhysical,
+      wantsPhysicalProductReturned: wantsReturned,
     };
     const setIfDefined = (key: keyof UpdateBriefDto): void => {
       if (dto[key] !== undefined) data[key as string] = dto[key];

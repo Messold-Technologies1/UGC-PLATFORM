@@ -967,6 +967,9 @@ model Brief {
 
   /// Logistics: brand will mail / courier a physical item to the creator for the shoot
   willShipPhysicalProductToCreator Boolean @default(false)
+  /// When shipping a physical product: buyer wants the item returned after the shoot.
+  /// Return shipping is arranged by the brand/agency (not the creator).
+  wantsPhysicalProductReturned Boolean @default(false)
 
   /// Production guidance
   shootLocationKind    BriefShootLocationKind? @default(CREATOR_DECIDES)

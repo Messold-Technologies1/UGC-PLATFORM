@@ -102,7 +102,7 @@ export const orderEvents = defineEvents({
           creatorName: creatorDisplayName(order),
           orderId: order.id,
           deliveryDueAt: formatDate(order.deliveryDueAt),
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },
@@ -125,7 +125,7 @@ export const orderEvents = defineEvents({
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           rejectionNote: order.cancellationReason ?? '',
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },
@@ -199,7 +199,7 @@ export const orderEvents = defineEvents({
         creatorName: creatorDisplayName(order),
         orderId: order.id,
         deliveryDueAt: formatDate(order.deliveryDueAt),
-        actionUrl: brandOrderUrl(ctx, order.id),
+        actionUrl: brandOrderUrl(ctx, order),
       });
     },
   },
@@ -293,7 +293,7 @@ export const orderEvents = defineEvents({
         orderId: order.id,
         revisionsAdded: String(purchase?.revisionsAdded ?? 0),
         maxRevisions: String(order.maxRevisionsSnapshot),
-        actionUrl: brandOrderUrl(ctx, order.id),
+        actionUrl: brandOrderUrl(ctx, order),
       });
     },
   },
@@ -326,7 +326,7 @@ export const orderEvents = defineEvents({
         daysAdded: String(purchase?.daysAdded ?? 0),
         // The base licence is 30 days; extras accumulate on the order.
         totalUsageDays: String(30 + order.usageRightsExtraDays),
-        actionUrl: brandOrderUrl(ctx, order.id),
+        actionUrl: brandOrderUrl(ctx, order),
       });
     },
   },
@@ -393,7 +393,7 @@ export const orderEvents = defineEvents({
             delivery && delivery.revisionNumber > 0
               ? String(delivery.revisionNumber)
               : '',
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },
@@ -426,7 +426,7 @@ export const orderEvents = defineEvents({
         creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
-        actionUrl: brandOrderUrl(ctx, order.id),
+        actionUrl: brandOrderUrl(ctx, order),
       });
     },
   },
@@ -452,7 +452,7 @@ export const orderEvents = defineEvents({
           orderId: order.id,
           resolutionNotes: order.cancellationReason ?? '',
           creatorName: creatorDisplayName(order),
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },
@@ -501,7 +501,7 @@ export const orderEvents = defineEvents({
           orderId: order.id,
           cancellationNote: order.cancellationReason ?? '',
           creatorName: creatorDisplayName(order),
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },
@@ -550,7 +550,7 @@ export const orderEvents = defineEvents({
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           cancellationNote: order.cancellationReason ?? '',
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },
@@ -594,7 +594,7 @@ export const orderEvents = defineEvents({
         orderId: order.id,
         refundAmount: formatMoney(order.priceAmountSnapshot, order.currency),
         refundedAt: formatDate(order.refundedAt),
-        actionUrl: brandOrderUrl(ctx, order.id),
+        actionUrl: brandOrderUrl(ctx, order),
       });
     },
   },
@@ -628,7 +628,7 @@ export const orderEvents = defineEvents({
           orderId: order.id,
           raisedByLabel: dispute?.openedBy === 'BRAND' ? 'Brand' : 'Creator',
           reason: dispute?.reason?.trim() ?? '',
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },
@@ -697,7 +697,7 @@ export const orderEvents = defineEvents({
           orderId: order.id,
           outcomeMessage: DISPUTE_CONTINUED_MESSAGE,
           resolutionNotes: dispute?.resolutionNotes?.trim() ?? '',
-          actionUrl: brandOrderUrl(ctx, order.id),
+          actionUrl: brandOrderUrl(ctx, order),
         }),
       );
     },

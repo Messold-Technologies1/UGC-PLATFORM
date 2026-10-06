@@ -208,8 +208,16 @@ export async function toBrand(
 
 // ---- links ----
 
-export const brandOrderUrl = (ctx: EventContext, orderId: string): string =>
-  `${ctx.frontendBaseUrl}/brand/orders/${orderId}`;
+/**
+ * The buyer's own order page. An agency order lives under /agency, which is the
+ * only workspace its owner can open — /brand/orders/:id 404s for them.
+ *
+ * Takes the row rather than an id so the buyer cannot be left out by accident.
+ * The legacy notifier threads `order.agency?.id` through thirteen separate call
+ * sites instead, which is one place per event to forget it.
+ */
+export const brandOrderUrl = (ctx: EventContext, order: OrderRow): string =>
+  `${ctx.frontendBaseUrl}/${order.agency ? 'agency' : 'brand'}/orders/${order.id}`;
 
 export const creatorOrderUrl = (ctx: EventContext, orderId: string): string =>
   `${ctx.frontendBaseUrl}/creator/orders/${orderId}`;

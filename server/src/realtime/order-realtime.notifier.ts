@@ -16,8 +16,15 @@ export class OrderRealtimeNotifier {
     private readonly brandAccess: BrandAccessService,
   ) {}
 
-  private async resolveBrandUserId(brandProfileId: string): Promise<string> {
-    return this.brandAccess.resolveBrandActorUserIdForProfile(brandProfileId);
+  private async resolveBuyerUserId(order: {
+    brandId?: string | null;
+    agencyId?: string | null;
+    brand?: { id: string } | null;
+  }): Promise<string> {
+    return this.brandAccess.resolveBuyerActorUserId({
+      brandId: order.brandId ?? order.brand?.id ?? null,
+      agencyId: order.agencyId ?? null,
+    });
   }
 
   /**
@@ -32,6 +39,8 @@ export class OrderRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
+        brandId: true,
+        agencyId: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
@@ -47,7 +56,7 @@ export class OrderRealtimeNotifier {
       ...params.meta,
     };
 
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     const creatorUserId = order.creator.userId;
 
     this.gateway.server
@@ -74,7 +83,11 @@ export class OrderRealtimeNotifier {
       select: {
         packageNameSnapshot: true,
         creator: { select: { userId: true } },
+        brandId: true,
+        agencyId: true,
         brand: { select: { brandName: true } },
+        agency: { select: { name: true } },
+        briefRef: { select: { brandName: true } },
       },
     });
     if (!order) {
@@ -89,7 +102,12 @@ export class OrderRealtimeNotifier {
       .emit('order.brief_submitted', {
         orderId: params.orderId,
         briefSubmittedAt: params.briefSubmittedAt.toISOString(),
-        brandName: order.brand.brandName ?? null,
+        // Agency orders: show the agency name (not the brief's client brand name).
+        brandName:
+          order.agency?.name ??
+          order.brand?.brandName ??
+          order.briefRef?.brandName ??
+          null,
         packageName: order.packageNameSnapshot,
       });
   }
@@ -105,7 +123,7 @@ export class OrderRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
-        brand: { select: { id: true } },
+        brandId: true, agencyId: true, brand: { select: { id: true } },
       },
     });
     if (!order) {
@@ -114,7 +132,7 @@ export class OrderRealtimeNotifier {
       );
       return;
     }
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     this.gateway.server.to(`user:${brandUserId}`).emit('order.brief_accepted', {
       orderId: params.orderId,
       briefAcceptedAt: params.briefAcceptedAt.toISOString(),
@@ -193,6 +211,8 @@ export class OrderRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
+        brandId: true,
+        agencyId: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
@@ -207,7 +227,7 @@ export class OrderRealtimeNotifier {
       orderId: params.orderId,
       revisionsAdded: params.revisionsAdded,
     };
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     if (brandUserId) {
       this.gateway.server
         .to(`user:${brandUserId}`)
@@ -229,6 +249,8 @@ export class OrderRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
+        brandId: true,
+        agencyId: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
@@ -243,7 +265,7 @@ export class OrderRealtimeNotifier {
       orderId: params.orderId,
       daysAdded: params.daysAdded,
     };
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     if (brandUserId) {
       this.gateway.server
         .to(`user:${brandUserId}`)
@@ -263,7 +285,7 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { brand: { select: { id: true } } },
+      select: { brandId: true, agencyId: true, brand: { select: { id: true } } },
     });
     if (!order) {
       this.logger.warn(
@@ -271,7 +293,7 @@ export class OrderRealtimeNotifier {
       );
       return;
     }
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     this.gateway.server
       .to(`user:${brandUserId}`)
       .emit('order.product_received', {
@@ -295,6 +317,8 @@ export class OrderRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
       select: {
+        brandId: true,
+        agencyId: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
@@ -305,7 +329,7 @@ export class OrderRealtimeNotifier {
       );
       return;
     }
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     const payload = {
       orderId: params.orderId,
       status: params.status,
@@ -333,7 +357,7 @@ export class OrderRealtimeNotifier {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { brand: { select: { id: true } } },
+      select: { brandId: true, agencyId: true, brand: { select: { id: true } } },
     });
     if (!order) {
       this.logger.warn(
@@ -341,7 +365,7 @@ export class OrderRealtimeNotifier {
       );
       return;
     }
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     this.gateway.server
       .to(`user:${brandUserId}`)
       .emit('delivery.watermark_ready', {
@@ -358,6 +382,8 @@ export class OrderRealtimeNotifier {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
+        brandId: true,
+        agencyId: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
@@ -366,7 +392,7 @@ export class OrderRealtimeNotifier {
       this.logger.warn(`${event}: order not found ${orderId}`);
       return;
     }
-    const brandUserId = await this.resolveBrandUserId(order.brand.id);
+    const brandUserId = await this.resolveBuyerUserId(order);
     const creatorUserId = order.creator.userId;
     this.gateway.server.to(`user:${brandUserId}`).emit(event, payload);
     if (creatorUserId !== brandUserId) {

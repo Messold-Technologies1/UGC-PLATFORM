@@ -1,6 +1,12 @@
 "use client";
 
 import {
+  remapBuyerHref,
+  type BuyerWorkspaceBase,
+} from "@/features/auth/lib/buyer-workspace-path";
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
+import {
   AlertTriangle,
   ArrowRight,
   Check,
@@ -241,18 +247,20 @@ function MobileStepTrack({
   activeIndex,
   onStepClick,
   previewState,
+  workspaceBase,
 }: {
   steps: StepDefinition[];
   order: OrderDetailsPublic;
   activeIndex: number;
   onStepClick?: (label: string) => void;
   previewState?: string | null;
+  workspaceBase: BuyerWorkspaceBase;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
   const activeStep = steps[Math.min(activeIndex, steps.length - 1)];
   const presentation = activeStep
-    ? getStepPresentation(activeStep, order)
+    ? getStepPresentation(activeStep, order, workspaceBase)
     : null;
 
   useEffect(() => {
@@ -436,6 +444,7 @@ function getCurrentBadge(
 function getStepPresentation(
   step: StepDefinition,
   order: OrderDetailsPublic,
+  workspaceBase: BuyerWorkspaceBase,
 ): StepPresentation {
   switch (step.label) {
     case "Payment Completed":
@@ -454,7 +463,7 @@ function getStepPresentation(
           order.briefSubmittedAt || order.hasBrief
             ? null
             : {
-                href: `/brand/briefs/create?orderId=${order.id}`,
+                href: remapBuyerHref(`/brand/briefs/create?orderId=${order.id}`, workspaceBase),
                 label: "Submit Brief",
               },
       };
@@ -573,6 +582,7 @@ function StepNode({
   compact,
   onStepClick,
   previewState,
+  workspaceBase,
 }: {
   step: StepDefinition;
   order: OrderDetailsPublic;
@@ -582,6 +592,7 @@ function StepNode({
   compact?: boolean;
   onStepClick?: (label: string) => void;
   previewState?: string | null;
+  workspaceBase: BuyerWorkspaceBase;
 }) {
   const isCompleted = index < activeIndex;
   const isActive = index === activeIndex;
@@ -600,7 +611,7 @@ function StepNode({
     : step.dateKey
       ? (order[step.dateKey] as string | null | undefined)
       : null;
-  const presentation = getStepPresentation(step, order);
+  const presentation = getStepPresentation(step, order, workspaceBase);
   const badge = getCurrentBadge(
     isAwaitingPayment,
     isDisputeActive,
@@ -648,7 +659,7 @@ function StepNode({
       ) : null}
 
       {step.getHref && (isActive || isCompleted) && !canClick ? (
-        <Link href={step.getHref(order.id)} className="flex flex-col items-center hover:opacity-80">
+        <Link href={remapBuyerHref(step.getHref(order.id), workspaceBase)} className="flex flex-col items-center hover:opacity-80">
           {nodeHeader}
         </Link>
       ) : canClick ? (
@@ -715,6 +726,7 @@ export function OrderProgressStepper({
   onStepClick,
   previewState,
 }: OrderProgressStepperProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const steps = buildSteps(order);
   const activeIndex = getActiveStepIndex(order, steps);
 
@@ -727,6 +739,7 @@ export function OrderProgressStepper({
           activeIndex={activeIndex}
           onStepClick={onStepClick}
           previewState={previewState}
+          workspaceBase={workspaceBase}
         />
       </div>
 
@@ -742,6 +755,7 @@ export function OrderProgressStepper({
               isLast={index === steps.length - 1}
               onStepClick={onStepClick}
               previewState={previewState}
+              workspaceBase={workspaceBase}
             />
           ))}
         </div>

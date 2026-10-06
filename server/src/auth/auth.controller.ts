@@ -42,7 +42,6 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { MeUserDto } from './dto/me-user.dto';
 import { RegisterDto } from './dto/register.dto';
-import { RegisterAgencyDto } from './dto/register-agency.dto';
 import { OnboardingRoleDto } from './dto/onboarding-role.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { AdminGuard } from './guards/admin.guard';
@@ -62,7 +61,6 @@ function readCookie(req: Request, name: string): string | undefined {
   UserResponseDto,
   MeUserDto,
   RegisterDto,
-  RegisterAgencyDto,
 )
 @Controller('auth')
 export class AuthController {
@@ -94,32 +92,6 @@ export class AuthController {
       this.config.get<string>('JWT_REFRESH_EXPIRY', '7d'),
     );
     return { user: result.user };
-  }
-
-  @Post('register/agency')
-  @ApiOperation({
-    summary: 'Register as agency (user + agency profile in one step)',
-  })
-  @ApiBody({ type: RegisterAgencyDto })
-  @ApiResponse({
-    status: 201,
-    description:
-      'Registered; tokens set in HttpOnly cookies; body returns user only',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'User with this email already exists',
-  })
-  async registerAgency(
-    @Body() dto: RegisterAgencyDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const result = await this.authService.registerAgency(
-      dto,
-      this.registerMeta(req),
-    );
-    return this.completeRegister(result, res);
   }
 
   @Post('register')
@@ -329,12 +301,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Choose creator/brand after a role-less signup',
+    summary: 'Choose creator/brand/agency after a role-less signup',
     description:
       'Attaches the chosen workspace role to the current account. CREATOR also ' +
       'creates a creator profile (client then routes to Edit Profile); BRAND ' +
-      'attaches the role only (client routes to brand setup). One email can ' +
-      'only be one workspace role.',
+      'and AGENCY may continue to a setup step if profile details are still ' +
+      'needed. One email can only be one workspace role.',
   })
   @ApiBody({ type: OnboardingRoleDto })
   @ApiResponse({

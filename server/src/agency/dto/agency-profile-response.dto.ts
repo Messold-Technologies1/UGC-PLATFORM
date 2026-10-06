@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AgencyBrandSummaryDto } from './agency-brand-summary.dto';
 
 export class AgencyProfileResponseDto {
   @ApiProperty()
@@ -32,11 +31,11 @@ export class AgencyProfileResponseDto {
   @ApiProperty()
   contactPhoneVerified!: boolean;
 
-  @ApiPropertyOptional({ nullable: true })
-  activeBrandProfileId!: string | null;
-
-  @ApiProperty({ type: [AgencyBrandSummaryDto] })
-  brands!: AgencyBrandSummaryDto[];
+  @ApiProperty({
+    description: 'Brand names collected from brief submissions.',
+    type: [String],
+  })
+  brandNames!: string[];
 
   @ApiProperty()
   createdAt!: Date;

@@ -54,9 +54,6 @@ export const ENDPOINTS = {
     PROFILE: "/api/agency/profile",
     PROFILE_ME: "/api/agency/profile/me",
     PROFILE_LOGO_PRESIGN: "/api/agency/profile/uploads/presign",
-    CONTACT_PHONE_SEND_OTP: "/api/agency/profile/contact-phone/send-otp",
-    BRANDS: "/api/agency/brands",
-    BRANDS_SWITCH: "/api/agency/brands/switch",
   },
   BRIEFS: {
     LIST: "/api/briefs",
@@ -232,6 +229,13 @@ export const ENDPOINTS = {
         `/api/admin/brands/user/${encodeURIComponent(userId)}/deactivate`,
       ACTIVATE: (userId: string) =>
         `/api/admin/brands/user/${encodeURIComponent(userId)}/activate`,
+    },
+    AGENCIES: {
+      LIST: "/api/admin/agencies",
+      DETAIL: (agencyId: string) =>
+        `/api/admin/agencies/${encodeURIComponent(agencyId)}`,
+      WISHLISTS: (agencyId: string) =>
+        `/api/admin/agencies/${encodeURIComponent(agencyId)}/wishlists`,
     },
     ORDERS: {
       LIST: "/api/admin/orders",

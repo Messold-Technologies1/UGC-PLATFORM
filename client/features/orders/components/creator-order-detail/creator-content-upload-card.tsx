@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   FileVideo,
-  Loader2,
   Upload,
   UploadCloud,
 } from "lucide-react";
@@ -352,23 +351,6 @@ export function CreatorContentUploadCard({
             multiple
             onChange={handleFileSelect}
           />
-
-          {submissionInFlight ? (
-            <div className="flex items-start gap-3 rounded-2xl border border-[#22c55e]/30 bg-[#22c55e]/5 p-4">
-              <Loader2
-                className="mt-0.5 size-5 shrink-0 animate-spin text-[#22c55e]"
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">
-                  Content submitted
-                </p>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  We&apos;re finishing up — no need to upload again.
-                </p>
-              </div>
-            </div>
-          ) : null}
 
           {needsNewUpload ? (
             <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">

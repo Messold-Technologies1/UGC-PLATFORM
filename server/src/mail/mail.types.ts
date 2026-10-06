@@ -46,7 +46,8 @@ export type RenderedEmail = {
 
 export type MailNotificationGate =
   | { profileType: 'creator'; profileId: string }
-  | { profileType: 'brand'; profileId: string };
+  | { profileType: 'brand'; profileId: string }
+  | { profileType: 'agency'; profileId: string };
 
 export type SendMailParams = {
   to: string;

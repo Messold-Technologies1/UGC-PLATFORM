@@ -17,6 +17,10 @@ import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-
 import type { Creator } from "@/features/creators/types";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import {
+  buyerWorkspaceBaseForUser,
+  remapBuyerHref,
+} from "@/features/auth/lib/buyer-workspace-path";
+import {
   resolveClientActiveBrandId,
   userCanUseBrandWorkspace,
 } from "@/features/brands/lib/active-brand";
@@ -313,6 +317,7 @@ export default function PublicWishlistPage({
   const { data: meUser } = usePublicAuthUser();
   const canUseBrand = meUser ? userCanUseBrandWorkspace(meUser) : false;
   const activeBrandId = meUser ? resolveClientActiveBrandId(meUser) : null;
+  const workspaceBase = buyerWorkspaceBaseForUser(pathname, meUser);
 
   const [importOpen, setImportOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -322,14 +327,16 @@ export default function PublicWishlistPage({
   const openDrawer = useCallback(
     (creator: Creator) => {
       if (canUseBrand) {
-        router.push(`/brand/creators?creatorId=${creator.id}`);
+        router.push(
+          remapBuyerHref(`/brand/creators?creatorId=${creator.id}`, workspaceBase),
+        );
         return;
       }
       setSelectedCreator(creator);
       setDrawerCreatorId(creator.id);
       setDrawerOpen(true);
     },
-    [canUseBrand, router],
+    [canUseBrand, router, workspaceBase],
   );
 
   const closeDrawer = useCallback(() => {
@@ -366,17 +373,20 @@ export default function PublicWishlistPage({
     [data?.creators],
   );
 
-  const isSameBrand = !!(
-    data?.brandId &&
-    activeBrandId &&
-    data.brandId === activeBrandId
+  const isOwnWishlist = !!(
+    (data?.brandId &&
+      activeBrandId &&
+      data.brandId === activeBrandId) ||
+    (data?.agencyId &&
+      meUser?.agencyProfileId &&
+      data.agencyId === meUser.agencyProfileId)
   );
 
   const orderLabel = useMemo(() => {
     if (!canUseBrand) return "Order these creators";
-    if (isSameBrand) return "Open this shortlist";
+    if (isOwnWishlist) return "Open this shortlist";
     return "Save to my wishlists";
-  }, [canUseBrand, isSameBrand]);
+  }, [canUseBrand, isOwnWishlist]);
 
   const handleOrderCreators = useCallback(() => {
     if (!canUseBrand) {
@@ -384,15 +394,17 @@ export default function PublicWishlistPage({
       return;
     }
     if (!data) return;
-    if (isSameBrand) {
-      router.push(`/brand/wishlists/${data.id}`);
+    if (isOwnWishlist) {
+      router.push(remapBuyerHref(`/brand/wishlists/${data.id}`, workspaceBase));
       return;
     }
     setImportOpen(true);
-  }, [canUseBrand, data, isSameBrand, pathname, router]);
+  }, [canUseBrand, data, isOwnWishlist, pathname, router, workspaceBase]);
 
   const registerHref = `/register?callbackUrl=${encodeURIComponent(pathname)}`;
-  const getStartedHref = meUser ? "/brand/creators" : registerHref;
+  const getStartedHref = meUser
+    ? remapBuyerHref("/brand/creators", workspaceBase)
+    : registerHref;
 
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ background: "#f5f5f3" }}>
@@ -427,7 +439,11 @@ export default function PublicWishlistPage({
               <span className="hidden sm:inline">Copy link</span>
             </button>
             <Link
-              href={canUseBrand ? "/brand/wishlists" : loginHref}
+              href={
+                canUseBrand
+                  ? remapBuyerHref("/brand/wishlists", workspaceBase)
+                  : loginHref
+              }
               className="hidden rounded-full px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:text-gray-900 min-[400px]:inline-flex sm:px-4"
             >
               {canUseBrand ? "My wishlists" : "Sign in"}

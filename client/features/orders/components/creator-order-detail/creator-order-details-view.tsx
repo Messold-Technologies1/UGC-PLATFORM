@@ -168,7 +168,15 @@ function CreatorOrderHeader({
             <Copy className="size-4" />
           </button>
           <p className="text-sm text-muted-foreground whitespace-nowrap">
-            {brandDisplayName(brand.brandName)}
+            {brand.agencyName?.trim()
+              ? `${brandDisplayName(brand.agencyName)}${
+                  brand.clientBrandName?.trim() || brand.brandName?.trim()
+                    ? ` · ${brandDisplayName(
+                        brand.clientBrandName?.trim() || brand.brandName,
+                      )}`
+                    : ""
+                }`
+              : brandDisplayName(brand.brandName)}
             {placedOn ? ` • Placed on ${placedOn}` : ""}
           </p>
         </div>
@@ -574,7 +582,13 @@ function BrandReviewCard({
 }) {
   const reviewQuery = useGetOrderRatingReviewQuery(orderId, { retry: false });
   const existingReview = reviewQuery.data ?? null;
-  const brandLabel = brandDisplayName(brand.brandName);
+  const isAgencyOrder = Boolean(brand.agencyName?.trim());
+  const reviewerLabel = brandDisplayName(
+    isAgencyOrder
+      ? brand.agencyName
+      : brand.brandName,
+    isAgencyOrder ? "Agency" : "Brand",
+  );
 
   return (
     <div className="rounded-3xl border border-border/50 bg-card p-5 shadow-sm sm:p-6">
@@ -583,10 +597,12 @@ function BrandReviewCard({
           <Star className="size-5" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-lg font-bold text-foreground">Brand&apos;s review</h3>
+          <h3 className="text-lg font-bold text-foreground">
+            {isAgencyOrder ? "Agency's review" : "Brand's review"}
+          </h3>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Feedback from{" "}
-            <span className="font-medium text-foreground">{brandLabel}</span>
+            <span className="font-medium text-foreground">{reviewerLabel}</span>
           </p>
         </div>
       </div>
@@ -627,7 +643,8 @@ function BrandReviewCard({
           </div>
           <p className="text-sm font-medium text-foreground">No review yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            The brand hasn&apos;t left a review for this order.
+            The {isAgencyOrder ? "agency" : "brand"} hasn&apos;t left a review
+            for this order.
           </p>
         </div>
       )}
@@ -887,7 +904,8 @@ export function CreatorOrderDetailsView({
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
                   <p className="text-sm text-muted-foreground">
-                    Approved by the brand
+                    Approved by the{" "}
+                    {brand.agencyName?.trim() ? "agency" : "brand"}
                     {order.acceptedAt
                       ? ` on ${fmtDateTime(order.acceptedAt)}`
                       : ""}

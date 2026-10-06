@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { MessageCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,6 +28,7 @@ export function CreatorProfileCard({
   creator,
   order: _order,
 }: Readonly<CreatorProfileCardProps>) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const creatorLabel = creator.displayName || "Creator";
   const languageText = creator.languages?.filter(Boolean).join(", ") ?? "";
 
@@ -72,7 +77,7 @@ export function CreatorProfileCard({
           className="flex-1 rounded-xl text-sm font-semibold h-11"
           asChild
         >
-          <Link href={`/brand/creators?creatorId=${creator.id}`}>
+          <Link href={remapBuyerHref(`/brand/creators?creatorId=${creator.id}`, workspaceBase)}>
             View Profile
           </Link>
         </Button>
@@ -82,7 +87,7 @@ export function CreatorProfileCard({
           className="size-11 shrink-0 rounded-xl"
           asChild
         >
-          <Link href="/brand/messages">
+          <Link href={remapBuyerHref("/brand/messages", workspaceBase)}>
             <MessageCircle className="size-5 text-muted-foreground" />
           </Link>
         </Button>

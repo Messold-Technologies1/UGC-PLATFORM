@@ -9,6 +9,7 @@ import { updateBrief, type UpdateBriefPayload } from "../api/update-brief";
 import type { Brief } from "../api/types";
 import { briefDetailQueryKey } from "./use-get-brief-query";
 import { briefsQueryKey } from "./use-list-briefs-query";
+import { agencyProfileMeQueryKey } from "@/features/agency/api/fetch-agency-profile-me";
 
 interface UpdateBriefVariables {
   id: string;
@@ -36,6 +37,9 @@ export function useUpdateBriefMutation(
       await queryClient.invalidateQueries({ queryKey: briefsQueryKey });
       await queryClient.invalidateQueries({
         queryKey: briefDetailQueryKey(variables.id),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: agencyProfileMeQueryKey,
       });
       toast.success("Brief updated");
       options?.onSuccess?.(data, variables, onMutateResult, context);

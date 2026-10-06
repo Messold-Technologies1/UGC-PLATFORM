@@ -20,6 +20,11 @@ export interface OrderBrandSnapshot {
   logoUrl?: string | null;
   contactFullName?: string | null;
   contactEmail?: string | null;
+  /** Present when the order was placed by an agency. */
+  agencyName?: string | null;
+  agencyLogoUrl?: string | null;
+  /** Client brand name from the brief (agency orders). */
+  clientBrandName?: string | null;
 }
 
 export interface OrderListSummary {

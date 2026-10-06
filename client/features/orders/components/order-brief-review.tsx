@@ -33,6 +33,7 @@ import {
   formatLocation,
   formatTone,
 } from "@/features/briefs/lib/format-enums";
+import { brandDisplayName } from "@/features/brands/lib/brand-display";
 import { cn } from "@/lib/utils";
 import {
   getCreatorPayoutFromOrderTotal,
@@ -248,16 +249,21 @@ function BriefReviewSkeleton() {
 function BrandProductSection({
   brief,
   brandName,
+  agencyName,
   brandLogoUrl,
   productImageUrl,
 }: {
   brief: OrderBriefPayload;
   brandName: string;
+  agencyName?: string | null;
   brandLogoUrl?: string | null;
   productImageUrl?: string | null;
 }) {
   const isProductBrief = brief.isProduct ?? true;
   const offerLabels = getBriefOfferLabels(isProductBrief);
+  const agencyLabel = agencyName?.trim()
+    ? brandDisplayName(agencyName)
+    : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -270,13 +276,18 @@ function BrandProductSection({
                 className="object-cover"
               />
               <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-                {getInitials(brandName)}
+                {getInitials(agencyLabel || brandName)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
               <p className="truncate text-base font-bold text-foreground">
-                {brandName}
+                {agencyLabel || brandName}
               </p>
+              {agencyLabel ? (
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                  Brand: {brandName}
+                </p>
+              ) : null}
               {brief.industry ? (
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Building2 className="size-3.5 shrink-0 text-primary" />
@@ -287,6 +298,14 @@ function BrandProductSection({
           </div>
 
               <dl className="grid min-w-0 flex-1 grid-cols-1 gap-5 sm:grid-cols-2 lg:max-w-md">
+            {agencyLabel ? (
+              <div>
+                <dt className="text-sm text-muted-foreground">Agency</dt>
+                <dd className="mt-1 text-sm font-medium text-foreground">
+                  {agencyLabel}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="text-sm text-muted-foreground">Industry</dt>
               <dd className="mt-1 text-sm font-medium text-foreground">
@@ -581,10 +600,18 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
     );
   }
 
-  const brandLogoUrl = brief.brandLogo?.url ?? brand?.logoUrl;
+  const agencyName = brand?.agencyName?.trim() || null;
+  const brandLogoUrl =
+    brief.brandLogo?.url ?? brand?.agencyLogoUrl ?? brand?.logoUrl;
   const productImageUrl = brief.productImage?.url;
   const isProductBrief = brief.isProduct ?? true;
-  const brandName = brief.brandName || brand?.brandName || "Brand";
+  const brandName = brandDisplayName(
+    brief.brandName ||
+      brand?.clientBrandName ||
+      brand?.brandName ||
+      "Brand",
+  );
+  const agencyLabel = agencyName ? brandDisplayName(agencyName) : null;
   const orderStatus = order?.status;
   const isCancelled =
     orderStatus === "REJECTED" ||
@@ -681,7 +708,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
               />
             ) : (
               <div className="flex size-16 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-primary/10 text-sm font-bold text-primary">
-                {getInitials(brandName)}
+                {getInitials(agencyLabel || brandName)}
               </div>
             )}
             <div className="min-w-0">
@@ -691,7 +718,15 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                   "Project brief"}
               </h1>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                {brandName}
+                {agencyLabel ? (
+                  <>
+                    {agencyLabel}
+                    <span className="mx-1.5">·</span>
+                    {brandName}
+                  </>
+                ) : (
+                  brandName
+                )}
                 <span className="mx-1.5">·</span>
                 Submitted {formatDate(data.briefSubmittedAt)}
               </p>
@@ -748,6 +783,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                   <BrandProductSection
                     brief={brief}
                     brandName={brandName}
+                    agencyName={agencyLabel}
                     brandLogoUrl={brandLogoUrl}
                     productImageUrl={productImageUrl}
                   />
@@ -805,6 +841,7 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
             <BrandProductSection
               brief={brief}
               brandName={brandName}
+              agencyName={agencyLabel}
               brandLogoUrl={brandLogoUrl}
               productImageUrl={productImageUrl}
             />

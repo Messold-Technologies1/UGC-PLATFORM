@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { WishlistSidebar } from "@/features/wishlists/components/wishlist-sidebar";
 import { useWishlistsQuery } from "@/features/wishlists/hooks/use-wishlists-query";
+import { buyerWorkspaceBaseFromPathname } from "@/features/auth/lib/buyer-workspace-path";
 
 export default function WishlistsPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const workspaceBase = buyerWorkspaceBaseFromPathname(pathname);
   const { data, isLoading } = useWishlistsQuery();
   const wishlists = data?.items ?? [];
 
@@ -15,13 +18,13 @@ export default function WishlistsPage() {
     const media = window.matchMedia("(min-width: 1024px)");
     function maybeRedirect() {
       if (!isLoading && wishlists.length > 0 && media.matches) {
-        router.replace(`/brand/wishlists/${wishlists[0]!.id}`);
+        router.replace(`${workspaceBase}/wishlists/${wishlists[0]!.id}`);
       }
     }
     maybeRedirect();
     media.addEventListener("change", maybeRedirect);
     return () => media.removeEventListener("change", maybeRedirect);
-  }, [isLoading, wishlists, router]);
+  }, [isLoading, wishlists, router, workspaceBase]);
 
   return (
     <div className="flex flex-col bg-gray-50 lg:flex-row min-h-[calc(100dvh-7rem)] flex-1 border-t border-gray-200/60 overflow-hidden mt-3 lg:mt-4">

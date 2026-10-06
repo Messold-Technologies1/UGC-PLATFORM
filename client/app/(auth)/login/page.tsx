@@ -20,7 +20,7 @@ export default function LoginPage() {
             left off.
           </>
         }
-        subtitle="Just your email and password — we’ll take you straight to your creator or brand workspace."
+        subtitle="Just your email and password — we’ll take you straight to your creator, brand, or agency workspace."
       >
         <UnifiedLoginForm />
       </UnifiedAuthShell>

@@ -46,7 +46,7 @@ export class WishlistsController {
   @Get()
   @RequiredWorkspace('BRAND')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
-  @ApiOperation({ summary: 'List all wishlists for the authenticated brand' })
+  @ApiOperation({ summary: 'List all wishlists for the authenticated brand or agency' })
   @ApiOkResponse({ type: ListWishlistsResponseDto })
   async listWishlists(
     @Req() req: Request & { user: { id: string } },
@@ -82,7 +82,7 @@ export class WishlistsController {
   @RequiredWorkspace('BRAND')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Import creators from a shared shortlist into your brand wishlists' })
+  @ApiOperation({ summary: 'Import creators from a shared shortlist into your wishlists' })
   @ApiCreatedResponse({ type: ImportSharedWishlistResponseDto })
   async importFromShare(
     @Param('shareToken') shareToken: string,

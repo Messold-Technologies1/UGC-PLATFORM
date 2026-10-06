@@ -224,7 +224,7 @@ export const ROLE_CONFIGS: Record<LoginRole, LoginRoleConfig> = {
     submitLabel: "Log in as Agency",
     signupCta: "Set up an agency account",
     signupLine: "New to GoCollab as an agency?",
-    signupHref: "/register/agency",
+    signupHref: "/register",
     theme: {
       accent: "#0e9384",
       accent2: "#4fd1c5",

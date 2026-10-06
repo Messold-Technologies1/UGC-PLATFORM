@@ -1223,21 +1223,37 @@
 
 @media (max-width: 480px) {
   .dr-tabs {
-    gap: 6px;
-    padding: 0 14px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px 0;
+    border-bottom: none;
   }
   .dr-tabs-list {
     gap: 0;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .dr-tabs-list::-webkit-scrollbar {
+    display: none;
   }
   .dr-tabs button {
-    margin-right: 6px;
-    padding: 11px 2px;
-    font-size: 12.5px;
+    margin-right: 16px;
+    padding: 12px 2px;
+    font-size: 14.5px;
+    flex-shrink: 0;
   }
   .dr-tabs-profile-link {
-    padding: 5px 9px;
-    font-size: 11.5px;
+    order: -1;
+    width: 100%;
+    margin-left: 0;
+    justify-content: center;
+    padding: 11px 14px;
+    font-size: 13.5px;
+    border-radius: 12px;
   }
   .dr-identity {
     padding: 6px 16px 16px;
@@ -1277,14 +1293,6 @@
 }
 
 
-@media (max-width: 480px) {
-  .dr-tabs-profile-link {
-    padding: 5px 9px;
-    font-size: 11.5px;
-  }
-}
-
-
 @media (max-width: 375px) {
   .browse-drawer {
     width: 100vw;
@@ -1293,19 +1301,19 @@
     height: auto;
   }
   .dr-tabs {
-    gap: 4px;
-    padding: 0 10px;
+    gap: 8px;
+    padding: 10px 10px 0;
   }
   .dr-tabs button {
-    margin-right: 2px;
-    padding: 10px 1px;
-    font-size: 11.5px;
+    margin-right: 14px;
+    padding: 11px 2px;
+    font-size: 14px;
     white-space: nowrap;
   }
   .dr-tabs-profile-link {
-    padding: 4px 7px;
-    font-size: 10.5px;
-    gap: 4px;
+    padding: 10px 12px;
+    font-size: 13px;
+    gap: 5px;
   }
   .dr-identity {
     padding: 6px 12px 14px;

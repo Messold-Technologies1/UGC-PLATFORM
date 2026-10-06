@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -77,6 +81,7 @@ interface BriefCardProps {
 }
 
 export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const router = useRouter();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
@@ -85,7 +90,7 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
   });
   const isDeleting = deleteMutation.isPending;
 
-  const editHref = `/brand/briefs/create?briefId=${brief.id}`;
+  const editHref = remapBuyerHref(`/brand/briefs/create?briefId=${brief.id}`, workspaceBase);
 
   const color = categoryColor(brief.industry);
   const contentLabel =
@@ -129,7 +134,7 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem onClick={() => router.push(`/brand/briefs/${brief.id}`)}>
+            <DropdownMenuItem onClick={() => router.push(remapBuyerHref(`/brand/briefs/${brief.id}`, workspaceBase))}>
               <Eye size={14} />
               View brief
             </DropdownMenuItem>
@@ -170,7 +175,7 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
         {mode === "submit" ? (
           <div className={styles.briefFootActions}>
             <Link
-              href={`/brand/briefs/${brief.id}`}
+              href={remapBuyerHref(`/brand/briefs/${brief.id}`, workspaceBase)}
               className={styles.viewBriefBtn}
               style={{ textDecoration: "none" }}
             >
@@ -188,7 +193,7 @@ export function BriefCard({ brief, mode = "submit", onSubmitBrief }: BriefCardPr
           </div>
         ) : (
           <Link
-            href={`/brand/briefs/${brief.id}`}
+            href={remapBuyerHref(`/brand/briefs/${brief.id}`, workspaceBase)}
             className={styles.useTemplateBtn}
             style={{ textDecoration: "none", display: "flex", gap: "6px" }}
           >

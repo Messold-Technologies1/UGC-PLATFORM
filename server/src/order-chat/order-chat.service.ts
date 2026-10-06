@@ -78,14 +78,17 @@ export class OrderChatService {
       where: { id: orderId },
       select: {
         briefAcceptedAt: true,
+        brandId: true,
+        agencyId: true,
         brand: { select: { id: true } },
         creator: { select: { userId: true } },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    const brandUserId = await this.brandAccess.resolveBrandActorUserIdForProfile(
-      order.brand.id,
-    );
+    const brandUserId = await this.brandAccess.resolveBuyerActorUserId({
+      brandId: order.brandId ?? order.brand?.id ?? null,
+      agencyId: order.agencyId,
+    });
     return {
       brandUserId,
       creatorUserId: order.creator.userId,

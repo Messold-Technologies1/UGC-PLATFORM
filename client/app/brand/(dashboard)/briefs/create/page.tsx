@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
 import {
   ArrowRight,
   Check,
@@ -22,7 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
@@ -45,10 +47,16 @@ import {
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import { useUpdateBriefMutation } from "@/features/briefs/hooks/use-update-brief-mutation";
 import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
+import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
+import { useAgencyProfileMeQuery } from "@/features/agency/hooks/use-agency-profile-me-query";
+import { uniqueBrandNames } from "@/features/agency/lib/unique-brand-names";
+import { BrandNameCombobox } from "@/features/briefs/components/brand-name-combobox";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
+import { useMeQuery } from "@/features/auth/hooks/use-me-query";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
+import { resolveClientActiveBrandId } from "@/features/brands/lib/active-brand";
 import {
   presignBrandPronunciationUpload,
   putBlobToPresignedUrl,
@@ -337,7 +345,10 @@ function toReferenceLinks(value: string | undefined) {
 
 function toCreateBriefPayload(
   values: CreateBriefValues,
-  includeBrandName: boolean,
+  options: {
+    includeBrandName: boolean;
+    fallbackBrandName?: string;
+  },
 ): CreateBriefPayload {
   const referenceLinks = toReferenceLinks(values.referenceLinks);
   const scriptText = optionalString(values.scriptText);
@@ -345,10 +356,11 @@ function toCreateBriefPayload(
   const shipsPhysical =
     isProduct && (values.willShipPhysicalProductToCreator ?? false);
   const productImageKey = values.productImageKey?.trim();
-  const brandName = optionalString(values.brandName);
+  const brandName =
+    optionalString(values.brandName) ?? optionalString(options.fallbackBrandName);
 
   return {
-    ...(includeBrandName && brandName ? { brandName } : {}),
+    ...(options.includeBrandName && brandName ? { brandName } : {}),
     industry: optionalString(values.industry),
     brandLogoUrl: optionalString(values.brandLogoUrl),
     brandPronunciationAudioKey: optionalString(
@@ -388,6 +400,101 @@ function toCreateBriefPayload(
   };
 }
 
+function BriefBrandNameFields({
+  isAgencyBriefAuthor,
+  needsBrandName,
+  effectiveBrandName,
+  existingBrandNames,
+  form,
+}: Readonly<{
+  isAgencyBriefAuthor: boolean;
+  needsBrandName: boolean;
+  effectiveBrandName: string;
+  existingBrandNames: string[];
+  form: UseFormReturn<CreateBriefValues>;
+}>) {
+  if (isAgencyBriefAuthor) {
+    return (
+      <div className="space-y-2 min-w-0">
+        <Label
+          htmlFor="brandName"
+          className="text-xs font-semibold text-foreground/80"
+        >
+          Brand Name <span className="text-destructive">*</span>
+        </Label>
+        <Controller
+          name="brandName"
+          control={form.control}
+          render={({ field }) => (
+            <BrandNameCombobox
+              id="brandName"
+              value={field.value ?? ""}
+              options={existingBrandNames}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              invalid={!!form.formState.errors.brandName}
+              placeholder="Type or pick a brand"
+            />
+          )}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Pick a brand you already briefed, or type a new name. Matching names
+          are treated as the same brand.
+        </p>
+        {form.formState.errors.brandName ? (
+          <p className="text-[11px] text-destructive mt-1">
+            {form.formState.errors.brandName.message}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (needsBrandName) {
+    return (
+      <div className="space-y-2 min-w-0">
+        <Label
+          htmlFor="brandName"
+          className="text-xs font-semibold text-foreground/80"
+        >
+          Brand Name <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id="brandName"
+          placeholder="GlowUp Skincare"
+          className="rounded-lg bg-white"
+          {...form.register("brandName")}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Saved on your brand profile for future briefs.
+        </p>
+        {form.formState.errors.brandName ? (
+          <p className="text-[11px] text-destructive mt-1">
+            {form.formState.errors.brandName.message}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 min-w-0">
+      <Label
+        htmlFor="brandName"
+        className="text-xs font-semibold text-foreground/80"
+      >
+        Brand Name
+      </Label>
+      <Input
+        id="brandName"
+        value={effectiveBrandName}
+        readOnly
+        className="rounded-lg bg-muted/40"
+      />
+    </div>
+  );
+}
+
 function getScriptOptionLabel(value: ScriptOptionValue) {
   switch (value) {
     case "BRAND_PROVIDED":
@@ -402,6 +509,7 @@ function getScriptOptionLabel(value: ScriptOptionValue) {
 
 function CreateBriefPageContent() {
   const router = useRouter();
+  const workspaceBase = useBuyerWorkspaceBase();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const isFromOrder = !!orderId;
@@ -434,11 +542,36 @@ function CreateBriefPageContent() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
+  const { data: meUser = null } = useMeQuery();
+  const activeBrandId = meUser ? resolveClientActiveBrandId(meUser) : null;
+  const isAgencyBriefAuthor = workspaceBase === "/agency";
+  const { data: agencyProfile } = useAgencyProfileMeQuery({
+    enabled: isAgencyBriefAuthor,
+  });
+  const { data: briefsList } = useListBriefsQuery({
+    enabled: isAgencyBriefAuthor,
+  });
+  const existingBrandNames = useMemo(
+    () =>
+      uniqueBrandNames([
+        ...(agencyProfile?.brandNames ?? []),
+        ...(meUser?.accessibleBrands.map((brand) => brand.brandName) ?? []),
+        ...(briefsList?.items.map((brief) => brief.brandName) ?? []),
+      ]),
+    [agencyProfile?.brandNames, briefsList?.items, meUser?.accessibleBrands],
+  );
+  const activeBrandName =
+    meUser?.accessibleBrands
+      .find((brand) => brand.id === activeBrandId)
+      ?.brandName?.trim() ?? "";
   const profileBrandName =
     brandProfileState?.kind === "ready"
       ? brandProfileState.profile.brandName?.trim() ?? ""
       : "";
-  const needsBrandName = !profileBrandName;
+  const effectiveBrandName = isAgencyBriefAuthor
+    ? ""
+    : profileBrandName || activeBrandName;
+  const needsBrandName = isAgencyBriefAuthor || !effectiveBrandName;
 
   const createBriefSchema = useMemo(
     () => buildCreateBriefSchema(needsBrandName),
@@ -516,7 +649,7 @@ function CreateBriefPageContent() {
         return;
       }
 
-      router.push(`/brand/briefs/${result.id}`);
+      router.push(remapBuyerHref(`/brand/briefs/${result.id}`, workspaceBase));
     },
   });
 
@@ -525,13 +658,13 @@ function CreateBriefPageContent() {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(draftStorageKey);
       }
-      router.push(`/brand/briefs/${updated.id}`);
+      router.push(remapBuyerHref(`/brand/briefs/${updated.id}`, workspaceBase));
     },
   });
 
   const submitBriefMutation = useSubmitBriefMutation({
     onSuccess: () => {
-      router.push(`/brand/orders/${orderId}`);
+      router.push(remapBuyerHref(`/brand/orders/${orderId}`, workspaceBase));
     },
   });
 
@@ -588,7 +721,7 @@ function CreateBriefPageContent() {
 
     const profile = brandProfileState.profile;
     const defaults: Partial<CreateBriefValues> = {
-      brandName: profile.brandName ?? undefined,
+      brandName: effectiveBrandName || undefined,
       brandLogoUrl: profile.logoUrl ?? undefined,
       brandPronunciationAudioKey:
         profile.brandPronunciationAudioKey ?? undefined,
@@ -613,14 +746,14 @@ function CreateBriefPageContent() {
         });
       }
     });
-  }, [brandProfileState, form]);
+  }, [brandProfileState, effectiveBrandName, form]);
 
   const onSubmit = (data: CreateBriefValues) => {
     if (isEditMode && editBriefId) {
-      const payload: Partial<CreateBriefPayload> = toCreateBriefPayload(
-        data,
-        true,
-      );
+      const payload: Partial<CreateBriefPayload> = toCreateBriefPayload(data, {
+        includeBrandName: true,
+        fallbackBrandName: effectiveBrandName,
+      });
       // The stored product image key is finalized (not a temp upload key).
       // Only send productImageKey when the user actually replaced the image,
       // otherwise the backend would reject the non-temp key.
@@ -634,7 +767,12 @@ function CreateBriefPageContent() {
       updateBriefMutation.mutate({ id: editBriefId, payload });
       return;
     }
-    createBriefMutation.mutate(toCreateBriefPayload(data, needsBrandName));
+    createBriefMutation.mutate(
+      toCreateBriefPayload(data, {
+        includeBrandName: needsBrandName || (!profileBrandName && !!activeBrandName),
+        fallbackBrandName: effectiveBrandName,
+      }),
+    );
   };
 
   const handleProductImageSelect = (file: File | null) => {
@@ -918,30 +1056,13 @@ function CreateBriefPageContent() {
                   </div>
                   <div className="space-y-6">
                   <div className="grid gap-6 lg:grid-cols-2">
-                    {needsBrandName ? (
-                      <div className="space-y-2 min-w-0">
-                        <Label
-                          htmlFor="brandName"
-                          className="text-xs font-semibold text-foreground/80"
-                        >
-                          Brand Name <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="brandName"
-                          placeholder="GlowUp Skincare"
-                          className="rounded-lg bg-white"
-                          {...form.register("brandName")}
-                        />
-                        <p className="text-[11px] text-muted-foreground">
-                          Saved on your brand profile for future briefs.
-                        </p>
-                        {form.formState.errors.brandName && (
-                          <p className="text-[11px] text-destructive mt-1">
-                            {form.formState.errors.brandName.message}
-                          </p>
-                        )}
-                      </div>
-                    ) : null}
+                    <BriefBrandNameFields
+                      isAgencyBriefAuthor={isAgencyBriefAuthor}
+                      needsBrandName={needsBrandName}
+                      effectiveBrandName={effectiveBrandName}
+                      existingBrandNames={existingBrandNames}
+                      form={form}
+                    />
                     <div className="space-y-2 min-w-0">
                       <Label
                         htmlFor="productName"

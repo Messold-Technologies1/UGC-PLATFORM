@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -76,6 +76,10 @@ function BrandIcon() {
   );
 }
 
+function AgencyIcon() {
+  return <Building2 className="size-[26px] text-white" strokeWidth={1.9} />;
+}
+
 function FullScreenSpinner() {
   return (
     <div
@@ -126,8 +130,8 @@ export function RoleChoiceView() {
             })
           : false;
       // Creator → straight into Edit Profile to fill in the rest (name, phone,
-      // categories, portfolio…). Brand → resolveImmediatePostAuthPath sends a
-      // BRAND-without-profile account to the brand setup screen.
+      // categories, portfolio…). Brand/Agency may continue into setup screens
+      // if their profile details are still incomplete.
       const target =
         updated.primaryRole === "CREATOR"
           ? "/creator/settings/profile"
@@ -195,6 +199,13 @@ export function RoleChoiceView() {
       accent: "#6e2545",
       icon: <BrandIcon />,
     },
+    {
+      role: "AGENCY",
+      title: "I’m an Agency",
+      desc: "Manage multiple client brands, keep workspaces organized, and run campaigns from one account.",
+      accent: "#0e9384",
+      icon: <AgencyIcon />,
+    },
   ];
 
   return (
@@ -210,7 +221,7 @@ export function RoleChoiceView() {
           Choose your world. We’ll build everything around it.
         </p>
 
-        <div className="grid grid-cols-1 gap-5 text-left sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 text-left lg:grid-cols-3">
           {cards.map((c) => {
             const isSelected = selected === c.role;
             return (
@@ -348,7 +359,15 @@ export function RoleChoiceView() {
               <Spinner className="size-4" aria-hidden /> Setting up…
             </>
           ) : (
-            <>Continue as {selected === "CREATOR" ? "Creator" : "Brand"} →</>
+            <>
+              Continue as{" "}
+              {selected === "CREATOR"
+                ? "Creator"
+                : selected === "BRAND"
+                  ? "Brand"
+                  : "Agency"}{" "}
+              →
+            </>
           )}
         </button>
       </div>

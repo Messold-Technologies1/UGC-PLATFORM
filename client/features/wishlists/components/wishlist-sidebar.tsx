@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, ArrowRight, Users, Loader2 } from "lucide-react";
@@ -26,6 +30,7 @@ interface WishlistSidebarProps {
 }
 
 export function WishlistSidebar({ wishlists, activeId, isLoading }: WishlistSidebarProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const createMutation = useCreateWishlistMutation();
@@ -115,7 +120,7 @@ export function WishlistSidebar({ wishlists, activeId, isLoading }: WishlistSide
             return (
               <Link
                 key={w.id}
-                href={`/brand/wishlists/${w.id}`}
+                href={remapBuyerHref(`/brand/wishlists/${w.id}`, workspaceBase)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors group",
                   isActive
@@ -149,7 +154,7 @@ export function WishlistSidebar({ wishlists, activeId, isLoading }: WishlistSide
 
       {/* Browse creators button */}
       <Link
-        href="/brand/creators"
+        href={remapBuyerHref("/brand/creators", workspaceBase)}
         data-tour="brand-wishlists-browse"
         className="flex items-center justify-center gap-2 rounded-xl border border-border/60 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors mt-1"
       >

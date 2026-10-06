@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import Link from "next/link";
 import { ArrowLeft, Copy, MessageCircle } from "lucide-react";
 import { ContactSupportButton } from "@/components/contact-support-dialog";
@@ -39,6 +43,7 @@ export function OrderPageHeader({
   completedAt,
   order,
 }: Readonly<OrderPageHeaderProps>) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const displayId = orderId.length > 10 ? orderId.slice(0, 10) : orderId;
 
   function handleCopyOrderId() {
@@ -53,7 +58,7 @@ export function OrderPageHeader({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
         <Link
-          href="/brand/orders"
+          href={remapBuyerHref("/brand/orders", workspaceBase)}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
         >
           <ArrowLeft className="size-4" />

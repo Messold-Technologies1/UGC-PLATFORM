@@ -44,6 +44,7 @@ describe('AuthController', () => {
     hasCreatorProfile: true,
     hasBrandProfile: false,
     hasAgencyProfile: false,
+      agencyProfileId: null,
     activeBrandProfileId: null,
     accessibleBrands: [],
     canManageAdmins: false,

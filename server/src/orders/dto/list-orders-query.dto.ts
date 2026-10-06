@@ -53,4 +53,12 @@ export class ListOrdersQueryDto {
   @IsOptional()
   @IsUUID()
   brandId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter orders by agency (Agency id)',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  agencyId?: string;
 }

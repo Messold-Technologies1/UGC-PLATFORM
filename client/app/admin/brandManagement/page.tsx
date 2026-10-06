@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Skeleton as BoneyardSkeleton } from "boneyard-js/react";
 import { Building2, Mail, Power, Store, UserRound } from "lucide-react";
@@ -31,9 +31,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
+import { useAgenciesQuery } from "@/features/admin/hooks/use-agencies-query";
 import { useBrandsQuery } from "@/features/admin/hooks/use-brands-query";
 import { useSetBrandUserStatusMutation } from "@/features/admin/hooks/use-set-brand-user-status-mutation";
-import type { AdminBrandListItemDto } from "@/features/admin/types";
+import type {
+  AdminAgencyListItemDto,
+  AdminBrandListItemDto,
+} from "@/features/admin/types";
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Active",
@@ -106,6 +112,41 @@ const BRAND_MANAGEMENT_FIXTURE_ITEMS: AdminBrandListItemDto[] = [
   },
 ];
 
+const AGENCY_MANAGEMENT_FIXTURE_TOTAL = 8;
+
+const AGENCY_MANAGEMENT_FIXTURE_ITEMS: AdminAgencyListItemDto[] = [
+  {
+    agencyId: "fixture-agency-1",
+    ownerUserId: "fixture-owner-1",
+    email: "ops@sparkmedia.com",
+    ownerName: "Rahul Verma",
+    agencyName: "Spark Media",
+    contactFullName: "Rahul Verma",
+    contactPhone: "+91 98765 11111",
+    logoUrl: null,
+    status: "ACTIVE",
+    brandNames: ["Northstar Labs", "Peak Home", "Tailwind Coffee"],
+    brandCount: 3,
+    createdAt: "2026-03-01T09:00:00.000Z",
+    updatedAt: "2026-03-01T09:00:00.000Z",
+  },
+  {
+    agencyId: "fixture-agency-2",
+    ownerUserId: "fixture-owner-2",
+    email: "team@studiofuse.in",
+    ownerName: "Mira Shah",
+    agencyName: "Studio Fuse",
+    contactFullName: "Mira Shah",
+    contactPhone: "+91 98765 22222",
+    logoUrl: null,
+    status: "ACTIVE",
+    brandNames: ["GlowUp Skincare", "Blue Basin"],
+    brandCount: 2,
+    createdAt: "2026-02-12T09:00:00.000Z",
+    updatedAt: "2026-02-12T09:00:00.000Z",
+  },
+];
+
 function BrandManagementLoadingShell({ limit }: { limit: number }) {
   return (
     <div className="space-y-8">
@@ -167,6 +208,7 @@ interface BrandManagementContentProps {
   limit: number;
   totalPages: number;
   statusPending: boolean;
+  hasSearch?: boolean;
   onSelectBrand: (brand: AdminBrandListItemDto) => void;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
@@ -179,6 +221,7 @@ function BrandManagementContent({
   limit,
   totalPages,
   statusPending,
+  hasSearch = false,
   onSelectBrand,
   onPageChange,
   onLimitChange,
@@ -221,7 +264,9 @@ function BrandManagementContent({
         <div className="grid grid-cols-1 gap-4">
           {items.length === 0 ? (
             <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
-              No active brands are available right now.
+              {hasSearch
+                ? "No brands match your search."
+                : "No active brands are available right now."}
             </div>
           ) : (
             items.map((brand) => {
@@ -463,41 +508,307 @@ function BrandManagementContent({
           </div>
         </div>
       </section>
-
-      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Building2 className="size-6" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-foreground">
-              Permanent Brand Removal
-            </h3>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Removing a brand permanently deletes the user account and all
-              related brand data. Brands with ongoing orders cannot be removed.
-            </p>
-          </div>
-        </div>
-      </section>
     </>
   );
 }
 
+interface AgencyManagementContentProps {
+  items: AdminAgencyListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasSearch?: boolean;
+  onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
+}
+
+function AgencyManagementContent({
+  items,
+  total,
+  page,
+  limit,
+  totalPages,
+  hasSearch = false,
+  onPageChange,
+  onLimitChange,
+}: AgencyManagementContentProps) {
+  const router = useRouter();
+  const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
+  const showingEnd = Math.min(page * limit, total);
+
+  const openAgency = (agency: AdminAgencyListItemDto) => {
+    router.push(`/admin/brandManagement/agencies/${agency.agencyId}`);
+  };
+
+  return (
+    <section className="space-y-6">
+      <div className="grid grid-cols-1 gap-4">
+        {items.length === 0 ? (
+          <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
+            {hasSearch
+              ? "No agencies match your search."
+              : "No agencies are available right now."}
+          </div>
+        ) : (
+          items.map((agency) => (
+            <div
+              key={agency.agencyId}
+              role="button"
+              tabIndex={0}
+              onClick={() => openAgency(agency)}
+              onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openAgency(agency);
+                }
+              }}
+              className="group/item relative overflow-hidden glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full cursor-pointer transition-all duration-300 hover:bg-accent/60 border-l-4 border-l-transparent hover:border-l-primary hover:shadow-lg hover:shadow-primary/5"
+            >
+              <div className="flex flex-col md:flex-row md:items-center gap-6 w-full">
+                <div className="flex items-center gap-6 min-w-[280px]">
+                  {agency.logoUrl ? (
+                    <div className="relative w-14 h-14 overflow-hidden rounded-full border-2 border-border bg-muted shrink-0">
+                      <Image
+                        src={agency.logoUrl}
+                        alt={`${agency.agencyName} logo`}
+                        fill
+                        className="object-cover"
+                        sizes="56px"
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative w-14 h-14 flex items-center justify-center rounded-full border-2 border-border bg-card text-primary shrink-0">
+                      <Building2 className="size-6" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h3 className="truncate font-headline font-bold text-lg mb-0.5">
+                      {agency.agencyName}
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[9px] font-bold px-2 py-0.5 bg-primary-container/20 text-primary rounded-md border border-primary/20 uppercase tracking-wider">
+                        Agency
+                      </span>
+                      <span className="text-muted-foreground text-xs">•</span>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {agency.brandCount} brand
+                        {agency.brandCount === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 w-full">
+                  <div className="flex flex-col">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
+                      Email
+                    </p>
+                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                      <Mail className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
+                      <span className="truncate">{agency.email}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
+                      Contact name
+                    </p>
+                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                      <UserRound className="size-4 text-muted-foreground shrink-0 hidden lg:block" />
+                      <span className="truncate">{agency.contactFullName}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">
+                      Mobile
+                    </p>
+                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                      <span className="truncate">
+                        {agency.contactPhone ?? "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 min-w-[180px] w-full md:w-auto mt-2 md:mt-0">
+                  <StatusBadge status={agency.status} />
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="flex flex-col md:flex-row items-center justify-between border-t border-border/50 pt-8 mt-12 pb-20 gap-6">
+        <div className="flex items-center justify-center md:justify-start space-x-4 min-w-[150px] w-full md:w-auto">
+          <div className="flex items-center space-x-1">
+            <span className="text-sm text-muted-foreground">Page</span>
+            <span className="text-sm font-bold text-foreground">{page}</span>
+            <span className="text-sm text-muted-foreground">
+              of {totalPages}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground font-bold border-l border-border uppercase tracking-widest whitespace-nowrap">
+            Showing: {showingStart}-{showingEnd} of {total} results
+          </span>
+        </div>
+
+        <div className="flex-1 flex justify-center w-full">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={(event: MouseEvent) => {
+                    event.preventDefault();
+                    onPageChange(Math.max(1, page - 1));
+                  }}
+                  disabled={page <= 1}
+                />
+              </PaginationItem>
+
+              {Array.from({ length: totalPages }).map((_, index) => {
+                const pageNumber = index + 1;
+
+                if (
+                  pageNumber === 1 ||
+                  pageNumber === totalPages ||
+                  (pageNumber >= page - 1 && pageNumber <= page + 1)
+                ) {
+                  return (
+                    <PaginationItem key={pageNumber}>
+                      <PaginationLink
+                        href="#"
+                        isActive={page === pageNumber}
+                        onClick={(event: MouseEvent) => {
+                          event.preventDefault();
+                          onPageChange(pageNumber);
+                        }}
+                      >
+                        {pageNumber}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                }
+
+                if (pageNumber === page - 2 || pageNumber === page + 2) {
+                  return (
+                    <PaginationItem key={pageNumber}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
+
+                return null;
+              })}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={(event: MouseEvent) => {
+                    event.preventDefault();
+                    onPageChange(Math.min(totalPages, page + 1));
+                  }}
+                  disabled={page >= totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+
+        <div className="flex items-center space-x-2 min-w-[150px] justify-center md:justify-end w-full md:w-auto">
+          <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest whitespace-nowrap">
+            Rows per page:
+          </span>
+          <Select
+            value={limit.toString()}
+            onValueChange={(value) => {
+              onLimitChange(Number(value));
+              onPageChange(1);
+            }}
+          >
+            <SelectTrigger className="w-[75px] h-8 bg-background/50 border border-border/50 hover:border-border font-bold text-xs focus:ring-1 focus:ring-primary/40 gap-1 px-2.5 transition-colors rounded-lg">
+              <SelectValue placeholder={limit.toString()} />
+            </SelectTrigger>
+            <SelectContent align="end" className="min-w-[75px]">
+              <SelectItem value="10" className="text-xs font-bold cursor-pointer">
+                10
+              </SelectItem>
+              <SelectItem value="20" className="text-xs font-bold cursor-pointer">
+                20
+              </SelectItem>
+              <SelectItem value="30" className="text-xs font-bold cursor-pointer">
+                30
+              </SelectItem>
+              <SelectItem value="50" className="text-xs font-bold cursor-pointer">
+                50
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function BrandManagementPage() {
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"brands" | "agencies">(
+    searchParams.get("tab") === "agencies" ? "agencies" : "brands",
+  );
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [search, setSearch] = useState("");
   const [selectedBrand, setSelectedBrand] =
     useState<AdminBrandListItemDto | null>(null);
 
-  const { data, isLoading, isError } = useBrandsQuery({ page, limit });
+  const trimmedSearch = search.trim();
+  const listQuery = {
+    page,
+    limit,
+    ...(trimmedSearch ? { search: trimmedSearch } : {}),
+  };
+
+  const { data, isLoading, isError, isFetching } = useBrandsQuery(
+    activeTab === "brands" ? listQuery : { page: 1, limit },
+  );
+  const {
+    data: agenciesData,
+    isLoading: agenciesLoading,
+    isError: agenciesError,
+    isFetching: agenciesFetching,
+  } = useAgenciesQuery(
+    activeTab === "agencies" ? listQuery : { page: 1, limit },
+  );
   const setBrandUserStatus = useSetBrandUserStatusMutation();
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as "brands" | "agencies");
+    setPage(1);
+    setSearch("");
+    setSelectedBrand(null);
+  };
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const previewItems = isLoading ? BRAND_MANAGEMENT_FIXTURE_ITEMS : items;
   const previewTotal = isLoading ? BRAND_MANAGEMENT_FIXTURE_TOTAL : total;
   const previewTotalPages = Math.max(1, Math.ceil(previewTotal / limit));
+  const agencyItems = agenciesData?.items ?? [];
+  const agencyTotal = agenciesData?.total ?? 0;
+  const previewAgencyItems = agenciesLoading
+    ? AGENCY_MANAGEMENT_FIXTURE_ITEMS
+    : agencyItems;
+  const previewAgencyTotal = agenciesLoading
+    ? AGENCY_MANAGEMENT_FIXTURE_TOTAL
+    : agencyTotal;
+  const previewAgencyTotalPages = Math.max(
+    1,
+    Math.ceil(previewAgencyTotal / limit),
+  );
 
   const closeDialog = () => {
     if (setBrandUserStatus.isPending) return;
@@ -533,46 +844,95 @@ export default function BrandManagementPage() {
   return (
     <>
       <div className="p-8 space-y-8">
-        {isError && !isLoading ? (
-          <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
-            We could not load the brand list right now. Try again shortly.
-          </div>
-        ) : (
-          <BoneyardSkeleton
-            name="admin-brand-management"
-            loading={isLoading}
-            fallback={<BrandManagementLoadingShell limit={limit} />}
-            fixture={
-              <BrandManagementContent
-                items={BRAND_MANAGEMENT_FIXTURE_ITEMS}
-                total={BRAND_MANAGEMENT_FIXTURE_TOTAL}
-                page={1}
-                limit={limit}
-                totalPages={Math.max(
-                  1,
-                  Math.ceil(BRAND_MANAGEMENT_FIXTURE_TOTAL / limit),
-                )}
-                statusPending={false}
-                onSelectBrand={() => {}}
-                onPageChange={() => {}}
-                onLimitChange={() => {}}
-              />
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="space-y-6"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="brands">Brands</TabsTrigger>
+            <TabsTrigger value="agencies">Agencies</TabsTrigger>
+          </TabsList>
+
+          <AdminCreatorListSearch
+            value={search}
+            onChange={handleSearchChange}
+            placeholder={
+              activeTab === "brands"
+                ? "Search brands by name, email, contact, or phone…"
+                : "Search agencies by name, email, contact, phone, or brand…"
             }
-            transition
-          >
-            <BrandManagementContent
-              items={previewItems}
-              total={previewTotal}
-              page={page}
-              limit={limit}
-              totalPages={previewTotalPages}
-              statusPending={setBrandUserStatus.isPending}
-              onSelectBrand={setSelectedBrand}
-              onPageChange={setPage}
-              onLimitChange={setLimit}
-            />
-          </BoneyardSkeleton>
-        )}
+            className="relative w-full"
+            isLoading={
+              activeTab === "brands"
+                ? isFetching && !isLoading
+                : agenciesFetching && !agenciesLoading
+            }
+          />
+
+          <TabsContent value="brands" className="space-y-0 mt-0">
+            {isError && !isLoading ? (
+              <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
+                We could not load the brand list right now. Try again shortly.
+              </div>
+            ) : (
+              <BoneyardSkeleton
+                name="admin-brand-management"
+                loading={isLoading}
+                fallback={<BrandManagementLoadingShell limit={limit} />}
+                fixture={
+                  <BrandManagementContent
+                    items={BRAND_MANAGEMENT_FIXTURE_ITEMS}
+                    total={BRAND_MANAGEMENT_FIXTURE_TOTAL}
+                    page={1}
+                    limit={limit}
+                    totalPages={Math.max(
+                      1,
+                      Math.ceil(BRAND_MANAGEMENT_FIXTURE_TOTAL / limit),
+                    )}
+                    statusPending={false}
+                    onSelectBrand={() => {}}
+                    onPageChange={() => {}}
+                    onLimitChange={() => {}}
+                  />
+                }
+                transition
+              >
+                <BrandManagementContent
+                  items={previewItems}
+                  total={previewTotal}
+                  page={page}
+                  limit={limit}
+                  totalPages={previewTotalPages}
+                  statusPending={setBrandUserStatus.isPending}
+                  hasSearch={Boolean(trimmedSearch)}
+                  onSelectBrand={setSelectedBrand}
+                  onPageChange={setPage}
+                  onLimitChange={setLimit}
+                />
+              </BoneyardSkeleton>
+            )}
+          </TabsContent>
+
+          <TabsContent value="agencies" className="space-y-0 mt-0">
+            {agenciesError && !agenciesLoading ? (
+              <div className="py-20 text-center text-sm text-muted-foreground glass-panel rounded-2xl border border-border/10 bg-card/10">
+                We could not load the agency list right now. Try again shortly.
+              </div>
+            ) : (
+              <AgencyManagementContent
+                items={previewAgencyItems}
+                total={previewAgencyTotal}
+                page={page}
+                limit={limit}
+                totalPages={previewAgencyTotalPages}
+                hasSearch={Boolean(trimmedSearch)}
+                onPageChange={setPage}
+                onLimitChange={setLimit}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Dialog

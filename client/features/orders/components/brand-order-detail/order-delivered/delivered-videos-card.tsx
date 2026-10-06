@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import {
   ChevronDown,
   Download,
@@ -263,6 +267,7 @@ export function DeliveredVideosCard({
   variant = "delivered",
   sidebar,
 }: DeliveredVideosCardProps) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const { data, isLoading, isError } = useGetBrandOrderDeliveriesQuery(orderId);
 
   if (isLoading) {
@@ -429,7 +434,7 @@ export function DeliveredVideosCard({
               size="sm"
               className="mt-3 h-9 w-full justify-center rounded-lg px-3 text-xs font-semibold lg:hidden"
             >
-              <Link href={`/brand/messages?orderId=${orderId}`}>
+              <Link href={remapBuyerHref(`/brand/messages?orderId=${orderId}`, workspaceBase)}>
                 <MessageCircle className="mr-1.5 size-3.5" />
                 Message Creator
               </Link>

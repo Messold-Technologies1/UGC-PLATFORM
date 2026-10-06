@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import React, {
   useState,
   useEffect,
@@ -740,8 +744,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   landingPage = false,
 }: ProfileDrawerProps) {
   const router = useRouter();
+  const workspaceBase = useBuyerWorkspaceBase();
   const { data: meUser } = usePublicAuthUser({ enabled: landingPage });
-  const isBrand = meUser?.roles?.includes("BRAND") ?? false;
+  const isBrand =
+    (meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY")) ??
+    false;
   const lastCreatorRef = useRef(creator);
   const lastIdRef = useRef(creatorId);
   if (creator) lastCreatorRef.current = creator;
@@ -1129,7 +1136,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               if (landingPage) {
                 router.push(
                   isBrand && activeId
-                    ? `/brand/creators?creatorId=${activeId}`
+                    ? remapBuyerHref(`/brand/creators?creatorId=${activeId}`, workspaceBase)
                     : "/register",
                 );
                 return;

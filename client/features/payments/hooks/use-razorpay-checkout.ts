@@ -1,5 +1,9 @@
 "use client";
 
+import { buyerWorkspaceBaseFromPathname, remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { usePathname } from "next/navigation";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
@@ -58,6 +62,8 @@ export function useRazorpayCheckout({
   couponCode = null,
   useCredits = false,
 }: UseRazorpayCheckoutArgs) {
+  const pathname = usePathname();
+  const workspaceBase = buyerWorkspaceBaseFromPathname(pathname);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -118,11 +124,11 @@ export function useRazorpayCheckout({
 
   const redirectToOrderDetails = useCallback(
     (orderId: string) => {
-      const href = `/brand/orders/${encodeURIComponent(orderId)}`;
+      const href = remapBuyerHref(`/brand/orders/${encodeURIComponent(orderId)}`, workspaceBase);
       router.replace(href);
       router.refresh();
     },
-    [router],
+    [router, workspaceBase],
   );
 
   useEffect(() => {

@@ -137,6 +137,15 @@ export class MailService implements OnModuleInit {
       return profile?.emailNotificationsEnabled ?? false;
     }
 
+    // Agency has no per-profile email opt-out yet — allow once the agency exists.
+    if (gate.profileType === 'agency') {
+      const agency = await this.prisma.agency.findUnique({
+        where: { id: gate.profileId },
+        select: { id: true },
+      });
+      return Boolean(agency);
+    }
+
     const profile = await this.prisma.brandProfile.findUnique({
       where: { id: gate.profileId },
       select: { emailNotificationsEnabled: true },

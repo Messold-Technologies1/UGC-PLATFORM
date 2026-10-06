@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -69,6 +73,7 @@ function DetailRow({
 }
 
 export function SavedBriefDetails({ briefId }: { briefId: string }) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
@@ -86,7 +91,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
   const submitBriefMutation = useSubmitBriefMutation({
     onSuccess: () => {
       setIsConfirmOpen(false);
-      router.push(`/brand/orders/${orderId}`);
+      router.push(remapBuyerHref(`/brand/orders/${orderId}`, workspaceBase));
     },
   });
 
@@ -122,7 +127,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                   "The saved brief request did not return usable data."}
               </p>
               <Button asChild variant="outline" className="rounded-xl">
-                <Link href="/brand/briefs">
+                <Link href={remapBuyerHref("/brand/briefs", workspaceBase)}>
                   <ArrowLeft className="size-4" />
                   Back to briefs
                 </Link>
@@ -430,7 +435,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                                 className="shrink-0 size-7 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
                                 onClick={() =>
                                   router.push(
-                                    `/brand/briefs/${b.id}?orderId=${orderId}`,
+                                    remapBuyerHref(`/brand/briefs/${b.id}?orderId=${orderId}`, workspaceBase),
                                   )
                                 }
                                 aria-label={`View brief ${b.brandName || b.id}`}
@@ -481,7 +486,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
         briefId={briefId}
         open={isPickerOpen}
         onOpenChange={setIsPickerOpen}
-        onSubmitted={() => router.push("/brand/orders")}
+        onSubmitted={() => router.push(remapBuyerHref("/brand/orders", workspaceBase))}
       />
 
       <Dialog

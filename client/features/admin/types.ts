@@ -303,6 +303,7 @@ export interface RejectedCreatorsListResponseDto {
 export interface AdminBrandsQueryDto {
   page?: number;
   limit?: number;
+  search?: string;
 }
 
 export interface AdminBrandListItemDto {
@@ -330,11 +331,63 @@ export interface AdminBrandsListResponseDto {
   limit: number;
 }
 
+export interface AdminAgenciesQueryDto {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface AdminAgencyListItemDto {
+  agencyId: string;
+  ownerUserId: string;
+  email: string;
+  ownerName: string | null;
+  agencyName: string;
+  contactFullName: string;
+  contactPhone: string | null;
+  logoUrl: string | null;
+  status: string;
+  brandNames: string[];
+  brandCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAgencyDetailDto {
+  agencyId: string;
+  ownerUserId: string;
+  email: string;
+  ownerName: string | null;
+  agencyName: string;
+  contactFullName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  status: string;
+  statusChangedAt: string | null;
+  statusChangedByName: string | null;
+  statusChangedByEmail: string | null;
+  brandNames: string[];
+  brandCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAgenciesListResponseDto {
+  items: AdminAgencyListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface AdminOrdersQueryDto {
   page?: number;
   limit?: number;
   /** Filter to a single brand's orders (BrandProfile id). */
   brandId?: string;
+  /** Filter to a single agency's orders (Agency id). */
+  agencyId?: string;
   /**
    * Restrict the list to these lifecycle statuses (the active status tab maps
    * to several). Comma-separated, e.g. "ACCEPTED,CREATOR_PAYMENT_DONE".

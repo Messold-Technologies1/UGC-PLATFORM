@@ -12,13 +12,6 @@ export class BrandProfileResponseDto {
   })
   userId!: string | null;
 
-  @ApiPropertyOptional({
-    example: 'uuid',
-    nullable: true,
-    description: 'Owning agency when this brand is agency-managed.',
-  })
-  agencyId!: string | null;
-
   @ApiProperty({ example: 'brand@example.com' })
   email!: string;
 

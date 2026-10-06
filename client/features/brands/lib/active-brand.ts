@@ -51,16 +51,18 @@ export function resolveClientActiveBrandId(user: AuthUser): string | null {
 }
 
 export function userNeedsBrandSelection(user: AuthUser): boolean {
-  const isAgency = user.roles.includes("AGENCY");
-  if (!isAgency && !user.hasBrandProfile) return false;
-  if (user.accessibleBrands.length === 0) return isAgency;
+  if (user.roles.includes("AGENCY") && user.hasAgencyProfile) {
+    return false;
+  }
+  if (!user.hasBrandProfile) return false;
+  if (user.accessibleBrands.length === 0) return false;
   if (user.accessibleBrands.length === 1) return false;
   return resolveClientActiveBrandId(user) === null;
 }
 
 export function userCanUseBrandWorkspace(user: AuthUser): boolean {
   if (user.roles.includes("AGENCY") && user.hasAgencyProfile) {
-    return user.accessibleBrands.length > 0;
+    return true;
   }
   return (
     user.roles.includes("BRAND") &&

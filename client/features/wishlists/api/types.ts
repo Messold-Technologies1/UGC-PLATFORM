@@ -56,7 +56,8 @@ export interface PublicWishlistBrand {
 
 export interface PublicWishlistResponse {
   id: string;
-  brandId: string;
+  brandId: string | null;
+  agencyId?: string | null;
   name: string;
   sharedAt?: string | null;
   brand: PublicWishlistBrand;

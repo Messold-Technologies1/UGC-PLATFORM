@@ -95,6 +95,44 @@ const roleConfigs: Record<string, NavItem[]> = {
       tourId: "nav-brand-credits",
     },
   ],
+  agency: [
+    {
+      href: "/agency/creators",
+      label: "Creators",
+      icon: Users,
+      tourId: "nav-brand-creators",
+    },
+    {
+      href: "/agency/orders",
+      label: "Orders",
+      icon: ShoppingCart,
+      tourId: "nav-brand-orders",
+    },
+    {
+      href: "/agency/messages",
+      label: "Messages",
+      icon: MessageSquare,
+      tourId: "nav-brand-messages",
+    },
+    {
+      href: "/agency/briefs/create",
+      label: "Briefs",
+      icon: FileText,
+      tourId: "nav-brand-briefs",
+    },
+    {
+      href: "/agency/wishlists",
+      label: "Wishlists",
+      icon: Heart,
+      tourId: "nav-brand-wishlists",
+    },
+    {
+      href: "/agency/credits",
+      label: "Credits",
+      icon: Wallet,
+      tourId: "nav-brand-credits",
+    },
+  ],
   creator: [
     {
       href: "/creator/orders",
@@ -129,8 +167,17 @@ const roleConfigs: Record<string, NavItem[]> = {
 
 function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
   const segment = pathname.split("/")[1];
-  const items = roleConfigs[segment] ?? [];
-  if (segment === "admin" && !user?.canManageAdmins) {
+  // Agency users reuse some /brand routes (orders, messages, etc.). Keep the
+  // agency nav so "Creators" stays on /agency/creators instead of /brand/creators.
+  const isAgencyUser =
+    user?.primaryRole === "AGENCY" ||
+    Boolean(user?.hasAgencyProfile && !user?.hasBrandProfile);
+  const navSegment =
+    isAgencyUser && (segment === "brand" || segment === "agency")
+      ? "agency"
+      : segment;
+  const items = roleConfigs[navSegment] ?? [];
+  if (navSegment === "admin" && !user?.canManageAdmins) {
     // Settings (create admins), Coupons and Refunds are super-admin only.
     const superAdminOnly = new Set([
       "/admin/settings",
@@ -216,7 +263,7 @@ function GuestAudienceNav({
         onClick={onNavigate}
         className={audienceLinkClass("/brands")}
       >
-        For Brands
+        For Brands/Agencies
       </Link>
     </nav>
   );
@@ -544,7 +591,7 @@ export function Navbar({ className }: { className?: string } = {}) {
                     className="flex items-center gap-2 rounded-lg pl-6 pr-3 py-2.5 text-sm font-medium font-heading text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <Briefcase className="size-4 opacity-70" />
-                    For Brands
+                    For Brands/Agencies
                   </Link>
                   <div className="my-2 h-px bg-border/60" />
                   {/* Unified auth: single login + single registration entry. */}

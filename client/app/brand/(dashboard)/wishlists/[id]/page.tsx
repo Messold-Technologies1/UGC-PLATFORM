@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
 import {
   Share2,
   Pencil,
@@ -55,6 +57,7 @@ function timeAgo(dateStr: string) {
 export default function WishlistDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const workspaceBase = useBuyerWorkspaceBase();
 
   const { data: allData, isLoading: listsLoading } = useWishlistsQuery();
   const wishlists = allData?.items ?? [];
@@ -196,7 +199,9 @@ export default function WishlistDetailPage() {
                 <Select
                   value={id}
                   onValueChange={(wishlistId) =>
-                    router.push(`/brand/wishlists/${wishlistId}`)
+                    router.push(
+                      remapBuyerHref(`/brand/wishlists/${wishlistId}`, workspaceBase),
+                    )
                   }
                 >
                   <SelectTrigger className="h-10 rounded-xl bg-white shadow-sm">
@@ -276,7 +281,7 @@ export default function WishlistDetailPage() {
                       aria-label="Add creators"
                     >
                       <Link
-                        href="/brand/creators"
+                        href={remapBuyerHref("/brand/creators", workspaceBase)}
                         data-tour="brand-wishlists-add-creators"
                       >
                         <Plus size={15} />
@@ -450,7 +455,7 @@ export default function WishlistDetailPage() {
                   Browse creators and save them to this wishlist.
                 </p>
                 <Button className="mt-4 rounded-full gap-2" size="sm" asChild>
-                  <Link href="/brand/creators">
+                  <Link href={remapBuyerHref("/brand/creators", workspaceBase)}>
                     <Plus size={14} /> Browse Creators
                   </Link>
                 </Button>
@@ -492,7 +497,7 @@ export default function WishlistDetailPage() {
             creatorCount={wishlist.creatorCount}
             onDeleted={() => {
               toast.success("Wishlist deleted");
-              router.push("/brand/wishlists");
+              router.push(remapBuyerHref("/brand/wishlists", workspaceBase));
             }}
           />
           <RemoveCreatorsDialog

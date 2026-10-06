@@ -16,8 +16,19 @@ export class PublicWishlistResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'uuid', description: 'Owning brand profile id' })
-  brandId!: string;
+  @ApiPropertyOptional({
+    example: 'uuid',
+    nullable: true,
+    description: 'Owning brand profile id when brand-owned',
+  })
+  brandId!: string | null;
+
+  @ApiPropertyOptional({
+    example: 'uuid',
+    nullable: true,
+    description: 'Owning agency id when agency-owned',
+  })
+  agencyId!: string | null;
 
   @ApiProperty({ example: 'Summer campaign shortlist' })
   name!: string;

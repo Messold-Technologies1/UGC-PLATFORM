@@ -11,7 +11,9 @@ describe('WishlistsService add-on persistence', () => {
     const upsert = jest.fn((_args: unknown) => Promise.resolve({}));
     const prisma = {
       brandWishlist: {
-        findUnique: jest.fn(() => Promise.resolve({ brandId: 'brand-1' })),
+        findUnique: jest.fn(() =>
+          Promise.resolve({ brandId: 'brand-1', agencyId: null }),
+        ),
       },
       creatorAddOn: {
         findMany: jest.fn(({ where }: any) =>
@@ -25,8 +27,16 @@ describe('WishlistsService add-on persistence', () => {
       brandWishlistCreator: { upsert },
     };
     const brandAccess = {
-      resolveBrandContext: jest.fn(() =>
-        Promise.resolve({ brand: { id: 'brand-1' } }),
+      resolveOrderActor: jest.fn(() =>
+        Promise.resolve({
+          brand: { id: 'brand-1' },
+          agency: null,
+          brandId: 'brand-1',
+          agencyId: null,
+          actorUserId: 'u1',
+          brandActorUserId: 'u1',
+          isAgencyWorkspace: false,
+        }),
       ),
     };
     const service = new WishlistsService(prisma as any, brandAccess as any);

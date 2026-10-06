@@ -556,7 +556,7 @@ export class OrdersController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary:
-      'Brand rates and reviews the creator (allowed when order is ACCEPTED, CREATOR_PAYMENT_DONE, or REJECTED)',
+      'Brand or agency rates and reviews the creator (allowed when order is ACCEPTED, CREATOR_PAYMENT_DONE, or REJECTED)',
   })
   @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
   @ApiCreatedResponse({ type: CreateCreatorRatingReviewResponseDto })

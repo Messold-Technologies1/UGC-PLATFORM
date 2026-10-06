@@ -61,6 +61,7 @@ export class AdminOrdersController {
       page: query.page,
       limit: query.limit,
       brandId: query.brandId,
+      agencyId: query.agencyId,
       statuses: query.statuses,
     });
   }

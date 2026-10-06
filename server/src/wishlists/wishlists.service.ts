@@ -6,7 +6,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import crypto from 'crypto';
-import { BrandAccessService } from '../brand-access/brand-access.service';
+import {
+  BrandAccessService,
+  type ResolvedOrderActor,
+} from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateWishlistDto } from './dto/create-wishlist.dto';
 import type { UpdateWishlistDto } from './dto/update-wishlist.dto';
@@ -159,6 +162,11 @@ function mapCreatorToPublicListItem(
   };
 }
 
+type WishlistOwnerRow = {
+  brandId: string | null;
+  agencyId: string | null;
+};
+
 @Injectable()
 export class WishlistsService {
   constructor(
@@ -166,13 +174,32 @@ export class WishlistsService {
     private readonly brandAccess: BrandAccessService,
   ) {}
 
+  private async resolveOwner(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+  }): Promise<ResolvedOrderActor> {
+    return this.brandAccess.resolveOrderActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+  }
+
+  private assertOwnsWishlist(
+    wishlist: WishlistOwnerRow,
+    actor: ResolvedOrderActor,
+  ): void {
+    if (actor.brandId && wishlist.brandId === actor.brandId) return;
+    if (actor.agencyId && wishlist.agencyId === actor.agencyId) return;
+    throw new ForbiddenException('Not your wishlist');
+  }
+
   /**
-   * Among the given creators, which are "first order free" AND this brand has
+   * Among the given creators, which are "first order free" AND this buyer has
    * not yet placed an order with (any order that reached paidAt consumes the
-   * promo). Drives the per-brand card badge / ₹0 checkout in the wishlist.
+   * promo). Drives the per-buyer card badge / ₹0 checkout in the wishlist.
    */
-  private async firstOrderFreeEligibleForBrand(
-    brandId: string,
+  private async firstOrderFreeEligibleForOwner(
+    owner: { brandId?: string; agencyId?: string },
     creatorIds: string[],
   ): Promise<Set<string>> {
     const ids = [...new Set(creatorIds.filter(Boolean))];
@@ -185,7 +212,7 @@ export class WishlistsService {
     if (enabledIds.length === 0) return new Set();
     const priorOrders = await this.prisma.order.findMany({
       where: {
-        brandId,
+        ...owner,
         creatorId: { in: enabledIds },
         paidAt: { not: null },
       },
@@ -196,17 +223,38 @@ export class WishlistsService {
     return new Set(enabledIds.filter((id) => !usedIds.has(id)));
   }
 
+  private toWishlistDto(w: {
+    id: string;
+    name: string;
+    shareEnabled: boolean;
+    shareToken: string | null;
+    sharedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    _count: { creators: number };
+    creators: Array<{ creatorId: string }>;
+  }): WishlistDto {
+    return {
+      id: w.id,
+      name: w.name,
+      creatorCount: w._count.creators,
+      creatorIds: w.creators.map((c) => c.creatorId),
+      shareEnabled: w.shareEnabled,
+      shareToken: w.shareToken ?? null,
+      sharedAt: w.sharedAt ?? null,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt,
+    };
+  }
+
   async listWishlists(params: {
     actorUserId: string;
     brandProfileId?: string | null;
   }): Promise<WishlistDto[]> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
 
     const rows = await this.prisma.brandWishlist.findMany({
-      where: { brandId: brand.id },
+      where: this.brandAccess.orderOwnerWhere(actor),
       include: {
         _count: { select: { creators: true } },
         creators: { select: { creatorId: true } },
@@ -214,17 +262,7 @@ export class WishlistsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return rows.map((w) => ({
-      id: w.id,
-      name: w.name,
-      creatorCount: w._count.creators,
-      creatorIds: w.creators.map((c: any) => c.creatorId),
-      shareEnabled: w.shareEnabled,
-      shareToken: w.shareToken ?? null,
-      sharedAt: w.sharedAt ?? null,
-      createdAt: w.createdAt,
-      updatedAt: w.updatedAt,
-    }));
+    return rows.map((w) => this.toWishlistDto(w));
   }
 
   async createWishlist(params: {
@@ -232,15 +270,13 @@ export class WishlistsService {
     brandProfileId?: string | null;
     dto: CreateWishlistDto;
   }): Promise<{ id: string }> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
+    const owner = this.brandAccess.orderOwnerCreateData(actor);
 
     try {
       const wishlist = await this.prisma.brandWishlist.create({
         data: {
-          brandId: brand.id,
+          ...owner,
           name: params.dto.name,
           ...(params.dto.creatorIds?.length
             ? {
@@ -269,10 +305,7 @@ export class WishlistsService {
     brandProfileId?: string | null;
     wishlistId: string;
   }): Promise<WishlistDetailDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
 
     const wishlist = await this.prisma.brandWishlist.findUnique({
       where: { id: params.wishlistId },
@@ -290,11 +323,10 @@ export class WishlistsService {
     });
 
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id)
-      throw new ForbiddenException('Not your wishlist');
+    this.assertOwnsWishlist(wishlist, actor);
 
-    const eligibleFreeCreatorIds = await this.firstOrderFreeEligibleForBrand(
-      brand.id,
+    const eligibleFreeCreatorIds = await this.firstOrderFreeEligibleForOwner(
+      this.brandAccess.orderOwnerWhere(actor),
       wishlist.creators.map((wc: { creatorId: string }) => wc.creatorId),
     );
 
@@ -307,17 +339,7 @@ export class WishlistsService {
     }));
 
     return {
-      id: wishlist.id,
-      name: wishlist.name,
-      creatorCount: wishlist._count.creators,
-      creatorIds: wishlist.creators.map(
-        (wc: { creatorId: string }) => wc.creatorId,
-      ),
-      shareEnabled: wishlist.shareEnabled,
-      shareToken: wishlist.shareToken ?? null,
-      sharedAt: wishlist.sharedAt ?? null,
-      createdAt: wishlist.createdAt,
-      updatedAt: wishlist.updatedAt,
+      ...this.toWishlistDto(wishlist),
       creators,
     };
   }
@@ -328,18 +350,14 @@ export class WishlistsService {
     wishlistId: string;
     dto: UpdateWishlistDto;
   }): Promise<WishlistDetailDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
 
     const existing = await this.prisma.brandWishlist.findUnique({
       where: { id: params.wishlistId },
-      select: { brandId: true },
+      select: { brandId: true, agencyId: true },
     });
     if (!existing) throw new NotFoundException('Wishlist not found');
-    if (existing.brandId !== brand.id)
-      throw new ForbiddenException('Not your wishlist');
+    this.assertOwnsWishlist(existing, actor);
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -351,8 +369,6 @@ export class WishlistsService {
         });
 
         if (params.dto.creatorIds !== undefined) {
-          // Preserve each surviving creator's saved add-on selection across the
-          // delete-and-recreate replace.
           const existingRows = await tx.brandWishlistCreator.findMany({
             where: { wishlistId: params.wishlistId },
             select: { creatorId: true, selectedAddOnIds: true },
@@ -395,29 +411,20 @@ export class WishlistsService {
     brandProfileId?: string | null;
     wishlistId: string;
   }): Promise<void> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
 
     const existing = await this.prisma.brandWishlist.findUnique({
       where: { id: params.wishlistId },
-      select: { brandId: true },
+      select: { brandId: true, agencyId: true },
     });
     if (!existing) throw new NotFoundException('Wishlist not found');
-    if (existing.brandId !== brand.id)
-      throw new ForbiddenException('Not your wishlist');
+    this.assertOwnsWishlist(existing, actor);
 
     await this.prisma.brandWishlist.delete({
       where: { id: params.wishlistId },
     });
   }
 
-  /**
-   * Keep only add-on ids that actually belong to the creator, deduped. Invalid
-   * or foreign ids are dropped rather than rejected — the selection is a
-   * convenience that's re-validated at checkout anyway.
-   */
   private async resolveValidAddOnIds(
     creatorId: string,
     addOnIds?: string[],
@@ -438,18 +445,14 @@ export class WishlistsService {
     creatorId: string;
     addOnIds?: string[];
   }): Promise<void> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
 
     const wishlist = await this.prisma.brandWishlist.findUnique({
       where: { id: params.wishlistId },
-      select: { brandId: true },
+      select: { brandId: true, agencyId: true },
     });
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id)
-      throw new ForbiddenException('Not your wishlist');
+    this.assertOwnsWishlist(wishlist, actor);
 
     const selectedAddOnIds = await this.resolveValidAddOnIds(
       params.creatorId,
@@ -468,8 +471,6 @@ export class WishlistsService {
         creatorId: params.creatorId,
         selectedAddOnIds,
       },
-      // Only overwrite the saved selection when the caller supplied add-ons,
-      // so re-adding a creator without add-ons doesn't wipe an earlier choice.
       update: params.addOnIds !== undefined ? { selectedAddOnIds } : {},
     });
   }
@@ -480,18 +481,14 @@ export class WishlistsService {
     wishlistId: string;
     creatorId: string;
   }): Promise<void> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
 
     const wishlist = await this.prisma.brandWishlist.findUnique({
       where: { id: params.wishlistId },
-      select: { brandId: true },
+      select: { brandId: true, agencyId: true },
     });
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id)
-      throw new ForbiddenException('Not your wishlist');
+    this.assertOwnsWishlist(wishlist, actor);
 
     await this.prisma.brandWishlistCreator.deleteMany({
       where: { wishlistId: params.wishlistId, creatorId: params.creatorId },
@@ -503,18 +500,19 @@ export class WishlistsService {
     brandProfileId?: string | null;
     wishlistId: string;
   }): Promise<WishlistShareResponseDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
 
     const wishlist = await this.prisma.brandWishlist.findUnique({
       where: { id: params.wishlistId },
-      select: { brandId: true, shareEnabled: true, shareToken: true },
+      select: {
+        brandId: true,
+        agencyId: true,
+        shareEnabled: true,
+        shareToken: true,
+      },
     });
     if (!wishlist) throw new NotFoundException('Wishlist not found');
-    if (wishlist.brandId !== brand.id)
-      throw new ForbiddenException('Not your wishlist');
+    this.assertOwnsWishlist(wishlist, actor);
 
     let updated: {
       shareEnabled: boolean;
@@ -558,6 +556,9 @@ export class WishlistsService {
         brand: {
           select: { brandName: true, logoUrl: true, contactFullName: true },
         },
+        agency: {
+          select: { name: true, logoUrl: true, contactFullName: true },
+        },
         creators: {
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           include: {
@@ -576,16 +577,25 @@ export class WishlistsService {
       mapCreatorToPublicListItem(wc.creator),
     );
 
+    const ownerBrand = wishlist.brand
+      ? {
+          brandName: wishlist.brand.brandName ?? '',
+          logoUrl: wishlist.brand.logoUrl ?? null,
+          contactFullName: wishlist.brand.contactFullName ?? null,
+        }
+      : {
+          brandName: wishlist.agency?.name ?? '',
+          logoUrl: wishlist.agency?.logoUrl ?? null,
+          contactFullName: wishlist.agency?.contactFullName ?? null,
+        };
+
     return {
       id: wishlist.id,
-      brandId: wishlist.brandId,
+      brandId: wishlist.brandId ?? null,
+      agencyId: wishlist.agencyId ?? null,
       name: wishlist.name,
       sharedAt: wishlist.sharedAt ?? null,
-      brand: {
-        brandName: wishlist.brand.brandName ?? '',
-        logoUrl: (wishlist.brand as any).logoUrl ?? null,
-        contactFullName: wishlist.brand.contactFullName ?? null,
-      },
+      brand: ownerBrand,
       creators,
     };
   }
@@ -596,10 +606,8 @@ export class WishlistsService {
     shareToken: string;
     dto: ImportSharedWishlistDto;
   }): Promise<ImportSharedWishlistResponseDto> {
-    const { brand } = await this.brandAccess.resolveBrandContext({
-      actorUserId: params.actorUserId,
-      brandProfileId: params.brandProfileId,
-    });
+    const actor = await this.resolveOwner(params);
+    const owner = this.brandAccess.orderOwnerCreateData(actor);
 
     const source = await this.prisma.brandWishlist.findFirst({
       where: { shareToken: params.shareToken, shareEnabled: true },
@@ -615,9 +623,12 @@ export class WishlistsService {
       throw new NotFoundException('Wishlist not found or sharing is disabled');
     }
 
-    if (source.brandId === brand.id) {
+    if (
+      (actor.brandId && source.brandId === actor.brandId) ||
+      (actor.agencyId && source.agencyId === actor.agencyId)
+    ) {
       throw new ConflictException(
-        'This shortlist already belongs to your brand',
+        'This shortlist already belongs to your workspace',
       );
     }
 
@@ -647,9 +658,7 @@ export class WishlistsService {
         },
       });
       if (!target) throw new NotFoundException('Wishlist not found');
-      if (target.brandId !== brand.id) {
-        throw new ForbiddenException('Not your wishlist');
-      }
+      this.assertOwnsWishlist(target, actor);
       targetWishlistId = target.id;
       existingCreatorIds = new Set(target.creators.map((row) => row.creatorId));
     } else {
@@ -657,7 +666,7 @@ export class WishlistsService {
       try {
         const created = await this.prisma.brandWishlist.create({
           data: {
-            brandId: brand.id,
+            ...owner,
             name,
             creators: {
               create: creatorIds.map((creatorId, idx) => ({

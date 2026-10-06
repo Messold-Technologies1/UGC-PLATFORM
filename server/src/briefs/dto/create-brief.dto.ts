@@ -20,6 +20,7 @@ export class CreateBriefDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   brandName?: string;
 
   @ApiPropertyOptional()

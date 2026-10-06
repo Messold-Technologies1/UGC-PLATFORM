@@ -3,7 +3,6 @@ import type { Prisma } from '@prisma/client';
 export const brandAccessSelect = {
   id: true,
   userId: true,
-  agencyId: true,
   brandName: true,
   logoKey: true,
   logoUrl: true,
@@ -20,7 +19,6 @@ export const brandAccessSelect = {
   whatsappNotificationsEnabled: true,
   createdAt: true,
   updatedAt: true,
-  agency: { select: { id: true, ownerUserId: true } },
   user: { select: { email: true } },
 } as const;
 
@@ -28,11 +26,18 @@ export type BrandAccessProfile = Prisma.BrandProfileGetPayload<{
   select: typeof brandAccessSelect;
 }>;
 
+export type ResolvedAgencyContext = {
+  id: string;
+  ownerUserId: string;
+};
+
 export type ResolvedBrandContext = {
-  brand: BrandAccessProfile;
-  brandProfileId: string;
+  brand: BrandAccessProfile | null;
+  agency: ResolvedAgencyContext | null;
+  brandProfileId: string | null;
+  agencyId: string | null;
   actorUserId: string;
   /** User id used for order chat / realtime (standalone owner or agency owner). */
   brandActorUserId: string;
-  isAgencyManaged: boolean;
+  isAgencyWorkspace: boolean;
 };

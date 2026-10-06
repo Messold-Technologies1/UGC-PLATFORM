@@ -1,7 +1,10 @@
 import type { AuthUser, WorkspaceRole } from "@/features/auth/hooks/use-me-query";
 import { canUseWorkspaceRole } from "./workspace-defaulting";
 
-export type WorkspaceMenuRole = Extract<WorkspaceRole, "BRAND" | "CREATOR">;
+export type WorkspaceMenuRole = Extract<
+  WorkspaceRole,
+  "BRAND" | "CREATOR" | "AGENCY"
+>;
 
 function normalizeInternalHref(href?: string | null): string | null {
   const value = href?.trim();
@@ -12,16 +15,46 @@ function normalizeInternalHref(href?: string | null): string | null {
 }
 
 export function workspaceAccountHref(role: WorkspaceMenuRole): string {
-  return role === "BRAND" ? "/brand/settings/profile" : "/creator/account";
+  if (role === "BRAND") return "/brand/settings/profile";
+  if (role === "AGENCY") return "/agency/settings/profile";
+  return "/creator/account";
+}
+
+/** Resolve which workspace the account menu should treat as active. */
+export function resolveActiveWorkspace(
+  pathname: string,
+  user: AuthUser,
+): WorkspaceRole | null {
+  if (pathname === "/agency" || pathname.startsWith("/agency/")) {
+    return "AGENCY";
+  }
+  if (pathname === "/brand" || pathname.startsWith("/brand/")) {
+    // Agency users reuse some /brand routes (orders, messages) — keep agency
+    // account context so Profile opens the agency settings page.
+    if (
+      user.primaryRole === "AGENCY" ||
+      (user.hasAgencyProfile && !user.hasBrandProfile)
+    ) {
+      return "AGENCY";
+    }
+    return "BRAND";
+  }
+  if (pathname === "/creator" || pathname.startsWith("/creator/")) {
+    return "CREATOR";
+  }
+  return user.primaryRole ?? null;
 }
 
 export function canSwitchToWorkspace(
   user: AuthUser,
   role: WorkspaceMenuRole,
 ): boolean {
+  if (role === "AGENCY") {
+    return user.roles.includes("AGENCY") && canUseWorkspaceRole(user, "AGENCY");
+  }
   if (role === "BRAND") {
     return (
-      (user.roles.includes("BRAND") || user.roles.includes("AGENCY")) &&
+      user.roles.includes("BRAND") &&
       canUseWorkspaceRole(user, "BRAND")
     );
   }
@@ -33,7 +66,7 @@ export function canSetUpWorkspace(
   _role: WorkspaceMenuRole,
 ): boolean {
   // One email = one workspace. The only remaining setup is finishing
-  // creator/brand choice after unified signup.
+  // creator/brand/agency choice after unified signup.
   return user.roles.length === 0 && !user.primaryRole;
 }
 

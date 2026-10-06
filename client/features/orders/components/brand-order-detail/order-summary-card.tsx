@@ -1,5 +1,9 @@
 "use client";
 
+import { remapBuyerHref } from "@/features/auth/lib/buyer-workspace-path";
+
+import { useBuyerWorkspaceBase } from "@/features/auth/hooks/use-buyer-workspace-base";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -158,6 +162,7 @@ export function OrderSummaryCard({
   order,
   creator,
 }: Readonly<OrderSummaryCardProps>) {
+  const workspaceBase = useBuyerWorkspaceBase();
   const packageAmount = Number.parseFloat(order.priceAmountSnapshot) || 0;
   const addOnsTotal = Number.parseFloat(order.addOnsTotalSnapshot ?? "0") || 0;
   const couponDiscount = (order.coupon?.discountAmountPaise ?? 0) / 100;
@@ -262,7 +267,7 @@ export function OrderSummaryCard({
                 className="h-9 rounded-xl px-4 text-sm font-semibold"
                 asChild
               >
-                <Link href={`/brand/creators?creatorId=${creator.id}`}>
+                <Link href={remapBuyerHref(`/brand/creators?creatorId=${creator.id}`, workspaceBase)}>
                   View Profile
                 </Link>
               </Button>

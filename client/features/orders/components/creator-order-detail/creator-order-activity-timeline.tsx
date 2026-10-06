@@ -209,8 +209,8 @@ function buildCreatorTimelineEvents(order: OrderDetailsPublic): TimelineEvent[] 
     key: "completed",
     title: "Completed",
     description: isCompleted
-      ? "The brand approved your content and your payout was released."
-      : "Once the brand approves, your payout is released.",
+      ? "The brand approved your content."
+      : "Once the brand approves your content, this order will be complete.",
     date: formatEventDate(completedDate),
     status: isCompleted ? "completed" : "pending",
     color: isCompleted ? "green" : "gray",

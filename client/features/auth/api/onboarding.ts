@@ -3,13 +3,13 @@ import { ENDPOINTS } from "@/lib/endpoints";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { getMetaBrowserIds } from "@/lib/meta-pixel";
 
-export type OnboardingRole = "CREATOR" | "BRAND";
+export type OnboardingRole = "CREATOR" | "BRAND" | "AGENCY";
 
 /**
  * Post-signup role choice. Attaches the chosen workspace role to the current
  * (already-authenticated) account. CREATOR also provisions a creator profile
- * server-side; BRAND attaches the role only and the client then routes to the
- * brand setup screen. Returns the refreshed user.
+ * server-side; BRAND and AGENCY may continue to a setup screen when profile
+ * details are still needed. Returns the refreshed user.
  *
  * The Meta attribution cookies (`_fbp` / `_fbc`) are read here — in the user's
  * own browser, at the moment the profile is created — and stored on the creator

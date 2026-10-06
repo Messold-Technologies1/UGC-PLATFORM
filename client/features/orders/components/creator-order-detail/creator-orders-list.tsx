@@ -232,7 +232,9 @@ function CreatorOrdersListInner() {
                         className="object-cover rounded-lg"
                       />
                       <AvatarFallback className="bg-transparent font-bold rounded-lg text-lg">
-                        {brandInitials(brand.brandName)}
+                        {brandInitials(
+                          brand.agencyName?.trim() || brand.brandName,
+                        )}
                       </AvatarFallback>
                     </Avatar>
 
@@ -255,7 +257,9 @@ function CreatorOrdersListInner() {
                             </div>
                             <div className="flex items-center gap-2 min-w-0">
                               <h3 className="font-semibold text-sm text-foreground/90 truncate min-w-0">
-                                {brandDisplayName(brand.brandName)}
+                                {brand.agencyName?.trim()
+                                  ? brandDisplayName(brand.agencyName)
+                                  : brandDisplayName(brand.brandName)}
                               </h3>
                               <Badge
                                 variant="outline"
@@ -267,6 +271,17 @@ function CreatorOrdersListInner() {
                                 {badgeLabel}
                               </Badge>
                             </div>
+                            {brand.agencyName?.trim() &&
+                            (brand.clientBrandName?.trim() ||
+                              brand.brandName?.trim()) ? (
+                              <span className="text-xs text-muted-foreground truncate">
+                                Brand:{" "}
+                                {brandDisplayName(
+                                  brand.clientBrandName?.trim() ||
+                                    brand.brandName,
+                                )}
+                              </span>
+                            ) : null}
                             <span className="text-xs text-muted-foreground truncate">
                               {order.packageNameSnapshot || "UGC Video (60s)"}
                             </span>
@@ -311,7 +326,9 @@ function CreatorOrdersListInner() {
                           </div>
                           <div className="flex items-center gap-2 min-w-0">
                             <h3 className="font-semibold text-sm text-foreground/90 truncate max-w-[120px] xl:max-w-[150px]">
-                              {brandDisplayName(brand.brandName)}
+                              {brand.agencyName?.trim()
+                                ? brandDisplayName(brand.agencyName)
+                                : brandDisplayName(brand.brandName)}
                             </h3>
                             <Badge
                               variant="outline"
@@ -323,6 +340,16 @@ function CreatorOrdersListInner() {
                               {badgeLabel}
                             </Badge>
                           </div>
+                          {brand.agencyName?.trim() &&
+                          (brand.clientBrandName?.trim() ||
+                            brand.brandName?.trim()) ? (
+                            <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                              Brand:{" "}
+                              {brandDisplayName(
+                                brand.clientBrandName?.trim() || brand.brandName,
+                              )}
+                            </span>
+                          ) : null}
                         </div>
 
                         <div className="flex flex-col gap-1.5 min-w-[160px] xl:min-w-[200px]">

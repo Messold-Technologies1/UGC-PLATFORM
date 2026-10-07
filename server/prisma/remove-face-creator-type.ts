@@ -45,6 +45,22 @@ function isApply(): boolean {
   return process.env.REMOVE_FACE_CREATOR_APPLY === 'true';
 }
 
+type AffectedSelection = {
+  creatorProfileId: string;
+  creator: { displayName: string; publicSlug: string };
+};
+
+function printCreators(heading: string, rows: AffectedSelection[]): void {
+  if (!rows.length) return;
+  console.log(`${LOG_PREFIX} ${heading} (${rows.length}):`);
+  for (const r of rows) {
+    console.log(
+      `${LOG_PREFIX}   - ${r.creator.displayName} ` +
+        `(/${r.creator.publicSlug}) id=${r.creatorProfileId}`,
+    );
+  }
+}
+
 function dbFingerprint(): string {
   const url = process.env.DATABASE_URL;
   if (!url) return 'DATABASE_URL=<missing>';
@@ -114,7 +130,12 @@ async function main(): Promise<void> {
   // target (a straight optionId update would break the unique selection index).
   const faceSelections = await prisma.creatorProfileFacetSelection.findMany({
     where: { optionId: { in: sourceIds } },
-    select: { id: true, creatorProfileId: true },
+    select: {
+      id: true,
+      creatorProfileId: true,
+      creator: { select: { displayName: true, publicSlug: true } },
+    },
+    orderBy: { creator: { displayName: 'asc' } },
   });
   const creatorIds = [
     ...new Set(faceSelections.map((s) => s.creatorProfileId)),
@@ -150,6 +171,12 @@ async function main(): Promise<void> {
         ? ` (${aliases.map((a) => `"${a.normalizedText}"`).join(', ')})`
         : ''),
   );
+
+  // Name every affected creator so the dry run can be eyeballed before the
+  // apply. Listed in full on purpose: a preview you have to trust a count for
+  // is not a preview.
+  printCreators(`Moving to "${target.label}"`, toMove);
+  printCreators('Dropping duplicate "Face Creator" selection', toDrop);
 
   if (!apply) {
     console.log(

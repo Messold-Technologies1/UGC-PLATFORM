@@ -6,6 +6,7 @@ import {
   fetchEvents,
   fetchLogs,
   fetchTemplate,
+  fetchTemplateBodyDoc,
   fetchTemplateVersions,
   fetchTemplates,
   deriveTemplateText,
@@ -102,6 +103,16 @@ export function useTemplateQuery(id: string | null) {
   });
 }
 
+/** The body as an editor document; loaded only when the editor is opened. */
+export function useTemplateBodyDocQuery(id: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ["notifications", "template", id, "body-doc"],
+    queryFn: () => fetchTemplateBodyDoc(id as string),
+    enabled: Boolean(id) && enabled,
+    staleTime: Infinity,
+  });
+}
+
 export function useSaveTemplateMutation(id: string | null) {
   const qc = useQueryClient();
   return useMutation({
@@ -110,8 +121,12 @@ export function useSaveTemplateMutation(id: string | null) {
     onSuccess: async (result) => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: notificationKeys.templates }),
-        qc.invalidateQueries({ queryKey: notificationKeys.template(result.id) }),
-        qc.invalidateQueries({ queryKey: notificationKeys.versions(result.id) }),
+        qc.invalidateQueries({
+          queryKey: notificationKeys.template(result.id),
+        }),
+        qc.invalidateQueries({
+          queryKey: notificationKeys.versions(result.id),
+        }),
       ]);
     },
   });

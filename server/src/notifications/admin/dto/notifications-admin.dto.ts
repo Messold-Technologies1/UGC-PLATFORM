@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -14,6 +15,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -115,10 +117,25 @@ export class SaveTemplateDto {
   @MaxLength(500)
   subjectHbs!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description:
+      'Required unless bodyDoc is sent, in which case the server renders it.',
+  })
+  @ValidateIf((o: SaveTemplateDto) => o.bodyDoc === undefined)
   @IsString()
   @MinLength(1)
   htmlHbs!: string;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    description:
+      'The visual editor document. When present it is the source of truth: the ' +
+      'server renders htmlHbs from it and ignores any htmlHbs sent alongside.',
+  })
+  @IsOptional()
+  @IsObject()
+  bodyDoc?: Record<string, unknown>;
 
   @ApiPropertyOptional({
     description: 'Null derives the plain-text part from the HTML.',
@@ -156,6 +173,17 @@ export class PreviewTemplateDto {
   @IsOptional()
   @IsString()
   htmlHbs?: string;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
+    description:
+      'Unsaved visual-editor document. Takes precedence over htmlHbs, so the ' +
+      'preview shows exactly what a save would store.',
+  })
+  @IsOptional()
+  @IsObject()
+  bodyDoc?: Record<string, unknown>;
 
   @ApiPropertyOptional({
     description:
@@ -215,10 +243,16 @@ export class PreviewDraftDto {
   @IsString()
   subjectHbs!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Required unless bodyDoc is sent.' })
+  @ValidateIf((o: PreviewDraftDto) => o.bodyDoc === undefined)
   @IsString()
   @MinLength(1)
   htmlHbs!: string;
+
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
+  @IsOptional()
+  @IsObject()
+  bodyDoc?: Record<string, unknown>;
 
   @ApiPropertyOptional()
   @IsOptional()

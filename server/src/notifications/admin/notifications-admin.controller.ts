@@ -152,6 +152,17 @@ export class NotificationsAdminController {
     return this.service.saveTemplate(dto, req.user.id, id);
   }
 
+  @Get('templates/:id/body-doc')
+  @ApiOperation({
+    summary: 'The template body as a visual-editor document',
+    description:
+      'Returns the stored document, or reads one back from hand-written HTML. ' +
+      'supported=false means the body uses something the editor cannot hold.',
+  })
+  bodyDoc(@Param('id') id: string) {
+    return this.service.bodyDocFor(id);
+  }
+
   @Post('templates/:id/preview')
   @ApiOperation({
     summary: 'Render a template against the event’s example values',
@@ -163,6 +174,7 @@ export class NotificationsAdminController {
     return this.service.preview(id, dto.eventKey, {
       subjectHbs: dto.subjectHbs,
       htmlHbs: dto.htmlHbs,
+      bodyDoc: dto.bodyDoc,
       textHbs: dto.textHbs,
     });
   }
@@ -180,6 +192,7 @@ export class NotificationsAdminController {
       {
         subjectHbs: dto.subjectHbs,
         htmlHbs: dto.htmlHbs,
+        bodyDoc: dto.bodyDoc,
         textHbs: dto.textHbs,
       },
       dto.eventKey,

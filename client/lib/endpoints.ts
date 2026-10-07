@@ -308,6 +308,8 @@ export const ENDPOINTS = {
       TEMPLATES: "/api/admin/notifications/templates",
       TEMPLATE: (id: string) =>
         `/api/admin/notifications/templates/${encodeURIComponent(id)}`,
+      TEMPLATE_BODY_DOC: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/body-doc`,
       TEMPLATE_PREVIEW: (id: string) =>
         `/api/admin/notifications/templates/${encodeURIComponent(id)}/preview`,
       TEMPLATE_DERIVE_TEXT: "/api/admin/notifications/templates/derive-text",

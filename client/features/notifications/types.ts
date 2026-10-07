@@ -51,8 +51,10 @@ export interface VarSpec {
   example: string;
 }
 
-export interface NotificationEventDetail
-  extends Omit<NotificationEventSummary, "schedule" | "scheduleCount"> {
+export interface NotificationEventDetail extends Omit<
+  NotificationEventSummary,
+  "schedule" | "scheduleCount"
+> {
   /** What this event's templates may interpolate. Drives the variable picker. */
   vars: Record<string, VarSpec>;
   emailTemplateId: string | null;
@@ -90,6 +92,8 @@ export interface NotificationTemplateDetail {
   description: string | null;
   subjectHbs: string;
   htmlHbs: string;
+  /** Present when the body was written in the visual editor. */
+  bodyDoc: EmailBodyDoc | null;
   textHbs: string | null;
   referencedVars: string[];
   isActive: boolean;
@@ -101,9 +105,22 @@ export interface SaveTemplateInput {
   name: string;
   description?: string | null;
   subjectHbs: string;
-  htmlHbs: string;
+  /** Omitted when bodyDoc is sent: the server renders the HTML from it. */
+  htmlHbs?: string;
+  bodyDoc?: EmailBodyDoc;
   textHbs?: string | null;
   note?: string | null;
+}
+
+/**
+ * The visual editor's document, as stored and as sent for preview.
+ *
+ * Deliberately loose: the server owns the schema and re-validates, so mirroring
+ * every node type here would be a second definition to keep in step.
+ */
+export interface EmailBodyDoc {
+  type: "doc";
+  content?: Array<Record<string, unknown>>;
 }
 
 /** One reason a template cannot be saved. */
@@ -133,7 +150,8 @@ export interface TemplatePreview {
 /** Unsaved editor content, so the preview can show what is on screen. */
 export interface TemplateDraft {
   subjectHbs: string;
-  htmlHbs: string;
+  htmlHbs?: string;
+  bodyDoc?: EmailBodyDoc;
   textHbs?: string | null;
 }
 
@@ -171,7 +189,10 @@ export interface NotificationLogPage {
 /** Offsets are stored as minutes; the editor shows a value plus a unit. */
 export type OffsetUnit = "minutes" | "hours" | "days";
 
-export function splitOffset(minutes: number): { value: number; unit: OffsetUnit } {
+export function splitOffset(minutes: number): {
+  value: number;
+  unit: OffsetUnit;
+} {
   if (minutes === 0) return { value: 0, unit: "minutes" };
   if (minutes % 1440 === 0) return { value: minutes / 1440, unit: "days" };
   if (minutes % 60 === 0) return { value: minutes / 60, unit: "hours" };

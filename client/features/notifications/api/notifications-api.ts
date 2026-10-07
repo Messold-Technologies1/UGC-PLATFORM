@@ -1,6 +1,7 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import type {
+  EmailBodyDoc,
   NotificationEventDetail,
   NotificationEventSummary,
   NotificationLogPage,
@@ -21,7 +22,9 @@ export async function fetchEvents(): Promise<NotificationEventSummary[]> {
   return data;
 }
 
-export async function fetchEvent(key: string): Promise<NotificationEventDetail> {
+export async function fetchEvent(
+  key: string,
+): Promise<NotificationEventDetail> {
   const { data } = await api.get<NotificationEventDetail>(N.EVENT(key));
   return data;
 }
@@ -34,7 +37,10 @@ export async function updateEvent(
     whatsappTemplateName?: string | null;
   },
 ): Promise<NotificationEventDetail> {
-  const { data } = await api.patch<NotificationEventDetail>(N.EVENT(key), payload);
+  const { data } = await api.patch<NotificationEventDetail>(
+    N.EVENT(key),
+    payload,
+  );
   return data;
 }
 
@@ -42,15 +48,18 @@ export async function replaceSchedule(
   key: string,
   rows: ScheduleRow[],
 ): Promise<NotificationEventDetail> {
-  const { data } = await api.put<NotificationEventDetail>(N.EVENT_SCHEDULE(key), {
-    rows: rows.map((row) => ({
-      offsetMinutes: row.offsetMinutes,
-      channels: row.channels,
-      templateOverrideId: row.templateOverrideId ?? null,
-      whatsappTemplateOverride: row.whatsappTemplateOverride ?? null,
-      isActive: row.isActive,
-    })),
-  });
+  const { data } = await api.put<NotificationEventDetail>(
+    N.EVENT_SCHEDULE(key),
+    {
+      rows: rows.map((row) => ({
+        offsetMinutes: row.offsetMinutes,
+        channels: row.channels,
+        templateOverrideId: row.templateOverrideId ?? null,
+        whatsappTemplateOverride: row.whatsappTemplateOverride ?? null,
+        isActive: row.isActive,
+      })),
+    },
+  );
   return data;
 }
 
@@ -110,6 +119,20 @@ export async function createTemplate(
   return data;
 }
 
+/** The body as an editor document, or why it cannot be one. */
+export async function fetchTemplateBodyDoc(id: string): Promise<{
+  supported: boolean;
+  reason?: string;
+  doc?: EmailBodyDoc;
+}> {
+  const { data } = await api.get<{
+    supported: boolean;
+    reason?: string;
+    doc?: EmailBodyDoc;
+  }>(N.TEMPLATE_BODY_DOC(id));
+  return data;
+}
+
 export async function previewTemplate(
   id: string,
   eventKey?: string,
@@ -142,10 +165,9 @@ export async function previewDraftTemplate(payload: {
  * and the send path derive it exactly the same way.
  */
 export async function deriveTemplateText(htmlHbs: string): Promise<string> {
-  const { data } = await api.post<{ textHbs: string }>(
-    N.TEMPLATE_DERIVE_TEXT,
-    { htmlHbs },
-  );
+  const { data } = await api.post<{ textHbs: string }>(N.TEMPLATE_DERIVE_TEXT, {
+    htmlHbs,
+  });
   return data.textHbs;
 }
 

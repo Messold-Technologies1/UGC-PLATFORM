@@ -206,8 +206,7 @@ function isNavItemActive(pathname: string, item: NavItem): boolean {
   return false;
 }
 
-const guestPill =
-  "font-heading rounded-full px-3.5 sm:px-4";
+const guestPill = "font-heading rounded-full px-3.5 sm:px-4";
 
 function GuestLoginMenu({
   onNavigate,
@@ -286,6 +285,9 @@ export function Navbar({ className }: { className?: string } = {}) {
   );
 
   const navItems = getNavItems(pathname || "", user);
+  // Admin carries the most destinations of any role (nine, against four or
+  // five elsewhere), so the pill that fits the others squeezes its labels.
+  const isAdminNav = (pathname || "").split("/")[1] === "admin";
 
   const [hidden, setHidden] = useState(false);
   const { scrollY } = useScroll();
@@ -316,7 +318,8 @@ export function Navbar({ className }: { className?: string } = {}) {
       }}
       animate={hidden ? "hidden" : "visible"}
       className={cn(
-        "sticky top-4 z-50 mx-auto mb-10 w-[90%] xl:w-[75%]",
+        "sticky top-4 z-50 mx-auto mb-10 w-[90%]",
+        isAdminNav ? "xl:w-[92%] 2xl:w-[88%]" : "xl:w-[75%]",
         className,
       )}
     >
@@ -462,9 +465,7 @@ export function Navbar({ className }: { className?: string } = {}) {
               </Tooltip>
             )}
             {isAuthenticated && <NotificationDropdown />}
-            {mounted && !isLoading && !isAuthenticated && (
-              <GuestLoginMenu />
-            )}
+            {mounted && !isLoading && !isAuthenticated && <GuestLoginMenu />}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

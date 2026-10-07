@@ -2043,6 +2043,10 @@ model NotificationTemplate {
   description    String?
   subjectHbs     String
   htmlHbs        String   @db.Text
+  /// The visual editor's document, when the body was written there. htmlHbs is
+  /// rendered FROM this on save, so it stays the single thing the send path
+  /// reads; null means the body was hand-written and only the HTML exists.
+  bodyDoc        Json?
   /// Null means derive the plain-text part from the rendered HTML.
   textHbs        String?  @db.Text
   /// Variable names found in the Handlebars AST when the template was saved.

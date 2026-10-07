@@ -17,6 +17,14 @@ import type { NotificationVarSpec } from '../catalog/define-events';
 import { TemplateValidatorService } from '../rendering/template-validator.service';
 import { NotificationTemplateRenderer } from '../rendering/notification-template-renderer.service';
 import { deriveTextHbs } from '../rendering/derive-text';
+import {
+  EmailBodyDocError,
+  renderEmailBodyDoc,
+} from '../rendering/email-body-doc';
+import {
+  emailBodyImportSupport,
+  importEmailBodyHtml,
+} from '../rendering/email-body-import';
 import { NotificationQueueService } from '../queues/notification-queue.service';
 import { NotificationSweepService } from '../dispatch/notification-sweep.service';
 import type {
@@ -309,6 +317,7 @@ export class NotificationsAdminService {
         description: true,
         subjectHbs: true,
         htmlHbs: true,
+        bodyDoc: true,
         textHbs: true,
         referencedVars: true,
         isActive: true,
@@ -353,6 +362,62 @@ export class NotificationsAdminService {
     return merged;
   }
 
+  /**
+   * The body HTML a request means.
+   *
+   * A document always wins over any htmlHbs sent with it: the whole point of
+   * the visual editor is that the markup is produced here, under styles the
+   * admin cannot reach, so trusting a client-supplied string would hand that
+   * back. A malformed document is rejected the same way a malformed template
+   * is — loudly, at save time, rather than as a blank email later.
+   */
+  private bodyHtmlFrom(input: {
+    bodyDoc?: Record<string, unknown> | null;
+    htmlHbs?: string;
+    fallback?: string;
+  }): string {
+    if (input.bodyDoc) {
+      try {
+        return renderEmailBodyDoc(input.bodyDoc);
+      } catch (error) {
+        throw new UnprocessableEntityException({
+          message: 'Template did not validate',
+          issues: [
+            {
+              field: 'htmlHbs',
+              message:
+                error instanceof EmailBodyDocError
+                  ? error.message
+                  : 'The editor content could not be rendered',
+            },
+          ],
+        });
+      }
+    }
+    return input.htmlHbs ?? input.fallback ?? '';
+  }
+
+  /**
+   * The document for a template's body, for opening it in the visual editor.
+   *
+   * A stored document is returned as-is. Without one the HTML is read back,
+   * which is how the hand-written templates become editable — but only when it
+   * can be done faithfully; a body with a conditional or a data table says so
+   * instead, and keeps the HTML editor.
+   */
+  async bodyDocFor(id: string): Promise<{
+    supported: boolean;
+    reason?: string;
+    doc?: unknown;
+  }> {
+    const template = await this.getTemplate(id);
+    if (template.bodyDoc) return { supported: true, doc: template.bodyDoc };
+
+    const support = emailBodyImportSupport(template.htmlHbs);
+    if (!support.supported) return support;
+    return { supported: true, doc: importEmailBodyHtml(template.htmlHbs) };
+  }
+
   async saveTemplate(
     dto: SaveTemplateDto,
     userId: string,
@@ -369,8 +434,13 @@ export class NotificationsAdminService {
         throw new ConflictException(`A template named ${dto.name} exists`);
     }
 
+    const htmlHbs = this.bodyHtmlFrom({
+      bodyDoc: dto.bodyDoc,
+      htmlHbs: dto.htmlHbs,
+    });
+
     const vars = await this.varsForTemplate(id ?? null, dto.name);
-    const result = this.validator.validate(dto, vars);
+    const result = this.validator.validate({ ...dto, htmlHbs }, vars);
     if (!result.ok) {
       // A bad template fails silently at send time, so it never gets saved.
       throw new UnprocessableEntityException({
@@ -383,7 +453,13 @@ export class NotificationsAdminService {
       name: dto.name,
       description: dto.description ?? null,
       subjectHbs: dto.subjectHbs,
-      htmlHbs: dto.htmlHbs,
+      htmlHbs,
+      // Clearing it when the body came as HTML is deliberate: the two would
+      // otherwise drift, and the stale document would silently win next time
+      // the visual editor opened.
+      bodyDoc: (dto.bodyDoc ?? null) as
+        | Prisma.InputJsonValue
+        | typeof Prisma.DbNull,
       textHbs: dto.textHbs ?? null,
       referencedVars: result.referencedVars,
       updatedByUserId: userId,
@@ -476,7 +552,12 @@ export class NotificationsAdminService {
   async preview(
     id: string,
     eventKey?: string,
-    draft?: { subjectHbs?: string; htmlHbs?: string; textHbs?: string | null },
+    draft?: {
+      subjectHbs?: string;
+      htmlHbs?: string;
+      bodyDoc?: Record<string, unknown>;
+      textHbs?: string | null;
+    },
   ) {
     const template = await this.getTemplate(id);
     const vars = await this.varsForTemplate(id, eventKey ?? template.name);
@@ -486,9 +567,15 @@ export class NotificationsAdminService {
       context[name] = spec.example;
     }
 
-    const htmlHbs = draft?.htmlHbs ?? template.htmlHbs;
+    const htmlHbs = this.bodyHtmlFrom({
+      bodyDoc: draft?.bodyDoc,
+      htmlHbs: draft?.htmlHbs,
+      fallback: template.htmlHbs,
+    });
     const usingDraft =
-      draft?.subjectHbs !== undefined || draft?.htmlHbs !== undefined;
+      draft?.subjectHbs !== undefined ||
+      draft?.htmlHbs !== undefined ||
+      draft?.bodyDoc !== undefined;
 
     if (usingDraft) {
       const rendered = this.renderer.renderDraft({
@@ -522,7 +609,12 @@ export class NotificationsAdminService {
    */
   async previewDraft(
     name: string,
-    draft: { subjectHbs: string; htmlHbs: string; textHbs?: string | null },
+    draft: {
+      subjectHbs: string;
+      htmlHbs?: string;
+      bodyDoc?: Record<string, unknown>;
+      textHbs?: string | null;
+    },
     eventKey?: string,
   ) {
     const vars = await this.varsForTemplate(null, eventKey ?? name);
@@ -531,13 +623,17 @@ export class NotificationsAdminService {
       context[varName] = spec.example;
     }
 
-    const rendered = this.renderer.renderDraft({ ...draft, context });
+    const htmlHbs = this.bodyHtmlFrom({
+      bodyDoc: draft.bodyDoc,
+      htmlHbs: draft.htmlHbs,
+    });
+    const rendered = this.renderer.renderDraft({ ...draft, htmlHbs, context });
     return {
       ...rendered,
       source: 'draft' as const,
       templateId: null,
       context,
-      derivedTextHbs: deriveTextHbs(draft.htmlHbs),
+      derivedTextHbs: deriveTextHbs(htmlHbs),
     };
   }
 

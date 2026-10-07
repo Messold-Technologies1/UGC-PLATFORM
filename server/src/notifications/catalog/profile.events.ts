@@ -1,10 +1,15 @@
-import { ApprovalStatus, NotificationRecipientRole } from '@prisma/client';
+import {
+  ApprovalStatus,
+  NotificationRecipientRole,
+  SocialConnectionStatus,
+} from '@prisma/client';
 import {
   resolveBrandMailAddress,
   resolveBrandMailDisplayName,
 } from '../../mail/brand-mail.recipient';
 import { isProfileFirstOnboardingMode } from '../../config/creator-onboarding-mode';
 import {
+  ALWAYS_RELEVANT,
   defineEvents,
   type EventContext,
   type ResolvedRecipient,
@@ -70,6 +75,8 @@ export const profileEvents = defineEvents({
         actionUrl: `${ctx.frontendBaseUrl}/creator/account`,
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'creator-profile-rejected': {
@@ -105,6 +112,8 @@ export const profileEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'creator-profile-completion-reminder': {
@@ -202,6 +211,17 @@ export const profileEvents = defineEvents({
         actionUrl: creatorSettingsUrl(ctx),
       });
     },
+    // Stops once the creator reconnects — the connection goes back to ACTIVE.
+    stillRelevant: async (ctx, id) => {
+      const connection = await ctx.prisma.socialConnection.findFirst({
+        where: {
+          creatorProfileId: id,
+          status: { not: SocialConnectionStatus.ACTIVE },
+        },
+        select: { id: true },
+      });
+      return Boolean(connection);
+    },
   },
 
   'brand-welcome': {
@@ -251,6 +271,8 @@ export const profileEvents = defineEvents({
         },
       };
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 });
 

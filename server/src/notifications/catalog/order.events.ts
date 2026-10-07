@@ -1,5 +1,5 @@
 import { NotificationRecipientRole, OrderStatus } from '@prisma/client';
-import { defineEvents } from './define-events';
+import { ALWAYS_RELEVANT, defineEvents } from './define-events';
 import {
   brandDisplayName,
   brandOrderUrl,
@@ -106,6 +106,14 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // The ship-the-product prompt stops once the product is on its way.
+    stillRelevant: async (ctx, id) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      return order?.status === OrderStatus.BRIEF_ACCEPTED;
+    },
   },
 
   'order-brief-rejected-for-brand': {
@@ -129,6 +137,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-brief-rejected-for-creator': {
@@ -153,6 +163,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   // ---- shipping ----
@@ -182,6 +194,14 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // Stops once the creator confirms the parcel arrived.
+    stillRelevant: async (ctx, id) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      return order?.status === OrderStatus.PRODUCT_SHIPPED;
+    },
   },
 
   'order-product-received-for-brand': {
@@ -202,6 +222,8 @@ export const orderEvents = defineEvents({
         actionUrl: brandOrderUrl(ctx, order),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   // ---- revisions ----
@@ -240,6 +262,14 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // Stops once the creator submits the revision that was asked for.
+    stillRelevant: async (ctx, id) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      return order?.status === OrderStatus.REVISION_REQUESTED;
+    },
   },
 
   'order-extra-revisions-purchased-for-creator': {
@@ -268,6 +298,8 @@ export const orderEvents = defineEvents({
         actionUrl: creatorOrderListUrl(ctx, order.id, 'revisions'),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-extra-revisions-purchased-for-brand': {
@@ -296,6 +328,8 @@ export const orderEvents = defineEvents({
         actionUrl: brandOrderUrl(ctx, order),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   // ---- usage rights ----
@@ -329,6 +363,8 @@ export const orderEvents = defineEvents({
         actionUrl: brandOrderUrl(ctx, order),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-extra-usage-rights-purchased-for-creator': {
@@ -359,6 +395,8 @@ export const orderEvents = defineEvents({
         actionUrl: creatorOrderListUrl(ctx, order.id, 'completed'),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   // ---- delivery and completion ----
@@ -397,6 +435,18 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A delayed copy is the nudge to review it, so it stops once the brand
+    // has — by accepting, by asking for a revision, or by disputing.
+    stillRelevant: async (ctx, id) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      return (
+        order?.status === OrderStatus.DELIVERED ||
+        order?.status === OrderStatus.REVISION_SUBMITTED
+      );
+    },
   },
 
   'order-content-accepted-for-creator': {
@@ -413,6 +463,8 @@ export const orderEvents = defineEvents({
         actionUrl: creatorOrderUrl(ctx, order.id),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-completed-for-brand': {
@@ -429,6 +481,8 @@ export const orderEvents = defineEvents({
         actionUrl: brandOrderUrl(ctx, order),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   // ---- rejection, cancellation, refund ----
@@ -456,6 +510,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-rejected-for-creator': {
@@ -480,6 +536,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-cancelled-for-brand': {
@@ -505,6 +563,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-cancelled-for-creator': {
@@ -529,6 +589,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-cancelled-by-support-for-brand': {
@@ -554,6 +616,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-cancelled-by-support-for-creator': {
@@ -576,6 +640,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-refunded-for-brand': {
@@ -597,6 +663,8 @@ export const orderEvents = defineEvents({
         actionUrl: brandOrderUrl(ctx, order),
       });
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   // ---- disputes ----
@@ -632,6 +700,14 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // Stops the moment the dispute is resolved either way.
+    stillRelevant: async (ctx, id) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      return order?.status === OrderStatus.DISPUTED;
+    },
   },
 
   'order-dispute-opened-for-creator': {
@@ -663,6 +739,14 @@ export const orderEvents = defineEvents({
           actionUrl: creatorOrderUrl(ctx, order.id),
         }),
       );
+    },
+    // Stops the moment the dispute is resolved either way.
+    stillRelevant: async (ctx, id) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      return order?.status === OrderStatus.DISPUTED;
     },
   },
 
@@ -701,6 +785,8 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 
   'order-dispute-resolved-for-creator': {
@@ -737,5 +823,7 @@ export const orderEvents = defineEvents({
         }),
       );
     },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
   },
 });

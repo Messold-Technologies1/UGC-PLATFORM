@@ -45,7 +45,6 @@ export const orderSelect = {
       contactPhone: true,
       contactFullName: true,
       userId: true,
-      agency: { select: { ownerUserId: true } },
     },
   },
   // An order has exactly one buyer: a standalone brand or an agency. Both
@@ -69,7 +68,7 @@ export const orderSelect = {
       user: { select: { id: true, email: true, name: true, phone: true } },
     },
   },
-} as const;
+} as const satisfies Prisma.OrderSelect;
 
 export type OrderRow = Prisma.OrderGetPayload<{ select: typeof orderSelect }>;
 
@@ -133,9 +132,10 @@ export function toCreator(
 /**
  * Addresses the buyer side of an order.
  *
- * An agency order goes to the agency owner, gated on the agency. Otherwise the
- * account is resolved through BrandAccessService, because an agency-managed
- * brand's mail goes to the agency owner too.
+ * An agency order goes to the agency owner, gated on the agency. A brand order
+ * goes through BrandAccessService rather than reading `brand.userId` directly,
+ * so the two notifiers and this catalog always agree on who the brand's account
+ * is — and it stays right if that rule ever grows past a single column.
  */
 export async function toBrand(
   ctx: EventContext,

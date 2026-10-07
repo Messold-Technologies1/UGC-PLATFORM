@@ -36,7 +36,6 @@ const brand = {
   contactPhone: '+919000000002',
   contactFullName: 'Rohit S',
   userId: 'brand-user-1',
-  agency: null,
 };
 
 const agency = {

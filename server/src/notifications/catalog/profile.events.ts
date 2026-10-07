@@ -1,6 +1,7 @@
 import {
   ApprovalStatus,
   NotificationRecipientRole,
+  type Prisma,
   SocialConnectionStatus,
 } from '@prisma/client';
 import {
@@ -23,7 +24,7 @@ const creatorProfileSelect = {
   displayName: true,
   contactEmail: true,
   user: { select: { id: true, email: true, name: true, phone: true } },
-} as const;
+} as const satisfies Prisma.CreatorProfileSelect;
 
 async function loadCreator(ctx: EventContext, id: string) {
   return ctx.prisma.creatorProfile.findUnique({

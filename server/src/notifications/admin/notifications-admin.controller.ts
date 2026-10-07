@@ -20,9 +20,9 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { NotificationChannel } from '@prisma/client';
 import { AdminGuard } from '../../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { ListNotificationLogsQueryDto } from './dto/list-notification-logs-query.dto';
 import { NotificationsAdminService } from './notifications-admin.service';
 import {
   BackfillDto,
@@ -225,21 +225,7 @@ export class NotificationsAdminController {
     description:
       'Every send and every deliberate skip, so "did they get it, and if not why" is answerable here.',
   })
-  listLogs(
-    @Query('eventKey') eventKey?: string,
-    @Query('recipientUserId') recipientUserId?: string,
-    @Query('status') status?: string,
-    @Query('channel') channel?: NotificationChannel,
-    @Query('take') take?: string,
-    @Query('cursor') cursor?: string,
-  ) {
-    return this.service.listLogs({
-      eventKey,
-      recipientUserId,
-      status,
-      channel,
-      take: take ? Number(take) : undefined,
-      cursor,
-    });
+  listLogs(@Query() query: ListNotificationLogsQueryDto) {
+    return this.service.listLogs(query);
   }
 }

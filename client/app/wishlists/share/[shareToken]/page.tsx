@@ -20,10 +20,7 @@ import {
   buyerWorkspaceBaseForUser,
   remapBuyerHref,
 } from "@/features/auth/lib/buyer-workspace-path";
-import {
-  resolveClientActiveBrandId,
-  userCanUseBrandWorkspace,
-} from "@/features/brands/lib/active-brand";
+import { userCanUseBrandWorkspace } from "@/features/auth/lib/workspace-defaulting";
 import { ImportSharedWishlistDialog } from "@/features/wishlists/components/import-shared-wishlist-dialog";
 import type { PublicWishlistResponse, WishlistCreator } from "@/features/wishlists/api/types";
 import "@/features/creators/components/browse-creators/browse-creators.css";
@@ -316,7 +313,6 @@ export default function PublicWishlistPage({
 
   const { data: meUser } = usePublicAuthUser();
   const canUseBrand = meUser ? userCanUseBrandWorkspace(meUser) : false;
-  const activeBrandId = meUser ? resolveClientActiveBrandId(meUser) : null;
   const workspaceBase = buyerWorkspaceBaseForUser(pathname, meUser);
 
   const [importOpen, setImportOpen] = useState(false);
@@ -375,8 +371,8 @@ export default function PublicWishlistPage({
 
   const isOwnWishlist = !!(
     (data?.brandId &&
-      activeBrandId &&
-      data.brandId === activeBrandId) ||
+      meUser?.brandProfileId &&
+      data.brandId === meUser.brandProfileId) ||
     (data?.agencyId &&
       meUser?.agencyProfileId &&
       data.agencyId === meUser.agencyProfileId)

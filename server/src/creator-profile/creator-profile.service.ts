@@ -698,11 +698,13 @@ export class CreatorProfileService {
       return counts;
     }
 
-    // Match the creator orders inbox: unpaid checkout drafts are hidden from
-    // the creator, so they must not inflate Total Orders either.
+    // Match the creator orders inbox: unpaid checkout drafts are hidden, and
+    // paid orders without a submitted brief are hidden until the brand briefs
+    // them — so Total Orders must use the same visibility rules.
     const visibleOrderWhere = {
       creatorId: { in: uniqueIds },
       status: { not: OrderStatus.PENDING_PAYMENT },
+      briefSubmittedAt: { not: null },
     } as const;
 
     const [totalRows, completedRows] = await this.prisma.$transaction([

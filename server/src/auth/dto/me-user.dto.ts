@@ -62,28 +62,9 @@ export class MeUserDto {
 
   @ApiPropertyOptional({
     nullable: true,
-    description: 'Last active brand for agency owners (server-validated).',
+    description: 'Standalone brand profile id when the user owns one.',
   })
-  activeBrandProfileId!: string | null;
-
-  @ApiProperty({
-    description:
-      'Brands the user can act as (standalone brand profile and/or agency-managed brands).',
-    type: 'array',
-    items: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        brandName: { type: 'string', nullable: true },
-        logoUrl: { type: 'string', nullable: true },
-      },
-    },
-  })
-  accessibleBrands!: Array<{
-    id: string;
-    brandName: string | null;
-    logoUrl: string | null;
-  }>;
+  brandProfileId!: string | null;
 
   @ApiProperty({
     description:

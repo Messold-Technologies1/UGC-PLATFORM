@@ -118,15 +118,14 @@ export function RoleChoiceView() {
       // moment to report it. A Google brand has no profile yet; that screen
       // reports the conversion instead. Creators are not tracked at signup:
       // their conversion is CreatorProfileListed, sent server-side on listing.
-      const brand = updated.accessibleBrands[0];
+      const brandProfileId = updated.brandProfileId;
       const tracked =
-        role === "BRAND" && updated.hasBrandProfile && brand
+        role === "BRAND" && updated.hasBrandProfile && brandProfileId
           ? trackBrandRegistration({
-              brandProfileId: brand.id,
+              brandProfileId,
               email: updated.email,
               name: updated.name,
               phone: updated.phone,
-              brandName: brand.brandName,
             })
           : false;
       // Creator → straight into Edit Profile to fill in the rest (name, phone,

@@ -5,6 +5,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
 import { BrandProfileUpdateForm } from "@/features/brands/components/brand-profile-update-form.lazy";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
+import { NotificationPreferencesCard } from "@/features/notification-preferences/components/notification-preferences-card";
 
 export default function BrandSettingsProfilePage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -63,13 +64,19 @@ export default function BrandSettingsProfilePage() {
   const initialProfile = hasExistingProfile ? profileState.profile : null;
 
   return (
-    <div className="pt-4 lg:pt-5">
+    // pb-28 clears the profile form's fixed save bar, which would otherwise
+    // sit on top of the last card while the form is dirty.
+    <div className="space-y-6 pb-28 pt-4 lg:pt-5">
       <BrandProfileUpdateForm
         variant="settings"
         mode="update"
         initialProfile={initialProfile}
         onSuccess={() => {}}
       />
+      {/* Matches .pe-shell so the card lines up with the form above it. */}
+      <div className="mx-auto w-full max-w-[1180px] px-4">
+        <NotificationPreferencesCard enabled={hasExistingProfile} />
+      </div>
     </div>
   );
 }

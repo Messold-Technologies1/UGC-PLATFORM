@@ -6,6 +6,7 @@ import { UserCircle, Bell, CreditCard } from "lucide-react";
 export const metadata: Metadata = { title: "Settings" };
 
 const PROFILE_SETTINGS_HREF = "/creator/settings/profile" as const;
+const NOTIFICATION_SETTINGS_HREF = "/creator/settings/notifications" as const;
 
 const sections = [
   {
@@ -18,7 +19,8 @@ const sections = [
   {
     icon: Bell,
     title: "Notifications",
-    description: "Choose how you receive campaign invites and payment alerts.",
+    description: "Choose whether order updates reach you by email or WhatsApp.",
+    href: NOTIFICATION_SETTINGS_HREF,
   },
   {
     icon: CreditCard,

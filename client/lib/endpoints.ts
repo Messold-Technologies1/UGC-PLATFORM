@@ -55,6 +55,9 @@ export const ENDPOINTS = {
     PROFILE_ME: "/api/agency/profile/me",
     PROFILE_LOGO_PRESIGN: "/api/agency/profile/uploads/presign",
   },
+  NOTIFICATION_PREFERENCES: {
+    ME: "/api/notification-preferences/me",
+  },
   BRIEFS: {
     LIST: "/api/briefs",
     FIELD_OPTIONS: "/api/briefs/field-options",

@@ -35,6 +35,7 @@ import { LoggingModule } from './logging/logging.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
 import { NotificationsModule } from './notifications/notifications.module';
+import { NotificationPreferencesModule } from './notification-preferences/notification-preferences.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     CreatorDemoVideosModule,
     BrandProfileModule,
     AgencyModule,
+    NotificationPreferencesModule,
     OrdersModule,
     CouponsModule,
     WalletModule,

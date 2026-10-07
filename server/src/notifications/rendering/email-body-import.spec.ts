@@ -24,6 +24,10 @@ const words = (html: string): string =>
   html
     .replace(/\{\{!--[\s\S]*?--\}\}/g, ' ')
     .replace(/\{\{>\s*actionButton[^}]*label="([^"]*)"[^}]*\}\}/gi, ' $1 ')
+    // Conditional wrappers are dropped from both sides: an if/else arrives back
+    // as an if plus an unless, which says the same thing in a different shape.
+    // That the shape is right is asserted on its own below.
+    .replace(/\{\{[#/]\s*(?:if|unless)[^}]*\}\}|\{\{\s*else\s*\}\}/g, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
@@ -97,7 +101,7 @@ describe('importEmailBodyHtml', () => {
       expect(supported.length + declined.length).toBe(files.length);
       // Enough of the corpus to be useful, or this feature is not earning its
       // keep; the rest are the conditional and table bodies.
-      expect(supported.length).toBeGreaterThanOrEqual(13);
+      expect(supported.length).toBeGreaterThanOrEqual(25);
     });
 
     it.each(supported)(
@@ -114,15 +118,77 @@ describe('importEmailBodyHtml', () => {
       (file) => {
         const { supported: ok, reason } = emailBodyImportSupport(read(file));
         expect(ok).toBe(false);
-        expect(reason).toMatch(/conditional|data table/);
+        expect(reason).toMatch(/conditional|data table|helper|\{\{#/);
       },
     );
   });
 
+  describe('conditionals', () => {
+    it('keeps a block conditional as a block', () => {
+      const doc = importEmailBodyHtml(
+        '{{#if actionUrl}}<p style="font-size:16px;">Go</p>{{/if}}',
+      );
+      expect(doc.content?.[0]).toMatchObject({
+        type: 'conditional',
+        attrs: { variable: 'actionUrl', negated: false },
+      });
+      expect(renderEmailBodyDoc(doc)).toContain('{{#if actionUrl}}');
+      expect(renderEmailBodyDoc(doc)).toContain('{{/if}}');
+    });
+
+    it('splits if/else into an if and an unless on the same variable', () => {
+      // Two independent blocks the admin can edit or delete separately, rather
+      // than a hidden second arm inside one block's UI.
+      const doc = importEmailBodyHtml(
+        '{{#if a}}<p style="font-size:16px;">Yes</p>{{else}}<p style="font-size:16px;">No</p>{{/if}}',
+      );
+      expect(doc.content).toMatchObject([
+        { type: 'conditional', attrs: { variable: 'a', negated: false } },
+        { type: 'conditional', attrs: { variable: 'a', negated: true } },
+      ]);
+
+      const html = renderEmailBodyDoc(doc);
+      expect(html).toContain('{{#if a}}');
+      expect(html).toContain('{{#unless a}}');
+      expect(html).toContain('Yes');
+      expect(html).toContain('No');
+    });
+
+    it('nests a conditional inside a conditional', () => {
+      const doc = importEmailBodyHtml(
+        '{{#if a}}{{#if b}}<p style="font-size:16px;">Deep</p>{{/if}}{{/if}}',
+      );
+      const outer = doc.content?.[0] as { content?: Array<{ type: string }> };
+      expect(outer.content?.[0]?.type).toBe('conditional');
+      expect(renderEmailBodyDoc(doc)).toContain('Deep');
+    });
+  });
+
   describe('emailBodyImportSupport', () => {
-    it('declines a body with a conditional', () => {
+    it('declines a conditional that cuts through a sentence', () => {
+      // Splitting here would leave half a paragraph on each side.
       expect(
-        emailBodyImportSupport('{{#if actionUrl}}<p>Hi</p>{{/if}}'),
+        emailBodyImportSupport('<p>Hello {{#if a}}there{{/if}}</p>'),
+      ).toMatchObject({ supported: false });
+    });
+
+    it('accepts a conditional that wraps whole blocks', () => {
+      expect(
+        emailBodyImportSupport('{{#if a}}<p>Hi</p>{{/if}}').supported,
+      ).toBe(true);
+    });
+
+    it('declines a button whose label is built by a helper', () => {
+      expect(
+        emailBodyImportSupport(
+          '<p>Hi</p>{{> actionButton url=actionUrl label=(concat "Go " name)}}',
+        ),
+      ).toMatchObject({ supported: false });
+    });
+
+    it('declines a helper that is not if or unless', () => {
+      expect(
+        emailBodyImportSupport('{{#each items}}<p>x</p>{{/each}}'),
       ).toMatchObject({ supported: false });
     });
 

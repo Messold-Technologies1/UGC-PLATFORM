@@ -12,12 +12,14 @@ import {
   TemplateBodyEditor,
   type TextMode,
 } from "@/features/notifications/components/template-body-editor";
+import { EmailVisualEditor } from "@/features/notifications/components/email-visual-editor";
 import { TemplatePreviewPane } from "@/features/notifications/components/template-preview-pane";
 import {
   useDraftPreviewMutation,
   useSaveTemplateMutation,
 } from "@/features/notifications/hooks/use-notifications";
 import type {
+  EmailBodyDoc,
   TemplateIssue,
   TemplatePreview,
 } from "@/features/notifications/types";
@@ -44,6 +46,13 @@ export default function NewNotificationTemplatePage() {
   const [description, setDescription] = useState("");
   const [subject, setSubject] = useState("");
   const [html, setHtml] = useState("");
+  // New templates start in the visual editor — writing raw email HTML by hand
+  // is exactly what it exists to replace. HTML stays one click away.
+  const [mode, setMode] = useState<"visual" | "html">("visual");
+  const [bodyDoc, setBodyDoc] = useState<EmailBodyDoc>({
+    type: "doc",
+    content: [{ type: "paragraph" }],
+  });
   const [text, setText] = useState("");
   const [textMode, setTextMode] = useState<TextMode>("auto");
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
@@ -51,15 +60,21 @@ export default function NewNotificationTemplatePage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const derivedText = rendered?.derivedTextHbs ?? null;
-  const htmlMissing = html.trim().length === 0;
+  const usingDoc = mode === "visual";
+  // An untouched document is a single empty paragraph, which is not a body.
+  const docHasContent = (bodyDoc.content ?? []).some(
+    (node) => JSON.stringify(node) !== JSON.stringify({ type: "paragraph" }),
+  );
+  const bodyMissing = usingDoc ? !docHasContent : html.trim().length === 0;
   const canSave =
-    name.trim().length >= 3 && subject.trim().length > 0 && !htmlMissing;
+    name.trim().length >= 3 && subject.trim().length > 0 && !bodyMissing;
 
   const previewKey = useDebouncedValue(
     JSON.stringify({
       name,
       subject,
-      html,
+      html: usingDoc ? null : html,
+      bodyDoc: usingDoc ? bodyDoc : null,
       textHbs: textMode === "manual" ? text : null,
     }),
     400,
@@ -69,17 +84,24 @@ export default function NewNotificationTemplatePage() {
     const draft = JSON.parse(previewKey) as {
       name: string;
       subject: string;
-      html: string;
+      html: string | null;
+      bodyDoc: EmailBodyDoc | null;
       textHbs: string | null;
     };
-    // Nothing to render yet, and the endpoint requires both.
-    if (!draft.name.trim() || !draft.html.trim()) return;
+    // Nothing to render yet: the endpoint resolves variables from the name and
+    // needs a body of one kind or the other.
+    const hasBody = draft.bodyDoc
+      ? (draft.bodyDoc.content ?? []).length > 0
+      : Boolean(draft.html?.trim());
+    if (!draft.name.trim() || !hasBody) return;
 
     preview.mutate(
       {
         name: draft.name,
         subjectHbs: draft.subject,
-        htmlHbs: draft.html,
+        ...(draft.bodyDoc
+          ? { bodyDoc: draft.bodyDoc }
+          : { htmlHbs: draft.html ?? "" }),
         textHbs: draft.textHbs,
       },
       {
@@ -105,7 +127,7 @@ export default function NewNotificationTemplatePage() {
         name: name.trim(),
         description: description.trim() || null,
         subjectHbs: subject,
-        htmlHbs: html,
+        ...(usingDoc ? { bodyDoc } : { htmlHbs: html }),
         textHbs: text.trim() ? text : null,
       },
       {
@@ -193,26 +215,81 @@ export default function NewNotificationTemplatePage() {
           </div>
         </aside>
 
-        <div className="order-1 xl:order-2">
-          <TemplateBodyEditor
-            subject={subject}
-            onSubjectChange={setSubject}
-            html={html}
-            onHtmlChange={setHtml}
-            text={text}
-            onTextChange={(value) => {
-              setTextMode("manual");
-              setText(value);
-            }}
-            textMode={textMode}
-            onRegenerateText={() => setTextMode("auto")}
-            derivedText={derivedText}
-            htmlRequired
-          />
+        <div className="order-1 space-y-3 xl:order-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="bg-muted inline-flex rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setMode("visual")}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  mode === "visual"
+                    ? "bg-background font-medium shadow-sm"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Visual
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("html")}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  mode === "html"
+                    ? "bg-background font-medium shadow-sm"
+                    : "text-muted-foreground"
+                }`}
+              >
+                HTML
+              </button>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {mode === "visual"
+                ? "Colours and spacing are fixed — the server styles each block when it renders the email."
+                : "Raw Handlebars. The body is wrapped in the email shell on send."}
+            </p>
+          </div>
+
+          {mode === "visual" ? (
+            <div className="space-y-1.5">
+              <label
+                className="text-sm font-medium"
+                htmlFor="tpl-subject-visual"
+              >
+                Subject
+              </label>
+              <Input
+                id="tpl-subject-visual"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="font-mono text-sm"
+                placeholder="Welcome to {{platformName}}"
+              />
+              <EmailVisualEditor
+                doc={bodyDoc}
+                onChange={setBodyDoc}
+                variables={Object.keys(rendered?.context ?? {})}
+              />
+            </div>
+          ) : (
+            <TemplateBodyEditor
+              subject={subject}
+              onSubjectChange={setSubject}
+              html={html}
+              onHtmlChange={setHtml}
+              text={text}
+              onTextChange={(value) => {
+                setTextMode("manual");
+                setText(value);
+              }}
+              textMode={textMode}
+              onRegenerateText={() => setTextMode("auto")}
+              derivedText={derivedText}
+              htmlRequired
+            />
+          )}
         </div>
 
         <div className="order-3 xl:sticky xl:top-6 xl:h-[calc(100vh-6rem)]">
-          {name.trim() && !htmlMissing ? (
+          {name.trim() && !bodyMissing ? (
             <TemplatePreviewPane
               preview={rendered}
               isPending={preview.isPending}
@@ -220,7 +297,7 @@ export default function NewNotificationTemplatePage() {
             />
           ) : (
             <div className="text-muted-foreground flex h-full items-center justify-center rounded-md border border-dashed p-8 text-center text-sm">
-              Add a name and the HTML body to see the preview.
+              Add a name and some body content to see the preview.
             </div>
           )}
         </div>

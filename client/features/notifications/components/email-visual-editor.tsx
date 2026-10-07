@@ -6,6 +6,8 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import {
   Bold,
+  Code,
+  GitBranch,
   Heading1,
   Heading2,
   Italic,
@@ -15,16 +17,20 @@ import {
   MousePointerClick,
   Redo,
   SquareDashed,
+  Trash2,
   Undo,
   Unlink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EmailBodyDoc } from "../types";
 import {
+  BUTTON_TONES,
   CALLOUT_TONES,
   Callout,
+  Conditional,
   CtaButton,
   Variable,
+  type ButtonTone,
 } from "./email-editor-nodes";
 
 /**
@@ -38,11 +44,19 @@ import {
 export function EmailVisualEditor({
   doc,
   onChange,
+  onReady,
   variables,
   disabled,
 }: {
   doc: EmailBodyDoc | null;
   onChange: (doc: EmailBodyDoc) => void;
+  /**
+   * The document as the editor actually holds it, once. Parsing fills in
+   * defaults a stored document may not carry, so this is what "unchanged"
+   * has to be measured against — comparing against the stored JSON reports
+   * every template as edited the moment it opens.
+   */
+  onReady?: (doc: EmailBodyDoc) => void;
   /** Declared variables for this event, offered as insertable chips. */
   variables: string[];
   disabled?: boolean;
@@ -53,11 +67,19 @@ export function EmailVisualEditor({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  const onReadyRef = useRef(onReady);
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
 
   const editor = useEditor({
     // Next renders this on the server first otherwise, and TipTap warns that
     // the two trees will not match.
     immediatelyRender: false,
+    // v3 stops re-rendering on every transaction by default, which leaves the
+    // toolbar and the block panels reading a stale selection — they would light
+    // up only when something else happened to re-render the component.
+    shouldRerenderOnTransaction: true,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2] },
@@ -69,11 +91,15 @@ export function EmailVisualEditor({
       }),
       Link.configure({ openOnClick: false, autolink: false }),
       Callout,
+      Conditional,
       CtaButton,
       Variable,
     ],
     content: doc ?? { type: "doc", content: [{ type: "paragraph" }] },
     editable: !disabled,
+    onCreate: ({ editor }) => {
+      onReadyRef.current?.(editor.getJSON() as EmailBodyDoc);
+    },
     onUpdate: ({ editor }) => {
       onChangeRef.current(editor.getJSON() as EmailBodyDoc);
     },
@@ -100,16 +126,31 @@ export function EmailVisualEditor({
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
+  // Inserted with sensible defaults; the label, link and colour are then edited
+  // in the panel below, which beats answering two prompts before you see it.
   const addButton = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt(
-      "Button link — usually {{actionUrl}}",
-      "{{actionUrl}}",
-    );
-    if (!url) return;
-    const label = window.prompt("Button label", "Open") ?? "Open";
-    editor.chain().focus().setCtaButton({ url, label }).run();
+    editor
+      .chain()
+      .focus()
+      .setCtaButton({ url: "{{actionUrl}}", label: "Open", tone: "brand" })
+      .run();
   }, [editor]);
+
+  const addConditional = useCallback(() => {
+    if (!editor) return;
+    const variable = window.prompt(
+      "Only show this when which variable has a value?",
+      "actionUrl",
+    );
+    if (!variable?.trim()) return;
+    editor.chain().focus().setConditional(variable.trim()).run();
+  }, [editor]);
+
+  const buttonAttrs = editor?.getAttributes("button") as
+    | { url?: string; label?: string; tone?: ButtonTone }
+    | undefined;
+  const buttonSelected = Boolean(editor?.isActive("button"));
 
   if (!editor) {
     return (
@@ -138,6 +179,13 @@ export function EmailVisualEditor({
           label="Italic"
         >
           <Italic className="size-4" />
+        </Tool>
+        <Tool
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          active={editor.isActive("code")}
+          label="Monospace — for order ids and codes"
+        >
+          <Code className="size-4" />
         </Tool>
 
         <Divider />
@@ -203,6 +251,13 @@ export function EmailVisualEditor({
         <Tool onClick={addButton} label="Call-to-action button">
           <MousePointerClick className="size-4" />
         </Tool>
+        <Tool
+          onClick={addConditional}
+          active={editor.isActive("conditional")}
+          label="Only show when a variable is set"
+        >
+          <GitBranch className="size-4" />
+        </Tool>
 
         <div className="flex-1" />
 
@@ -246,6 +301,122 @@ export function EmailVisualEditor({
               {tone.label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().unsetCallout().run()}
+            className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors hover:bg-muted"
+          >
+            <Trash2 className="size-3.5" />
+            Remove box
+          </button>
+        </div>
+      ) : null}
+
+      {editor.isActive("conditional") ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-violet-50/60 px-3 py-2">
+          <span className="text-xs text-violet-900">Only show when</span>
+          <input
+            value={
+              (editor.getAttributes("conditional").variable as string) ?? ""
+            }
+            onChange={(e) =>
+              editor
+                .chain()
+                .focus()
+                .updateAttributes("conditional", { variable: e.target.value })
+                .run()
+            }
+            placeholder="actionUrl"
+            className="w-44 rounded-md border border-violet-200 bg-white px-2 py-1 font-mono text-xs"
+          />
+          <button
+            type="button"
+            onClick={() =>
+              editor
+                .chain()
+                .focus()
+                .updateAttributes("conditional", {
+                  negated: !editor.getAttributes("conditional").negated,
+                })
+                .run()
+            }
+            className="rounded-md bg-white px-2 py-1 text-xs text-violet-900 ring-1 ring-violet-200 transition-colors hover:bg-violet-100"
+          >
+            {editor.getAttributes("conditional").negated
+              ? "is empty"
+              : "has a value"}
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().unsetConditional().run()}
+            className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors hover:bg-white"
+          >
+            <Trash2 className="size-3.5" />
+            Always show
+          </button>
+        </div>
+      ) : null}
+
+      {buttonSelected ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/20 px-3 py-2">
+          <span className="text-xs text-muted-foreground">Button</span>
+          <input
+            value={buttonAttrs?.label ?? ""}
+            onChange={(e) =>
+              editor
+                .chain()
+                .focus()
+                .updateAttributes("button", { label: e.target.value })
+                .run()
+            }
+            placeholder="Label"
+            aria-label="Button label"
+            className="border-input w-52 rounded-md border bg-background px-2 py-1 text-xs"
+          />
+          <input
+            value={buttonAttrs?.url ?? ""}
+            onChange={(e) =>
+              editor
+                .chain()
+                .focus()
+                .updateAttributes("button", { url: e.target.value })
+                .run()
+            }
+            placeholder="{{actionUrl}}"
+            aria-label="Button link"
+            className="border-input w-52 rounded-md border bg-background px-2 py-1 font-mono text-xs"
+          />
+          <span className="text-xs text-muted-foreground">Colour</span>
+          {BUTTON_TONES.map((tone) => (
+            <button
+              key={tone.value}
+              type="button"
+              title={tone.label}
+              aria-label={`${tone.label} button`}
+              onClick={() =>
+                editor
+                  .chain()
+                  .focus()
+                  .updateAttributes("button", { tone: tone.value })
+                  .run()
+              }
+              style={{ backgroundColor: tone.swatch }}
+              className={cn(
+                "size-5 rounded-full border-2 transition-transform",
+                buttonAttrs?.tone === tone.value
+                  ? "border-foreground scale-110"
+                  : "border-transparent",
+              )}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteSelection().run()}
+            className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors hover:bg-muted"
+          >
+            <Trash2 className="size-3.5" />
+            Remove
+          </button>
         </div>
       ) : null}
 

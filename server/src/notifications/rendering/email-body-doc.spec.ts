@@ -85,11 +85,13 @@ describe('renderEmailBodyDoc', () => {
   });
 
   describe('links', () => {
-    it('keeps http, mailto and variable hrefs', () => {
+    it('keeps http, mailto and variable hrefs, including composed ones', () => {
       for (const href of [
         'https://x.example',
         'mailto:a@b.co',
         '{{actionUrl}}',
+        // Built at send time from a server-generated base.
+        '{{frontendUrl}}/contact',
       ]) {
         const html = renderEmailBodyDoc({
           type: 'doc',

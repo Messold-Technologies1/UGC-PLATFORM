@@ -19,6 +19,24 @@ export const EMAIL_PALETTE = {
   link: '#e11d48',
 } as const;
 
+/**
+ * Colours a CTA can take. A fixed set rather than a picker: every one of these
+ * is contrast-checked against white label text and matches the shell, which a
+ * free hex field cannot promise.
+ */
+export const BUTTON_TONES = {
+  brand: '#ff5da2',
+  ink: '#181313',
+  success: '#16a34a',
+  info: '#2563eb',
+  danger: '#dc2626',
+} as const;
+
+export type ButtonTone = keyof typeof BUTTON_TONES;
+
+export const isButtonTone = (v: unknown): v is ButtonTone =>
+  typeof v === 'string' && v in BUTTON_TONES;
+
 /** Background tints a callout can carry. Named by intent, not by colour. */
 export const CALLOUT_TONES = {
   neutral: '#fafafa',
@@ -53,6 +71,8 @@ export const BLOCK_STYLES = {
   list: `margin:0 0 16px;padding-left:20px;font-size:16px;line-height:1.6;color:${EMAIL_PALETTE.body};`,
   listItem: 'margin:0 0 6px;',
   link: `color:${EMAIL_PALETTE.link};text-decoration:underline;`,
+  /** Order ids and other reference codes, set apart from the prose. */
+  mono: 'font-family:monospace;font-size:14px;',
   calloutText: `margin:0;font-size:14px;line-height:1.55;color:${EMAIL_PALETTE.body};`,
   calloutHeading: `margin:0 0 8px;font-size:14px;line-height:1.55;color:${EMAIL_PALETTE.heading};font-weight:700;`,
 } as const;
@@ -64,13 +84,18 @@ export const calloutWrapperStyle = (tone: CalloutTone): string =>
  * The CTA, as a one-cell table. A styled <a> alone collapses to plain blue text
  * in Outlook, which is why the colour is repeated on both the cell and the link.
  */
-export const buttonHtml = (url: string, label: string): string =>
-  [
+export const buttonHtml = (
+  url: string,
+  label: string,
+  tone: ButtonTone = 'brand',
+): string => {
+  const bg = BUTTON_TONES[tone] ?? BUTTON_TONES.brand;
+  return [
     '<div style="margin:0 0 24px;">',
     '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0;">',
     '<tr>',
-    `<td align="left" bgcolor="${EMAIL_PALETTE.accent}" style="border-radius:999px;background-color:${EMAIL_PALETTE.accent};border:2px solid ${EMAIL_PALETTE.ink};">`,
-    `<a href="${url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:15px;font-weight:700;line-height:1.25;color:#ffffff;text-decoration:none;border-radius:999px;background-color:${EMAIL_PALETTE.accent};border:2px solid ${EMAIL_PALETTE.ink};">`,
+    `<td align="left" bgcolor="${bg}" style="border-radius:999px;background-color:${bg};border:2px solid ${EMAIL_PALETTE.ink};">`,
+    `<a href="${url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:15px;font-weight:700;line-height:1.25;color:#ffffff;text-decoration:none;border-radius:999px;background-color:${bg};border:2px solid ${EMAIL_PALETTE.ink};">`,
     label,
     '</a>',
     '</td>',
@@ -78,3 +103,4 @@ export const buttonHtml = (url: string, label: string): string =>
     '</table>',
     '</div>',
   ].join('');
+};

@@ -108,7 +108,8 @@ function parseInline(html: string): DocNode[] {
     }
   };
 
-  const re = /<(strong|b|em|i|a)\b([^>]*)>([\s\S]*?)<\/\1>|<br\s*\/?>/gi;
+  const re =
+    /<(strong|b|em|i|a|code|span)\b([^>]*)>([\s\S]*?)<\/\1>|<br\s*\/?>/gi;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -121,6 +122,13 @@ function parseInline(html: string): DocNode[] {
       continue;
     }
     const tag = match[1].toLowerCase();
+    // A plain <span> is only a wrapper unless it carries the monospace styling
+    // the templates use for order ids; otherwise its text passes through bare.
+    const mono = /font-family:\s*monospace/i.test(match[2]);
+    if (tag === 'span' && !mono) {
+      push(match[3].replace(/<[^>]+>/g, ''), undefined);
+      continue;
+    }
     const marks: DocNode['marks'] =
       tag === 'a'
         ? [
@@ -131,7 +139,9 @@ function parseInline(html: string): DocNode[] {
           ]
         : tag === 'em' || tag === 'i'
           ? [{ type: 'italic' }]
-          : [{ type: 'bold' }];
+          : tag === 'code' || tag === 'span'
+            ? [{ type: 'code' }]
+            : [{ type: 'bold' }];
     push(match[3].replace(/<[^>]+>/g, ''), marks);
   }
   push(html.slice(cursor).replace(/<[^>]+>/g, ''), undefined);
@@ -185,16 +195,69 @@ function buttonFrom(source: string): DocNode | null {
  * editor at all. Data tables have no editor block either. Those templates keep
  * the HTML editor, and the caller is told which it is so it can say why.
  */
+/**
+ * Whether every conditional wraps whole blocks rather than cutting through one.
+ *
+ * `<p>{{#if x}}A{{else}}B{{/if}}</p>` is a conditional on a few words, not on a
+ * block, and the editor has no inline equivalent. Splitting the body at it
+ * would leave half a paragraph on each side and silently lose the copy, so the
+ * import has to refuse rather than guess. Detected by whether each piece the
+ * split produces closes every tag it opens.
+ */
+function conditionalsWrapWholeBlocks(source: string): boolean {
+  const balanced = (fragment: string): boolean => {
+    const tags =
+      /<(\/?)(p|div|ul|ol|li|table|tr|td|h[1-6]|strong|em|a)\b[^>]*?(\/?)>/gi;
+    let depth = 0;
+    let m: RegExpExecArray | null;
+    while ((m = tags.exec(fragment))) {
+      if (m[3] === '/') continue; // self-closing
+      depth += m[1] === '/' ? -1 : 1;
+      if (depth < 0) return false;
+    }
+    return depth === 0;
+  };
+
+  const walk = (text: string): boolean => {
+    const found = nextConditional(text);
+    if (!found) return true;
+    if (!balanced(found.before) || !balanced(found.body)) return false;
+    return walk(found.body) && walk(found.after);
+  };
+  return walk(source);
+}
+
 export function emailBodyImportSupport(html: string): {
   supported: boolean;
   reason?: string;
 } {
   const source = html.replace(/\{\{!--[\s\S]*?--\}\}/g, '');
-  if (/\{\{#/.test(source)) {
+  // {{#if}} and {{#unless}} are blocks in the editor; anything else ({{#each}},
+  // a custom helper) has no equivalent and would be dropped silently.
+  const blocks = [...source.matchAll(/\{\{#\s*([a-zA-Z]+)/g)].map((m) => m[1]);
+  const unsupported = blocks.filter((h) => h !== 'if' && h !== 'unless');
+  if (unsupported.length) {
+    return {
+      supported: false,
+      reason: `This body uses {{#${unsupported[0]}}}, which the visual editor cannot represent.`,
+    };
+  }
+  // A computed label — label=(concat "Get listed on " platformName) — cannot be
+  // a literal string on a button node, and dropping it would lose the CTA.
+  const computedLabel =
+    /\{\{>\s*actionButton\b(?![^}]*label="[^"]*")[^}]*\}\}/i.exec(source);
+  if (computedLabel) {
     return {
       supported: false,
       reason:
-        'This body uses a conditional ({{#if}}), which the visual editor cannot represent.',
+        'This body builds its button label with a helper, which the visual editor cannot represent.',
+    };
+  }
+  if (!conditionalsWrapWholeBlocks(source)) {
+    return {
+      supported: false,
+      reason:
+        'This body puts a conditional inside a sentence, which the visual editor cannot represent.',
     };
   }
   // The CTA partial is a table once rendered, so discount it before looking.
@@ -212,9 +275,8 @@ export function emailBodyImportSupport(html: string): {
   return { supported: true };
 }
 
-export function importEmailBodyHtml(html: string): EmailBodyDoc {
-  // Handlebars comments carry authoring notes, not content.
-  const source = html.replace(/\{\{!--[\s\S]*?--\}\}/g, '').trim();
+/** The blocks in one run of markup, with no conditional wrappers left in it. */
+function parseBlocks(source: string): DocNode[] {
   const content: DocNode[] = [];
 
   for (const el of topLevelElements(source)) {
@@ -308,6 +370,91 @@ export function importEmailBodyHtml(html: string): EmailBodyDoc {
     if (loose) content.push(loose);
   }
 
+  return content;
+}
+
+/**
+ * Finds a top-level `{{#if x}} ... {{/if}}`, counting nested opens so an inner
+ * conditional does not end the outer one early.
+ */
+function nextConditional(source: string): {
+  before: string;
+  variable: string;
+  negated: boolean;
+  body: string;
+  after: string;
+} | null {
+  const open = /\{\{#\s*(if|unless)\s+([A-Za-z_][A-Za-z0-9_.]*)\s*\}\}/.exec(
+    source,
+  );
+  if (!open) return null;
+
+  const scan =
+    /\{\{#\s*(?:if|unless)\b[^}]*\}\}|\{\{\/\s*(?:if|unless)\s*\}\}/g;
+  scan.lastIndex = open.index + open[0].length;
+  let depth = 1;
+  let step: RegExpExecArray | null;
+  while ((step = scan.exec(source))) {
+    depth += step[0].startsWith('{{#') ? 1 : -1;
+    if (depth === 0) {
+      return {
+        before: source.slice(0, open.index),
+        variable: open[2],
+        negated: open[1] === 'unless',
+        body: source.slice(open.index + open[0].length, step.index),
+        after: source.slice(step.index + step[0].length),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Splits a body at its conditionals and keeps each one as a block.
+ *
+ * `{{else}}` becomes a second block on the same variable, negated — an `unless`
+ * says the same thing as the else arm and survives as an ordinary block the
+ * admin can edit or delete on its own, rather than a branch hidden inside
+ * another block's UI.
+ */
+function parseWithConditionals(source: string): DocNode[] {
+  const found = nextConditional(source);
+  if (!found) return parseBlocks(source);
+
+  const out = [...parseBlocks(found.before)];
+  const elseAt = /\{\{\s*else\s*\}\}/.exec(found.body);
+  const thenPart = elseAt ? found.body.slice(0, elseAt.index) : found.body;
+  const elsePart = elseAt
+    ? found.body.slice(elseAt.index + elseAt[0].length)
+    : null;
+
+  const thenBlocks = parseWithConditionals(thenPart);
+  if (thenBlocks.length) {
+    out.push({
+      type: 'conditional',
+      attrs: { variable: found.variable, negated: found.negated },
+      content: thenBlocks,
+    });
+  }
+  if (elsePart !== null) {
+    const elseBlocks = parseWithConditionals(elsePart);
+    if (elseBlocks.length) {
+      out.push({
+        type: 'conditional',
+        attrs: { variable: found.variable, negated: !found.negated },
+        content: elseBlocks,
+      });
+    }
+  }
+
+  out.push(...parseWithConditionals(found.after));
+  return out;
+}
+
+export function importEmailBodyHtml(html: string): EmailBodyDoc {
+  // Handlebars comments carry authoring notes, not content.
+  const source = html.replace(/\{\{!--[\s\S]*?--\}\}/g, '').trim();
+  const content = parseWithConditionals(source);
   return {
     type: 'doc',
     content: content.length ? content : [{ type: 'paragraph' }],

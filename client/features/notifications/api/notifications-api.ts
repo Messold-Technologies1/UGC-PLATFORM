@@ -150,7 +150,9 @@ export async function previewDraftTemplate(payload: {
   name: string;
   eventKey?: string;
   subjectHbs: string;
-  htmlHbs: string;
+  /** One of these: a document renders through the server's block styles. */
+  htmlHbs?: string;
+  bodyDoc?: EmailBodyDoc;
   textHbs?: string | null;
 }): Promise<TemplatePreview> {
   const { data } = await api.post<TemplatePreview>(

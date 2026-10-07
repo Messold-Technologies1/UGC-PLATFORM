@@ -2,7 +2,9 @@ import {
   BLOCK_STYLES,
   buttonHtml,
   calloutWrapperStyle,
+  isButtonTone,
   isCalloutTone,
+  type ButtonTone,
   type CalloutTone,
 } from './email-body-styles';
 
@@ -24,6 +26,7 @@ import {
 export type DocMark =
   | { type: 'bold' }
   | { type: 'italic' }
+  | { type: 'code' }
   | { type: 'link'; attrs?: { href?: string } };
 
 export type DocNode = {
@@ -74,8 +77,10 @@ export function escapeText(raw: string): string {
 function safeUrl(raw: unknown): string {
   const url = typeof raw === 'string' ? raw.trim() : '';
   if (!url) return '';
-  // A Handlebars expression is a server-generated URL at send time.
-  if (/^\{\{[^}]+\}\}$/.test(url)) return url;
+  // A URL that starts with a Handlebars expression is built at send time from
+  // server-generated values — `{{frontendUrl}}/contact` is the common shape.
+  // escapeText leaves the expression alone and escapes the path after it.
+  if (/^\{\{[^}]+\}\}/.test(url)) return escapeText(url);
   if (/^(https?:\/\/|mailto:|tel:)/i.test(url)) return escapeText(url);
   throw new EmailBodyDocError(
     `Links must be http(s), mailto, tel or a variable — got "${url}"`,
@@ -105,6 +110,9 @@ function applyMarks(html: string, marks: DocMark[] | undefined): string {
   for (const mark of marks ?? []) {
     if (mark.type === 'bold') out = `<strong>${out}</strong>`;
     else if (mark.type === 'italic') out = `<em>${out}</em>`;
+    // <code> is stripped of styling by most clients, so it goes out as a span.
+    else if (mark.type === 'code')
+      out = `<span style="${BLOCK_STYLES.mono}">${out}</span>`;
     else if (mark.type === 'link') {
       const href = safeUrl(mark.attrs?.href);
       if (href) {
@@ -231,7 +239,29 @@ function renderBlock(node: DocNode): string {
           'The button needs a link before it can be saved',
         );
       }
-      return buttonHtml(href, label);
+      const tone: ButtonTone = isButtonTone(node.attrs?.tone)
+        ? node.attrs.tone
+        : 'brand';
+      return buttonHtml(href, label, tone);
+    }
+    case 'conditional': {
+      // Everything inside is skipped at send time unless the variable has a
+      // value — which is how a template offers an action link only when there
+      // is one to offer, rather than rendering a button that goes nowhere.
+      const variable =
+        typeof node.attrs?.variable === 'string' ? node.attrs.variable : '';
+      if (!/^[A-Za-z_][A-Za-z0-9_.]*$/.test(variable)) {
+        throw new EmailBodyDocError(
+          `"Only show if" needs a variable name — got "${variable}"`,
+        );
+      }
+      const helper = node.attrs?.negated ? 'unless' : 'if';
+      const inner = (node.content ?? [])
+        .map(renderBlock)
+        .filter(Boolean)
+        .join('\n');
+      if (!inner) return '';
+      return `{{#${helper} ${variable}}}\n${inner}\n{{/${helper}}}`;
     }
     default:
       return '';

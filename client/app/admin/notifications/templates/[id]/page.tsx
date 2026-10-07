@@ -89,6 +89,13 @@ function TemplateEditor({
   // until Save, and the preview alongside shows what a save would store.
   const [mode, setMode] = useState<"visual" | "html">("visual");
   const [bodyDoc, setBodyDoc] = useState<EmailBodyDoc | null>(template.bodyDoc);
+  // What the document looked like when it was opened. For a stored one that is
+  // the stored value; for a hand-written body it is whatever the import read
+  // back, so simply opening a template is not "unsaved changes" — only editing
+  // it is. Saving an unchanged import would write the same email anyway.
+  const [baselineDoc, setBaselineDoc] = useState<EmailBodyDoc | null>(
+    template.bodyDoc,
+  );
   const bodyDocQuery = useTemplateBodyDocQuery(id, mode === "visual");
   const [text, setText] = useState(template.textHbs ?? "");
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
@@ -111,7 +118,10 @@ function TemplateEditor({
   // what it would store, and nothing is written until Save.
   const importedDoc = bodyDocQuery.data?.doc ?? null;
   useEffect(() => {
-    if (mode === "visual" && !bodyDoc && importedDoc) setBodyDoc(importedDoc);
+    if (mode === "visual" && !bodyDoc && importedDoc) {
+      setBodyDoc(importedDoc);
+      setBaselineDoc(importedDoc);
+    }
   }, [mode, bodyDoc, importedDoc]);
 
   // In auto mode the text follows the HTML, so it is not part of what we ask
@@ -180,10 +190,10 @@ function TemplateEditor({
     () =>
       subject !== template.subjectHbs ||
       (usingDoc
-        ? JSON.stringify(bodyDoc) !== JSON.stringify(template.bodyDoc)
+        ? JSON.stringify(bodyDoc) !== JSON.stringify(baselineDoc)
         : html !== template.htmlHbs) ||
       text !== (template.textHbs ?? ""),
-    [subject, html, text, template, usingDoc, bodyDoc],
+    [subject, html, text, template, usingDoc, bodyDoc, baselineDoc],
   );
 
   const onSave = () => {
@@ -375,6 +385,13 @@ function TemplateEditor({
               <EmailVisualEditor
                 doc={bodyDoc}
                 onChange={setBodyDoc}
+                onReady={(ready) => {
+                  // Both, not just the baseline: parsing fills in defaults a
+                  // stored document may not carry, so keeping the raw value as
+                  // the working copy would read as edited the moment it opens.
+                  setBodyDoc(ready);
+                  setBaselineDoc(ready);
+                }}
                 variables={Object.keys(rendered?.context ?? {})}
               />
             </div>

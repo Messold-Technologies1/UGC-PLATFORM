@@ -111,6 +111,13 @@ export const envValidationSchema = Joi.object({
   // when Redis is absent. Set 'false' to disable generation entirely.
   PREVIEW_VIDEO_ENABLED: Joi.string().valid('true', 'false').optional(),
   WATERMARK_TEXT: Joi.string().min(1).max(40).optional().default('gocollab'),
+  // Scratch directory for the ffmpeg encode. Defaults to os.tmpdir(), which is
+  // correct wherever /tmp is real disk (Railway's ephemeral storage, a stock
+  // EC2 AMI's root volume). Set it when /tmp is a tmpfs mount — the files would
+  // be RAM, which is exactly what streaming them is meant to avoid — or to put
+  // the scratch on a faster/roomier disk such as an EC2 instance-store NVMe.
+  // Check with: stat -f -c %T /tmp
+  WATERMARK_TMP_DIR: Joi.string().optional(),
 
   // Razorpay Payments
   RAZORPAY_KEY_ID: Joi.string().min(1).required(),

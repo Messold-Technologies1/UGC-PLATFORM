@@ -27,7 +27,7 @@ export const notificationKeys = {
   template: (id: string) => ["admin", "notifications", "template", id] as const,
   versions: (id: string) =>
     ["admin", "notifications", "template", id, "versions"] as const,
-  logs: (filters: Record<string, string | undefined>) =>
+  logs: (filters: Record<string, string | number | undefined>) =>
     ["admin", "notifications", "logs", filters] as const,
 };
 
@@ -174,9 +174,14 @@ export function useNotificationLogsQuery(filters: {
   eventKey?: string;
   status?: string;
   channel?: string;
+  cursor?: string;
+  take?: number;
 }) {
   return useQuery({
     queryKey: notificationKeys.logs(filters),
     queryFn: () => fetchLogs(filters),
+    // Keep the current page on screen while the next one loads, so paging does
+    // not blank the table and bounce the scroll position.
+    placeholderData: (previous) => previous,
   });
 }

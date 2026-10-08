@@ -194,7 +194,9 @@ export async function fetchLogs(params: {
   eventKey?: string;
   status?: string;
   channel?: string;
+  /** Id of the last row on the previous page; the API returns what follows it. */
   cursor?: string;
+  take?: number;
 }): Promise<NotificationLogPage> {
   const { data } = await api.get<NotificationLogPage>(N.LOGS, { params });
   return data;

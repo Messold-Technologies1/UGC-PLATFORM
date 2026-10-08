@@ -14,6 +14,9 @@ export type LogFeedFilters = {
   eventKey?: string;
   status?: string;
   channel?: string;
+  /** Set once the reader has paged forward; undefined means the first page. */
+  cursor?: string;
+  take?: number;
 };
 
 /**
@@ -29,6 +32,14 @@ export type LogFeedFilters = {
  * add latency and load for the same answer. Rows that do not match the filters
  * on screen are dropped, so what the feed adds can never contradict what the
  * filters say.
+ *
+ * Paging splits the two things the feed does. A status change is applied
+ * wherever the row happens to be, because a row on page 3 going DELIVERED is
+ * still true there. A brand new row is only inserted on the first page: it
+ * belongs at the top of the list, and pushing it onto page 3 would both put it
+ * somewhere it does not sort and shift every row down, so the reader would see
+ * the last one again on the next page. Off the first page the feed reports the
+ * count instead and leaves the page still.
  */
 export function useNotificationLogFeed(filters: LogFeedFilters): {
   live: boolean;
@@ -36,9 +47,20 @@ export function useNotificationLogFeed(filters: LogFeedFilters): {
 } {
   const queryClient = useQueryClient();
   const [live, setLive] = useState(false);
-  const [received, setReceived] = useState(0);
 
-  const { eventKey, status, channel } = filters;
+  const { eventKey, status, channel, cursor, take } = filters;
+  const onFirstPage = cursor === undefined;
+
+  /**
+   * How many rows have arrived for the view currently on screen.
+   *
+   * Tagged with the view it was counted for rather than cleared by an effect
+   * when the filters change: the count is derived from which view is showing,
+   * so deriving it is both simpler and one render shorter than syncing it.
+   */
+  const viewKey = JSON.stringify([eventKey, status, channel, cursor, take]);
+  const [counted, setCounted] = useState({ viewKey, count: 0 });
+  const received = counted.viewKey === viewKey ? counted.count : 0;
 
   const matches = useCallback(
     (row: NotificationLogEvent) =>
@@ -61,7 +83,7 @@ export function useNotificationLogFeed(filters: LogFeedFilters): {
       if (!matches(row)) return;
 
       queryClient.setQueryData<NotificationLogPage>(
-        notificationKeys.logs({ eventKey, status, channel }),
+        notificationKeys.logs({ eventKey, status, channel, cursor, take }),
         (page) => {
           // Nothing fetched yet — let the query itself populate the list, or
           // we would show a single row as if it were the whole log.
@@ -77,10 +99,24 @@ export function useNotificationLogFeed(filters: LogFeedFilters): {
             items[at] = entry;
             return { ...page, items };
           }
-          return { ...page, items: [entry, ...page.items] };
+
+          if (!onFirstPage) return page;
+
+          // Keep the page the size the reader asked for, so one that is full
+          // does not grow a row at a time and silently re-show its last entry
+          // at the top of the next page.
+          const items = [entry, ...page.items];
+          return {
+            ...page,
+            items: take ? items.slice(0, take) : items,
+          };
         },
       );
-      setReceived((n) => n + 1);
+      setCounted((prev) =>
+        prev.viewKey === viewKey
+          ? { viewKey, count: prev.count + 1 }
+          : { viewKey, count: 1 },
+      );
     };
 
     // Rooms live on the server side of a connection, so a drop loses the
@@ -99,7 +135,17 @@ export function useNotificationLogFeed(filters: LogFeedFilters): {
       socket.off("notification.log", onRow);
       if (socket.connected) socket.emit("notifications:unsubscribe");
     };
-  }, [queryClient, matches, eventKey, status, channel]);
+  }, [
+    queryClient,
+    matches,
+    eventKey,
+    status,
+    channel,
+    cursor,
+    take,
+    onFirstPage,
+    viewKey,
+  ]);
 
   return { live, received };
 }

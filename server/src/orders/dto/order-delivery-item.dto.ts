@@ -52,4 +52,3 @@ export class OrderDeliveryItemDto {
   @IsString()
   previewStatus?: string;
 }
-

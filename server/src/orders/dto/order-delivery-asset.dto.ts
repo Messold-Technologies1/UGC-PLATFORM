@@ -35,4 +35,3 @@ export class OrderDeliveryAssetDto {
   @IsString()
   previewStatus?: 'pending' | 'ready' | 'failed';
 }
-

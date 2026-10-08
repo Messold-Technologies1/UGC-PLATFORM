@@ -1,9 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
-import {
-  OrdersService,
-  USAGE_RIGHTS_DAYS_PER_ADDON,
-} from './orders.service';
+import { OrdersService, USAGE_RIGHTS_DAYS_PER_ADDON } from './orders.service';
 import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 
 /**
@@ -87,7 +84,8 @@ describe('OrdersService extra-usage-rights purchase', () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
+      {} as never, // wallet
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
     return { service, prisma, razorpay, orderMail, orderRealtime, orderUpdate };
   }
@@ -114,7 +112,10 @@ describe('OrdersService extra-usage-rights purchase', () => {
   });
 
   it('rejects when the creator has not priced the usage-rights add-on', async () => {
-    const { service } = makeService({ order: completedOrder, addOnPrice: null });
+    const { service } = makeService({
+      order: completedOrder,
+      addOnPrice: null,
+    });
     await expect(
       service.createUsageRightsCheckout({
         orderId: 'order-1',

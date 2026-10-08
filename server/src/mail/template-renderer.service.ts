@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Handlebars from 'handlebars';
 import type { TemplateDelegate } from 'handlebars';
@@ -9,47 +9,28 @@ import {
   type EmailTemplateContext,
   type RenderedEmail,
 } from './mail.types';
+import { resolveMailTemplatesDir } from './templates-dir';
 
-const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = [
-  EmailTemplateKey.CREATOR_PROFILE_APPROVED,
-  EmailTemplateKey.CREATOR_PROFILE_REJECTED,
-  EmailTemplateKey.CREATOR_PROFILE_COMPLETION_REMINDER,
-  EmailTemplateKey.CREATOR_PROFILE_RESUBMIT_REMINDER,
-  EmailTemplateKey.ORDER_BRIEF_SUBMITTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_BRIEF_ACCEPTED_FOR_BRAND,
-  EmailTemplateKey.ORDER_PRODUCT_SHIPPED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_PRODUCT_RECEIVED_FOR_BRAND,
-  EmailTemplateKey.ORDER_REVISION_REQUESTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_EXTRA_REVISIONS_PURCHASED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_BRAND,
-  EmailTemplateKey.ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_CONTENT_DELIVERED_FOR_BRAND,
-  EmailTemplateKey.ORDER_CONTENT_ACCEPTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_COMPLETED_FOR_BRAND,
-  EmailTemplateKey.ORDER_REJECTED_FOR_BRAND,
-  EmailTemplateKey.ORDER_REJECTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_BRAND,
-  EmailTemplateKey.ORDER_BRIEF_REJECTED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_CANCELLED_FOR_BRAND,
-  EmailTemplateKey.ORDER_CANCELLED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_BRAND,
-  EmailTemplateKey.ORDER_CANCELLED_BY_SUPPORT_FOR_CREATOR,
-  EmailTemplateKey.ORDER_REFUNDED_FOR_BRAND,
-  EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_BRAND,
-  EmailTemplateKey.ORDER_DISPUTE_OPENED_FOR_CREATOR,
-  EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_BRAND,
-  EmailTemplateKey.ORDER_DISPUTE_RESOLVED_FOR_CREATOR,
-  EmailTemplateKey.BRAND_WELCOME,
-  EmailTemplateKey.PASSWORD_RESET,
-];
+/**
+ * Every template the renderer compiles at boot.
+ *
+ * Derived from the enum rather than hand-listed: a hand-maintained copy silently
+ * drifts, and a key missing from it does not fail at boot — it throws
+ * `Unknown email template` from {@link TemplateRendererService.render} at send
+ * time, which the notifiers swallow into a single `logger.warn`. That is how
+ * ORDER_EXTRA_REVISIONS_PURCHASED_FOR_BRAND and SOCIAL_CONNECTION_EXPIRED came
+ * to send nothing on either channel despite having template files on disk.
+ *
+ * Deriving it means a new enum member without template files fails loudly at
+ * boot instead.
+ */
+const ALL_TEMPLATE_KEYS: EmailTemplateKey[] = Object.values(EmailTemplateKey);
 
 type CompiledSet = {
   subject: TemplateDelegate;
   htmlBody: TemplateDelegate;
   text: TemplateDelegate;
 };
-
-const TEMPLATE_MARKER = join('_partials', 'email-shell.html.hbs');
 
 @Injectable()
 export class TemplateRendererService implements OnModuleInit {
@@ -61,7 +42,7 @@ export class TemplateRendererService implements OnModuleInit {
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
-    this.templatesDir = this.resolveTemplatesDir();
+    this.templatesDir = resolveMailTemplatesDir();
     this.logger.log(`mail templates loaded from ${this.templatesDir}`);
 
     // `concat` lets a partial hash argument carry an interpolated string —
@@ -115,6 +96,24 @@ export class TemplateRendererService implements OnModuleInit {
     };
   }
 
+  /**
+   * Wrap an already-rendered body in the shared email shell.
+   *
+   * Public so the DB-backed renderer can reuse the same chrome: admin-authored
+   * templates supply only the body, and branding stays in one place.
+   */
+  wrapInShell(bodyHtml: string, context: EmailTemplateContext): string {
+    return this.shellTemplate({
+      ...this.withDefaults(context),
+      body: bodyHtml,
+    });
+  }
+
+  /** Platform-wide defaults (platformName, logoUrl, frontendUrl) merged under a context. */
+  applyDefaults(context: EmailTemplateContext): EmailTemplateContext {
+    return this.withDefaults(context);
+  }
+
   private withDefaults(context: EmailTemplateContext): EmailTemplateContext {
     const frontendUrl = this.config
       .get<string>('FRONTEND_URL', 'http://localhost:3000')
@@ -139,24 +138,5 @@ export class TemplateRendererService implements OnModuleInit {
 
   private compileFile(path: string): TemplateDelegate {
     return Handlebars.compile(readFileSync(path, 'utf8'));
-  }
-
-  /**
-   * Prefer compiled `dist/mail/templates`. In `start:dev`, SWC can boot before
-   * Nest copies assets; fall back to `src/mail/templates` when dist is empty.
-   */
-  private resolveTemplatesDir(): string {
-    const candidates = [
-      join(__dirname, 'templates'),
-      join(process.cwd(), 'src', 'mail', 'templates'),
-    ];
-    for (const dir of candidates) {
-      if (existsSync(join(dir, TEMPLATE_MARKER))) {
-        return dir;
-      }
-    }
-    throw new Error(
-      `Mail templates not found. Expected ${TEMPLATE_MARKER} under one of: ${candidates.join(', ')}`,
-    );
   }
 }

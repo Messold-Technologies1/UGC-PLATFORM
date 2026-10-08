@@ -16,10 +16,14 @@ export class CheckoutResponseDto {
   @ApiProperty()
   razorpayKeyId!: string;
 
-  @ApiPropertyOptional({ description: 'Package portion of amountPaise (paise)' })
+  @ApiPropertyOptional({
+    description: 'Package portion of amountPaise (paise)',
+  })
   packageAmountPaise?: number;
 
-  @ApiPropertyOptional({ description: 'Add-ons portion of amountPaise (paise)' })
+  @ApiPropertyOptional({
+    description: 'Add-ons portion of amountPaise (paise)',
+  })
   addOnsAmountPaise?: number;
 
   @ApiPropertyOptional({ description: 'Number of add-on line items' })
@@ -35,7 +39,9 @@ export class CheckoutResponseDto {
   })
   discountAmountPaise?: number;
 
-  @ApiPropertyOptional({ description: 'Applied coupon code, when a coupon was used' })
+  @ApiPropertyOptional({
+    description: 'Applied coupon code, when a coupon was used',
+  })
   couponCode?: string;
 
   @ApiPropertyOptional({
@@ -55,4 +61,3 @@ export class CheckoutResponseDto {
   })
   paidFromCredits?: boolean;
 }
-

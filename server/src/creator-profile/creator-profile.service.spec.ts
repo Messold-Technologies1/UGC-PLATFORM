@@ -248,6 +248,7 @@ describe('CreatorProfileService', () => {
         notifyApproved: jest.fn(),
         notifyRejected: jest.fn(),
       } as any,
+      { emit: jest.fn().mockResolvedValue(undefined) } as any, // notification events
       creatorReviewsMock as unknown as CreatorReviewsService,
       { enabled: false, sendEvent: jest.fn() } as any,
       {
@@ -261,9 +262,7 @@ describe('CreatorProfileService', () => {
       { enqueue: jest.fn(), enqueueDirty: jest.fn() } as any,
       { enqueueIntro: jest.fn(), enqueuePortfolio: jest.fn() } as any,
       {
-        resolveBrandContext: jest
-          .fn()
-          .mockRejectedValue(new Error('no brand')),
+        resolveBrandContext: jest.fn().mockRejectedValue(new Error('no brand')),
       } as any,
       { scheduleResubmitReminders: jest.fn() } as any,
     );
@@ -319,8 +318,12 @@ describe('CreatorProfileService', () => {
         }),
       }),
     );
-    expect(txMock.creatorProfileFacetSelection.deleteMany).not.toHaveBeenCalled();
-    expect(txMock.creatorProfileFacetSelection.createMany).not.toHaveBeenCalled();
+    expect(
+      txMock.creatorProfileFacetSelection.deleteMany,
+    ).not.toHaveBeenCalled();
+    expect(
+      txMock.creatorProfileFacetSelection.createMany,
+    ).not.toHaveBeenCalled();
     expect(txMock.creatorProfileLanguage.deleteMany).not.toHaveBeenCalled();
     expect(creatorPackageService.createPackages).not.toHaveBeenCalled();
     expect(txMock.creatorAddOn.createMany).not.toHaveBeenCalled();
@@ -334,12 +337,12 @@ describe('CreatorProfileService', () => {
 
   it('addOrUpdateAddOns replaces add-ons with the provided catalog slugs', async () => {
     const profileId = 'profile-1';
-    (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce({
+    txMock.creatorProfile.findUnique.mockResolvedValueOnce({
       id: profileId,
       userId: creatorId,
     });
 
-    (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce({
+    txMock.creatorProfile.findUnique.mockResolvedValueOnce({
       id: profileId,
       userId: creatorId,
       displayName: 'Jane',
@@ -377,7 +380,11 @@ describe('CreatorProfileService', () => {
       ],
     };
 
-    const result = await service.addOrUpdateAddOns(creatorId, profileId, dto as any);
+    const result = await service.addOrUpdateAddOns(
+      creatorId,
+      profileId,
+      dto as any,
+    );
 
     expect(txMock.creatorAddOn.deleteMany).toHaveBeenCalledWith({
       where: {
@@ -388,9 +395,7 @@ describe('CreatorProfileService', () => {
     const createManyArgUpdate = txMock.creatorAddOn.createMany.mock
       .calls[0]?.[0] as { data: { name: string }[] };
     const addOnRowsUpdate = createManyArgUpdate.data;
-    expect(addOnRowsUpdate.map((r) => r.name)).toEqual([
-      'Travel within City',
-    ]);
+    expect(addOnRowsUpdate.map((r) => r.name)).toEqual(['Travel within City']);
     expect(result.id).toBe(profileId);
   });
 
@@ -427,7 +432,7 @@ describe('CreatorProfileService', () => {
     });
 
     it('throws NotFound when pending and viewer is not owner or admin', async () => {
-      (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce(
+      txMock.creatorProfile.findUnique.mockResolvedValueOnce(
         minimalProfile({
           creatorApproval: {
             status: ApprovalStatus.PENDING,
@@ -442,7 +447,7 @@ describe('CreatorProfileService', () => {
     });
 
     it('returns profile when pending but viewer is owner', async () => {
-      (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce(
+      txMock.creatorProfile.findUnique.mockResolvedValueOnce(
         minimalProfile({
           userId: creatorId,
           creatorApproval: {
@@ -462,7 +467,7 @@ describe('CreatorProfileService', () => {
     });
 
     it('returns profile when APPROVED for any viewer', async () => {
-      (txMock.creatorProfile.findUnique as TxAsyncMock).mockResolvedValueOnce(
+      txMock.creatorProfile.findUnique.mockResolvedValueOnce(
         minimalProfile({
           creatorApproval: {
             status: ApprovalStatus.APPROVED,
@@ -525,7 +530,9 @@ describe('CreatorProfileService', () => {
     prismaMock.creatorProfile.count.mockResolvedValueOnce(1);
     prismaMock.creatorProfile.findMany.mockResolvedValueOnce([pendingRow]);
     prismaMock.$transaction.mockImplementationOnce((arg: unknown) =>
-      Array.isArray(arg) ? Promise.all(arg as Promise<unknown>[]) : Promise.resolve(arg),
+      Array.isArray(arg)
+        ? Promise.all(arg as Promise<unknown>[])
+        : Promise.resolve(arg),
     );
 
     const result = await service.listPendingCreatorApprovals({
@@ -571,7 +578,9 @@ describe('CreatorProfileService', () => {
         onLocationAvailable: false,
       };
 
-      prismaMock.creatorProfile.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
       prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
       prismaMock.$transaction.mockImplementationOnce((arg: unknown) =>
         Array.isArray(arg)

@@ -83,7 +83,10 @@ function splitPaise(total: number, parts: number): number[] {
   if (parts <= 0) return [];
   const base = Math.floor(total / parts);
   const remainder = total - base * parts;
-  return Array.from({ length: parts }, (_, i) => base + (i < remainder ? 1 : 0));
+  return Array.from(
+    { length: parts },
+    (_, i) => base + (i < remainder ? 1 : 0),
+  );
 }
 
 export function computeOrderPricingLedger(input: {
@@ -122,7 +125,10 @@ export function computeOrderPricingLedger(input: {
    */
   grossBasePlusAddOnsPaise?: number;
 }): OrderPricingLedger {
-  const basePlusAddOnsPaise = Math.max(0, Math.round(input.expectedAmountPaise));
+  const basePlusAddOnsPaise = Math.max(
+    0,
+    Math.round(input.expectedAmountPaise),
+  );
 
   // Never charged → nothing was collected, so nothing is owed to anyone. The
   // quote (basePlusAddOnsPaise) stays visible so admins can still see what the
@@ -172,7 +178,10 @@ export function computeOrderPricingLedger(input: {
   );
 
   // The pre-purchase cap: the current snapshot minus everything granted.
-  const baseCap = Math.max(0, input.maxRevisionsSnapshot - extraRevisionsPurchased);
+  const baseCap = Math.max(
+    0,
+    input.maxRevisionsSnapshot - extraRevisionsPurchased,
+  );
   const extraRevisionsUsed = Math.min(
     Math.max(0, input.revisionCount - baseCap),
     extraRevisionsPurchased,
@@ -184,7 +193,10 @@ export function computeOrderPricingLedger(input: {
   const perRevisionPaise: number[] = [];
   for (const p of purchases) {
     perRevisionPaise.push(
-      ...splitPaise(Math.max(0, p.expectedAmountPaise), Math.max(0, p.revisionsAdded)),
+      ...splitPaise(
+        Math.max(0, p.expectedAmountPaise),
+        Math.max(0, p.revisionsAdded),
+      ),
     );
   }
   const refundToBrandPaise =

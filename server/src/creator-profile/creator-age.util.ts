@@ -24,9 +24,10 @@ export function dateOfBirthRangeForAgeFilter(
   return out;
 }
 
-export function ageGroupToAgeRange(
-  group: CreatorAgeGroup,
-): { minAge: number; maxAge: number } {
+export function ageGroupToAgeRange(group: CreatorAgeGroup): {
+  minAge: number;
+  maxAge: number;
+} {
   switch (group) {
     case CreatorAgeGroup.AGE_18_24:
       return { minAge: 18, maxAge: 24 };

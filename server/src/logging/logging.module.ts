@@ -24,6 +24,35 @@ import pino from 'pino';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+/**
+ * The pretty-printer target, or `undefined` for raw JSON.
+ *
+ * `pino-pretty` is a devDependency, so a production install omits it — and
+ * NODE_ENV is not a safe proxy for whether it is on disk. Railway (and our own
+ * Dockerfile) set NODE_ENV=production for the *install*, so devDependencies are
+ * pruned, while a dev/staging service can still *run* with NODE_ENV unset or
+ * set to `development`. That combination picked a transport that was not
+ * installed, and pino failed the boot with:
+ *
+ *     Error: unable to determine transport target for "pino-pretty"
+ *
+ * It crashes inside `new PinoLogger` during DI, so the process never starts and
+ * nothing gets logged about why. Resolve the module instead of guessing from
+ * the environment: present -> pretty, absent -> JSON, never a crash.
+ */
+function prettyTransportTarget(): string | undefined {
+  if (isProduction) return undefined;
+  try {
+    require.resolve('pino-pretty');
+    return 'pino-pretty';
+  } catch {
+    return undefined;
+  }
+}
+
+/** Resolved once at module load, not per request. */
+const prettyTarget = prettyTransportTarget();
+
 /** A request id: honour an upstream/proxy id, else mint one per request. */
 function resolveRequestId(req: IncomingMessage, res: ServerResponse): string {
   const existing =
@@ -48,16 +77,16 @@ function resolveRequestId(req: IncomingMessage, res: ServerResponse): string {
         },
         genReqId: resolveRequestId,
         // Pretty output locally; raw JSON in prod so a log drain can index it.
-        transport: isProduction
-          ? undefined
-          : {
-              target: 'pino-pretty',
+        transport: prettyTarget
+          ? {
+              target: prettyTarget,
               options: {
                 singleLine: true,
                 translateTime: 'SYS:HH:MM:ss.l',
                 ignore: 'pid,hostname,req,res',
               },
-            },
+            }
+          : undefined,
         // Don't spam the logs with health checks / swagger / favicon pings.
         autoLogging: {
           ignore: (req: IncomingMessage) => {

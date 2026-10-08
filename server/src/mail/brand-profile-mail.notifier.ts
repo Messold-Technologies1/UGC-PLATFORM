@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  cutoverStandDownMessage,
+  notificationsCutoverActive,
+} from '../notifications/cutover';
+import {
   resolveBrandMailAddress,
   resolveBrandMailDisplayName,
 } from './brand-mail.recipient';
@@ -44,7 +48,9 @@ export class BrandProfileMailNotifier {
       }
 
       const actorUserId =
-        await this.brandAccess.resolveBrandActorUserIdForProfile(brandProfileId);
+        await this.brandAccess.resolveBrandActorUserIdForProfile(
+          brandProfileId,
+        );
       const user = await this.prisma.user.findUnique({
         where: { id: actorUserId },
         select: { email: true, name: true, phone: true },
@@ -94,6 +100,14 @@ export class BrandProfileMailNotifier {
   }
 
   private async run(label: string, fn: () => Promise<void>): Promise<void> {
+    // Once the engine owns sending, this path must not also fire or the
+    // recipient gets the same message twice.
+    if (notificationsCutoverActive(this.config)) {
+      this.logger.debug(
+        cutoverStandDownMessage(`brand profile email ${label}`),
+      );
+      return;
+    }
     try {
       await fn();
     } catch (err) {

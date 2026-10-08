@@ -31,7 +31,8 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       {} as never,
       orderPortfolioSync as never,
       {} as never,
-      {} as never,
+      {} as never, // wallet
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
     return { service, orderUpdate, orderMail, orderPortfolioSync };
   }
@@ -141,7 +142,8 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
       {} as never,
       orderPortfolioSync as never,
       {} as never,
-      {} as never,
+      {} as never, // wallet
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
 
     await service.adminRejectOrder({

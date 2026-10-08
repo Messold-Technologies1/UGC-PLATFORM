@@ -19,7 +19,10 @@ export class WebhooksController {
 
   @Post('razorpay')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Razorpay webhook receiver (payments only — refunds are handled manually by admins)' })
+  @ApiOperation({
+    summary:
+      'Razorpay webhook receiver (payments only — refunds are handled manually by admins)',
+  })
   async razorpay(
     @Req() req: Request & { rawBody?: Buffer },
     @Body() body: unknown,
@@ -97,4 +100,3 @@ function resolveSnsWebhookPayload(
 
   return { rawBody: Buffer.alloc(0), json: null };
 }
-

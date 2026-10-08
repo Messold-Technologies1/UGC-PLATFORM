@@ -5,6 +5,7 @@ import { CreatorProfileService } from '../creator-profile/creator-profile.servic
 import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 
 @Injectable()
 export class SignupRegistrationService {
@@ -13,6 +14,7 @@ export class SignupRegistrationService {
     private readonly creatorProfileService: CreatorProfileService,
     private readonly brandProfileService: BrandProfileService,
     private readonly creatorReminders: CreatorReminderQueueService,
+    private readonly events: NotificationEventsService,
   ) {}
 
   /**
@@ -108,6 +110,13 @@ export class SignupRegistrationService {
           profile.completionReminderStartedAt,
         )
         .catch(() => undefined);
+      // The engine's schedule rows measure their offsets from occurredAt, so
+      // passing the same column keeps both paths on one clock — which is what
+      // lets the cutover flip without shifting anyone's drip.
+      void this.events.emit('creator-profile-completion-reminder', {
+        entityId: creatorProfileId,
+        occurredAt: profile.completionReminderStartedAt,
+      });
     }
   }
 }

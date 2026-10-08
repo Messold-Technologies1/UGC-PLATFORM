@@ -14,4 +14,3 @@ export class CreatorsPublicListResponseDto {
   @ApiProperty({ example: 20 })
   limit!: number;
 }
-

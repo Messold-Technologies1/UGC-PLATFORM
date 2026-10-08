@@ -33,9 +33,7 @@ describe('OrdersService credit checkout', () => {
       creatorProfile: { findMany: jest.fn(() => Promise.resolve([])) },
       order: {
         findMany: jest.fn(() => Promise.resolve([])),
-        findUnique: jest.fn(() =>
-          Promise.resolve({ lastChatMessageId: null }),
-        ),
+        findUnique: jest.fn(() => Promise.resolve({ lastChatMessageId: null })),
         update: jest.fn(({ where }: any) => Promise.resolve({ id: where.id })),
       },
       $transaction: jest.fn((cb: any) =>
@@ -58,7 +56,9 @@ describe('OrdersService credit checkout', () => {
       resolveForCheckout: jest.fn(() => Promise.resolve(null)),
       recordRedemption: jest.fn(() => Promise.resolve()),
     };
-    const orderRealtime = { emitOrderPayment: jest.fn(() => Promise.resolve()) };
+    const orderRealtime = {
+      emitOrderPayment: jest.fn(() => Promise.resolve()),
+    };
     const wallet = {
       getBalance: jest.fn(() =>
         Promise.resolve({
@@ -88,6 +88,7 @@ describe('OrdersService credit checkout', () => {
       {} as any,
       coupons as any,
       wallet as any,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
     return { service, prisma, razorpay, created, wallet, orderRealtime };
   }

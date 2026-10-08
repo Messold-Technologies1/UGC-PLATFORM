@@ -94,7 +94,10 @@ export const GO_LIVE_REQUIREMENTS: readonly GoLiveRequirement[] = [
     key: 'secondaryNiches',
     label: `${REQUIRED_SECONDARY_NICHES} secondary niches`,
   },
-  { key: 'creatorType', label: FACET_LABELS[CreatorFacetDimension.CREATOR_TYPE] },
+  {
+    key: 'creatorType',
+    label: FACET_LABELS[CreatorFacetDimension.CREATOR_TYPE],
+  },
   { key: 'occupation', label: FACET_LABELS[CreatorFacetDimension.OCCUPATION] },
   { key: 'appearance', label: FACET_LABELS[CreatorFacetDimension.APPEARANCE] },
   { key: 'language', label: 'At least one language' },
@@ -117,11 +120,17 @@ export type IdentitySectionInput = {
  * Identity wizard step: primary niche + secondary niches + creator type,
  * occupation and appearance. Used for the listed-creators outreach export.
  */
-export function isIdentitySectionComplete(input: IdentitySectionInput): boolean {
+export function isIdentitySectionComplete(
+  input: IdentitySectionInput,
+): boolean {
   if (input.nichePrimaryCount < 1) return false;
   if (input.nicheSecondaryCount < REQUIRED_SECONDARY_NICHES) return false;
-  const selected = new Set<CreatorFacetDimension>(input.selectedFacetDimensions);
-  return REQUIRED_FACET_DIMENSIONS.every((dimension) => selected.has(dimension));
+  const selected = new Set<CreatorFacetDimension>(
+    input.selectedFacetDimensions,
+  );
+  return REQUIRED_FACET_DIMENSIONS.every((dimension) =>
+    selected.has(dimension),
+  );
 }
 
 function hasText(value?: string | null): boolean {
@@ -162,7 +171,9 @@ export function evaluateProfileCompleteness(
   }
 
   // Single-select content facets.
-  const selected = new Set<CreatorFacetDimension>(input.selectedFacetDimensions);
+  const selected = new Set<CreatorFacetDimension>(
+    input.selectedFacetDimensions,
+  );
   for (const dimension of REQUIRED_FACET_DIMENSIONS) {
     if (!selected.has(dimension)) missing.push(FACET_LABELS[dimension]);
   }

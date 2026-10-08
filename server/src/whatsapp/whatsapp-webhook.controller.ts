@@ -98,6 +98,13 @@ export class WhatsAppWebhookController {
 
         for (const status of value.statuses ?? []) {
           if (!status.id || !status.status) continue;
+          void this.whatsapp.recordStatusUpdate({
+            messageId: status.id,
+            status: status.status,
+            errors: status.errors,
+          });
+          // Awaited, unlike the NotificationLog write above: this one also
+          // settles the PhoneOtp row, and phone verification reads that back.
           await this.whatsapp.noteStatusUpdate({
             messageId: status.id,
             recipient: status.recipient_id,

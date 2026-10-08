@@ -10,7 +10,8 @@ export class VerifyPhoneOtpResponseDto {
 
   @ApiProperty({
     example: true,
-    description: 'True when the phone was saved and marked verified for this user.',
+    description:
+      'True when the phone was saved and marked verified for this user.',
   })
   phoneVerified!: boolean;
 }

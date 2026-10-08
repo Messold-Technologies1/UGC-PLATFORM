@@ -28,6 +28,8 @@ import { PortfolioRealtimeNotifier } from './portfolio-realtime.notifier';
     OrderRealtimeNotifier,
     PortfolioRealtimeNotifier,
   ],
-  exports: [OrderRealtimeNotifier, PortfolioRealtimeNotifier],
+  // PaymentsGateway is exported because it owns the Socket.IO server other
+  // modules broadcast through — the notification delivery-log feed does.
+  exports: [PaymentsGateway, OrderRealtimeNotifier, PortfolioRealtimeNotifier],
 })
 export class RealtimeModule {}

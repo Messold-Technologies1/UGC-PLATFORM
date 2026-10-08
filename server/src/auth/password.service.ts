@@ -141,7 +141,12 @@ export class PasswordService {
       },
     });
 
-    if (!user || user.deletedAt || user.status !== 'ACTIVE' || !user.passwordHash) {
+    if (
+      !user ||
+      user.deletedAt ||
+      user.status !== 'ACTIVE' ||
+      !user.passwordHash
+    ) {
       throw new UnauthorizedException();
     }
 

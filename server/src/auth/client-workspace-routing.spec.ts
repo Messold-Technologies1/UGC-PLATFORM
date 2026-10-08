@@ -41,7 +41,11 @@ function createUser(overrides?: Partial<AuthUser>): AuthUser {
 }
 
 describe('Client workspace routing helpers', () => {
-  it('sends users with no roles to the continue flow', () => {
+  // A user with no roles has to pick one before any workspace exists for them.
+  // resolveImmediatePostAuthPath sends them to the role picker, preserving where
+  // they were headed; resolvePostAuthRedirectPath has no workspace to choose and
+  // falls back to the public home page.
+  it('sends users with no roles to the role picker', () => {
     const user = createUser({
       roles: [],
       primaryRole: null,
@@ -49,11 +53,9 @@ describe('Client workspace routing helpers', () => {
     });
 
     expect(resolveImmediatePostAuthPath(user, '/creator/jobs')).toBe(
-      '/auth/continue?callbackUrl=%2Fcreator%2Fjobs',
+      '/onboarding/role?callbackUrl=%2Fcreator%2Fjobs',
     );
-    expect(resolvePostAuthRedirectPath(user, '/brand/creators')).toBe(
-      '/auth/continue?callbackUrl=%2Fbrand%2Fcreators',
-    );
+    expect(resolvePostAuthRedirectPath(user, '/brand/creators')).toBe('/');
   });
 
   it('keeps admin users on the admin namespace', () => {
@@ -90,8 +92,9 @@ describe('Client workspace routing helpers', () => {
       hasBrandProfile: true,
     });
 
+    // CREATOR_FALLBACK is the account page, not orders.
     expect(pathAfterWorkspaceSelection(user, 'CREATOR', '/brand/orders/42')).toBe(
-      '/creator/orders',
+      '/creator/account',
     );
     expect(pathAfterWorkspaceSelection(user, 'BRAND', '/creator/jobs/42')).toBe(
       '/brand/creators',
@@ -118,8 +121,11 @@ describe('Client workspace routing helpers', () => {
     ).toBe('/creator/orders?tab=active');
   });
 
-  it('builds the continue route safely when there is no callback URL', () => {
-    expect(postAuthContinuePath(null)).toBe('/auth/continue');
+  // There is no /auth/continue route; users with nowhere specific to land go to
+  // the public home page. The callbackUrl argument is intentionally ignored.
+  it('sends users with no landing workspace to the home page', () => {
+    expect(postAuthContinuePath(null)).toBe('/');
+    expect(postAuthContinuePath('/creator/orders')).toBe('/');
   });
 
   describe('creator onboarding (approval_first)', () => {

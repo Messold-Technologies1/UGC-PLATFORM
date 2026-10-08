@@ -1,8 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  CreatorContentVolumeBucket,
-  CreatorGender,
-} from '@prisma/client';
+import { CreatorContentVolumeBucket, CreatorGender } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayUnique,

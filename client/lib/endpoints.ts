@@ -55,6 +55,9 @@ export const ENDPOINTS = {
     PROFILE_ME: "/api/agency/profile/me",
     PROFILE_LOGO_PRESIGN: "/api/agency/profile/uploads/presign",
   },
+  NOTIFICATION_PREFERENCES: {
+    ME: "/api/notification-preferences/me",
+  },
   BRIEFS: {
     LIST: "/api/briefs",
     FIELD_OPTIONS: "/api/briefs/field-options",
@@ -291,6 +294,31 @@ export const ENDPOINTS = {
       UPLOADS_PRESIGN: "/api/admin/demo-intro-videos/uploads/presign",
       BY_ID: (id: string) =>
         `/api/admin/demo-intro-videos/${encodeURIComponent(id)}`,
+    },
+    NOTIFICATIONS: {
+      EVENTS: "/api/admin/notifications/events",
+      EVENT: (key: string) =>
+        `/api/admin/notifications/events/${encodeURIComponent(key)}`,
+      EVENT_SCHEDULE: (key: string) =>
+        `/api/admin/notifications/events/${encodeURIComponent(key)}/schedule`,
+      EVENT_BACKFILL: (key: string) =>
+        `/api/admin/notifications/events/${encodeURIComponent(key)}/backfill`,
+      EVENT_SWEEP: (key: string) =>
+        `/api/admin/notifications/events/${encodeURIComponent(key)}/sweep`,
+      TEMPLATES: "/api/admin/notifications/templates",
+      TEMPLATE: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}`,
+      TEMPLATE_BODY_DOC: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/body-doc`,
+      TEMPLATE_PREVIEW: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/preview`,
+      TEMPLATE_DERIVE_TEXT: "/api/admin/notifications/templates/derive-text",
+      TEMPLATE_PREVIEW_DRAFT: "/api/admin/notifications/templates/preview",
+      TEMPLATE_VERSIONS: (id: string) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/versions`,
+      TEMPLATE_REVERT: (id: string, version: number) =>
+        `/api/admin/notifications/templates/${encodeURIComponent(id)}/revert/${version}`,
+      LOGS: "/api/admin/notifications/logs",
     },
     COUPONS: {
       LIST: "/api/admin/coupons",

@@ -50,7 +50,9 @@ describe('TemplateRendererService', () => {
   });
 
   it('renders the logo image when EMAIL_TEMPLATE_LOGO is set', () => {
-    const svc = build({ EMAIL_TEMPLATE_LOGO: 'https://cdn.gocollab.io/logo.png' });
+    const svc = build({
+      EMAIL_TEMPLATE_LOGO: 'https://cdn.gocollab.io/logo.png',
+    });
 
     const { html } = svc.render(EmailTemplateKey.PASSWORD_RESET, {
       recipientName: 'Mohit',
@@ -128,6 +130,46 @@ describe('TemplateRendererService', () => {
       expect(html).not.toContain("You started it. Don't leave it halfway");
       expect(html).not.toContain('What if a brand is looking for someone');
       expect(html).not.toContain('Still want to be listed on');
+    });
+  });
+
+  // Regression guard for the drift that let ORDER_EXTRA_REVISIONS_PURCHASED_FOR_BRAND
+  // and SOCIAL_CONNECTION_EXPIRED reach production uncompiled: both had template
+  // files on disk but were missing from the hand-maintained ALL_TEMPLATE_KEYS, so
+  // render() threw `Unknown email template` and the notifiers swallowed it into a
+  // logger.warn — losing the email AND the WhatsApp that followed it.
+  describe('template coverage', () => {
+    const allKeys = Object.values(EmailTemplateKey);
+
+    it('compiles every EmailTemplateKey at boot', () => {
+      expect(allKeys.length).toBeGreaterThan(0);
+
+      for (const key of allKeys) {
+        expect(() => service.render(key, {})).not.toThrow();
+      }
+    });
+
+    // Every key renders a usable message. The two stage-switching templates wrap
+    // their ENTIRE subject in {{#if isStageN}}, so without stage context they
+    // render an empty subject — which SES rejects outright. They are given their
+    // stage flag here; the emptiness is the hazard, not a test artefact.
+    const CONDITIONAL_CONTEXT: Partial<Record<EmailTemplateKey, object>> = {
+      [EmailTemplateKey.CREATOR_PROFILE_COMPLETION_REMINDER]: {
+        isStage1: true,
+      },
+      [EmailTemplateKey.CREATOR_PROFILE_RESUBMIT_REMINDER]: {
+        isStage1: true,
+      },
+    };
+
+    it.each(allKeys)('renders a non-empty subject and body for %s', (key) => {
+      const { subject, html, text } = service.render(key, {
+        ...(CONDITIONAL_CONTEXT[key] ?? {}),
+      });
+
+      expect(subject.trim()).not.toHaveLength(0);
+      expect(html.trim()).not.toHaveLength(0);
+      expect(text.trim()).not.toHaveLength(0);
     });
   });
 });

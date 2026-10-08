@@ -1,13 +1,9 @@
 node_modules
 dist
+coverage
 .env
 .env.*
-!.env.example
-coverage
+*.log
 .git
-.gitignore
-*.md
 test
-*.spec.ts
-.eslintrc*
-.prettierrc*
+**/*.spec.ts

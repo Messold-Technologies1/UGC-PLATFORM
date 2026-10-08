@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class MarkProductShippedDto {
   @ApiProperty({ example: 'BlueDart', description: 'Courier / carrier name' })
@@ -21,6 +27,8 @@ export class MarkProductShippedDto {
     description: 'Dispatch date (calendar day, YYYY-MM-DD)',
     example: '2026-05-12',
   })
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'dispatchDate must be YYYY-MM-DD' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dispatchDate must be YYYY-MM-DD',
+  })
   dispatchDate!: string;
 }

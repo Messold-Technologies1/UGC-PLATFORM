@@ -9,6 +9,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderMailNotifier } from '../mail/order-mail.notifier';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 
 // Prefer an explicit FFMPEG_PATH (set to the system ffmpeg in production —
@@ -57,6 +58,7 @@ export class WatermarkService {
     private readonly storage: StorageService,
     private readonly realtime: OrderRealtimeNotifier,
     private readonly orderMail: OrderMailNotifier,
+    private readonly events: NotificationEventsService,
     config: ConfigService,
   ) {
     this.text = config.get<string>('WATERMARK_TEXT', 'Go Collab');
@@ -100,7 +102,8 @@ export class WatermarkService {
       let changed = false;
       for (const asset of assets) {
         if (asset.previewUrl && asset.previewKey) continue; // already done
-        const { previewKey, previewUrl } = await this.buildPreviewForAsset(asset);
+        const { previewKey, previewUrl } =
+          await this.buildPreviewForAsset(asset);
         asset.previewKey = previewKey;
         asset.previewUrl = previewUrl;
         changed = true;
@@ -118,7 +121,9 @@ export class WatermarkService {
       } else {
         await this.markStatus(deliveryId, 'ready');
       }
-      this.logger.log(`watermark: delivery ${deliveryId} ready (${assets.length} assets)`);
+      this.logger.log(
+        `watermark: delivery ${deliveryId} ready (${assets.length} assets)`,
+      );
 
       await this.promoteOrderAfterPreviewReady({
         orderId: delivery.orderId,
@@ -216,20 +221,28 @@ export class WatermarkService {
       revisionNumber: params.revisionNumber,
       deliveredAt,
     });
+    void this.events.emit('order-content-delivered-for-brand', {
+      entityId: order.id,
+      // A re-delivery after a revision is a separate notification.
+      occurrenceKey: `rev-${params.revisionNumber}`,
+      occurredAt: deliveredAt,
+    });
   }
 
   private parseAssets(value: unknown): StoredDeliveryAsset[] {
     if (!Array.isArray(value)) return [];
     return value
       .filter((a): a is Record<string, unknown> => !!a && typeof a === 'object')
-      .map((a): StoredDeliveryAsset => ({
-        key: String(a.key ?? ''),
-        kind: a.kind === 'image' ? 'image' : 'video',
-        url: String(a.url ?? ''),
-        sha256: typeof a.sha256 === 'string' ? a.sha256 : null,
-        previewKey: typeof a.previewKey === 'string' ? a.previewKey : null,
-        previewUrl: typeof a.previewUrl === 'string' ? a.previewUrl : null,
-      }))
+      .map(
+        (a): StoredDeliveryAsset => ({
+          key: String(a.key ?? ''),
+          kind: a.kind === 'image' ? 'image' : 'video',
+          url: String(a.url ?? ''),
+          sha256: typeof a.sha256 === 'string' ? a.sha256 : null,
+          previewKey: typeof a.previewKey === 'string' ? a.previewKey : null,
+          previewUrl: typeof a.previewUrl === 'string' ? a.previewUrl : null,
+        }),
+      )
       .filter((a) => a.key);
   }
 
@@ -285,14 +298,19 @@ export class WatermarkService {
     const meta = await img.metadata();
     const width = meta.width ?? 1080;
     const height = meta.height ?? 1080;
-    const overlay = await sharp(this.watermarkSvg(width, height)).png().toBuffer();
+    const overlay = await sharp(this.watermarkSvg(width, height))
+      .png()
+      .toBuffer();
     return img
       .composite([{ input: overlay, top: 0, left: 0 }])
       .jpeg({ quality: 82 })
       .toBuffer();
   }
 
-  private async watermarkVideo(source: Buffer, sourceKey: string): Promise<Buffer> {
+  private async watermarkVideo(
+    source: Buffer,
+    sourceKey: string,
+  ): Promise<Buffer> {
     const dir = await mkdtemp(join(tmpdir(), 'wm-'));
     const srcExt = sourceKey.split('.').pop()?.toLowerCase() || 'mp4';
     const inPath = join(dir, `in.${srcExt}`);
@@ -344,7 +362,9 @@ export class WatermarkService {
       Number(process.env.WATERMARK_FFMPEG_TIMEOUT_MS) || 180_000,
     );
     return new Promise((resolve, reject) => {
-      const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+      const proc = spawn(ffmpegPath, args, {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
       let stderr = '';
       let settled = false;
       const finish = (fn: () => void) => {

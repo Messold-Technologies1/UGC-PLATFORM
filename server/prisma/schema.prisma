@@ -200,27 +200,27 @@ enum CreatorAgeGroup {
 }
 
 model User {
-  id                          String     @id @default(uuid()) @db.Uuid
-  email                       String     @unique
-  name                        String?
-  passwordHash                String?
-  phone                       String?
-  emailVerified               Boolean    @default(false)
-  phoneVerified               Boolean    @default(false)
-  phoneOtpFailedAttempts      Int        @default(0)
-  phoneOtpLastAttemptAt       DateTime?
-  phoneOtpLastStatus          String?
-  phoneOtpLastPhone           String?
-  status                      UserStatus @default(ACTIVE)
+  id                     String     @id @default(uuid()) @db.Uuid
+  email                  String     @unique
+  name                   String?
+  passwordHash           String?
+  phone                  String?
+  emailVerified          Boolean    @default(false)
+  phoneVerified          Boolean    @default(false)
+  phoneOtpFailedAttempts Int        @default(0)
+  phoneOtpLastAttemptAt  DateTime?
+  phoneOtpLastStatus     String?
+  phoneOtpLastPhone      String?
+  status                 UserStatus @default(ACTIVE)
   /// Who last changed `status` (activate/deactivate) and when. Nothing is
   /// deleted by that flow, so the record lives on the row it describes. Holds
   /// the most recent change only — there is no per-change history.
-  statusChangedAt             DateTime?
-  statusChangedById           String?    @db.Uuid
-  deletedAt                   DateTime?
-  createdAt                   DateTime   @default(now())
-  updatedAt                   DateTime   @updatedAt
-  primaryRoleId               String?    @db.Uuid
+  statusChangedAt        DateTime?
+  statusChangedById      String?    @db.Uuid
+  deletedAt              DateTime?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  primaryRoleId          String?    @db.Uuid
 
   primaryRole                 Role?                      @relation("PrimaryUserRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
   statusChangedBy             User?                      @relation("UserStatusChangedBy", fields: [statusChangedById], references: [id], onDelete: SetNull)
@@ -1231,17 +1231,17 @@ model CreatorDemoVideo {
 }
 
 model CreatorApproval {
-  id                String         @id @default(uuid()) @db.Uuid
-  creatorId         String         @unique @db.Uuid
-  status            ApprovalStatus @default(PENDING)
-  approvedById      String?        @db.Uuid
-  approvedAt        DateTime?
+  id                    String         @id @default(uuid()) @db.Uuid
+  creatorId             String         @unique @db.Uuid
+  status                ApprovalStatus @default(PENDING)
+  approvedById          String?        @db.Uuid
+  approvedAt            DateTime?
   /// Admin who sent a self-complete profile into Awaiting review.
-  sentForReviewById String?        @db.Uuid
+  sentForReviewById     String?        @db.Uuid
   /// When the creator (or an admin on their behalf) last withdrew a submitted
   /// profile back for editing. Kept after resubmission as an audit trail of the
   /// most recent withdraw.
-  withdrawnAt       DateTime?
+  withdrawnAt           DateTime?
   /// "Resubmit your profile" reminder bookkeeping — one stamp per stage
   /// (~30min / 24h / 48h after withdrawnAt). Reset to null on each new withdraw
   /// so every withdraw starts a fresh reminder cycle. Mirrors the signup
@@ -1249,9 +1249,9 @@ model CreatorApproval {
   resubmitReminder30mAt DateTime?
   resubmitReminder24hAt DateTime?
   resubmitReminder48hAt DateTime?
-  rejectionReason   String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  rejectionReason       String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   creator         CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   approvedBy      User?          @relation("CreatorApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
@@ -1295,6 +1295,12 @@ model Agency {
   contactPhoneVerified Boolean  @default(false)
   /// Brand names collected from brief submissions (no BrandProfile linkage).
   brandNames           String[] @default([])
+  /// Opt-in for transactional/order emails. Set true at signup, like the brand
+  /// and creator columns; agencies that predate these were backfilled true,
+  /// since the gate used to let every agency through.
+  emailNotificationsEnabled    Boolean  @default(false)
+  /// Opt-in for WhatsApp notifications.
+  whatsappNotificationsEnabled Boolean  @default(false)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -1869,7 +1875,7 @@ model BrandWallet {
 model WalletTransaction {
   id String @id @default(uuid()) @db.Uuid
 
-  walletId String @db.Uuid
+  walletId          String                @db.Uuid
   /// Signed: positive = credit into the wallet, negative = debit out.
   amountPaise       Int
   type              WalletTransactionType
@@ -1879,14 +1885,14 @@ model WalletTransaction {
   reason            String?
   /// The order this movement relates to (cancellation credit, checkout debit,
   /// checkout reversal), when applicable.
-  orderId           String? @db.Uuid
+  orderId           String?               @db.Uuid
   /// The withdrawal this movement relates to (withdrawal debit/reversal).
-  withdrawalId      String? @db.Uuid
+  withdrawalId      String?               @db.Uuid
   /// The user who caused this movement (admin for adjustments/withdrawal
   /// processing, brand user for a self-serve withdrawal request); null for
   /// system-generated rows like an automatic cancellation credit.
-  createdByUserId   String? @db.Uuid
-  createdAt         DateTime @default(now())
+  createdByUserId   String?               @db.Uuid
+  createdAt         DateTime              @default(now())
 
   wallet     BrandWallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
   order      Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
@@ -1931,6 +1937,204 @@ model WalletWithdrawal {
   @@index([brandId, createdAt])
   @@index([agencyId, createdAt])
   @@index([walletId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+//
+// Code declares the events; admin owns the templates, channels and timing.
+// See docs/NOTIFICATION_SYSTEM_PLAN.md.
+// ---------------------------------------------------------------------------
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationRecipientRole {
+  CREATOR
+  BRAND
+  USER
+}
+
+enum NotificationLogStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+  BOUNCED
+  COMPLAINED
+}
+
+/// One notification-worthy moment, declared in the code catalog and synced into
+/// this table on boot so the admin list is always current.
+///
+/// Most columns are code-owned and overwritten on every sync. The admin owns
+/// only `isActive`, `emailTemplateId`, `whatsappTemplateName` and the schedule
+/// rows; sync never touches those.
+model NotificationEvent {
+  /// Matches the legacy EmailTemplateKey value, e.g. 'order-brief-submitted-for-creator'.
+  key           String                    @id
+  label         String
+  description   String?
+  recipient     NotificationRecipientRole
+  /// { name: { type, example } } — drives the admin variable picker and
+  /// template validation.
+  vars          Json                      @default("{}")
+  /// Bypasses the per-profile opt-in booleans. True ONLY on password-reset.
+  alwaysSend    Boolean                   @default(false)
+  /// Derived at sync from whether the catalog entry defines `stillRelevant`.
+  /// False means the API refuses any schedule row with offsetMinutes > 0,
+  /// since a delayed send with no relevance check would notify people who
+  /// have already acted.
+  supportsDelay Boolean                   @default(false)
+  /// Set when a key disappears from the catalog. Never deleted: schedule rows
+  /// and log entries reference it.
+  deprecated    Boolean                   @default(false)
+  syncedAt      DateTime                  @updatedAt
+
+  // ---- admin-owned ----
+  isActive             Boolean @default(true)
+  /// Defaults to the template named after this key.
+  emailTemplateId      String? @db.Uuid
+  /// Meta template name; defaults to the key with '-' replaced by '_'.
+  whatsappTemplateName String?
+
+  emailTemplate NotificationTemplate?  @relation("EventEmailTemplate", fields: [emailTemplateId], references: [id], onDelete: Restrict)
+  schedule      NotificationSchedule[]
+
+  @@index([isActive, deprecated])
+}
+
+/// One send in an event's timeline. `offsetMinutes` is measured from the
+/// triggering event, never from the previous row.
+model NotificationSchedule {
+  id       String            @id @default(uuid()) @db.Uuid
+  eventKey String
+  event    NotificationEvent @relation(fields: [eventKey], references: [key], onDelete: Cascade)
+
+  /// 0 = send immediately. 30 = +30min, 1440 = +24h, 10080 = +7d.
+  offsetMinutes            Int
+  /// Which channels this row sends on. Either, neither or both.
+  channels                 NotificationChannel[]
+  /// Null falls back to the event's emailTemplateId.
+  templateOverrideId       String?               @db.Uuid
+  /// Null falls back to the event's whatsappTemplateName.
+  whatsappTemplateOverride String?
+  isActive                 Boolean               @default(true)
+  sortOrder                Int                   @default(0)
+
+  templateOverride NotificationTemplate? @relation("ScheduleTemplateOverride", fields: [templateOverrideId], references: [id], onDelete: Restrict)
+
+  /// The offset identifies the row: jobs carry offsetMinutes rather than this
+  /// row's id, so replacing the schedule cannot orphan an in-flight job.
+  @@unique([eventKey, offsetMinutes])
+  @@index([eventKey, isActive])
+}
+
+/// An admin-editable email template. WhatsApp copy lives in WhatsApp Manager;
+/// only its template name is stored, on the event or schedule row.
+model NotificationTemplate {
+  id             String   @id @default(uuid()) @db.Uuid
+  /// Matches an event key by default, e.g. 'order-brief-submitted-for-creator'.
+  name           String   @unique
+  description    String?
+  subjectHbs     String
+  htmlHbs        String   @db.Text
+  /// The visual editor's document, when the body was written there. htmlHbs is
+  /// rendered FROM this on save, so it stays the single thing the send path
+  /// reads; null means the body was hand-written and only the HTML exists.
+  bodyDoc        Json?
+  /// Null means derive the plain-text part from the rendered HTML.
+  textHbs        String?  @db.Text
+  /// Variable names found in the Handlebars AST when the template was saved.
+  referencedVars String[] @default([])
+  isActive       Boolean  @default(true)
+  /// Bumped on every save; the renderer caches compiled templates by
+  /// `${id}:${version}`, so an edit goes live without a restart.
+  version        Int      @default(1)
+
+  updatedByUserId String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions          NotificationTemplateVersion[]
+  events            NotificationEvent[]           @relation("EventEmailTemplate")
+  scheduleOverrides NotificationSchedule[]        @relation("ScheduleTemplateOverride")
+}
+
+/// Mirrors the LegalPage / LegalPageVersion pattern: every save snapshots the
+/// previous content so a bad edit can be reverted.
+model NotificationTemplateVersion {
+  id         String               @id @default(uuid()) @db.Uuid
+  templateId String               @db.Uuid
+  template   NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  version    Int
+  subjectHbs String
+  htmlHbs    String  @db.Text
+  textHbs    String? @db.Text
+  note       String?
+
+  createdByUserId String?  @db.Uuid
+  createdAt       DateTime @default(now())
+
+  @@unique([templateId, version])
+}
+
+/// Idempotency and audit in one table.
+///
+/// The unique constraint is what prevents a double-send: the step worker claims
+/// a send by inserting here with ON CONFLICT DO NOTHING. Every skip is recorded
+/// too, so "why didn't they get it?" is answerable from the database rather
+/// than from log lines.
+model NotificationLog {
+  id            String                @id @default(uuid()) @db.Uuid
+  eventKey      String
+  /// The order / profile / user the event was about.
+  entityId      String
+  /// Discriminates repeat occurrences of the same event on the same entity —
+  /// a revision number, a delivery id, a reset-token id. Defaults to entityId.
+  /// Test sends use `test:<uuid>` so they never collide with a real send.
+  occurrenceKey String
+  /// Which schedule row produced this send. Part of the identity because the
+  /// same event may send at 0, +24h and +7d.
+  offsetMinutes Int
+  channel       NotificationChannel
+  status        NotificationLogStatus @default(QUEUED)
+
+  recipientUserId      String? @db.Uuid
+  recipientProfileType String?
+  recipientProfileId   String? @db.Uuid
+  /// Email address or E.164 digits.
+  toAddress            String
+
+  templateId      String? @db.Uuid
+  renderedSubject String?
+
+  /// SES messageId or WhatsApp wamid — the join key for the delivery webhooks.
+  providerMessageId String?
+  errorMessage      String?
+  /// opted_out | suppressed | no_phone | not_relevant | event_inactive |
+  /// row_removed | entity_gone | no_recipient | user_inactive | superseded
+  skippedReason     String?
+
+  queuedAt    DateTime  @default(now())
+  /// Set when a worker takes the row. A QUEUED row with a stale claimedAt can
+  /// be re-claimed, so a crash between claiming and sending cannot lose it.
+  claimedAt   DateTime?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  failedAt    DateTime?
+
+  @@unique([eventKey, entityId, occurrenceKey, recipientUserId, channel, offsetMinutes])
+  @@index([providerMessageId])
+  @@index([recipientUserId, queuedAt])
+  @@index([eventKey, queuedAt])
+  @@index([status, queuedAt])
+  @@index([status, claimedAt])
 }
 
 /// A single WhatsApp OTP challenge for one phone number.

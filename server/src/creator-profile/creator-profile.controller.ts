@@ -138,7 +138,10 @@ export class CreatorProfileController {
     @Req()
     req: Request & { user: { id: string } },
   ): Promise<PresignUploadResponseDto> {
-    return this.creatorProfileService.presignProfileIntroVideoUpload(req.user.id, dto);
+    return this.creatorProfileService.presignProfileIntroVideoUpload(
+      req.user.id,
+      dto,
+    );
   }
 
   @Post('profile/uploads/presign-profile-image')
@@ -155,7 +158,10 @@ export class CreatorProfileController {
     @Req()
     req: Request & { user: { id: string } },
   ): Promise<PresignProfileImageUploadResponseDto> {
-    return this.creatorProfileService.presignProfileImageUpload(req.user.id, dto);
+    return this.creatorProfileService.presignProfileImageUpload(
+      req.user.id,
+      dto,
+    );
   }
 
   @Post('first-order-free-eligible')
@@ -238,8 +244,6 @@ export class CreatorProfileController {
     return this.creatorProfileService.listCategorySuggestions();
   }
 
-
-
   @Get('suggestions/restrictions')
   @ApiOperation({ summary: 'List creator restriction suggestions' })
   @ApiOkResponse({ type: () => [CreatorSuggestionItemDto] })
@@ -274,7 +278,9 @@ export class CreatorProfileController {
   async getMyPayoutDetails(
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorPayoutDetailsMaskedDto> {
-    return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(req.user.id);
+    return this.creatorPayoutDetailsService.getMaskedForCurrentCreator(
+      req.user.id,
+    );
   }
 
   @Patch('profile/me/payout-details')
@@ -290,7 +296,10 @@ export class CreatorProfileController {
     @Body() dto: UpsertCreatorPayoutDetailsDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreatorPayoutDetailsMaskedDto> {
-    return this.creatorPayoutDetailsService.upsertForCurrentCreator(req.user.id, dto);
+    return this.creatorPayoutDetailsService.upsertForCurrentCreator(
+      req.user.id,
+      dto,
+    );
   }
 
   @Get('profile/me/unavailability')
@@ -463,7 +472,8 @@ export class CreatorProfileController {
   @RequiredWorkspace('CREATOR')
   @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
   @ApiOperation({
-    summary: 'Add or update add-ons for a creator profile (by name, append-only)',
+    summary:
+      'Add or update add-ons for a creator profile (by name, append-only)',
   })
   @ApiOkResponse({ type: CreatorProfileResponseDto })
   async addOrUpdateAddOns(
@@ -472,11 +482,7 @@ export class CreatorProfileController {
     @Req()
     req: Request & { user: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
-    return this.creatorProfileService.addOrUpdateAddOns(
-      req.user.id,
-      id,
-      dto,
-    );
+    return this.creatorProfileService.addOrUpdateAddOns(req.user.id, id, dto);
   }
 
   @Delete(':id')

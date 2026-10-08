@@ -90,7 +90,8 @@ describe('OrdersService bulk checkout', () => {
       {} as any,
       {} as any,
       coupons as any,
-      {} as any,
+      {} as never, // wallet
+      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
     return { service, prisma, razorpay, created, coupons, orderRealtime };
   }
@@ -259,7 +260,11 @@ describe('OrdersService bulk checkout', () => {
     const { service, created } = makeService({
       packages: { c1: pkgFor('c1', 1000) },
       addOns: [
-        { id: 'ao-rev', name: 'Revision', priceAmount: new Prisma.Decimal(300) },
+        {
+          id: 'ao-rev',
+          name: 'Revision',
+          priceAmount: new Prisma.Decimal(300),
+        },
       ],
     });
 
@@ -396,14 +401,19 @@ describe('OrdersService bulk checkout', () => {
         {} as any,
         {} as any,
         {} as any,
-        {} as any,
+        {} as never, // wallet
+        { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
       );
       return { service, prisma, orderUpdates };
     }
 
     it('marks every child order paid for a pending batch', async () => {
       const { service, orderUpdates } = makeWebhookService(
-        { id: 'batch-1', status: 'PENDING_PAYMENT', expectedAmountPaise: 350000 },
+        {
+          id: 'batch-1',
+          status: 'PENDING_PAYMENT',
+          expectedAmountPaise: 350000,
+        },
         [{ id: 'o1' }, { id: 'o2' }],
       );
 
@@ -424,7 +434,11 @@ describe('OrdersService bulk checkout', () => {
 
     it('does nothing on an amount mismatch', async () => {
       const { service } = makeWebhookService(
-        { id: 'batch-1', status: 'PENDING_PAYMENT', expectedAmountPaise: 350000 },
+        {
+          id: 'batch-1',
+          status: 'PENDING_PAYMENT',
+          expectedAmountPaise: 350000,
+        },
         [{ id: 'o1' }],
       );
 

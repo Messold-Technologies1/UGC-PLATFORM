@@ -109,7 +109,10 @@ describe('PasswordService', () => {
     );
     prismaMock.passwordResetToken.update.mockResolvedValue({});
 
-    await service.resetPassword({ token: rawToken, newPassword: 'newpassword1' });
+    await service.resetPassword({
+      token: rawToken,
+      newPassword: 'newpassword1',
+    });
 
     expect(prismaMock.user.update).toHaveBeenCalledWith(
       expect.objectContaining({

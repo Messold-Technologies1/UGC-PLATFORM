@@ -563,7 +563,7 @@ describe('InstagramMediaService', () => {
 
       const result = await service.getGalleryPage(userId);
 
-      expect(result.items[0]!.importable).toBe(true);
+      expect(result.items[0].importable).toBe(true);
     });
 
     it('marks a reel Instagram withheld the file for as not importable', async () => {
@@ -576,8 +576,8 @@ describe('InstagramMediaService', () => {
 
       const result = await service.getGalleryPage(userId);
 
-      expect(result.items[0]!.importable).toBe(false);
-      expect(result.items[0]!.thumbnailUrl).not.toBeNull();
+      expect(result.items[0].importable).toBe(false);
+      expect(result.items[0].thumbnailUrl).not.toBeNull();
     });
 
     it('counts the unavailable reels across the whole cache on the first page', async () => {
@@ -703,7 +703,7 @@ describe('InstagramMediaService', () => {
       expect(result.status).toBe('ready');
       expect(result.stale).toBe(false);
       expect(result.nextCursor).toBeNull();
-      expect(result.items[0]!.alreadyImported).toBe(false);
+      expect(result.items[0].alreadyImported).toBe(false);
     });
 
     it('reports ready for a fresh sync that found zero reels, instead of resyncing forever', async () => {
@@ -810,7 +810,7 @@ describe('InstagramMediaService', () => {
       expect(result.stale).toBe(true);
       expect(result.status).toBe('syncing');
       expect(result.items).toHaveLength(1);
-      expect(result.items[0]!.alreadyImported).toBe(true);
+      expect(result.items[0].alreadyImported).toBe(true);
     });
 
     it('emits a cursor when another page exists', async () => {

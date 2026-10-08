@@ -32,7 +32,9 @@ export class AdminBrandController {
   constructor(private readonly brandProfileService: BrandProfileService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all users with current brand access (paginated)' })
+  @ApiOperation({
+    summary: 'List all users with current brand access (paginated)',
+  })
   @ApiOkResponse({ type: BrandsListResponseDto })
   async listBrands(
     @Query() query: ListBrandsQueryDto,

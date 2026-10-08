@@ -105,7 +105,10 @@ function mapCreatorToPublicListItem(
 
   return {
     id: profile.id,
-    userId: profile.userId,
+    // `userId` is deliberately absent: CreatorPublicListItemDto does not declare
+    // it, nothing on the client reads it, and this shape is served on the
+    // unauthenticated /wishlists/share/:token route — so emitting it leaked an
+    // internal user id publicly.
     // Brands see the opaque public slug, never the creator's real name.
     name: profile.publicSlug,
     introVideoUrl: profile.introVideoUrl ?? null,

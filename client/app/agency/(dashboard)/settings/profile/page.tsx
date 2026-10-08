@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { AgencyProfileSettingsForm } from "@/features/agency/components/agency-profile-settings-form";
 import { useAgencyProfileMeQuery } from "@/features/agency/hooks/use-agency-profile-me-query";
+import { NotificationPreferencesCard } from "@/features/notification-preferences/components/notification-preferences-card";
 import { useAuth } from "@/providers/auth-provider";
 
 export default function AgencySettingsProfilePage() {
@@ -38,8 +39,14 @@ export default function AgencySettingsProfilePage() {
   }
 
   return (
-    <div className="pt-4 lg:pt-5">
+    // pb-28 clears the profile form's fixed save bar, which would otherwise
+    // sit on top of the last card while the form is dirty.
+    <div className="space-y-6 pb-28 pt-4 lg:pt-5">
       <AgencyProfileSettingsForm profile={profile} />
+      {/* Matches .pe-shell so the card lines up with the form above it. */}
+      <div className="mx-auto w-full max-w-[1180px] px-4">
+        <NotificationPreferencesCard />
+      </div>
     </div>
   );
 }

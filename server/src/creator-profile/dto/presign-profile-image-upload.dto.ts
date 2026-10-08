@@ -52,7 +52,8 @@ export class PresignProfileImageUploadResponseDto {
   expiresInSeconds!: number;
 
   @ApiProperty({
-    example: 'https://cdn.example.com/creator-profile/<profileId>/profile-image/<uuid>.jpg',
+    example:
+      'https://cdn.example.com/creator-profile/<profileId>/profile-image/<uuid>.jpg',
   })
   cdnUrl!: string;
 }

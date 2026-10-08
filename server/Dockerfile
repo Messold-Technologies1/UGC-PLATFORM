@@ -1,45 +1,60 @@
-# Build stage
-FROM node:22-alpine AS builder
+# syntax=docker/dockerfile:1
 
+# Debian slim rather than Alpine: sharp ships prebuilt binaries for glibc, and
+# ffmpeg-static's binary is glibc-linked. On musl both fall back to building
+# from source or simply fail at runtime.
+FROM node:22-slim AS base
 WORKDIR /app
+# openssl is required by Prisma's query engine; ca-certificates for outbound TLS
+# to SES, Meta and Razorpay.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY prisma ./prisma/
-COPY prisma.config.ts ./
 
-# Prisma generate needs DATABASE_URL/DIRECT_URL (does not connect). These must
-# be set before `npm ci` because the postinstall hook runs `prisma generate`.
-ENV DATABASE_URL="postgresql://localhost:5432/db"
-ENV DIRECT_URL="postgresql://localhost:5432/db"
-
+# ---- dependencies -----------------------------------------------------------
+FROM base AS deps
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+# `prisma generate` runs on postinstall and reads the datasource block, so the
+# variables must exist — it never connects, so placeholders are correct here.
+# The real values are injected at runtime.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
+    DIRECT_URL="postgresql://build:build@localhost:5432/build"
 RUN npm ci
 
+
+# ---- build ------------------------------------------------------------------
+FROM deps AS build
 COPY . .
+# nest-cli copies mail/templates into dist (see nest-cli.json assets). Those
+# files are the renderer's fallback until every template exists in the database,
+# so an image without them would render nothing before the seeder has run.
+RUN npm run build \
+    && test -f dist/main.js \
+    && test -f dist/main.worker.js \
+    && test "$(find dist/mail/templates -name '*.hbs' | wc -l)" -gt 0
 
-RUN npx prisma generate
-RUN npm run build
 
-# Production stage
-FROM node:22-alpine
+# ---- production dependencies -----------------------------------------------
+FROM deps AS prod-deps
+RUN npm prune --omit=dev
 
+
+# ---- runtime ----------------------------------------------------------------
+FROM base AS runtime
+ENV NODE_ENV=production
+# Never run as root.
+USER node
 WORKDIR /app
 
-ENV NODE_ENV=production
+COPY --chown=node:node --from=prod-deps /app/node_modules ./node_modules
+COPY --chown=node:node --from=build /app/dist ./dist
+COPY --chown=node:node --from=build /app/prisma ./prisma
+COPY --chown=node:node package.json ./
 
-# System ffmpeg for delivery watermarking. ffmpeg-static ships a glibc binary
-# that can't run on Alpine (musl), so install the native package and point the
-# watermark service at it via FFMPEG_PATH.
-# fontconfig + a real font are required for Sharp/librsvg to render the SVG
-# watermark text — without them the text rasterizes to blank/tofu glyphs and
-# the watermark is invisible.
-RUN apk add --no-cache ffmpeg fontconfig ttf-dejavu && fc-cache -f
-ENV FFMPEG_PATH=/usr/bin/ffmpeg
+EXPOSE 4000
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/prisma ./prisma/
-
-EXPOSE 3000
-
+# Overridden to `node dist/main.worker.js` for the worker service. One image,
+# two processes — so the two can never drift out of sync.
 CMD ["node", "dist/main.js"]

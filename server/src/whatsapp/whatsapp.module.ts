@@ -20,6 +20,11 @@ import { WhatsAppWebhookController } from './whatsapp-webhook.controller';
 @Module({
   controllers: [WhatsAppWebhookController],
   providers: [WhatsAppCloudTransport, WhatsAppService],
+  // WhatsAppCloudTransport is exported for the notifications module, which
+  // gates and renders itself and needs only the Cloud API client — and for
+  // phone verification, whose OTPs must bypass WhatsAppService's notification
+  // opt-in gate (an OTP is transactional, and at signup there is no profile to
+  // carry the opt-in yet).
   exports: [WhatsAppService, WhatsAppCloudTransport],
 })
 export class WhatsAppModule {}

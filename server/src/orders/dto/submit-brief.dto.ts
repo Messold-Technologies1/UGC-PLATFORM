@@ -10,4 +10,3 @@ export class SubmitBriefDto {
   @IsUUID()
   briefId!: string;
 }
-

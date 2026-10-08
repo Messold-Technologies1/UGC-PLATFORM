@@ -1,0 +1,39 @@
+# Two processes from one image, which is the point: the API and the worker can
+# never drift out of sync because they are the same build.
+#
+#   docker compose --env-file /etc/gocollab/server.env up -d
+#
+services:
+  api:
+    image: ${IMAGE:-gocollab-server:latest}
+    restart: unless-stopped
+    env_file: [/etc/gocollab/server.env]
+    environment:
+      # The API must not consume queue jobs — that is the worker's job, and the
+      # whole reason for splitting them is to keep SES and Meta calls off the
+      # request path.
+      BULLMQ_WORKER_ENABLED: "false"
+      PORT: "4000"
+    ports:
+      - "127.0.0.1:4000:4000"   # ALB reaches this via the host; never public
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging: &logging
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  worker:
+    image: ${IMAGE:-gocollab-server:latest}
+    restart: unless-stopped
+    command: ["node", "dist/main.worker.js"]
+    env_file: [/etc/gocollab/server.env]
+    environment:
+      BULLMQ_WORKER_ENABLED: "true"
+    # No port: it serves no HTTP. Give it time to finish an in-flight send
+    # before SIGKILL, so a job returns to the queue rather than stalling.
+    stop_grace_period: 30s
+    logging: *logging

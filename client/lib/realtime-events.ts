@@ -137,6 +137,38 @@ export interface InstagramReelSyncUpdatedEvent {
   error: string | null;
 }
 
+/**
+ * One row of the admin delivery log, pushed as it is written.
+ *
+ * Deliberately the same shape the list endpoint returns, so the page can treat
+ * a pushed row and a fetched row identically.
+ */
+export interface NotificationLogEvent {
+  id: string;
+  eventKey: string;
+  entityId: string;
+  occurrenceKey: string;
+  offsetMinutes: number;
+  channel: "EMAIL" | "WHATSAPP";
+  status:
+    | "QUEUED"
+    | "SENT"
+    | "DELIVERED"
+    | "READ"
+    | "FAILED"
+    | "SKIPPED"
+    | "BOUNCED"
+    | "COMPLAINED";
+  toAddress: string;
+  renderedSubject: string | null;
+  providerMessageId: string | null;
+  errorMessage: string | null;
+  skippedReason: string | null;
+  queuedAt: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+}
+
 export interface ClientToServerEvents {
   /** Admin joins an order's live chat room (dispute group chat). */
   "order-chat:subscribe": (payload: { orderId: string }) => void;
@@ -149,6 +181,12 @@ export interface ClientToServerEvents {
    */
   "portfolio:subscribe": (payload: { creatorProfileId: string }) => void;
   "portfolio:unsubscribe": (payload: { creatorProfileId: string }) => void;
+  /**
+   * Admin joins the notification delivery-log feed. Admin-only on the server:
+   * the rows carry recipient addresses for the whole platform.
+   */
+  "notifications:subscribe": () => void;
+  "notifications:unsubscribe": () => void;
 }
 
 export interface ServerToClientEvents {
@@ -167,4 +205,5 @@ export interface ServerToClientEvents {
   "instagram.reel_sync_updated": (e: InstagramReelSyncUpdatedEvent) => void;
   "chat.message": (e: OrderChatMessageEvent) => void;
   "chat.read_updated": (e: OrderChatReadUpdatedEvent) => void;
+  "notification.log": (e: NotificationLogEvent) => void;
 }

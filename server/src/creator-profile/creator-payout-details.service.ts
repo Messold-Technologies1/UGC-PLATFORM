@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
 import type { CreatorPayoutDetailsMaskedDto } from './dto/creator-payout-details-masked.dto';
@@ -23,7 +27,7 @@ export class CreatorPayoutDetailsService {
     hasFullBank: boolean;
   } {
     const { dto, hasExistingRow } = params;
- 
+
     const bankKeysPresent =
       dto.accountHolderName !== undefined ||
       dto.accountNumber !== undefined ||
@@ -113,7 +117,9 @@ export class CreatorPayoutDetailsService {
     return this.getMaskedForCurrentCreator(userId);
   }
 
-  async getMaskedForCurrentCreator(userId: string): Promise<CreatorPayoutDetailsMaskedDto> {
+  async getMaskedForCurrentCreator(
+    userId: string,
+  ): Promise<CreatorPayoutDetailsMaskedDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { userId },
       select: { id: true },
@@ -141,13 +147,17 @@ export class CreatorPayoutDetailsService {
       hasBankDetails: hasBank,
       accountNumberLast4: hasBank && acct ? acct.slice(-4) : undefined,
       ifsc: hasBank && ifscVal ? ifscVal : undefined,
-      accountHolderName: hasBank ? row.accountHolderName ?? undefined : undefined,
+      accountHolderName: hasBank
+        ? (row.accountHolderName ?? undefined)
+        : undefined,
       hasUpi,
       upiMasked: hasUpi && upiVal ? maskUpi(upiVal) : undefined,
     };
   }
 
-  async getFullForAdmin(creatorProfileId: string): Promise<AdminCreatorPayoutDetailsDto> {
+  async getFullForAdmin(
+    creatorProfileId: string,
+  ): Promise<AdminCreatorPayoutDetailsDto> {
     const profile = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
       select: { id: true },

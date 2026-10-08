@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  cutoverStandDownMessage,
+  notificationsCutoverActive,
+} from '../notifications/cutover';
 import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
 import { MailService } from './mail.service';
 import { EmailTemplateKey } from './mail.types';
@@ -247,6 +251,14 @@ export class CreatorProfileMailNotifier {
   }
 
   private async run(label: string, fn: () => Promise<void>): Promise<void> {
+    // Once the engine owns sending, this path must not also fire or the
+    // recipient gets the same message twice.
+    if (notificationsCutoverActive(this.config)) {
+      this.logger.debug(
+        cutoverStandDownMessage(`creator profile email ${label}`),
+      );
+      return;
+    }
     try {
       await fn();
     } catch (err) {
@@ -291,7 +303,9 @@ export class CreatorProfileMailNotifier {
     displayName: string;
     user: { name: string | null };
   }): string {
-    return profile.displayName?.trim() || profile.user.name?.trim() || 'Creator';
+    return (
+      profile.displayName?.trim() || profile.user.name?.trim() || 'Creator'
+    );
   }
 
   private frontendBase(): string {

@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  cutoverStandDownMessage,
+  notificationsCutoverActive,
+} from '../notifications/cutover';
 import { MailService } from './mail.service';
 import { EmailTemplateKey } from './mail.types';
 import {
@@ -552,6 +556,12 @@ export class OrderMailNotifier {
   }
 
   private async run(label: string, fn: () => Promise<void>): Promise<void> {
+    // Once the engine owns sending, this path must not also fire or the
+    // recipient gets the same message twice.
+    if (notificationsCutoverActive(this.config)) {
+      this.logger.debug(cutoverStandDownMessage(`order email ${label}`));
+      return;
+    }
     try {
       await fn();
     } catch (err) {

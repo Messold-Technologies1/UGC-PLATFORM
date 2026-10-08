@@ -80,7 +80,10 @@ export const orderEvents = defineEvents({
         where: { id },
         select: { status: true },
       });
-      return order?.status === OrderStatus.BRIEF_SUBMITTED;
+      // null, not false: a missing order is 'I cannot see it', which is
+      // not the same answer as 'they already acted'.
+      if (!order) return null;
+      return order.status === OrderStatus.BRIEF_SUBMITTED;
     },
   },
 
@@ -112,7 +115,10 @@ export const orderEvents = defineEvents({
         where: { id },
         select: { status: true },
       });
-      return order?.status === OrderStatus.BRIEF_ACCEPTED;
+      // null, not false: a missing order is 'I cannot see it', which is
+      // not the same answer as 'they already acted'.
+      if (!order) return null;
+      return order.status === OrderStatus.BRIEF_ACCEPTED;
     },
   },
 
@@ -200,7 +206,10 @@ export const orderEvents = defineEvents({
         where: { id },
         select: { status: true },
       });
-      return order?.status === OrderStatus.PRODUCT_SHIPPED;
+      // null, not false: a missing order is 'I cannot see it', which is
+      // not the same answer as 'they already acted'.
+      if (!order) return null;
+      return order.status === OrderStatus.PRODUCT_SHIPPED;
     },
   },
 
@@ -268,7 +277,10 @@ export const orderEvents = defineEvents({
         where: { id },
         select: { status: true },
       });
-      return order?.status === OrderStatus.REVISION_REQUESTED;
+      // null, not false: a missing order is 'I cannot see it', which is
+      // not the same answer as 'they already acted'.
+      if (!order) return null;
+      return order.status === OrderStatus.REVISION_REQUESTED;
     },
   },
 
@@ -442,9 +454,10 @@ export const orderEvents = defineEvents({
         where: { id },
         select: { status: true },
       });
+      if (!order) return null;
       return (
-        order?.status === OrderStatus.DELIVERED ||
-        order?.status === OrderStatus.REVISION_SUBMITTED
+        order.status === OrderStatus.DELIVERED ||
+        order.status === OrderStatus.REVISION_SUBMITTED
       );
     },
   },
@@ -706,7 +719,10 @@ export const orderEvents = defineEvents({
         where: { id },
         select: { status: true },
       });
-      return order?.status === OrderStatus.DISPUTED;
+      // null, not false: a missing order is 'I cannot see it', which is
+      // not the same answer as 'they already acted'.
+      if (!order) return null;
+      return order.status === OrderStatus.DISPUTED;
     },
   },
 
@@ -746,7 +762,10 @@ export const orderEvents = defineEvents({
         where: { id },
         select: { status: true },
       });
-      return order?.status === OrderStatus.DISPUTED;
+      // null, not false: a missing order is 'I cannot see it', which is
+      // not the same answer as 'they already acted'.
+      if (!order) return null;
+      return order.status === OrderStatus.DISPUTED;
     },
   },
 

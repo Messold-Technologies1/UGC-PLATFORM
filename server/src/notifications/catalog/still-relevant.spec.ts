@@ -77,9 +77,12 @@ describe('stillRelevant', () => {
     });
 
     it.each(cases)(
-      '$key goes quiet when the order is gone',
+      '$key answers null — not false — when the order is gone',
       async ({ key }) => {
-        await expect(relevant(key, ctxWithOrder(null))).resolves.toBe(false);
+        // false means "they already acted" and null means "I cannot see it".
+        // Folding the second into the first is what let a worker on the wrong
+        // database look like healthy restraint in the delivery log.
+        await expect(relevant(key, ctxWithOrder(null))).resolves.toBeNull();
       },
     );
   });
@@ -95,40 +98,59 @@ describe('stillRelevant', () => {
   });
 
   describe('social-connection-expired', () => {
-    const ctx = (rows: Array<{ id: string }>): EventContext =>
+    // Read through the profile, so "no expired connection left" and "no such
+    // creator" are distinguishable — a plain connection query returns an empty
+    // result for both.
+    const ctx = (
+      profile: { socialConnections: Array<{ id: string }> } | null,
+    ): EventContext =>
       ({
         prisma: {
-          socialConnection: {
-            findFirst: jest.fn().mockResolvedValue(rows[0] ?? null),
-          },
+          creatorProfile: { findUnique: jest.fn().mockResolvedValue(profile) },
         },
       }) as unknown as EventContext;
 
     it('keeps asking while a connection is not ACTIVE', async () => {
       await expect(
-        relevant('social-connection-expired', ctx([{ id: 'c1' }]), 'creator_1'),
+        relevant(
+          'social-connection-expired',
+          ctx({ socialConnections: [{ id: 'c1' }] }),
+          'creator_1',
+        ),
       ).resolves.toBe(true);
     });
 
     it('stops once the creator reconnects', async () => {
       await expect(
-        relevant('social-connection-expired', ctx([]), 'creator_1'),
+        relevant(
+          'social-connection-expired',
+          ctx({ socialConnections: [] }),
+          'creator_1',
+        ),
       ).resolves.toBe(false);
     });
 
+    it('answers null when the creator is gone', async () => {
+      await expect(
+        relevant('social-connection-expired', ctx(null), 'creator_1'),
+      ).resolves.toBeNull();
+    });
+
     it('asks only about connections that are not ACTIVE', async () => {
-      const findFirst = jest.fn().mockResolvedValue(null);
+      const findUnique = jest.fn().mockResolvedValue({ socialConnections: [] });
       await relevant(
         'social-connection-expired',
         {
-          prisma: { socialConnection: { findFirst } },
+          prisma: { creatorProfile: { findUnique } },
         } as unknown as EventContext,
         'creator_1',
       );
-      expect(findFirst).toHaveBeenCalledWith(
+      expect(findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
-            status: { not: SocialConnectionStatus.ACTIVE },
+          select: expect.objectContaining({
+            socialConnections: expect.objectContaining({
+              where: { status: { not: SocialConnectionStatus.ACTIVE } },
+            }) as unknown,
           }) as unknown,
         }),
       );

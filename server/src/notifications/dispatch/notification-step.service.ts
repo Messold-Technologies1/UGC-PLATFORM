@@ -27,6 +27,22 @@ import { notificationsSendingEnabled } from '../sending-enabled';
 /** Thrown for a failure that retrying cannot fix, so it burns one attempt not three. */
 export class PermanentSendError extends Error {}
 
+/**
+ * Which of several channel failures the job should fail with.
+ *
+ * A retryable one wins over a permanent one. The job carries a single error,
+ * and that error decides whether BullMQ tries again — so if WhatsApp hit a
+ * permanent bad-template error while email hit a timeout, raising the
+ * permanent one would strand the email that a retry would have delivered.
+ * Raising the retryable one costs at most a duplicate attempt at the channel
+ * that was never going to work, and that attempt is refused by the claim.
+ */
+function pickFailureToRaise(failures: unknown[]): unknown {
+  return (
+    failures.find((err) => !(err instanceof PermanentSendError)) ?? failures[0]
+  );
+}
+
 export type StepOutcome = {
   channel: NotificationChannel;
   result: 'sent' | 'skipped' | 'failed';
@@ -102,10 +118,15 @@ export class NotificationStepService {
     // Only delayed rows can be stale enough to need re-checking; an immediate
     // send is about something that just happened.
     if (job.offsetMinutes > 0 && definition.stillRelevant) {
-      const ctx = this.context();
-      if (!(await definition.stillRelevant(ctx, job.entityId))) {
-        return this.skipAll(job, 'not_relevant');
-      }
+      const relevant = await definition.stillRelevant(
+        this.context(),
+        job.entityId,
+      );
+      // null is "I could not find the entity", which the log must not record
+      // as restraint: a worker pointed at the wrong database would otherwise
+      // look exactly like a healthy one deciding not to nag anybody.
+      if (relevant === null) return this.skipAll(job, 'entity_gone');
+      if (!relevant) return this.skipAll(job, 'not_relevant');
     }
 
     const recipient = await definition.resolve(this.context(), job.entityId);
@@ -116,19 +137,34 @@ export class NotificationStepService {
     }
 
     const outcomes: StepOutcome[] = [];
+    const failures: unknown[] = [];
+
     // Channels are independent: a WhatsApp failure must not cost the email.
+    //
+    // deliverChannel records its own failure and rethrows so the job retries,
+    // but that throw used to escape this loop — so an SES outage silently took
+    // WhatsApp with it, and the comment above was simply untrue. Each channel
+    // is tried now, and the failures are re-raised together once every channel
+    // has had its turn.
     for (const channel of row.channels) {
-      outcomes.push(
-        await this.deliverChannel(job, channel, recipient, {
-          alwaysSend: event.alwaysSend,
-          emailTemplateId: row.templateOverrideId ?? event.emailTemplateId,
-          whatsappTemplateName:
-            row.whatsappTemplateOverride ??
-            event.whatsappTemplateName ??
-            defaultWhatsAppTemplateName(job.eventKey),
-        }),
-      );
+      try {
+        outcomes.push(
+          await this.deliverChannel(job, channel, recipient, {
+            alwaysSend: event.alwaysSend,
+            emailTemplateId: row.templateOverrideId ?? event.emailTemplateId,
+            whatsappTemplateName:
+              row.whatsappTemplateOverride ??
+              event.whatsappTemplateName ??
+              defaultWhatsAppTemplateName(job.eventKey),
+          }),
+        );
+      } catch (err) {
+        failures.push(err);
+        outcomes.push({ channel, result: 'failed' });
+      }
     }
+
+    if (failures.length > 0) throw pickFailureToRaise(failures);
     return outcomes;
   }
 

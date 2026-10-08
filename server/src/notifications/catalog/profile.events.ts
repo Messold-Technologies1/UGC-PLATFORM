@@ -137,7 +137,10 @@ export const profileEvents = defineEvents({
         where: { id },
         select: { completeProfile: true },
       });
-      return p ? !p.completeProfile : false;
+      // null rather than false: no profile means the worker cannot see it,
+      // which is a different thing from a creator who finished.
+      if (!p) return null;
+      return !p.completeProfile;
     },
 
     /**
@@ -182,11 +185,15 @@ export const profileEvents = defineEvents({
     },
     // Resubmitting flips the status away from WITHDRAWN, which ends the drip.
     stillRelevant: async (ctx, id) => {
-      const approval = await ctx.prisma.creatorApproval.findUnique({
-        where: { creatorId: id },
-        select: { status: true },
+      // Read through the profile rather than straight at CreatorApproval: a
+      // missing approval row and a missing creator are different answers, and
+      // querying the approval alone cannot tell them apart.
+      const p = await ctx.prisma.creatorProfile.findUnique({
+        where: { id },
+        select: { creatorApproval: { select: { status: true } } },
       });
-      return approval?.status === ApprovalStatus.WITHDRAWN;
+      if (!p) return null;
+      return p.creatorApproval?.status === ApprovalStatus.WITHDRAWN;
     },
   },
 
@@ -214,14 +221,21 @@ export const profileEvents = defineEvents({
     },
     // Stops once the creator reconnects — the connection goes back to ACTIVE.
     stillRelevant: async (ctx, id) => {
-      const connection = await ctx.prisma.socialConnection.findFirst({
-        where: {
-          creatorProfileId: id,
-          status: { not: SocialConnectionStatus.ACTIVE },
+      // Through the profile for the same reason: "no expired connection left"
+      // (they reconnected) and "no such creator" both came back as an empty
+      // result before, and only one of them is a reason to stay quiet.
+      const p = await ctx.prisma.creatorProfile.findUnique({
+        where: { id },
+        select: {
+          socialConnections: {
+            where: { status: { not: SocialConnectionStatus.ACTIVE } },
+            select: { id: true },
+            take: 1,
+          },
         },
-        select: { id: true },
       });
-      return Boolean(connection);
+      if (!p) return null;
+      return p.socialConnections.length > 0;
     },
   },
 

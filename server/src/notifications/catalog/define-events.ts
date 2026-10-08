@@ -131,10 +131,25 @@ export type EventDefinition = {
    * `NotificationEvent.supportsDelay`, and its absence makes the admin API
    * refuse to save a delayed row for this event.
    *
+   * Three answers, not two:
+   *
+   * - `true`  — still warranted, send it.
+   * - `false` — the person already did the thing, so stay quiet.
+   * - `null`  — the entity could not be found at all.
+   *
+   * The last one used to be folded into `false`, which made a correct stop and
+   * a database the worker cannot see look identical in the delivery log: a
+   * misconfigured worker reads as healthy restraint. They are now logged as
+   * `not_relevant` and `entity_gone`, so a wall of the latter names its own
+   * cause.
+   *
    * For a delayed send that genuinely has no condition, opt in explicitly
    * with {@link ALWAYS_RELEVANT} rather than leaving this undefined.
    */
-  stillRelevant?: (ctx: EventContext, entityId: string) => Promise<boolean>;
+  stillRelevant?: (
+    ctx: EventContext,
+    entityId: string,
+  ) => Promise<boolean | null>;
 
   /**
    * Present when this event is swept rather than emitted. See

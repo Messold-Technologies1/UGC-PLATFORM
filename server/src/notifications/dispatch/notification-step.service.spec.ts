@@ -29,6 +29,8 @@ type Options = {
   subject?: string;
   /** Which side of the buyer XOR this order belongs to. */
   buyer?: 'brand' | 'agency';
+  /** What the relevance check answers: true, false, or null for "gone". */
+  stillRelevant?: boolean | null;
 };
 
 function build(opts: Options = {}) {
@@ -142,7 +144,11 @@ function build(opts: Options = {}) {
                   },
                 },
           ),
-          stillRelevant: jest.fn().mockResolvedValue(true),
+          stillRelevant: jest
+            .fn()
+            .mockResolvedValue(
+              opts.stillRelevant === undefined ? true : opts.stillRelevant,
+            ),
         } as never),
   );
 
@@ -312,5 +318,85 @@ describe('sanitizeBodyVar', () => {
     expect(sanitizeBodyVar('Acme\t\tBeauty')).toBe('Acme Beauty');
     expect(sanitizeBodyVar('Acme     Beauty')).toBe('Acme Beauty');
     expect(sanitizeBodyVar('  padded  ')).toBe('padded');
+  });
+});
+
+describe('a delayed send that is no longer warranted', () => {
+  // The log has to separate the two ways a delayed send can decline, because
+  // one of them is the system working and the other is a misconfiguration —
+  // and before this they were recorded identically.
+  const delayed: StepJobData = { ...job, offsetMinutes: 30 };
+
+  it('records not_relevant when the person already acted', async () => {
+    const { service, log } = build({ stillRelevant: false });
+
+    const outcomes = await service.deliver(delayed);
+
+    expect(outcomes.every((o) => o.reason === 'not_relevant')).toBe(true);
+    expect(log.recordSkip).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedReason: 'not_relevant' }),
+    );
+  });
+
+  it('records entity_gone when the entity cannot be found', async () => {
+    // A worker pointed at the wrong database answers null for everything. That
+    // has to look different from restraint, or the log says the system is
+    // healthy while nothing is being delivered.
+    const { service, log } = build({ stillRelevant: null });
+
+    const outcomes = await service.deliver(delayed);
+
+    expect(outcomes.every((o) => o.reason === 'entity_gone')).toBe(true);
+    expect(log.recordSkip).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedReason: 'entity_gone' }),
+    );
+  });
+
+  it('does not consult the check at all for an immediate send', async () => {
+    // offsetMinutes 0 is about something that just happened, so there is
+    // nothing to re-check and a null answer must not strand it.
+    const { service, log } = build({ stillRelevant: null });
+
+    await service.deliver(job);
+
+    expect(log.recordSkip).not.toHaveBeenCalledWith(
+      expect.objectContaining({ skippedReason: 'entity_gone' }),
+    );
+  });
+});
+
+describe('one channel failing', () => {
+  it('still tries the other one', async () => {
+    // The loop used to abort on the first throw, so an SES outage silently
+    // took WhatsApp with it — while the comment above it promised otherwise.
+    const { service, ses, whatsapp, log } = build();
+    ses.send.mockRejectedValue(new Error('SES is down'));
+
+    await expect(service.deliver(job)).rejects.toThrow('SES is down');
+
+    expect(whatsapp.send).toHaveBeenCalled();
+    expect(log.markFailed).toHaveBeenCalledTimes(1);
+    expect(log.markSent).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails the job with the retryable error, not the permanent one', async () => {
+    // The job carries one error and that error decides whether BullMQ tries
+    // again. Raising the permanent one would strand the channel a retry would
+    // have delivered.
+    const { service, ses, whatsapp } = build();
+    ses.send.mockRejectedValue(new PermanentSendError('bad template'));
+    whatsapp.send.mockRejectedValue(new Error('rate limited'));
+
+    await expect(service.deliver(job)).rejects.toThrow('rate limited');
+  });
+
+  it('raises the permanent error when every channel is permanent', async () => {
+    const { service, ses, whatsapp } = build();
+    ses.send.mockRejectedValue(new PermanentSendError('bad email template'));
+    whatsapp.send.mockRejectedValue(new PermanentSendError('bad wa template'));
+
+    await expect(service.deliver(job)).rejects.toBeInstanceOf(
+      PermanentSendError,
+    );
   });
 });

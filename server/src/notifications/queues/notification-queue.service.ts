@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, UnrecoverableError, Worker } from 'bullmq';
 import { buildBullmqConnection } from '../../jobs/bullmq-redis.connection';
 import { NotificationDispatchService } from '../dispatch/notification-dispatch.service';
+import { NotificationLogService } from '../log/notification-log.service';
 import {
   NotificationStepService,
   PermanentSendError,
@@ -49,6 +50,7 @@ export class NotificationQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly dispatch: NotificationDispatchService,
     private readonly step: NotificationStepService,
+    private readonly log: NotificationLogService,
   ) {
     this.redisUrl = config.get<string>('REDIS_URL');
   }
@@ -88,12 +90,7 @@ export class NotificationQueueService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.workers.push(
-      new Worker<EventJobData>(
-        QUEUE.event,
-        async (job) => this.runDispatch(job.data),
-        { connection, concurrency: 5 },
-      ),
+    const stepWorkers = [
       new Worker<StepJobData>(
         QUEUE.step,
         async (job) => this.runStep(job.data),
@@ -115,7 +112,36 @@ export class NotificationQueueService implements OnModuleInit, OnModuleDestroy {
           },
         },
       ),
+    ];
+
+    this.workers.push(
+      new Worker<EventJobData>(
+        QUEUE.event,
+        async (job) => this.runDispatch(job.data),
+        { connection, concurrency: 5 },
+      ),
+      ...stepWorkers,
     );
+
+    // Only the step queues: an event job carries no channel or offset, so
+    // there is no row shape to write for one. A failure there is still only a
+    // log line — see runDispatch.
+    for (const worker of stepWorkers) {
+      worker.on('failed', (job, err) => {
+        // `finishedOn` is BullMQ's own "this job is done retrying", set both
+        // when the attempts run out and when an UnrecoverableError stops it
+        // early. Checking attemptsMade against attempts would miss the second
+        // case, which is the one a bad template or a bad select produces.
+        if (!job?.finishedOn) return;
+        void this.log.recordCrash(job.data, err).catch((writeErr) => {
+          this.logger.error(
+            `could not record the failure of ${job.id}: ${
+              writeErr instanceof Error ? writeErr.message : String(writeErr)
+            }`,
+          );
+        });
+      });
+    }
 
     for (const worker of this.workers) {
       worker.on('failed', (job, err) => {

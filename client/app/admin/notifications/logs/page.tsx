@@ -228,7 +228,16 @@ export default function NotificationLogsPage() {
                       </span>
                     )}
                     {row.errorMessage && (
-                      <span className="block text-red-600">
+                      // Clamped, with the whole thing on hover. A provider
+                      // rejection is one line, but a Prisma validation error
+                      // dumps the entire query — and two of those turn the log
+                      // into a wall of red that hides every other row.
+                      <span
+                        // No `block` here: line-clamp needs display:-webkit-box
+                        // and `block` would win, quietly undoing the clamp.
+                        className="line-clamp-3 text-red-600"
+                        title={row.errorMessage}
+                      >
                         {row.errorMessage}
                       </span>
                     )}

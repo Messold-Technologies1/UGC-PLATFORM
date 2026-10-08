@@ -296,3 +296,70 @@ describe('NotificationLogService feed', () => {
     await flush();
   });
 });
+
+describe('NotificationLogService.recordCrash', () => {
+  // The gap this closes: a send that throws in resolve() left the delivery
+  // log completely empty, so the admin page showed nothing rather than
+  // showing a failure. "Nothing" is the hardest state to diagnose.
+  let prisma: ReturnType<typeof makePrisma>;
+  let feed: { publish: jest.Mock };
+  let service: NotificationLogService;
+
+  const job = {
+    eventKey: 'order-brief-accepted-for-brand',
+    entityId: 'ord-1',
+    occurrenceKey: 'ord-1',
+    offsetMinutes: 0,
+    channels: [NotificationChannel.EMAIL, NotificationChannel.WHATSAPP],
+  };
+
+  beforeEach(() => {
+    prisma = makePrisma();
+    feed = { publish: jest.fn() };
+    service = new NotificationLogService(
+      prisma as never,
+      feed as unknown as NotificationLogFeedPublisher,
+    );
+  });
+
+  it('writes a failed row per channel when nothing was ever claimed', async () => {
+    await service.recordCrash(job, new Error('Unknown field `agency`'));
+
+    expect(prisma.rows).toHaveLength(2);
+    for (const row of prisma.rows) {
+      expect(row).toMatchObject({
+        status: NotificationLogStatus.FAILED,
+        errorMessage: 'Unknown field `agency`',
+        // Never resolved, so there is genuinely nobody to name.
+        recipientUserId: null,
+        toAddress: '',
+      });
+    }
+  });
+
+  it('leaves the row alone when the send was already claimed', async () => {
+    // Past the claim, deliverChannel records the failure against the real
+    // recipient and rethrows — so the job still fails, and recording again
+    // here would add a second, recipient-less row for one send.
+    const claimed = await service.claim({ ...input, channel: job.channels[0] });
+    if (!claimed.claimed) throw new Error('expected the claim to win');
+    const before = prisma.rows.length;
+
+    await service.recordCrash(
+      { ...job, ...input, channels: [job.channels[0]] },
+      new Error('boom'),
+    );
+
+    expect(prisma.rows).toHaveLength(before);
+  });
+
+  it('puts the failure on the live feed, so the page shows it without a reload', async () => {
+    await service.recordCrash(
+      { ...job, channels: [job.channels[0]] },
+      new Error('boom'),
+    );
+    await flush();
+
+    expect(feed.publish).toHaveBeenCalled();
+  });
+});

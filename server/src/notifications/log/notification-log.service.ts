@@ -243,6 +243,76 @@ export class NotificationLogService {
   }
 
   /**
+   * Record a send that failed before it ever had a recipient.
+   *
+   * Everything else in this service is written once a send has been resolved
+   * and claimed. But resolve() reads the entity, so a bad query, a deleted
+   * row or a missing relation throws before any row exists — and all BullMQ
+   * can do with a throw is retry and give up. The delivery log, which exists
+   * to answer "why didn't they get it?", then had nothing to say at all: the
+   * event simply never appeared, which is far harder to diagnose than a row
+   * marked failed. That is exactly how an invalid Prisma select went
+   * unnoticed while every order notification silently died.
+   *
+   * recipientUserId stays null and toAddress empty because that is the truth:
+   * we never got far enough to learn who this was for. The null is part of
+   * the unique key, so this row can never collide with a real one written by
+   * a later, working attempt — both can stand, which is what a log is for.
+   *
+   * Called only once BullMQ is done retrying, so a failure that the next
+   * attempt recovers from never reaches the log.
+   */
+  async recordCrash(
+    job: {
+      eventKey: string;
+      entityId: string;
+      occurrenceKey: string;
+      offsetMinutes: number;
+      channels: NotificationChannel[];
+    },
+    error: unknown,
+  ): Promise<void> {
+    for (const channel of job.channels) {
+      const where = {
+        eventKey: job.eventKey,
+        entityId: job.entityId,
+        occurrenceKey: job.occurrenceKey,
+        offsetMinutes: job.offsetMinutes,
+        channel,
+      };
+
+      // Only when the log has nothing at all for this step and channel. A send
+      // that got as far as being claimed has its own failure recorded against
+      // the real recipient by deliverChannel, which then rethrows — so without
+      // this check that same send would also get a second, recipient-less row
+      // here. The narrow race between the two is covered by skipDuplicates
+      // below, and this path is a terminal failure, not a hot one.
+      const existing = await this.prisma.notificationLog.findFirst({
+        where,
+        select: { id: true },
+      });
+      if (existing) continue;
+
+      const { count } = await this.prisma.notificationLog.createMany({
+        data: [
+          {
+            ...where,
+            recipientUserId: null,
+            toAddress: '',
+            status: NotificationLogStatus.FAILED,
+            failedAt: new Date(),
+            errorMessage: toMessage(error),
+          },
+        ],
+        skipDuplicates: true,
+      });
+      if (count === 1) {
+        this.announce({ ...where, recipientUserId: null });
+      }
+    }
+  }
+
+  /**
    * Apply a provider delivery callback. Keyed on providerMessageId, which is
    * what replaces the bounded in-memory map that lost its contents on restart
    * and reported `template=?` from a second replica.

@@ -116,7 +116,7 @@ export class AdminWalletController {
     @Query('includeZero') includeZero?: string,
     @Query('search') search?: string,
   ): Promise<AdminBrandCreditsPageDto> {
-    const { rows, total, totalBalancePaise, totalHeldPaise } =
+    const { rows, total, totalBalancePaise, totalHeldPaise, totalPromoPaise } =
       await this.wallet.listBrandCreditsForAdmin({
         take: take ? Number(take) : undefined,
         skip: skip ? Number(skip) : undefined,
@@ -128,14 +128,13 @@ export class AdminWalletController {
       total,
       totalBalancePaise,
       totalHeldPaise,
+      totalPromoPaise,
     };
   }
 
   @Get('brands/:brandId')
   @ApiOperation({ summary: "A brand's credit balance, ledger and withdrawals" })
-  async brandLedger(
-    @Param('brandId', ParseUUIDPipe) brandId: string,
-  ): Promise<{
+  async brandLedger(@Param('brandId', ParseUUIDPipe) brandId: string): Promise<{
     balance: WalletBalanceDto;
     transactions: WalletTransactionDto[];
     withdrawals: WalletWithdrawalDto[];
@@ -174,7 +173,9 @@ export class AdminWalletController {
   }
 
   @Get('agencies/:agencyId')
-  @ApiOperation({ summary: "An agency's credit balance, ledger and withdrawals" })
+  @ApiOperation({
+    summary: "An agency's credit balance, ledger and withdrawals",
+  })
   async agencyLedger(
     @Param('agencyId', ParseUUIDPipe) agencyId: string,
   ): Promise<{

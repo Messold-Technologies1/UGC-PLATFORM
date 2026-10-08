@@ -2,10 +2,11 @@ import { AdminBrandCreditDto } from './dto/wallet.dto';
 import type { AdminBrandCreditRow } from './wallet.service';
 
 /**
- * The admin Credits list reports three numbers per brand. `availablePaise` is
- * derived rather than stored, and getting it wrong is a money error: held funds
- * still sit inside `balancePaise`, so reporting the balance alone tells an
- * admin a brand can spend money that a pending withdrawal has already locked.
+ * The admin Credits list reports four numbers per brand. `availablePaise` and
+ * `refundablePaise` are derived rather than stored, and getting either wrong is
+ * a money error: held funds still sit inside `balancePaise` (so the balance
+ * alone tells an admin a brand can spend money a pending withdrawal has locked)
+ * and reward credit is spendable but can never be paid out.
  */
 describe('AdminBrandCreditDto.from', () => {
   const row = (
@@ -19,6 +20,7 @@ describe('AdminBrandCreditDto.from', () => {
     contactEmail: 'team@acme.test',
     balancePaise: 50000,
     heldPaise: 0,
+    promoPaise: 0,
     currency: 'INR',
     lastActivityAt: new Date('2026-09-01'),
     ...over,
@@ -29,6 +31,7 @@ describe('AdminBrandCreditDto.from', () => {
     expect(dto.balancePaise).toBe(50000);
     expect(dto.heldPaise).toBe(0);
     expect(dto.availablePaise).toBe(50000);
+    expect(dto.refundablePaise).toBe(50000);
   });
 
   it('subtracts held funds from what the brand can spend', () => {
@@ -38,6 +41,23 @@ describe('AdminBrandCreditDto.from', () => {
     expect(dto.availablePaise).toBe(30000);
     // The held money has NOT left the balance — it is locked inside it.
     expect(dto.availablePaise + dto.heldPaise).toBe(dto.balancePaise);
+  });
+
+  it('keeps reward credit spendable but not refundable', () => {
+    // ₹500 owned, of which ₹50 is a completion reward → all ₹500 is spendable
+    // at checkout, but only ₹450 can ever be paid back out.
+    const dto = AdminBrandCreditDto.from(row({ promoPaise: 5000 }));
+    expect(dto.availablePaise).toBe(50000);
+    expect(dto.promoPaise).toBe(5000);
+    expect(dto.refundablePaise).toBe(45000);
+  });
+
+  it('never reports negative refundable credit', () => {
+    // Held + reward can together account for the whole balance.
+    const dto = AdminBrandCreditDto.from(
+      row({ heldPaise: 48000, promoPaise: 5000 }),
+    );
+    expect(dto.refundablePaise).toBe(0);
   });
 
   it('reports zero across the board for a brand that never held credit', () => {

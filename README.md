@@ -173,6 +173,11 @@ RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
 
+# Order-completion reward credit (non-refundable store credit for the brand).
+# Both are read at runtime: change them and restart, no deploy needed.
+ORDER_COMPLETION_CREDIT_ENABLED=false   # 'true' switches the reward on
+ORDER_COMPLETION_CREDIT_PAISE=5000      # 5000 paise = ₹50
+
 SWAGGER_ENABLED=true
 NODE_ENV=development
 ```

@@ -9,11 +9,18 @@ import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 describe('OrdersService.acceptDelivery → portfolio sync', () => {
   function makeService(order: Record<string, unknown>) {
     const orderUpdate = jest.fn().mockResolvedValue({});
+    const orderClient = {
+      findUnique: jest.fn().mockResolvedValue(order),
+      update: orderUpdate,
+    };
+    // Acceptance and its reward credit share one transaction, so the mock has
+    // to hand the same order client to the callback.
     const prisma = {
-      order: {
-        findUnique: jest.fn().mockResolvedValue(order),
-        update: orderUpdate,
-      },
+      order: orderClient,
+      $transaction: jest.fn(
+        async (fn: (tx: unknown) => Promise<unknown>) =>
+          await fn({ order: orderClient }),
+      ),
     };
     const brandAccess = createBrandAccessMock();
     const orderPortfolioSync = {
@@ -31,6 +38,7 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       {} as never,
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+      { get: () => undefined } as never, // config
     );
     return { service, orderUpdate, orderPortfolioSync };
   }
@@ -140,6 +148,7 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
       {} as never,
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+      { get: () => undefined } as never, // config
     );
 
     await service.adminRejectOrder({

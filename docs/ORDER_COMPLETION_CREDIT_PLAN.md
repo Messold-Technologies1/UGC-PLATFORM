@@ -4,7 +4,9 @@ Give the brand a fixed reward credit (default ₹50) every time an order complet
 successfully. The reward is **spendable at checkout but never refundable**, so it
 needs its own bucket inside the existing Credits wallet rather than a new wallet.
 
-Status: plan only — nothing implemented yet.
+Status: **implemented**. This document is the design record; the sections below
+describe what shipped. Trigger point (`ACCEPTED`) and the free-order exclusion
+were confirmed before coding.
 
 ---
 
@@ -265,25 +267,28 @@ The agency page re-exports this one, so both get it from a single change.
 
 ---
 
-## 7. Decisions to confirm before coding
+## 7. Decisions
 
-1. **Trigger point** — the plan awards at `ACCEPTED` (brand accepts the delivery;
-   where `order-completed-for-brand` already fires). The alternative is
-   `CREATOR_PAYMENT_DONE` (after the creator is paid out), which delays the reward
-   but guarantees the order fully settled. **Recommendation: `ACCEPTED`.**
-2. **Free / ₹0 orders** — the plan skips them, so a free order cannot mint credit.
-   Confirm.
+Settled before coding:
+
+1. **Trigger point** — the reward is awarded at `ACCEPTED` (brand accepts the
+   delivery; where `order-completed-for-brand` already fires), not at
+   `CREATOR_PAYMENT_DONE`. **Confirmed.**
+2. **Free / ₹0 orders** — excluded, so a free order cannot mint credit.
+   **Confirmed.**
+
+Deliberately left out, easy to add later:
+
 3. **Fully credit-funded orders** — an order paid entirely from credits still earns
-   the reward under this plan. That is a slow bleed only if a brand loops reward
-   credit into new orders; each loop still consumes real value, so I would leave it.
-4. **Per-brand cap** — none in this plan. If you want one later
-   (e.g. max ₹N of reward credit per brand per month), it is a third env var and a
-   count query, cheap to add but easier to design once there is live data.
-5. **Expiry** — reward credits never expire in this plan. Adding expiry later means
-   dated promo lots, which is a materially bigger change; flag it now if it is wanted.
-6. **Notification** — brands are not emailed about the reward; it just appears in
-   Credits. The existing `order-completed-for-brand` template could mention it if
-   you want it visible in the mail.
+   the reward. That is a slow bleed only if a brand loops reward credit into new
+   orders, and each loop still consumes real value.
+4. **Per-brand cap** — none. If one is wanted later (e.g. max ₹N of reward credit
+   per brand per month), it is a third env var and a count query in
+   `resolveOrderCompletionCreditPaise`.
+5. **Expiry** — reward credits never expire. Adding expiry means dated promo lots,
+   a materially bigger change.
+6. **Notification** — brands are not emailed about the reward; it appears in
+   Credits. The existing `order-completed-for-brand` template could mention it.
 
 ---
 

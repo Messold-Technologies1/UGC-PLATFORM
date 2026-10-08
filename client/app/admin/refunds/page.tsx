@@ -149,7 +149,7 @@ function BrandCreditsPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Total credits outstanding
@@ -164,6 +164,14 @@ function BrandCreditsPanel() {
           </p>
           <p className="mt-1 text-xl font-bold">
             {inr(data?.totalHeldPaise ?? 0)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Reward credits (not refundable)
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {inr(data?.totalPromoPaise ?? 0)}
           </p>
         </div>
         <div className="rounded-2xl border border-border/40 bg-card/40 px-4 py-3">
@@ -226,6 +234,7 @@ function BrandCreditsPanel() {
                   <th className="px-4 py-3">Buyer</th>
                   <th className="px-4 py-3">Total credits</th>
                   <th className="px-4 py-3">Held</th>
+                  <th className="px-4 py-3">Reward</th>
                   <th className="px-4 py-3">Available</th>
                   <th className="px-4 py-3">Last activity</th>
                 </tr>
@@ -258,8 +267,25 @@ function BrandCreditsPanel() {
                     <td className="px-4 py-3 text-muted-foreground">
                       {b.heldPaise > 0 ? inr(b.heldPaise) : "—"}
                     </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {b.promoPaise > 0 ? (
+                        <span
+                          title="Earned on completed orders: spendable at checkout, never refundable"
+                          className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700"
+                        >
+                          {inr(b.promoPaise)}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">
                       {inr(b.availablePaise)}
+                      {b.promoPaise > 0 ? (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {inr(b.refundablePaise)} refundable
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatDateOnly(b.lastActivityAt)}

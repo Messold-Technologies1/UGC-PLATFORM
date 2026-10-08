@@ -91,6 +91,7 @@ describe('OrdersService bulk checkout', () => {
       coupons as any,
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+      { get: () => undefined } as never, // config
     );
     return { service, prisma, razorpay, created, coupons, orderRealtime };
   }
@@ -401,6 +402,7 @@ describe('OrdersService bulk checkout', () => {
         {} as any,
         {} as never, // wallet
         { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+        { get: () => undefined } as never, // config
       );
       return { service, prisma, orderUpdates };
     }

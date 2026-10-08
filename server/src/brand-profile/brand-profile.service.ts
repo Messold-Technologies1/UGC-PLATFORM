@@ -12,7 +12,6 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { BrandAccessService } from '../brand-access/brand-access.service';
-import { BrandProfileMailNotifier } from '../mail/brand-profile-mail.notifier';
 import {
   brandRegistrationEventId,
   MetaCapiService,
@@ -59,7 +58,6 @@ export class BrandProfileService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
-    private readonly brandMail: BrandProfileMailNotifier,
     private readonly events: NotificationEventsService,
     private readonly metaCapi: MetaCapiService,
   ) {}
@@ -382,7 +380,6 @@ export class BrandProfileService {
     pronunciationAudioKey?: string;
   }): Promise<BrandProfileResponseDto> {
     const profile = await this.finalizeBrandProfileAssetsAndLoad(params);
-    this.brandMail.notifyWelcome(params.brandProfileId);
     void this.events.emit('brand-welcome', {
       entityId: params.brandProfileId,
     });

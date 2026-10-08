@@ -82,7 +82,6 @@ describe('OrdersService credit checkout', () => {
       razorpay as any,
       orderRealtime as any,
       {} as any,
-      {} as any,
       brandAccess as any,
       {} as any,
       {} as any,

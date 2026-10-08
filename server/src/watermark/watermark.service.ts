@@ -8,7 +8,6 @@ import sharp from 'sharp';
 import ffmpegStatic from 'ffmpeg-static';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 
@@ -57,7 +56,6 @@ export class WatermarkService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly realtime: OrderRealtimeNotifier,
-    private readonly orderMail: OrderMailNotifier,
     private readonly events: NotificationEventsService,
     config: ConfigService,
   ) {
@@ -217,10 +215,6 @@ export class WatermarkService {
         ),
       );
 
-    this.orderMail.notifyContentDelivered(order.id, {
-      revisionNumber: params.revisionNumber,
-      deliveredAt,
-    });
     void this.events.emit('order-content-delivered-for-brand', {
       entityId: order.id,
       // A re-delivery after a revision is a separate notification.

@@ -26,7 +26,6 @@ import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
-import { CreatorProfileMailNotifier } from '../mail/creator-profile-mail.notifier';
 import { MetaCapiService, splitFullName } from '../meta-capi/meta-capi.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import {
@@ -95,7 +94,6 @@ import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
-import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import type {
   SuggestedCreatorListItemDto,
   SuggestedCreatorsResponseDto,
@@ -322,7 +320,6 @@ export class CreatorProfileService {
     private readonly prisma: PrismaService,
     private readonly creatorPackageService: CreatorPackageService,
     private readonly storage: StorageService,
-    private readonly creatorProfileMail: CreatorProfileMailNotifier,
     private readonly events: NotificationEventsService,
     private readonly creatorReviews: CreatorReviewsService,
     private readonly metaCapi: MetaCapiService,
@@ -330,7 +327,6 @@ export class CreatorProfileService {
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
     private readonly brandAccess: BrandAccessService,
-    private readonly creatorReminders: CreatorReminderQueueService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -2804,7 +2800,6 @@ export class CreatorProfileService {
         `isListed=${listingState?.isListed ?? false} becameListed=${listingState?.becameListed ?? false}`,
     );
 
-    this.creatorProfileMail.notifyApproved(creatorProfileId);
     void this.events.emit('creator-profile-approved', {
       entityId: creatorProfileId,
     });
@@ -2957,13 +2952,7 @@ export class CreatorProfileService {
       });
     });
 
-    // Kick off the "resubmit your profile" reminder drip (email + WhatsApp),
-    // timed from the withdraw. Fire-and-forget: a scheduling failure is covered
-    // by the backstop sweep, and this no-ops when the feature is disabled.
-    void this.creatorReminders
-      .scheduleResubmitReminders(creatorProfileId, withdrawnAt)
-      .catch(() => undefined);
-    // Same clock as above: the engine measures its rows from the withdraw.
+    // Kick off the "resubmit your profile" drip, timed from the withdraw.
     // occurrenceKey is the withdraw time, because a creator may withdraw more
     // than once and each withdraw starts a fresh drip.
     void this.events.emit('creator-profile-resubmit-reminder', {

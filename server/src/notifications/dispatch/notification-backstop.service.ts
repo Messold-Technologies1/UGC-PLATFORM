@@ -4,7 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { NotificationLogStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationStepService } from './notification-step.service';
-import { notificationsCutoverActive } from '../cutover';
+import { notificationsSendingEnabled } from '../sending-enabled';
 import type { StepJobData } from '../queues/notification-queues';
 
 /**
@@ -40,7 +40,7 @@ export class NotificationBackstopService {
   @Cron(CronExpression.EVERY_HOUR)
   async run(): Promise<{ recovered: number }> {
     // Nothing to recover while the legacy path is still the one sending.
-    if (!notificationsCutoverActive(this.config)) return { recovered: 0 };
+    if (!notificationsSendingEnabled(this.config)) return { recovered: 0 };
     if (this.running) {
       this.logger.warn('backstop: previous run still going, skipping');
       return { recovered: 0 };

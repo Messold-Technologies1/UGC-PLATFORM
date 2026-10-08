@@ -22,7 +22,7 @@ import {
   type SkipReason,
 } from '../log/notification-log.service';
 import type { StepJobData } from '../queues/notification-queues';
-import { notificationsCutoverActive } from '../cutover';
+import { notificationsSendingEnabled } from '../sending-enabled';
 
 /** Thrown for a failure that retrying cannot fix, so it burns one attempt not three. */
 export class PermanentSendError extends Error {}
@@ -59,7 +59,7 @@ export class NotificationStepService {
    * recorded, but the legacy notifiers are still the ones actually sending.
    */
   private sendingEnabled(): boolean {
-    return notificationsCutoverActive(this.config);
+    return notificationsSendingEnabled(this.config);
   }
 
   async deliver(job: StepJobData): Promise<StepOutcome[]> {

@@ -2,7 +2,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { BrandProfileService } from '../brand-profile/brand-profile.service';
 import type { CreateBrandProfileDto } from '../brand-profile/dto/create-brand-profile.dto';
 import { CreatorProfileService } from '../creator-profile/creator-profile.service';
-import { CreatorReminderQueueService } from '../jobs/creator-reminder-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
@@ -13,7 +12,6 @@ export class SignupRegistrationService {
     private readonly prisma: PrismaService,
     private readonly creatorProfileService: CreatorProfileService,
     private readonly brandProfileService: BrandProfileService,
-    private readonly creatorReminders: CreatorReminderQueueService,
     private readonly events: NotificationEventsService,
   ) {}
 
@@ -104,15 +102,9 @@ export class SignupRegistrationService {
       select: { completionReminderStartedAt: true },
     });
     if (profile) {
-      await this.creatorReminders
-        .scheduleReminders(
-          creatorProfileId,
-          profile.completionReminderStartedAt,
-        )
-        .catch(() => undefined);
-      // The engine's schedule rows measure their offsets from occurredAt, so
-      // passing the same column keeps both paths on one clock — which is what
-      // lets the cutover flip without shifting anyone's drip.
+      // Schedule rows measure their offsets from occurredAt, so passing the
+      // stored column rather than `new Date()` keeps a drip on the clock it
+      // started on.
       void this.events.emit('creator-profile-completion-reminder', {
         entityId: creatorProfileId,
         occurredAt: profile.completionReminderStartedAt,

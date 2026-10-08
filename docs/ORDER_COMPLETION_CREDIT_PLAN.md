@@ -75,6 +75,14 @@ the promo bucket), and the return paths compute:
 promoToRestore = min(net promo spent on this order, amountBeingCredited)
 ```
 
+where "promo spent on this order" sums the order's promo deltas **excluding the
+reward grant itself**. That exclusion is load-bearing: the reward an order earns
+on completion carries that same `orderId` and a positive promo delta, so counting
+it would cancel out the promo the order spent at checkout and the return would
+hand the money back as refundable cash — the very loophole this closes. One order
+really can hold both rows, because a dispute may be opened after acceptance, so an
+admin reject can credit an order that was already rewarded.
+
 The ledger stays the single source of truth for both numbers.
 
 ---
@@ -108,7 +116,9 @@ model WalletTransaction {
 }
 ```
 
-New migration `prisma/migrations/<ts>_wallet_promo_credit/migration.sql`:
+**Two** migrations, and the split is required rather than cosmetic.
+
+`20261008120000_wallet_promo_credit`:
 
 ```sql
 ALTER TYPE "WalletTransactionType" ADD VALUE 'ORDER_COMPLETION_CREDIT';
@@ -120,7 +130,11 @@ ALTER TABLE "BrandWallet" ADD CONSTRAINT "BrandWallet_promoPaise_nonnegative"
   CHECK ("promoPaise" >= 0);
 ALTER TABLE "BrandWallet" ADD CONSTRAINT "BrandWallet_held_plus_promo_not_exceed_balance"
   CHECK ("heldPaise" + "promoPaise" <= "balancePaise");
+```
 
+`20261008130000_wallet_promo_credit_index`:
+
+```sql
 -- One completion credit per order, enforced by the database, so a retry or a
 -- double accept can never pay twice. Partial index: other types repeat per order.
 CREATE UNIQUE INDEX "WalletTransaction_one_completion_credit_per_order"
@@ -128,10 +142,11 @@ CREATE UNIQUE INDEX "WalletTransaction_one_completion_credit_per_order"
   WHERE "type" = 'ORDER_COMPLETION_CREDIT';
 ```
 
-Note: adding an enum value and using it in the same transaction is not allowed in
-Postgres, so the enum value ships in this migration and is first *written* by app
-code that deploys after it — the normal Prisma ordering, no special handling
-needed.
+Postgres refuses to USE a new enum value in the transaction that added it
+(`55P04: unsafe use of new value ... New enum values must be committed before they
+can be used`), and the index's `WHERE` clause uses it. Prisma runs each migration
+file in its own transaction, so the index must live in a later file. Shipping
+both in one migration fails on apply.
 
 No backfill script — requirement 4.
 

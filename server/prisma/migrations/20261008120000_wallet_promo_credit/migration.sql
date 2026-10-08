@@ -4,6 +4,12 @@
 --
 --   spendable  = balancePaise - heldPaise                (unchanged)
 --   refundable = balancePaise - heldPaise - promoPaise   (new; caps withdrawals)
+--
+-- The unique index that keeps the reward to one per order filters on the enum
+-- value added here, and Postgres refuses to USE a new enum value in the
+-- transaction that adds it. It therefore ships as its own migration
+-- (20261008130000_wallet_promo_credit_index), which runs in a later
+-- transaction — by which time this ALTER TYPE has committed.
 
 -- AlterEnum
 ALTER TYPE "WalletTransactionType" ADD VALUE 'ORDER_COMPLETION_CREDIT';
@@ -19,11 +25,3 @@ ALTER TABLE "WalletTransaction" ADD COLUMN     "promoPaise" INTEGER NOT NULL DEF
 -- guarded updates in WalletService, mirroring the heldPaise constraints).
 ALTER TABLE "BrandWallet" ADD CONSTRAINT "BrandWallet_promoPaise_nonnegative" CHECK ("promoPaise" >= 0);
 ALTER TABLE "BrandWallet" ADD CONSTRAINT "BrandWallet_held_plus_promo_not_exceed_balance" CHECK ("heldPaise" + "promoPaise" <= "balancePaise");
-
--- One completion reward per order, enforced by the database: a retried accept
--- or a concurrent double-accept can never pay the brand twice. Partial, because
--- every other movement type legitimately repeats on the same order (a checkout
--- debit can be reversed and re-taken).
-CREATE UNIQUE INDEX "WalletTransaction_one_completion_credit_per_order"
-  ON "WalletTransaction" ("orderId")
-  WHERE "type" = 'ORDER_COMPLETION_CREDIT';

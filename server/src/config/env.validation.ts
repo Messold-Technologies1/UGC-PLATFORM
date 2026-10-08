@@ -168,6 +168,11 @@ export const envValidationSchema = Joi.object({
   AWS_SES_SECRET_ACCESS_KEY: Joi.string().min(1).optional(),
   SES_FROM_EMAIL: Joi.string().email().optional(),
   MAIL_ENABLED: Joi.string().valid('true', 'false').optional(),
+  // Unset means shadow mode, which is the safe default — so this is optional
+  // rather than required. Validated so a typo ("TRUE", "1") fails at boot
+  // instead of silently sending nothing.
+  NOTIFICATIONS_SENDING_ENABLED: Joi.string().valid('true', 'false').optional(),
+  NOTIFICATIONS_BULK_PER_MINUTE: Joi.number().min(1).optional(),
   EMAIL_TEMPLATE_LOGO: Joi.string().uri().optional(),
   MAIL_SEND_TIMEOUT_MS: Joi.number()
     .integer()

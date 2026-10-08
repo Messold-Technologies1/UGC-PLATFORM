@@ -33,7 +33,6 @@ describe('OrdersService: superseded checkout drafts', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       wallet as never,
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );

@@ -29,7 +29,6 @@ describe('OrdersService.listOrdersForAdmin', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );

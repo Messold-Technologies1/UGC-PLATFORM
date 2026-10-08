@@ -36,18 +36,3 @@ export async function presignDeliveryUpload({
   );
   return data;
 }
-
-export async function putDeliveryFileToPresignedUrl(
-  file: File,
-  presign: PresignedDeliveryUploadItem,
-): Promise<void> {
-  const res = await fetch(presign.uploadUrl, {
-    method: "PUT",
-    headers: presign.headers,
-    body: file,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Upload failed (${res.status})`);
-  }
-}

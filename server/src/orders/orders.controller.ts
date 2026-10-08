@@ -44,6 +44,15 @@ import { CreatorOrderDetailsResponseDto } from './dto/creator-order-details-resp
 import { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
 import { PresignDeliveryUploadResponseDto } from './dto/presign-delivery-upload-response.dto';
 import {
+  AbortDeliveryMultipartUploadDto,
+  CompleteDeliveryMultipartUploadDto,
+  CompleteDeliveryMultipartUploadResponseDto,
+  CreateDeliveryMultipartUploadDto,
+  CreateDeliveryMultipartUploadResponseDto,
+  SignDeliveryMultipartPartDto,
+  SignDeliveryMultipartPartResponseDto,
+} from './dto/multipart-delivery-upload.dto';
+import {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
@@ -429,6 +438,90 @@ export class OrdersController {
     @Req() req: Request & { user: { id: string } },
   ): Promise<PresignDeliveryUploadResponseDto> {
     return this.ordersService.presignDeliveryUploads({
+      orderId: id,
+      creatorUserId: req.user.id,
+      dto,
+    });
+  }
+
+  @Post(':id/deliveries/uploads/multipart/create')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Begin a multipart S3 upload for a large delivery asset',
+    description:
+      'Used for large videos so each part uploads against its own presigned URL, avoiding the single-PUT expiry. Follow with sign-part (per part) then complete.',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CreateDeliveryMultipartUploadResponseDto })
+  async createDeliveryMultipartUpload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateDeliveryMultipartUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreateDeliveryMultipartUploadResponseDto> {
+    return this.ordersService.createDeliveryMultipartUpload({
+      orderId: id,
+      creatorUserId: req.user.id,
+      dto,
+    });
+  }
+
+  @Post(':id/deliveries/uploads/multipart/sign-part')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Presign a single part of a delivery upload' })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: SignDeliveryMultipartPartResponseDto })
+  async signDeliveryMultipartPart(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SignDeliveryMultipartPartDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<SignDeliveryMultipartPartResponseDto> {
+    return this.ordersService.signDeliveryMultipartPart({
+      orderId: id,
+      creatorUserId: req.user.id,
+      dto,
+    });
+  }
+
+  @Post(':id/deliveries/uploads/multipart/complete')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Finalize a delivery multipart upload once all parts are done',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CompleteDeliveryMultipartUploadResponseDto })
+  async completeDeliveryMultipartUpload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CompleteDeliveryMultipartUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CompleteDeliveryMultipartUploadResponseDto> {
+    return this.ordersService.completeDeliveryMultipartUpload({
+      orderId: id,
+      creatorUserId: req.user.id,
+      dto,
+    });
+  }
+
+  @Post(':id/deliveries/uploads/multipart/abort')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Cancel a delivery multipart upload and discard uploaded parts',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiNoContentResponse({ description: 'Multipart upload aborted' })
+  async abortDeliveryMultipartUpload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AbortDeliveryMultipartUploadDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.ordersService.abortDeliveryMultipartUpload({
       orderId: id,
       creatorUserId: req.user.id,
       dto,

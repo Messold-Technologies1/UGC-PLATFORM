@@ -34,6 +34,15 @@ import {
   PLATFORM_FEE_RATE,
 } from './order-pricing-ledger.util';
 import type { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
+import type {
+  AbortDeliveryMultipartUploadDto,
+  CompleteDeliveryMultipartUploadDto,
+  CompleteDeliveryMultipartUploadResponseDto,
+  CreateDeliveryMultipartUploadDto,
+  CreateDeliveryMultipartUploadResponseDto,
+  SignDeliveryMultipartPartDto,
+  SignDeliveryMultipartPartResponseDto,
+} from './dto/multipart-delivery-upload.dto';
 import type { PresignDeliveryUploadResponseDto } from './dto/presign-delivery-upload-response.dto';
 import type {
   SubmitDeliveryDto,
@@ -2583,11 +2592,15 @@ export class OrdersService {
     };
   }
 
-  async presignDeliveryUploads(params: {
+  /**
+   * Shared gate for every delivery-upload entry point: the caller must own the
+   * order and the order must be in a state that accepts uploads. Returns the
+   * revision the upload belongs to, which decides the S3 key prefix.
+   */
+  private async assertCreatorCanUploadDelivery(params: {
     orderId: string;
     creatorUserId: string;
-    dto: PresignDeliveryUploadDto;
-  }): Promise<PresignDeliveryUploadResponseDto> {
+  }): Promise<{ orderId: string; revisionNumber: number }> {
     const creator: any = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
@@ -2649,12 +2662,57 @@ export class OrdersService {
 
     await this.assertDeliveryNotProcessing(order.id, revisionNumber);
 
+    return { orderId: order.id, revisionNumber };
+  }
+
+  /**
+   * Lightweight guard for the per-part calls of a multipart upload, which fire
+   * once per 10 MiB and so must not repeat the full status check above. The
+   * security boundary is the order: the key names the order it belongs to, so
+   * confirming the caller owns that order is enough to stop them signing parts
+   * into anybody else's delivery.
+   */
+  private async assertOwnsDeliveryUploadKey(params: {
+    orderId: string;
+    creatorUserId: string;
+    key: string;
+  }): Promise<void> {
+    const creator: any = await this.prisma.creatorProfile.findUnique({
+      where: { userId: params.creatorUserId },
+      select: { id: true },
+    });
+    if (!creator) throw new NotFoundException('Creator profile not found');
+
+    const order: any = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, creatorId: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.creatorId !== creator.id)
+      throw new ForbiddenException('Not your order');
+
+    if (!params.key.startsWith(`order-deliveries/${order.id}/`)) {
+      throw new ForbiddenException('Invalid upload key');
+    }
+  }
+
+  async presignDeliveryUploads(params: {
+    orderId: string;
+    creatorUserId: string;
+    dto: PresignDeliveryUploadDto;
+  }): Promise<PresignDeliveryUploadResponseDto> {
+    const { orderId, revisionNumber } =
+      await this.assertCreatorCanUploadDelivery({
+        orderId: params.orderId,
+        creatorUserId: params.creatorUserId,
+      });
+
     const uploads = await Promise.all(
       params.dto.files.map(async (f) => {
         const key = this.storage.buildObjectKey({
           kind: 'order_delivery_asset',
           userId: params.creatorUserId,
-          orderId: order.id,
+          orderId,
           revisionNumber,
           contentType: f.contentType,
         });
@@ -2667,6 +2725,91 @@ export class OrdersService {
     );
 
     return { uploads };
+  }
+
+  /**
+   * Begin a multipart upload for a single large delivery asset. The browser
+   * then uploads the file part by part, so a multi-hundred-megabyte video is
+   * never bound by one presigned PUT and its expiry window.
+   */
+  async createDeliveryMultipartUpload(params: {
+    orderId: string;
+    creatorUserId: string;
+    dto: CreateDeliveryMultipartUploadDto;
+  }): Promise<CreateDeliveryMultipartUploadResponseDto> {
+    const { orderId, revisionNumber } =
+      await this.assertCreatorCanUploadDelivery({
+        orderId: params.orderId,
+        creatorUserId: params.creatorUserId,
+      });
+
+    const key = this.storage.buildObjectKey({
+      kind: 'order_delivery_asset',
+      userId: params.creatorUserId,
+      orderId,
+      revisionNumber,
+      contentType: params.dto.contentType,
+    });
+
+    return this.storage.createMultipartUpload({
+      key,
+      contentType: params.dto.contentType,
+    });
+  }
+
+  async signDeliveryMultipartPart(params: {
+    orderId: string;
+    creatorUserId: string;
+    dto: SignDeliveryMultipartPartDto;
+  }): Promise<SignDeliveryMultipartPartResponseDto> {
+    await this.assertOwnsDeliveryUploadKey({
+      orderId: params.orderId,
+      creatorUserId: params.creatorUserId,
+      key: params.dto.key,
+    });
+
+    const url = await this.storage.signUploadPart({
+      key: params.dto.key,
+      uploadId: params.dto.uploadId,
+      partNumber: params.dto.partNumber,
+    });
+    return { url };
+  }
+
+  async completeDeliveryMultipartUpload(params: {
+    orderId: string;
+    creatorUserId: string;
+    dto: CompleteDeliveryMultipartUploadDto;
+  }): Promise<CompleteDeliveryMultipartUploadResponseDto> {
+    await this.assertOwnsDeliveryUploadKey({
+      orderId: params.orderId,
+      creatorUserId: params.creatorUserId,
+      key: params.dto.key,
+    });
+
+    const key = await this.storage.completeMultipartUpload({
+      key: params.dto.key,
+      uploadId: params.dto.uploadId,
+      parts: params.dto.parts,
+    });
+    return { key, cdnUrl: this.storage.buildCdnUrl(key) };
+  }
+
+  async abortDeliveryMultipartUpload(params: {
+    orderId: string;
+    creatorUserId: string;
+    dto: AbortDeliveryMultipartUploadDto;
+  }): Promise<void> {
+    await this.assertOwnsDeliveryUploadKey({
+      orderId: params.orderId,
+      creatorUserId: params.creatorUserId,
+      key: params.dto.key,
+    });
+
+    await this.storage.abortMultipartUpload({
+      key: params.dto.key,
+      uploadId: params.dto.uploadId,
+    });
   }
 
   async submitDelivery(params: {

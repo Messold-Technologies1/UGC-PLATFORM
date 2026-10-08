@@ -1,14 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AlertTriangle,
-  FileVideo,
-  Upload,
-  UploadCloud,
-} from "lucide-react";
+import { AlertTriangle, FileVideo, Upload, UploadCloud } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,9 +22,13 @@ import {
   isDeliveryUnprocessable,
   type CreatorDeliveryItem,
 } from "../../api/get-creator-deliveries";
+import {
+  DELIVERY_ASSET_MAX_BYTES,
+  formatBytes,
+} from "../../lib/upload-delivery-file";
 
-const MAX_FILE_SIZE_MB = 250;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1_000_000;
+// The cap lives with the uploader so it cannot drift from the server DTO.
+const MAX_FILE_SIZE_LABEL = formatBytes(DELIVERY_ASSET_MAX_BYTES);
 
 // Persist a staged (not-yet-confirmed) selection across re-mounts so a stray
 // re-render never drops the creator's chosen files before they hit confirm.
@@ -110,7 +110,11 @@ function toCarouselAssets(assets: OrderDeliveryAsset[]): CarouselAsset[] {
   }));
 }
 
-function SubmittedDeliveryBlock({ delivery }: { delivery: CreatorDeliveryItem }) {
+function SubmittedDeliveryBlock({
+  delivery,
+}: {
+  delivery: CreatorDeliveryItem;
+}) {
   const assets = delivery.assets ?? [];
   const submittedDate = formatDateTime(delivery.createdAt);
   if (assets.length === 0) return null;
@@ -159,6 +163,9 @@ export function CreatorContentUploadCard({
 
   const submitMutation = useSubmitDeliveryFlowMutation();
   const isUploading = submitMutation.isPending;
+  // A half-gigabyte video can take minutes; a bare spinner would read as a
+  // hang, so the button carries the real percentage instead.
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Computed over ALL items, not the asset-filtered list further down: a
   // delivery row exists (and locks this card) from the moment it is submitted.
@@ -218,8 +225,8 @@ export function CreatorContentUploadCard({
         return;
       }
 
-      if (validFiles.some((f) => f.size > MAX_FILE_SIZE_BYTES)) {
-        toast.error(`Each file must be ${MAX_FILE_SIZE_MB} MB or smaller.`);
+      if (validFiles.some((f) => f.size > DELIVERY_ASSET_MAX_BYTES)) {
+        toast.error(`Each file must be ${MAX_FILE_SIZE_LABEL} or smaller.`);
         return;
       }
 
@@ -268,8 +275,14 @@ export function CreatorContentUploadCard({
       return;
     }
     const note = withNote ? submissionNote.trim() || undefined : undefined;
+    setUploadProgress(0);
     submitMutation.mutate(
-      { orderId, files: pendingUpload.files, note },
+      {
+        orderId,
+        files: pendingUpload.files,
+        note,
+        onProgress: setUploadProgress,
+      },
       {
         onSuccess: () => {
           delete stagedUploadsCache[orderId];
@@ -280,6 +293,7 @@ export function CreatorContentUploadCard({
           });
           onUploaded?.();
         },
+        onSettled: () => setUploadProgress(0),
       },
     );
   }
@@ -321,7 +335,9 @@ export function CreatorContentUploadCard({
         <div className="min-w-0">
           <h3 className="text-lg font-bold text-foreground">{title}</h3>
           {description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {description}
+            </p>
           ) : null}
         </div>
       </div>
@@ -383,6 +399,13 @@ export function CreatorContentUploadCard({
                 Ready to upload {pendingUpload.files.length} file
                 {pendingUpload.files.length === 1 ? "" : "s"}
               </p>
+              {isUploading ? (
+                <Progress
+                  value={uploadProgress * 100}
+                  aria-label="Upload progress"
+                  className="mt-3 h-1.5"
+                />
+              ) : null}
               <div className="mt-4 flex gap-2">
                 <Button
                   type="button"
@@ -405,7 +428,7 @@ export function CreatorContentUploadCard({
                   {isUploading ? (
                     <>
                       <Spinner className="mr-1.5 size-3.5" aria-hidden />
-                      Uploading...
+                      Uploading {Math.round(uploadProgress * 100)}%
                     </>
                   ) : (
                     <>
@@ -448,7 +471,7 @@ export function CreatorContentUploadCard({
                 Choose Files
               </Button>
               <p className="mt-4 text-[11px] text-muted-foreground">
-                Max file size: {MAX_FILE_SIZE_MB} MB • MP4 recommended
+                Max file size: {MAX_FILE_SIZE_LABEL} • MP4 recommended
               </p>
             </div>
           )}

@@ -104,6 +104,14 @@ export const ENDPOINTS = {
       `/api/orders/${encodeURIComponent(id)}/chat/state`,
     DELIVERY_UPLOADS_PRESIGN: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/deliveries/presign`,
+    DELIVERY_UPLOADS_MULTIPART_CREATE: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/deliveries/uploads/multipart/create`,
+    DELIVERY_UPLOADS_MULTIPART_SIGN_PART: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/deliveries/uploads/multipart/sign-part`,
+    DELIVERY_UPLOADS_MULTIPART_COMPLETE: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/deliveries/uploads/multipart/complete`,
+    DELIVERY_UPLOADS_MULTIPART_ABORT: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/deliveries/uploads/multipart/abort`,
     SUBMIT_DELIVERY: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/deliveries`,
     BRAND_DISPUTE: (id: string) =>

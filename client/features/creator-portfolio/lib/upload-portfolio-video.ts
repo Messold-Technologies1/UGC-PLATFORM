@@ -1,4 +1,5 @@
 import { uploadFileInParts } from "@/lib/s3-multipart-upload";
+import { putToPresignedUrl } from "@/lib/s3-put-upload";
 import { computeFileSha256 } from "@/lib/file-hash";
 import { presignPortfolioUpload } from "../api/presign-portfolio-upload";
 import {
@@ -20,49 +21,6 @@ export function formatBytes(bytes: number): string {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   }
   return `${Math.round(bytes / (1024 * 1024))} MB`;
-}
-
-/** Single-PUT upload to a presigned URL with progress reporting via XHR. */
-function putWithProgress(
-  url: string,
-  file: File,
-  headers: Record<string, string>,
-  onProgress?: (fraction: number) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url, true);
-    for (const [name, value] of Object.entries(headers)) {
-      xhr.setRequestHeader(name, value);
-    }
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        onProgress(Math.min(event.loaded / event.total, 1));
-      }
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress?.(1);
-        resolve();
-        return;
-      }
-      reject(new Error(`Upload failed (${xhr.status})`));
-    };
-    xhr.onerror = () => reject(new Error("Upload failed (network error)"));
-    xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"));
-
-    if (signal) {
-      if (signal.aborted) {
-        xhr.abort();
-        return;
-      }
-      signal.addEventListener("abort", () => xhr.abort(), { once: true });
-    }
-
-    xhr.send(file);
-  });
 }
 
 /**
@@ -110,7 +68,7 @@ export async function uploadPortfolioVideo(
     { kind: "video", contentType, contentLength: file.size, contentHash },
     options,
   );
-  await putWithProgress(
+  await putToPresignedUrl(
     presign.uploadUrl,
     file,
     presign.headers,

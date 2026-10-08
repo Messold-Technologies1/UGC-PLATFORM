@@ -1,11 +1,9 @@
 import { isAxiosError } from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  presignDeliveryUpload,
-  putDeliveryFileToPresignedUrl,
-  type DeliveryAssetKind,
-} from "../api/presign-delivery-upload";
+import { computeFileSha256 } from "@/lib/file-hash";
+import type { DeliveryAssetKind } from "../api/presign-delivery-upload";
+import { uploadDeliveryFile } from "../lib/upload-delivery-file";
 import {
   submitDelivery,
   type SubmitDeliveryResponse,
@@ -15,32 +13,19 @@ type SubmitDeliveryFlowVariables = {
   orderId: string;
   files: File[];
   note?: string;
+  /** Overall upload progress across every file, as a 0..1 fraction. */
+  onProgress?: (fraction: number) => void;
 };
 
 function resolveFileKind(file: File): DeliveryAssetKind {
-  if (file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name)) {
+  if (
+    file.type.startsWith("image/") ||
+    /\.(jpe?g|png|webp)$/i.test(file.name)
+  ) {
     return "image";
   }
 
   return "video";
-}
-
-/**
- * SHA-256 hex digest of a file's contents. Used server-side to reject duplicate
- * uploads. Returns undefined if the Web Crypto API is unavailable (the server
- * treats a missing hash as "skip duplicate check").
- */
-async function computeFileSha256(file: File): Promise<string | undefined> {
-  try {
-    if (!globalThis.crypto?.subtle) return undefined;
-    const buffer = await file.arrayBuffer();
-    const digest = await globalThis.crypto.subtle.digest("SHA-256", buffer);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  } catch {
-    return undefined;
-  }
 }
 
 function resolveContentType(file: File): string {
@@ -91,35 +76,54 @@ export function useSubmitDeliveryFlowMutation() {
       orderId,
       files,
       note,
+      onProgress,
     }: SubmitDeliveryFlowVariables): Promise<SubmitDeliveryResponse> => {
       const uploadInputs = files.map((file) => ({
         contentType: resolveContentType(file),
-        contentLength: file.size,
         kind: resolveFileKind(file),
       }));
 
+      // Undefined for files over the hashing cap — the server treats a missing
+      // hash as "skip the duplicate check" rather than buffering a gigabyte of
+      // video into an ArrayBuffer just to notice a re-upload.
       const hashes = await Promise.all(files.map((f) => computeFileSha256(f)));
 
-      const presign = await presignDeliveryUpload({
-        orderId,
-        files: uploadInputs,
-      });
+      // Progress is weighted by size so a 900 MB video is not drowned out by
+      // the thumbnail sitting next to it.
+      const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+      const uploadedByIndex = new Map<number, number>();
+      const reportProgress = () => {
+        if (!onProgress || totalBytes === 0) return;
+        let done = 0;
+        for (const bytes of uploadedByIndex.values()) done += bytes;
+        onProgress(Math.min(done / totalBytes, 1));
+      };
 
-      if (presign.uploads.length !== files.length) {
-        throw new Error("Upload preparation returned an unexpected file count");
+      // Sequential on purpose: each large file already uploads its own parts in
+      // parallel, so running every file at once would multiply the open
+      // connections and starve them all on a phone.
+      const keys: string[] = [];
+      for (const [index, file] of files.entries()) {
+        const { key } = await uploadDeliveryFile({
+          orderId,
+          file,
+          contentType: uploadInputs[index].contentType,
+          kind: uploadInputs[index].kind,
+          onProgress: (fraction) => {
+            uploadedByIndex.set(index, fraction * file.size);
+            reportProgress();
+          },
+        });
+        uploadedByIndex.set(index, file.size);
+        reportProgress();
+        keys.push(key);
       }
-
-      await Promise.all(
-        files.map((file, index) =>
-          putDeliveryFileToPresignedUrl(file, presign.uploads[index]),
-        ),
-      );
 
       return submitDelivery({
         orderId,
         note,
-        assets: presign.uploads.map((upload, index) => ({
-          key: upload.key,
+        assets: keys.map((key, index) => ({
+          key,
           kind: uploadInputs[index].kind,
           sha256: hashes[index],
         })),

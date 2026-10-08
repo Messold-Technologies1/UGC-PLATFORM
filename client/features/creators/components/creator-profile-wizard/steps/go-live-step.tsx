@@ -125,7 +125,7 @@ export function GoLiveStep({
           >
             <div className="cw-golive-strength-inner">
               <div>
-                <div className="cw-golive-strength-head">Profile Strength</div>
+                <div className="cw-golive-strength-head">Profile Complete</div>
                 <div className="cw-golive-strength-pct">{strengthPct}%</div>
               </div>
               <div className="cw-golive-strength-right">

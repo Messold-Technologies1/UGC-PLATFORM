@@ -9,6 +9,22 @@ const BRAND_FALLBACK = "/brand/creators";
 const AGENCY_FALLBACK = "/agency/creators";
 const ADMIN_FALLBACK = "/admin";
 
+/**
+ * Where a returning session lands when it opens the site at `/`.
+ *
+ * Kept separate from the post-login fallbacks above on purpose. Signing in is
+ * an action with a destination in mind — often a callbackUrl — while reopening
+ * the tab is "take me back to what I do here", and the two answers differ for
+ * creators (the profile they are still filling in, rather than the account
+ * page) and for admins (the creator queue they actually work from, rather than
+ * the admin index). Sharing one constant would have made changing either one
+ * silently change the other.
+ */
+const LANDING_CREATOR = "/creator/settings/profile";
+const LANDING_BRAND = "/brand/creators";
+const LANDING_AGENCY = "/agency/creators";
+const LANDING_ADMIN = "/admin/creators";
+
 /** Minimal identity used to pick a workspace home after login / session restore. */
 export type LandingWorkspaceUser = {
   primaryRole?: string | null;
@@ -25,14 +41,18 @@ function canUseLandingRole(
 }
 
 function landingPathForRole(role: string | null | undefined): string | null {
-  if (role === "ADMIN") return ADMIN_FALLBACK;
-  if (role === "AGENCY") return AGENCY_FALLBACK;
-  if (role === "BRAND") return BRAND_FALLBACK;
-  if (role === "CREATOR") return CREATOR_FALLBACK;
+  if (role === "ADMIN") return LANDING_ADMIN;
+  if (role === "AGENCY") return LANDING_AGENCY;
+  if (role === "BRAND") return LANDING_BRAND;
+  if (role === "CREATOR") return LANDING_CREATOR;
   return null;
 }
 
-/** Brand → creator browse, creator → profile, admin → admin home. */
+/**
+ * Brand and agency → browse creators, creator → their profile, admin → the
+ * creator queue. Returns null for a session with no workspace role, which is
+ * how the caller knows to leave the visitor on the public page.
+ */
 export function resolveLandingWorkspacePath(
   user: LandingWorkspaceUser | null | undefined,
 ): string | null {

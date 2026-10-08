@@ -1442,7 +1442,7 @@ export function CreatorProfileWizard({
           : `${publicPortfolioCount} of 10 videos. ${
               publicPortfolioCount >= 3
                 ? "Great range — add more to boost visibility."
-                : "Add more to unlock higher Profile Strength."
+                : "Add more to raise your profile completion."
             }`,
       },
     ];
@@ -1575,10 +1575,15 @@ export function CreatorProfileWizard({
             </p>
           </div>
 
+          {/* Labelled "Profile Complete" while the value behind it is still
+              computeProfileStrength / `strength` — the number did not change,
+              only what creators are told it means. Renaming the whole chain
+              would touch the go-live step, the CSS and the snapshot types for
+              no behaviour difference. */}
           <div className="cw-strength">
             <div className="cw-strength-head">
               <Flame size={16} aria-hidden />
-              <span>Profile Strength</span>
+              <span>Profile Complete</span>
             </div>
             <div className="cw-strength-pct">{strength.pct}%</div>
             <div className="cw-strength-track">

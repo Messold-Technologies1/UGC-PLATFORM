@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNotificationLogsQuery } from "@/features/notifications/hooks/use-notifications";
+import { useNotificationLogFeed } from "@/features/notifications/hooks/use-notification-log-feed";
+import { NotificationsBackLink } from "@/features/notifications/components/back-link";
 import {
   formatOffset,
   type NotificationLogStatus,
@@ -43,20 +45,46 @@ export default function NotificationLogsPage() {
   const [status, setStatus] = useState<string>("");
   const [channel, setChannel] = useState<string>("");
 
-  const { data, isLoading } = useNotificationLogsQuery({
+  const filters = {
     eventKey: eventKey.trim() || undefined,
     status: status || undefined,
     channel: channel || undefined,
-  });
+  };
+
+  const { data, isLoading } = useNotificationLogsQuery(filters);
+  // Rows arrive as they are written. Delivered and bounced come back from the
+  // provider minutes after the send, which is exactly when nobody is still
+  // sitting here pressing refresh.
+  const { live, received } = useNotificationLogFeed(filters);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Delivery log</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Every send and every deliberate skip, with the reason — so “why didn’t
-          they get it?” is answerable here.
-        </p>
+      <NotificationsBackLink />
+
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Delivery log</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Every send and every deliberate skip, with the reason — so “why
+            didn’t they get it?” is answerable here.
+          </p>
+        </div>
+        <span
+          className="text-muted-foreground flex items-center gap-2 text-xs"
+          title={
+            live
+              ? "New rows appear here as they are written."
+              : "Not connected — reload to see new rows."
+          }
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              live ? "animate-pulse bg-green-500" : "bg-neutral-300"
+            }`}
+          />
+          {live ? "Live" : "Offline"}
+          {received > 0 && ` · ${received} new`}
+        </span>
       </header>
 
       <div className="flex flex-wrap gap-3">

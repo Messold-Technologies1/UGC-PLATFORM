@@ -5,6 +5,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationLogFeedPublisher } from './notification-log-feed.publisher';
+import { notificationLogRowSelect } from './notification-log-feed';
 
 /**
  * Why a send did not happen. Recorded rather than logged, so "did they get it,
@@ -55,7 +57,36 @@ const STALE_CLAIM_MS = 15 * 60_000;
 export class NotificationLogService {
   private readonly logger = new Logger(NotificationLogService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly feed: NotificationLogFeedPublisher,
+  ) {}
+
+  /**
+   * Push the row behind a write to the admin delivery log.
+   *
+   * Reads the row back rather than assembling it from the write, so a pushed
+   * row is byte-for-byte what a refetch would return — including the columns
+   * the caller never sees, like the claim timestamp Prisma defaulted. One
+   * indexed read per send is nothing next to the provider call it accompanies.
+   *
+   * Never awaited and never allowed to throw: the delivery decision is already
+   * durable in Postgres by this point, and a screen is not worth risking it.
+   */
+  private announce(where: Prisma.NotificationLogWhereInput): void {
+    void this.prisma.notificationLog
+      .findFirst({ where, select: notificationLogRowSelect })
+      .then((row) => {
+        if (row) this.feed.publish(row);
+      })
+      .catch((err) => {
+        this.logger.debug(
+          `delivery-log feed: could not read back the row (${
+            err instanceof Error ? err.message : String(err)
+          })`,
+        );
+      });
+  }
 
   /**
    * Take ownership of one send, or report that someone else has it.
@@ -98,9 +129,9 @@ export class NotificationLogService {
         where: this.whereKey(input),
         select: { id: true },
       });
-      return row
-        ? { claimed: true, logId: row.id }
-        : { claimed: false, reason: 'held_by_other' };
+      if (!row) return { claimed: false, reason: 'held_by_other' };
+      this.announce({ id: row.id });
+      return { claimed: true, logId: row.id };
     }
 
     // Lost the race — decide whether this is finished work or a stale claim.
@@ -130,6 +161,7 @@ export class NotificationLogService {
       this.logger.warn(
         `reclaimed stale send ${existing.id} (${input.eventKey}/${input.channel})`,
       );
+      this.announce({ id: existing.id });
       return { claimed: true, logId: existing.id };
     }
     return { claimed: false, reason: 'held_by_other' };
@@ -153,6 +185,7 @@ export class NotificationLogService {
         ...(params.templateId ? { templateId: params.templateId } : {}),
       },
     });
+    this.announce({ id: logId });
   }
 
   async markFailed(logId: string, error: unknown): Promise<void> {
@@ -164,6 +197,7 @@ export class NotificationLogService {
         errorMessage: toMessage(error),
       },
     });
+    this.announce({ id: logId });
   }
 
   /**
@@ -192,7 +226,10 @@ export class NotificationLogService {
       data: [data],
       skipDuplicates: true,
     });
-    if (count === 1) return;
+    if (count === 1) {
+      this.announce(this.whereKey(input));
+      return;
+    }
 
     // A row already existed (usually one we just claimed) — update it instead.
     await this.prisma.notificationLog.updateMany({
@@ -202,6 +239,7 @@ export class NotificationLogService {
         skippedReason: input.skippedReason,
       },
     });
+    this.announce(this.whereKey(input));
   }
 
   /**
@@ -232,6 +270,9 @@ export class NotificationLogService {
         ...timestamps,
       },
     });
+    if (count > 0) {
+      this.announce({ providerMessageId: params.providerMessageId });
+    }
     return count > 0;
   }
 

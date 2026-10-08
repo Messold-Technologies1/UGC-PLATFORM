@@ -1,9 +1,8 @@
 "use client";
 
 import { use, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, History, UserCheck } from "lucide-react";
+import { History, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScheduleEditor } from "@/features/notifications/components/schedule-editor";
+import { NotificationsBackLink } from "@/features/notifications/components/back-link";
 import {
   useBackfillMutation,
   useNotificationEventQuery,
@@ -73,15 +73,10 @@ export default function NotificationEventDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-6">
-      <div>
-        <Link
-          href="/admin/notifications/events"
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          All events
-        </Link>
-      </div>
+      <NotificationsBackLink
+        href="/admin/notifications/events"
+        label="All events"
+      />
 
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>

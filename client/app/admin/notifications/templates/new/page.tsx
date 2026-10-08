@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounce";
@@ -14,6 +13,7 @@ import {
 } from "@/features/notifications/components/template-body-editor";
 import { EmailVisualEditor } from "@/features/notifications/components/email-visual-editor";
 import { TemplatePreviewPane } from "@/features/notifications/components/template-preview-pane";
+import { NotificationsBackLink } from "@/features/notifications/components/back-link";
 import {
   useDraftPreviewMutation,
   useSaveTemplateMutation,
@@ -150,13 +150,10 @@ export default function NewNotificationTemplatePage() {
 
   return (
     <div className="mx-auto max-w-[1800px] space-y-5 p-6">
-      <Link
+      <NotificationsBackLink
         href="/admin/notifications/templates"
-        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        All templates
-      </Link>
+        label="All templates"
+      />
 
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotificationEventsQuery } from "@/features/notifications/hooks/use-notifications";
 import { formatOffset } from "@/features/notifications/types";
+import { NotificationsBackLink } from "@/features/notifications/components/back-link";
 
 export default function NotificationEventsPage() {
   const { data: events, isLoading } = useNotificationEventsQuery();
@@ -24,6 +25,8 @@ export default function NotificationEventsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
+      <NotificationsBackLink />
+
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Events</h1>

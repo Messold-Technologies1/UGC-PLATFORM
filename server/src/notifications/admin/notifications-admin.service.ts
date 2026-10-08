@@ -14,6 +14,7 @@ import {
   getEventDefinition,
 } from '../catalog/event-catalog';
 import type { NotificationVarSpec } from '../catalog/define-events';
+import { notificationLogRowSelect } from '../log/notification-log-feed';
 import { TemplateValidatorService } from '../rendering/template-validator.service';
 import { NotificationTemplateRenderer } from '../rendering/notification-template-renderer.service';
 import { deriveTextHbs } from '../rendering/derive-text';
@@ -672,23 +673,9 @@ export class NotificationsAdminService {
       orderBy: { queuedAt: 'desc' },
       take: take + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
-      select: {
-        id: true,
-        eventKey: true,
-        entityId: true,
-        occurrenceKey: true,
-        offsetMinutes: true,
-        channel: true,
-        status: true,
-        toAddress: true,
-        renderedSubject: true,
-        providerMessageId: true,
-        errorMessage: true,
-        skippedReason: true,
-        queuedAt: true,
-        sentAt: true,
-        deliveredAt: true,
-      },
+      // Shared with the live feed, so a pushed row and a fetched row cannot
+      // drift apart into two shapes the page has to tell between.
+      select: notificationLogRowSelect,
     });
 
     const hasMore = rows.length > take;

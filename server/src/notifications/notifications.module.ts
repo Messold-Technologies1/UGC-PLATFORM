@@ -1,6 +1,7 @@
 import { Global, Module, forwardRef } from '@nestjs/common';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { BrandAccessModule } from '../brand-access/brand-access.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 import { NotificationBootstrapService } from './notifications-bootstrap.service';
 import { NotificationRegistrySyncService } from './catalog/registry-sync.service';
 import { NotificationDispatchService } from './dispatch/notification-dispatch.service';
@@ -9,6 +10,8 @@ import { NotificationStepService } from './dispatch/notification-step.service';
 import { NotificationSweepService } from './dispatch/notification-sweep.service';
 import { NotificationBackstopService } from './dispatch/notification-backstop.service';
 import { NotificationLogService } from './log/notification-log.service';
+import { NotificationLogFeedBridge } from './log/notification-log-feed.bridge';
+import { NotificationLogFeedPublisher } from './log/notification-log-feed.publisher';
 import { NotificationQueueService } from './queues/notification-queue.service';
 import { NotificationTemplateRenderer } from './rendering/notification-template-renderer.service';
 import { NotificationTemplateImportService } from './rendering/template-import.service';
@@ -35,7 +38,12 @@ import { NotificationsAdminService } from './admin/notifications-admin.service';
 @Module({
   // AuthGuardsModule supplies JwtAuthGuard and AdminGuard for the admin
   // controller; forwardRef mirrors how the other admin modules take it.
-  imports: [BrandAccessModule, forwardRef(() => AuthGuardsModule)],
+  // RealtimeModule supplies the gateway the delivery-log feed emits through.
+  imports: [
+    BrandAccessModule,
+    RealtimeModule,
+    forwardRef(() => AuthGuardsModule),
+  ],
   controllers: [NotificationsAdminController],
   providers: [
     NotificationBootstrapService,
@@ -45,6 +53,8 @@ import { NotificationsAdminService } from './admin/notifications-admin.service';
     TemplateValidatorService,
     NotificationsAdminService,
     NotificationLogService,
+    NotificationLogFeedPublisher,
+    NotificationLogFeedBridge,
     NotificationDispatchService,
     NotificationStepService,
     NotificationSweepService,

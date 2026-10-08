@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplatesQuery } from "@/features/notifications/hooks/use-notifications";
+import { NotificationsBackLink } from "@/features/notifications/components/back-link";
 
 export default function NotificationTemplatesPage() {
   const { data: templates, isLoading, isError } = useTemplatesQuery();
@@ -13,6 +14,8 @@ export default function NotificationTemplatesPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
+      <NotificationsBackLink />
+
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Email templates</h1>

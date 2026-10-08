@@ -25,6 +25,13 @@ export function portfolioRoom(creatorProfileId: string): string {
   return `portfolio:${creatorProfileId}`;
 }
 
+/**
+ * Admins watching the notification delivery log. One shared room rather than a
+ * room per admin: they are all looking at the same global feed, and the page
+ * does its own filtering.
+ */
+export const NOTIFICATION_LOG_ROOM = 'admin:notifications';
+
 @WebSocketGateway(SOCKET_IO_GATEWAY_OPTIONS)
 export class PaymentsGateway implements OnGatewayConnection {
   private readonly logger = new Logger(PaymentsGateway.name);
@@ -99,6 +106,36 @@ export class PaymentsGateway implements OnGatewayConnection {
     const creatorProfileId = body?.creatorProfileId;
     if (!creatorProfileId) return { ok: false };
     await client.leave(portfolioRoom(creatorProfileId));
+    return { ok: true };
+  }
+
+  /** The user id `handleConnection` put on the socket, typed. */
+  private userIdOf(client: Socket): string | undefined {
+    const data = client.data as { userId?: string };
+    return data.userId;
+  }
+
+  /**
+   * Admin joins the notification delivery-log feed. Admin-only, and strictly
+   * so: the rows carry recipient email addresses and phone numbers for the
+   * whole platform.
+   */
+  @SubscribeMessage('notifications:subscribe')
+  async handleNotificationLogSubscribe(
+    @ConnectedSocket() client: Socket,
+  ): Promise<{ ok: boolean }> {
+    const userId = this.userIdOf(client);
+    if (!userId) return { ok: false };
+    if (!(await this.isAdmin(userId))) return { ok: false };
+    await client.join(NOTIFICATION_LOG_ROOM);
+    return { ok: true };
+  }
+
+  @SubscribeMessage('notifications:unsubscribe')
+  async handleNotificationLogUnsubscribe(
+    @ConnectedSocket() client: Socket,
+  ): Promise<{ ok: boolean }> {
+    await client.leave(NOTIFICATION_LOG_ROOM);
     return { ok: true };
   }
 

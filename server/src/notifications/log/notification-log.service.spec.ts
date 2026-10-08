@@ -3,6 +3,19 @@ import {
   NotificationLogService,
   type ClaimInput,
 } from './notification-log.service';
+import type { NotificationLogFeedPublisher } from './notification-log-feed.publisher';
+
+/**
+ * The live feed is a side effect, not part of the claim contract: these tests
+ * are about who wins a send, so it is stubbed and only asserted on where the
+ * point is that the admin page hears about the write.
+ */
+function makeFeed() {
+  return { publish: jest.fn() } as unknown as NotificationLogFeedPublisher;
+}
+
+/** Lets a test wait for announce(), which is deliberately not awaited. */
+const flush = () => new Promise((r) => setImmediate(r));
 
 /**
  * A small stand-in for the unique constraint on NotificationLog: createMany
@@ -109,7 +122,7 @@ describe('NotificationLogService.claim', () => {
 
   beforeEach(() => {
     prisma = makePrisma();
-    service = new NotificationLogService(prisma as never);
+    service = new NotificationLogService(prisma as never, makeFeed());
   });
 
   it('claims an unseen send', async () => {
@@ -178,7 +191,7 @@ describe('NotificationLogService outcomes', () => {
 
   beforeEach(() => {
     prisma = makePrisma();
-    service = new NotificationLogService(prisma as never);
+    service = new NotificationLogService(prisma as never, makeFeed());
   });
 
   it('records a skip even when nothing was claimed first', async () => {
@@ -226,5 +239,60 @@ describe('NotificationLogService outcomes', () => {
         status: NotificationLogStatus.BOUNCED,
       }),
     ).resolves.toBe(false);
+  });
+});
+
+describe('NotificationLogService feed', () => {
+  // The admin delivery log updates from these announcements, so a write that
+  // forgets to make one leaves the page looking idle while sends go out.
+  let prisma: ReturnType<typeof makePrisma>;
+  let feed: { publish: jest.Mock };
+  let service: NotificationLogService;
+
+  beforeEach(() => {
+    prisma = makePrisma();
+    feed = { publish: jest.fn() };
+    service = new NotificationLogService(
+      prisma as never,
+      feed as unknown as NotificationLogFeedPublisher,
+    );
+  });
+
+  it('announces a claimed send', async () => {
+    await service.claim(input);
+    await flush();
+
+    expect(feed.publish).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces a skip decided before any claim', async () => {
+    await service.recordSkip({ ...input, skippedReason: 'suppressed' });
+    await flush();
+
+    expect(feed.publish).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces again as the row moves on, so the status updates in place', async () => {
+    const claimed = await service.claim(input);
+    if (!claimed.claimed) throw new Error('expected the claim to win');
+    feed.publish.mockClear();
+
+    await service.markSent(claimed.logId, { providerMessageId: 'ses-1' });
+    await flush();
+
+    expect(feed.publish).toHaveBeenCalledTimes(1);
+  });
+
+  it('never lets a feed failure break the send it is reporting', async () => {
+    // Postgres already has the decision by this point; a dead Redis must not
+    // turn a recorded send into a thrown error.
+    feed.publish.mockImplementation(() => {
+      throw new Error('redis is down');
+    });
+
+    await expect(service.claim(input)).resolves.toMatchObject({
+      claimed: true,
+    });
+    await flush();
   });
 });

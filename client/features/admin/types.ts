@@ -536,6 +536,12 @@ export interface OrderCouponDto {
   grossAmountPaise: number;
 }
 
+/** Reward credit the brand earned when this order completed (non-refundable). */
+export interface OrderCompletionCreditDto {
+  amountPaise: number;
+  creditedAt: string;
+}
+
 export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   coupon?: OrderCouponDto | null;
   /** Placed under "first order free": brand paid ₹0 and the creator is paid ₹0. */
@@ -549,6 +555,8 @@ export interface AdminOrderDetailsDto extends OrderDetailsPublic {
   usageRightsSettlement?: OrderUsageRightsSettlementDto;
   cancelledByActor?: OrderActionActor | null;
   briefAcceptedByActor?: OrderActionActor | null;
+  /** Null when no reward was granted (feature off at the time, or a free order). */
+  completionCredit?: OrderCompletionCreditDto | null;
 }
 
 export interface AdminOrderDetailsResponseDto {

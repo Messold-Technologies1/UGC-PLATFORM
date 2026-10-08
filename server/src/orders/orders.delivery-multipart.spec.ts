@@ -57,6 +57,7 @@ describe('OrdersService — delivery multipart uploads', () => {
       {} as never, // coupons
       {} as never, // wallet
       {} as never, // notification events
+      { get: () => undefined } as never, // config
     );
     return { service, prisma, storage };
   }

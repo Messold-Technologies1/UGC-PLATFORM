@@ -87,6 +87,7 @@ describe('OrdersService extra-revisions purchase', () => {
       {} as any,
       {} as never, // wallet
       events as never, // notification events
+      { get: () => undefined } as never, // config
     );
     return { service, prisma, razorpay, events, orderRealtime, orderUpdate };
   }

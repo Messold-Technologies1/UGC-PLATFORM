@@ -76,7 +76,8 @@ export class OrderPricingLedgerDto {
   creditPaidPaise!: number;
 
   @ApiProperty({
-    description: 'Base package + add-ons quoted on the order (shown even when unpaid)',
+    description:
+      'Base package + add-ons quoted on the order (shown even when unpaid)',
   })
   basePlusAddOnsPaise!: number;
 
@@ -123,6 +124,18 @@ export class OrderPricingLedgerDto {
   payToCreatorPaise!: number;
 }
 
+/**
+ * The reward credit this order earned the brand on completion. Non-refundable
+ * store credit, so admins can see it was granted but never owe it back as cash.
+ */
+export class OrderCompletionCreditDto {
+  @ApiProperty({ example: 5000, description: 'Reward granted, in paise' })
+  amountPaise!: number;
+
+  @ApiProperty({ description: 'When the reward was credited' })
+  creditedAt!: Date;
+}
+
 export class OrderDetailsAdminDto extends OrderDetailsPublicDto {
   @ApiPropertyOptional()
   razorpayOrderId?: string | null;
@@ -160,4 +173,12 @@ export class OrderDetailsAdminDto extends OrderDetailsPublicDto {
       'Who accepted the brief. role ADMIN = support accepted on the creator behalf.',
   })
   briefAcceptedByActor?: OrderActionActorDto | null;
+
+  @ApiPropertyOptional({
+    type: () => OrderCompletionCreditDto,
+    nullable: true,
+    description:
+      'Reward credit granted to the brand when this order completed; null when none was granted (feature off at the time, or a free order).',
+  })
+  completionCredit?: OrderCompletionCreditDto | null;
 }

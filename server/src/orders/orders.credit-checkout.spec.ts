@@ -88,6 +88,7 @@ describe('OrdersService credit checkout', () => {
       coupons as any,
       wallet as any,
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+      { get: () => undefined } as never, // config
     );
     return { service, prisma, razorpay, created, wallet, orderRealtime };
   }

@@ -33,6 +33,8 @@ export type AdminBrandCreditRow = {
   balancePaise: number;
   /** Locked by pending withdrawal requests, in paise. */
   heldPaise: number;
+  /** Non-withdrawable reward credit inside balancePaise. */
+  promoPaise: number;
   currency: string;
   /** Last wallet movement; null for an owner that has never held credit. */
   lastActivityAt: Date | null;
@@ -49,6 +51,15 @@ export type AdminBrandCreditRow = {
  *    withdrawal requests. Spendable = balancePaise - heldPaise, and neither the
  *    balance nor the held amount may go negative (DB CHECK constraints back this
  *    up).
+ *  - `promoPaise` is reward credit sitting inside balancePaise: spendable at
+ *    checkout like any other credit, but never withdrawable, so
+ *    refundable = balancePaise - heldPaise - promoPaise and
+ *    heldPaise + promoPaise <= balancePaise. A debit drains promo FIRST, so the
+ *    brand's own (refundable) money stays refundable as long as possible.
+ *    WalletTransaction.promoPaise records each row's signed effect on that
+ *    bucket, which makes the ledger the source of truth for it as well — that
+ *    is what lets a reversal or cancellation return promo money AS promo
+ *    instead of laundering a non-refundable reward into a refundable balance.
  *  - Withdrawals use a HOLD model: requesting a refund LOCKS the amount (held++,
  *    no ledger movement); rejecting/cancelling RELEASES the hold (held--, no
  *    ledger movement); only COMPLETING it deducts the money (balance-- and
@@ -66,6 +77,7 @@ const CREDIT_TYPES: ReadonlySet<WalletTransactionType> = new Set([
   WalletTransactionType.CHECKOUT_REVERSAL_CREDIT,
   WalletTransactionType.WITHDRAWAL_REVERSAL_CREDIT,
   WalletTransactionType.ADMIN_ADJUSTMENT_CREDIT,
+  WalletTransactionType.ORDER_COMPLETION_CREDIT,
 ]);
 
 const DEBIT_TYPES: ReadonlySet<WalletTransactionType> = new Set([
@@ -81,19 +93,32 @@ export type WalletMovementMeta = {
   createdByUserId?: string | null;
 };
 
+/** Reward credit is non-withdrawable, so it always enters the promo bucket. */
+const ALWAYS_PROMO_TYPES: ReadonlySet<WalletTransactionType> = new Set([
+  WalletTransactionType.ORDER_COMPLETION_CREDIT,
+]);
+
 export type WalletBalance = {
   /** Total credit owned (spendable + held). */
   balancePaise: number;
   /** Portion locked by pending withdrawal requests. */
   heldPaise: number;
-  /** Spendable now (balancePaise - heldPaise). */
+  /** Non-withdrawable reward credit inside balancePaise. */
+  promoPaise: number;
+  /** Spendable now (balancePaise - heldPaise). Reward credit included. */
   availablePaise: number;
+  /** Withdrawable now (balancePaise - heldPaise - promoPaise). */
+  refundablePaise: number;
   currency: string;
   /** Alias of heldPaise, kept for existing callers. */
   pendingWithdrawalPaise: number;
 };
 
-type WalletAmounts = { balancePaise: number; heldPaise: number };
+type WalletAmounts = {
+  balancePaise: number;
+  heldPaise: number;
+  promoPaise: number;
+};
 
 @Injectable()
 export class WalletService {
@@ -145,26 +170,31 @@ export class WalletService {
   }
 
   /**
-   * Apply a balance/held change with optimistic concurrency: read the current
-   * amounts, let `compute` derive the next amounts (throwing if an invariant
-   * would break), then update only if the row still holds the values we read.
-   * Retries a few times if a concurrent change slips in between.
+   * Apply a balance/held/promo change with optimistic concurrency: read the
+   * current amounts, let `compute` derive the next amounts (throwing if an
+   * invariant would break), then update only if the row still holds the values
+   * we read. Retries a few times if a concurrent change slips in between.
+   *
+   * Returns both the values we read and the ones we wrote, so the caller can
+   * derive how much of a movement actually came out of (or went into) the promo
+   * bucket without re-reading the row.
    */
   private async applyWalletMutation(
     walletId: string,
     compute: (cur: WalletAmounts) => WalletAmounts,
     tx: Prisma.TransactionClient,
-  ): Promise<WalletAmounts> {
+  ): Promise<{ prev: WalletAmounts; next: WalletAmounts }> {
     for (let attempt = 0; attempt < 5; attempt++) {
       const cur = await tx.brandWallet.findUniqueOrThrow({
         where: { id: walletId },
-        select: { balancePaise: true, heldPaise: true },
+        select: { balancePaise: true, heldPaise: true, promoPaise: true },
       });
       const next = compute(cur);
       if (
         next.balancePaise < 0 ||
         next.heldPaise < 0 ||
-        next.heldPaise > next.balancePaise
+        next.promoPaise < 0 ||
+        next.heldPaise + next.promoPaise > next.balancePaise
       ) {
         // compute() should throw a friendlier error before this, but never let
         // an out-of-range value through.
@@ -175,10 +205,15 @@ export class WalletService {
           id: walletId,
           balancePaise: cur.balancePaise,
           heldPaise: cur.heldPaise,
+          promoPaise: cur.promoPaise,
         },
-        data: { balancePaise: next.balancePaise, heldPaise: next.heldPaise },
+        data: {
+          balancePaise: next.balancePaise,
+          heldPaise: next.heldPaise,
+          promoPaise: next.promoPaise,
+        },
       });
-      if (res.count === 1) return next;
+      if (res.count === 1) return { prev: cur, next };
     }
     throw new ConflictException(
       'Credits were being modified concurrently — please retry',
@@ -192,6 +227,8 @@ export class WalletService {
     type: WalletTransactionType,
     balanceAfterPaise: number,
     meta: WalletMovementMeta,
+    /** Signed effect of this row on the non-withdrawable promo bucket. */
+    promoPaise = 0,
   ): Promise<void> {
     await tx.walletTransaction.create({
       data: {
@@ -199,12 +236,32 @@ export class WalletService {
         amountPaise: signedAmountPaise,
         type,
         balanceAfterPaise,
+        promoPaise,
         reason: meta.reason ?? null,
         orderId: meta.orderId ?? null,
         withdrawalId: meta.withdrawalId ?? null,
         createdByUserId: meta.createdByUserId ?? null,
       },
     });
+  }
+
+  /**
+   * Reward credit spent on this order and not yet returned, in paise. The sum of
+   * the order's ledger promo deltas is negative while promo money is out; its
+   * magnitude is what a reversal or cancellation must put back AS promo, so a
+   * brand cannot turn a non-refundable reward into refundable cash by cancelling
+   * the order it was spent on.
+   */
+  private async outstandingPromoSpentOnOrder(
+    tx: Prisma.TransactionClient,
+    walletId: string,
+    orderId: string,
+  ): Promise<number> {
+    const agg = await tx.walletTransaction.aggregate({
+      where: { walletId, orderId },
+      _sum: { promoPaise: true },
+    });
+    return Math.max(0, -(agg._sum.promoPaise ?? 0));
   }
 
   private run<T>(
@@ -214,39 +271,61 @@ export class WalletService {
     return tx ? fn(tx) : this.prisma.$transaction(fn);
   }
 
-  /** Add credit to a buyer's wallet. Composable via `tx`. */
+  /**
+   * Add credit to a buyer's wallet. `promoPaise` is the part of the amount that
+   * lands in the non-withdrawable reward bucket (the whole amount for
+   * ORDER_COMPLETION_CREDIT, whatever a reversal is returning for the rest, 0
+   * otherwise). Composable via `tx`.
+   */
   async credit(
     params: {
       brandId?: string | null;
       agencyId?: string | null;
       amountPaise: number;
       type: WalletTransactionType;
+      promoPaise?: number;
     } & WalletMovementMeta,
     tx?: Prisma.TransactionClient,
-  ): Promise<{ balanceAfterPaise: number }> {
+  ): Promise<{ balanceAfterPaise: number; promoAfterPaise: number }> {
     const amount = this.assertPositive(params.amountPaise);
     if (!CREDIT_TYPES.has(params.type)) {
       throw new BadRequestException(`${params.type} is not a credit type`);
     }
+    const promoPortion = ALWAYS_PROMO_TYPES.has(params.type)
+      ? amount
+      : Math.min(Math.max(params.promoPaise ?? 0, 0), amount);
     return this.run(async (t) => {
       const wallet = await this.ensureWallet(params, t);
-      const next = await this.applyWalletMutation(
+      const { next } = await this.applyWalletMutation(
         wallet.id,
         (cur) => ({
           balancePaise: cur.balancePaise + amount,
           heldPaise: cur.heldPaise,
+          promoPaise: cur.promoPaise + promoPortion,
         }),
         t,
       );
-      await this.writeLedger(t, wallet.id, amount, params.type, next.balancePaise, params);
-      return { balanceAfterPaise: next.balancePaise };
+      await this.writeLedger(
+        t,
+        wallet.id,
+        amount,
+        params.type,
+        next.balancePaise,
+        params,
+        promoPortion,
+      );
+      return {
+        balanceAfterPaise: next.balancePaise,
+        promoAfterPaise: next.promoPaise,
+      };
     }, tx);
   }
 
   /**
    * Remove credit from a buyer's wallet (respecting held funds — you can never
-   * spend money reserved for a pending withdrawal). Throws BadRequestException
-   * if the SPENDABLE balance is short. Composable via `tx`.
+   * spend money reserved for a pending withdrawal). Reward credit is spent
+   * first, so refundable money stays refundable as long as possible. Throws
+   * BadRequestException if the SPENDABLE balance is short. Composable via `tx`.
    */
   async debit(
     params: {
@@ -256,14 +335,14 @@ export class WalletService {
       type: WalletTransactionType;
     } & WalletMovementMeta,
     tx?: Prisma.TransactionClient,
-  ): Promise<{ balanceAfterPaise: number }> {
+  ): Promise<{ balanceAfterPaise: number; promoSpentPaise: number }> {
     const amount = this.assertPositive(params.amountPaise);
     if (!DEBIT_TYPES.has(params.type)) {
       throw new BadRequestException(`${params.type} is not a debit type`);
     }
     return this.run(async (t) => {
       const wallet = await this.ensureWallet(params, t);
-      const next = await this.applyWalletMutation(
+      const { prev, next } = await this.applyWalletMutation(
         wallet.id,
         (cur) => {
           if (cur.balancePaise - cur.heldPaise < amount) {
@@ -272,16 +351,69 @@ export class WalletService {
           return {
             balancePaise: cur.balancePaise - amount,
             heldPaise: cur.heldPaise,
+            promoPaise: Math.max(0, cur.promoPaise - amount),
           };
         },
         t,
       );
-      await this.writeLedger(t, wallet.id, -amount, params.type, next.balancePaise, params);
-      return { balanceAfterPaise: next.balancePaise };
+      const promoSpent = prev.promoPaise - next.promoPaise;
+      await this.writeLedger(
+        t,
+        wallet.id,
+        -amount,
+        params.type,
+        next.balancePaise,
+        params,
+        -promoSpent,
+      );
+      return {
+        balanceAfterPaise: next.balancePaise,
+        promoSpentPaise: promoSpent,
+      };
     }, tx);
   }
 
   // ── Order integration helpers ──────────────────────────────────────────────
+
+  /**
+   * Return money to the wallet for an order, putting back as PROMO whatever
+   * reward credit that order had spent (capped by what is being returned). Both
+   * return paths — a cancellation credit and a checkout reversal — go through
+   * here; without it, spending a reward on an order and then cancelling it would
+   * quietly convert non-refundable credit into refundable cash.
+   */
+  private async creditOrderReturn(
+    params: {
+      brandId?: string | null;
+      agencyId?: string | null;
+      orderId: string;
+      amountPaise: number;
+      type: WalletTransactionType;
+      reason?: string | null;
+    },
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ balanceAfterPaise: number; promoAfterPaise: number }> {
+    return this.run(async (t) => {
+      const wallet = await this.ensureWallet(params, t);
+      const outstandingPromo = await this.outstandingPromoSpentOnOrder(
+        t,
+        wallet.id,
+        params.orderId,
+      );
+      return this.credit(
+        {
+          brandId: params.brandId,
+          agencyId: params.agencyId,
+          amountPaise: params.amountPaise,
+          type: params.type,
+          orderId: params.orderId,
+          reason: params.reason ?? null,
+          promoPaise: Math.min(outstandingPromo, params.amountPaise),
+        },
+        t,
+      );
+    }, tx);
+  }
 
   async creditOrderCancellation(
     params: {
@@ -293,17 +425,78 @@ export class WalletService {
     },
     tx?: Prisma.TransactionClient,
   ): Promise<{ balanceAfterPaise: number }> {
+    return this.creditOrderReturn(
+      {
+        ...params,
+        type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * Reward the brand for a successfully completed order. Non-withdrawable: it
+   * is spendable at checkout but can never be refunded to a bank account. One
+   * per order (a partial unique index on the ledger makes a double award
+   * impossible); callers check first so the common case is not an error.
+   */
+  async creditOrderCompletion(
+    params: {
+      brandId?: string | null;
+      agencyId?: string | null;
+      orderId: string;
+      amountPaise: number;
+      reason?: string | null;
+    },
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ balanceAfterPaise: number; promoAfterPaise: number }> {
     return this.credit(
       {
         brandId: params.brandId,
         agencyId: params.agencyId,
         amountPaise: params.amountPaise,
-        type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
+        type: WalletTransactionType.ORDER_COMPLETION_CREDIT,
         orderId: params.orderId,
         reason: params.reason ?? null,
       },
       tx,
     );
+  }
+
+  /**
+   * The completion reward granted for an order, for the admin order view: proof
+   * the credit went out, and how much.
+   */
+  async getCompletionCreditForOrder(
+    orderId: string,
+  ): Promise<{ amountPaise: number; creditedAt: Date } | null> {
+    const row = await this.prisma.walletTransaction.findFirst({
+      where: {
+        orderId,
+        type: WalletTransactionType.ORDER_COMPLETION_CREDIT,
+      },
+      select: { amountPaise: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return row
+      ? { amountPaise: row.amountPaise, creditedAt: row.createdAt }
+      : null;
+  }
+
+  /** Has this order already been rewarded? Keeps the award idempotent. */
+  async hasCompletionCredit(
+    orderId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const client = tx ?? this.prisma;
+    const existing = await client.walletTransaction.findFirst({
+      where: {
+        orderId,
+        type: WalletTransactionType.ORDER_COMPLETION_CREDIT,
+      },
+      select: { id: true },
+    });
+    return existing != null;
   }
 
   async reserveForCheckout(
@@ -338,13 +531,10 @@ export class WalletService {
     },
     tx?: Prisma.TransactionClient,
   ): Promise<{ balanceAfterPaise: number }> {
-    return this.credit(
+    return this.creditOrderReturn(
       {
-        brandId: params.brandId,
-        agencyId: params.agencyId,
-        amountPaise: params.amountPaise,
+        ...params,
         type: WalletTransactionType.CHECKOUT_REVERSAL_CREDIT,
-        orderId: params.orderId,
       },
       tx,
     );
@@ -359,14 +549,22 @@ export class WalletService {
         : normalizeCreditOwner(owner);
     const wallet = await this.prisma.brandWallet.findFirst({
       where: creditOwnerWhere(normalized),
-      select: { balancePaise: true, heldPaise: true, currency: true },
+      select: {
+        balancePaise: true,
+        heldPaise: true,
+        promoPaise: true,
+        currency: true,
+      },
     });
     const balancePaise = wallet?.balancePaise ?? 0;
     const heldPaise = wallet?.heldPaise ?? 0;
+    const promoPaise = wallet?.promoPaise ?? 0;
     return {
       balancePaise,
       heldPaise,
+      promoPaise,
       availablePaise: balancePaise - heldPaise,
+      refundablePaise: Math.max(0, balancePaise - heldPaise - promoPaise),
       currency: wallet?.currency ?? 'INR',
       pendingWithdrawalPaise: heldPaise,
     };
@@ -405,7 +603,9 @@ export class WalletService {
   /**
    * Buyer requests to withdraw store credit. The amount is LOCKED (held) so it
    * cannot also be spent at checkout, but it is NOT removed from the balance —
-   * that only happens when an admin completes the withdrawal.
+   * that only happens when an admin completes the withdrawal. Only REFUNDABLE
+   * credit can be withdrawn: reward credit is spendable at checkout but never
+   * payable out.
    */
   async requestWithdrawal(params: {
     brandId?: string | null;
@@ -430,16 +630,22 @@ export class WalletService {
           requestedByUserId: params.requestedByUserId,
         },
       });
-      // Lock the funds (rolls back the withdrawal row if spendable is short).
+      // Lock the funds (rolls back the withdrawal row if refundable is short).
       await this.applyWalletMutation(
         wallet.id,
         (cur) => {
-          if (cur.balancePaise - cur.heldPaise < amount) {
-            throw new BadRequestException('Insufficient credit balance');
+          const refundable = cur.balancePaise - cur.heldPaise - cur.promoPaise;
+          if (refundable < amount) {
+            throw new BadRequestException(
+              cur.promoPaise > 0
+                ? 'Not enough refundable credit — reward credits earned on completed orders can be spent on new orders but cannot be refunded'
+                : 'Insufficient credit balance',
+            );
           }
           return {
             balancePaise: cur.balancePaise,
             heldPaise: cur.heldPaise + amount,
+            promoPaise: cur.promoPaise,
           };
         },
         tx,
@@ -468,17 +674,20 @@ export class WalletService {
         (cur) => ({
           balancePaise: cur.balancePaise,
           heldPaise: cur.heldPaise - withdrawal.amountPaise,
+          promoPaise: cur.promoPaise,
         }),
         tx,
       );
       return;
     }
-    // Legacy debit-on-request row: credit the money back to the balance.
-    const next = await this.applyWalletMutation(
+    // Legacy debit-on-request row: credit the money back to the balance. Only
+    // refundable credit could ever be withdrawn, so it returns as refundable.
+    const { next } = await this.applyWalletMutation(
       withdrawal.walletId,
       (cur) => ({
         balancePaise: cur.balancePaise + withdrawal.amountPaise,
         heldPaise: cur.heldPaise,
+        promoPaise: cur.promoPaise,
       }),
       tx,
     );
@@ -572,11 +781,12 @@ export class WalletService {
         );
       }
       if (withdrawal.holdModel) {
-        const next = await this.applyWalletMutation(
+        const { next } = await this.applyWalletMutation(
           withdrawal.walletId,
           (cur) => ({
             balancePaise: cur.balancePaise - withdrawal.amountPaise,
             heldPaise: cur.heldPaise - withdrawal.amountPaise,
+            promoPaise: cur.promoPaise,
           }),
           tx,
         );
@@ -586,7 +796,10 @@ export class WalletService {
           -withdrawal.amountPaise,
           WalletTransactionType.WITHDRAWAL_DEBIT,
           next.balancePaise,
-          { withdrawalId: withdrawal.id, createdByUserId: params.processedByUserId },
+          {
+            withdrawalId: withdrawal.id,
+            createdByUserId: params.processedByUserId,
+          },
         );
       }
       return tx.walletWithdrawal.update({
@@ -694,6 +907,7 @@ export class WalletService {
     total: number;
     totalBalancePaise: number;
     totalHeldPaise: number;
+    totalPromoPaise: number;
   }> {
     const take = Math.min(Math.max(1, params.take ?? 25), 200);
     const skip = Math.max(0, params.skip ?? 0);
@@ -724,6 +938,7 @@ export class WalletService {
                  b."contactEmail",
                  COALESCE(w."balancePaise", 0)::int AS "balancePaise",
                  COALESCE(w."heldPaise", 0)::int AS "heldPaise",
+                 COALESCE(w."promoPaise", 0)::int AS "promoPaise",
                  COALESCE(w.currency, 'INR') AS "currency",
                  w."updatedAt" AS "lastActivityAt"
           FROM "BrandProfile" b
@@ -738,6 +953,7 @@ export class WalletService {
                  a."contactEmail",
                  COALESCE(w."balancePaise", 0)::int AS "balancePaise",
                  COALESCE(w."heldPaise", 0)::int AS "heldPaise",
+                 COALESCE(w."promoPaise", 0)::int AS "promoPaise",
                  COALESCE(w.currency, 'INR') AS "currency",
                  w."updatedAt" AS "lastActivityAt"
           FROM "Agency" a
@@ -749,19 +965,24 @@ export class WalletService {
                  COALESCE(q."brandId", q."agencyId") ASC
         LIMIT ${take} OFFSET ${skip}
       `,
-      this.prisma.$queryRaw<{ count: bigint; balance: bigint; held: bigint }[]>`
+      this.prisma.$queryRaw<
+        { count: bigint; balance: bigint; held: bigint; promo: bigint }[]
+      >`
         SELECT COUNT(*)::bigint AS count,
                COALESCE(SUM(q."balancePaise"), 0)::bigint AS balance,
-               COALESCE(SUM(q."heldPaise"), 0)::bigint AS held
+               COALESCE(SUM(q."heldPaise"), 0)::bigint AS held,
+               COALESCE(SUM(q."promoPaise"), 0)::bigint AS promo
         FROM (
           SELECT COALESCE(w."balancePaise", 0)::int AS "balancePaise",
-                 COALESCE(w."heldPaise", 0)::int AS "heldPaise"
+                 COALESCE(w."heldPaise", 0)::int AS "heldPaise",
+                 COALESCE(w."promoPaise", 0)::int AS "promoPaise"
           FROM "BrandProfile" b
           LEFT JOIN "BrandWallet" w ON w."brandId" = b.id
           WHERE TRUE ${brandZeroFilter} ${brandSearchFilter}
           UNION ALL
           SELECT COALESCE(w."balancePaise", 0)::int AS "balancePaise",
-                 COALESCE(w."heldPaise", 0)::int AS "heldPaise"
+                 COALESCE(w."heldPaise", 0)::int AS "heldPaise",
+                 COALESCE(w."promoPaise", 0)::int AS "promoPaise"
           FROM "Agency" a
           LEFT JOIN "BrandWallet" w ON w."agencyId" = a.id
           WHERE TRUE ${agencyZeroFilter} ${agencySearchFilter}
@@ -775,6 +996,7 @@ export class WalletService {
       total: Number(totals?.count ?? 0),
       totalBalancePaise: Number(totals?.balance ?? 0),
       totalHeldPaise: Number(totals?.held ?? 0),
+      totalPromoPaise: Number(totals?.promo ?? 0),
     };
   }
 }

@@ -34,12 +34,6 @@ describe('OrdersService admin brief actions on behalf', () => {
       emitOrderCancelled: jest.fn().mockResolvedValue(undefined),
       emitOrderBriefAccepted: jest.fn().mockResolvedValue(undefined),
     };
-    const orderMail = {
-      notifyOrderCancelledBySupport: jest.fn(),
-      notifyOrderCancelledByBrand: jest.fn(),
-      notifyBriefRejectedByCreator: jest.fn(),
-      notifyBriefAccepted: jest.fn(),
-    };
     const brandAccess = createBrandAccessMock(brandAccessOptions);
 
     const wallet = {
@@ -48,20 +42,21 @@ describe('OrdersService admin brief actions on behalf', () => {
       }),
     };
 
+    const events = { emit: jest.fn().mockResolvedValue(undefined) };
+
     const service = new OrdersService(
       prisma as never,
       {} as never,
       orderRealtime as never,
-      orderMail as never,
       {} as never,
       brandAccess as never,
       {} as never,
       {} as never,
       {} as never,
       wallet as never,
-      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+      events as never, // notification events
     );
-    return { service, orderUpdate, orderRealtime, orderMail, wallet, brandAccess };
+    return { service, orderUpdate, orderRealtime, events, wallet, brandAccess };
   }
 
   const awaitingAcceptance = {
@@ -101,7 +96,7 @@ describe('OrdersService admin brief actions on behalf', () => {
   });
 
   it('admin cancels on the brand behalf: records support actor + notifies support', async () => {
-    const { service, orderUpdate, orderRealtime, orderMail } =
+    const { service, events, orderUpdate, orderRealtime } =
       makeService(awaitingAcceptance);
 
     await service.adminCancelOrderOnBehalf({
@@ -121,19 +116,16 @@ describe('OrdersService admin brief actions on behalf', () => {
       }),
     );
     // Support wording, not the brand/creator-authored emails.
-    expect(orderMail.notifyOrderCancelledBySupport).toHaveBeenCalledWith(
-      'order-1',
-      'Cancelled at the brand request.',
-    );
-    expect(orderMail.notifyOrderCancelledByBrand).not.toHaveBeenCalled();
-    expect(orderMail.notifyBriefRejectedByCreator).not.toHaveBeenCalled();
+    expectEmitted(events, 'order-cancelled-by-support');
+    expectNotEmitted(events, 'order-cancelled-for');
+    expectNotEmitted(events, 'order-brief-rejected');
     expect(orderRealtime.emitOrderCancelled).toHaveBeenCalledWith(
       expect.objectContaining({ cancelledBy: 'BRAND', bySupport: true }),
     );
   });
 
   it('admin rejects the brief on the creator behalf: attributed to CREATOR side', async () => {
-    const { service, orderUpdate, orderMail } = makeService(awaitingAcceptance);
+    const { service, events, orderUpdate } = makeService(awaitingAcceptance);
 
     await service.adminRejectBriefOnBehalf({
       orderId: 'order-1',
@@ -150,7 +142,7 @@ describe('OrdersService admin brief actions on behalf', () => {
         }),
       }),
     );
-    expect(orderMail.notifyOrderCancelledBySupport).toHaveBeenCalled();
+    expectEmitted(events, 'order-cancelled-by-support');
   });
 
   it('requires a reason note for an admin cancellation', async () => {
@@ -234,7 +226,7 @@ describe('OrdersService admin brief actions on behalf', () => {
   });
 
   it('self-serve creator reject records the creator as actor (not support)', async () => {
-    const { service, orderUpdate, orderMail } = makeService(awaitingAcceptance);
+    const { service, events, orderUpdate } = makeService(awaitingAcceptance);
 
     await service.rejectBrief({
       creatorUserId: 'creator-user-1',
@@ -251,12 +243,12 @@ describe('OrdersService admin brief actions on behalf', () => {
         }),
       }),
     );
-    expect(orderMail.notifyBriefRejectedByCreator).toHaveBeenCalled();
-    expect(orderMail.notifyOrderCancelledBySupport).not.toHaveBeenCalled();
+    expectEmitted(events, 'order-brief-rejected');
+    expectNotEmitted(events, 'order-cancelled-by-support');
   });
 
   it('self-serve brand cancel owns brand orders via assertOwnsOrder', async () => {
-    const { service, orderUpdate, orderMail, brandAccess } =
+    const { service, events, orderUpdate, brandAccess } =
       makeService(awaitingAcceptance);
 
     await service.cancelOrderByBrand({
@@ -278,7 +270,7 @@ describe('OrdersService admin brief actions on behalf', () => {
         }),
       }),
     );
-    expect(orderMail.notifyOrderCancelledByBrand).toHaveBeenCalled();
+    expectEmitted(events, 'order-cancelled-for');
   });
 
   it('self-serve agency cancel owns agency orders (not brandId compare)', async () => {
@@ -313,3 +305,20 @@ describe('OrdersService admin brief actions on behalf', () => {
     );
   });
 });
+
+/**
+ * Each cancellation branch emits one key for the brand and one for the
+ * creator, so the assertions are on the shared prefix rather than on two
+ * nearly identical lines per case.
+ */
+function emittedKeys(events: { emit: jest.Mock }): string[] {
+  return events.emit.mock.calls.map((c) => String(c[0]));
+}
+function expectEmitted(events: { emit: jest.Mock }, prefix: string) {
+  expect(emittedKeys(events).filter((k) => k.startsWith(prefix))).toHaveLength(
+    2,
+  );
+}
+function expectNotEmitted(events: { emit: jest.Mock }, prefix: string) {
+  expect(emittedKeys(events).filter((k) => k.startsWith(prefix))).toEqual([]);
+}

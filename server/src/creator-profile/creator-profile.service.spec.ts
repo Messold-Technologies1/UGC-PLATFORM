@@ -244,10 +244,6 @@ describe('CreatorProfileService', () => {
       prismaMock as unknown as PrismaService,
       creatorPackageService as unknown as CreatorPackageService,
       storageMock as unknown as StorageService,
-      {
-        notifyApproved: jest.fn(),
-        notifyRejected: jest.fn(),
-      } as any,
       { emit: jest.fn().mockResolvedValue(undefined) } as any, // notification events
       creatorReviewsMock as unknown as CreatorReviewsService,
       { enabled: false, sendEvent: jest.fn() } as any,
@@ -264,7 +260,6 @@ describe('CreatorProfileService', () => {
       {
         resolveBrandContext: jest.fn().mockRejectedValue(new Error('no brand')),
       } as any,
-      { scheduleResubmitReminders: jest.fn() } as any,
     );
   });
 

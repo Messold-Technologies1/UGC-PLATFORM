@@ -72,23 +72,23 @@ describe('OrdersService extra-revisions purchase', () => {
       getPublicKeyId: jest.fn(() => 'key_test'),
     };
     const brandAccess = createBrandAccessMock();
-    const orderMail = { notifyExtraRevisionsPurchased: jest.fn() };
     const orderRealtime = { emitOrderRevisionsPurchased: jest.fn() };
+
+    const events = { emit: jest.fn().mockResolvedValue(undefined) };
 
     const service = new OrdersService(
       prisma as any,
       razorpay as any,
       orderRealtime as any,
-      orderMail as any,
       {} as any,
       brandAccess as any,
       {} as any,
       {} as any,
       {} as any,
       {} as never, // wallet
-      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+      events as never, // notification events
     );
-    return { service, prisma, razorpay, orderMail, orderRealtime, orderUpdate };
+    return { service, prisma, razorpay, events, orderRealtime, orderUpdate };
   }
 
   const atCapOrder = {
@@ -173,7 +173,7 @@ describe('OrdersService extra-revisions purchase', () => {
   });
 
   it('captures the webhook: raises the cap, notifies, and is amount-verified', async () => {
-    const { service, orderUpdate, orderMail, orderRealtime } = makeService({
+    const { service, events, orderUpdate, orderRealtime } = makeService({
       purchaseForWebhook: {
         id: 'rp-1',
         orderId: 'order-1',
@@ -195,9 +195,15 @@ describe('OrdersService extra-revisions purchase', () => {
         data: { maxRevisionsSnapshot: { increment: 2 } },
       }),
     );
-    expect(orderMail.notifyExtraRevisionsPurchased).toHaveBeenCalledWith(
-      'order-1',
-      2,
+    // Both sides are told: the brand bought the revisions, the creator has to
+    // deliver them.
+    expect(events.emit).toHaveBeenCalledWith(
+      'order-extra-revisions-purchased-for-creator',
+      { entityId: 'order-1', occurrenceKey: 'rp-1' },
+    );
+    expect(events.emit).toHaveBeenCalledWith(
+      'order-extra-revisions-purchased-for-brand',
+      { entityId: 'order-1', occurrenceKey: 'rp-1' },
     );
     expect(orderRealtime.emitOrderRevisionsPurchased).toHaveBeenCalled();
   });

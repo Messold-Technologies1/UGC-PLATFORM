@@ -16,7 +16,6 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       },
     };
     const brandAccess = createBrandAccessMock();
-    const orderMail = { notifyContentAccepted: jest.fn() };
     const orderPortfolioSync = {
       syncAcceptedOrder: jest.fn().mockResolvedValue({ status: 'created' }),
     };
@@ -25,7 +24,6 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       prisma as never,
       {} as never,
       {} as never,
-      orderMail as never,
       {} as never,
       brandAccess as never,
       {} as never,
@@ -34,7 +32,7 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
     );
-    return { service, orderUpdate, orderMail, orderPortfolioSync };
+    return { service, orderUpdate, orderPortfolioSync };
   }
 
   const deliveredOrder = {
@@ -124,7 +122,6 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
         fn(txClient),
       ),
     };
-    const orderMail = { notifyOrderRejected: jest.fn() };
     const orderRealtime = {
       emitOrderDisputeResolved: jest.fn().mockResolvedValue(undefined),
     };
@@ -136,7 +133,6 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
       prisma as never,
       {} as never,
       orderRealtime as never,
-      orderMail as never,
       {} as never,
       {} as never,
       {} as never,

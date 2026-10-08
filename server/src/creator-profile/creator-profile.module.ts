@@ -13,7 +13,6 @@ import { CreatorBioGeneratorService } from './creator-bio-generator.service';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import { PreviewVideoModule } from '../preview-video/preview-video.module';
 import { MediaNormalizeModule } from '../media-normalize/media-normalize.module';
-import { CreatorReminderModule } from '../jobs/creator-reminder.module';
 
 @Module({
   imports: [
@@ -24,7 +23,6 @@ import { CreatorReminderModule } from '../jobs/creator-reminder.module';
     AiModule,
     PreviewVideoModule,
     MediaNormalizeModule,
-    CreatorReminderModule,
   ],
   controllers: [CreatorProfileController, AdminCreatorController],
   providers: [

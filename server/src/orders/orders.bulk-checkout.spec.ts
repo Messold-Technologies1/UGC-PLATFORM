@@ -85,7 +85,6 @@ describe('OrdersService bulk checkout', () => {
       razorpay as any,
       orderRealtime as any,
       {} as any,
-      {} as any,
       brandAccess as any,
       {} as any,
       {} as any,
@@ -393,7 +392,6 @@ describe('OrdersService bulk checkout', () => {
       };
       const service = new OrdersService(
         prisma as any,
-        {} as any,
         {} as any,
         {} as any,
         {} as any,

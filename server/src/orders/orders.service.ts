@@ -55,7 +55,6 @@ import type {
 import { BrandAccessService } from '../brand-access/brand-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
-import { OrderMailNotifier } from '../mail/order-mail.notifier';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
 import { StorageService } from '../storage/storage.service';
@@ -524,7 +523,6 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly razorpay: RazorpayService,
     private readonly orderRealtime: OrderRealtimeNotifier,
-    private readonly orderMail: OrderMailNotifier,
     private readonly storage: StorageService,
     private readonly brandAccess: BrandAccessService,
     private readonly watermarkQueue: WatermarkQueueService,
@@ -544,11 +542,15 @@ export class OrdersService {
     });
   }
 
-  private ownerCreateData(actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>) {
+  private ownerCreateData(
+    actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>,
+  ) {
     return this.brandAccess.orderOwnerCreateData(actor);
   }
 
-  private ownerWhere(actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>) {
+  private ownerWhere(
+    actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>,
+  ) {
     return this.brandAccess.orderOwnerWhere(actor);
   }
 
@@ -706,7 +708,10 @@ export class OrdersService {
 
     await this.prisma.$transaction(async (tx) => {
       for (const other of others) {
-        if (other.creditsAppliedPaise > 0 && (owner.brandId || owner.agencyId)) {
+        if (
+          other.creditsAppliedPaise > 0 &&
+          (owner.brandId || owner.agencyId)
+        ) {
           await this.wallet.releaseCheckoutReservation(
             {
               brandId: owner.brandId,
@@ -1651,7 +1656,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         creatorId: true,
         creatorPackageId: true,
         status: true,
@@ -2031,7 +2037,6 @@ export class OrdersService {
       briefSubmittedAt: now,
     });
 
-    this.orderMail.notifyBriefSubmitted(order.id, now);
     void this.events.emit('order-brief-submitted-for-creator', {
       entityId: order.id,
       occurredAt: now,
@@ -2159,10 +2164,6 @@ export class OrdersService {
     void this.events.emit('order-brief-accepted-for-brand', {
       entityId: order.id,
     });
-    this.orderMail.notifyBriefAccepted(
-      order.id,
-      deadlines?.deliveryDueAt ?? null,
-    );
 
     return {
       orderId: updated.id,
@@ -2323,7 +2324,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         creatorId: true,
         status: true,
         paidAt: true,
@@ -2399,7 +2401,6 @@ export class OrdersService {
     });
 
     if (params.bySupport) {
-      this.orderMail.notifyOrderCancelledBySupport(order.id, params.note);
       for (const key of [
         'order-cancelled-by-support-for-brand',
         'order-cancelled-by-support-for-creator',
@@ -2407,7 +2408,6 @@ export class OrdersService {
         void this.events.emit(key, { entityId: order.id });
       }
     } else if (params.onBehalfOf === 'BRAND') {
-      this.orderMail.notifyOrderCancelledByBrand(order.id, params.note);
       for (const key of [
         'order-cancelled-for-brand',
         'order-cancelled-for-creator',
@@ -2415,7 +2415,6 @@ export class OrdersService {
         void this.events.emit(key, { entityId: order.id });
       }
     } else {
-      this.orderMail.notifyBriefRejectedByCreator(order.id, params.note);
       for (const key of [
         'order-brief-rejected-for-brand',
         'order-brief-rejected-for-creator',
@@ -2443,7 +2442,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         status: true,
         requiresPhysicalProductShipment: true,
       },
@@ -2487,11 +2487,6 @@ export class OrdersService {
 
     void this.events.emit('order-product-shipped-for-creator', {
       entityId: order.id,
-    });
-    this.orderMail.notifyProductShipped(order.id, {
-      courierName,
-      trackingId,
-      dispatchedAt,
     });
   }
 
@@ -2575,7 +2570,6 @@ export class OrdersService {
       deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
     });
 
-    this.orderMail.notifyProductReceived(order.id, deadlines.deliveryDueAt);
     void this.events.emit('order-product-received-for-brand', {
       entityId: order.id,
     });
@@ -2891,7 +2885,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         status: true,
         revisionCount: true,
         maxRevisionsSnapshot: true,
@@ -2933,7 +2928,6 @@ export class OrdersService {
       });
     });
 
-    this.orderMail.notifyRevisionRequested(order.id, trimmedNote);
     void this.events.emit('order-revision-requested-for-creator', {
       entityId: order.id,
       // Revision 2 must not be swallowed as a duplicate of revision 1.
@@ -2995,7 +2989,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         creatorId: true,
         status: true,
         currency: true,
@@ -3150,10 +3145,6 @@ export class OrdersService {
       `[payment] captured extra-revisions purchase PAID purchase=${purchase.id} order=${purchase.orderId} revisionsAdded=${purchase.revisionsAdded} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
     );
 
-    this.orderMail.notifyExtraRevisionsPurchased(
-      purchase.orderId,
-      purchase.revisionsAdded,
-    );
     for (const key of [
       'order-extra-revisions-purchased-for-creator',
       'order-extra-revisions-purchased-for-brand',
@@ -3238,7 +3229,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         creatorId: true,
         status: true,
         currency: true,
@@ -3390,10 +3382,6 @@ export class OrdersService {
       `[payment] captured usage-rights purchase PAID purchase=${purchase.id} order=${purchase.orderId} daysAdded=${purchase.daysAdded} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
     );
 
-    this.orderMail.notifyExtraUsageRightsPurchased(
-      purchase.orderId,
-      purchase.daysAdded,
-    );
     for (const key of [
       'order-extra-usage-rights-purchased-for-brand',
       'order-extra-usage-rights-purchased-for-creator',
@@ -3831,7 +3819,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         status: true,
         packageNameSnapshot: true,
         deliverablesSnapshot: true,
@@ -4288,10 +4277,7 @@ export class OrdersService {
       const agencyName = r.order.agency?.name?.trim() || null;
       const clientBrandName = r.order.briefRef?.brandName?.trim() || null;
       const brandName =
-        clientBrandName ||
-        r.order.brand?.brandName?.trim() ||
-        agencyName ||
-        '';
+        clientBrandName || r.order.brand?.brandName?.trim() || agencyName || '';
       const brandLogoUrl =
         r.order.agency?.logoUrl ?? r.order.brand?.logoUrl ?? null;
 
@@ -5027,7 +5013,13 @@ export class OrdersService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true, agencyId: true, status: true, acceptedAt: true },
+      select: {
+        id: true,
+        brandId: true,
+        agencyId: true,
+        status: true,
+        acceptedAt: true,
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.brandAccess.assertOwnsOrder(order, actor);
@@ -5042,7 +5034,6 @@ export class OrdersService {
       data: { status: 'ACCEPTED', acceptedAt: new Date() },
     });
 
-    this.orderMail.notifyContentAccepted(order.id);
     // One legacy call mailed both sides; as events they are separate so an
     // admin can turn either off.
     void this.events.emit('order-content-accepted-for-creator', {
@@ -5070,7 +5061,13 @@ export class OrdersService {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, brandId: true, agencyId: true, creatorId: true, status: true },
+      select: {
+        id: true,
+        brandId: true,
+        agencyId: true,
+        creatorId: true,
+        status: true,
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -5145,10 +5142,6 @@ export class OrdersService {
         occurrenceKey: disputeId,
       });
     }
-    this.orderMail.notifyDisputeOpened(order.id, {
-      openedBy: params.openedBy,
-      reason: params.reason,
-    });
     void this.orderRealtime
       .emitOrderDisputeOpened({
         orderId: order.id,
@@ -5176,7 +5169,8 @@ export class OrdersService {
       where: { id: params.orderId },
       select: {
         id: true,
-        brandId: true, agencyId: true,
+        brandId: true,
+        agencyId: true,
         creatorId: true,
         status: true,
         preDisputeStatus: true,
@@ -5290,10 +5284,6 @@ export class OrdersService {
         occurrenceKey: openDispute?.id ?? order.id,
       });
     }
-    this.orderMail.notifyDisputeResolved(order.id, {
-      outcome: 'CONTINUED',
-      resolutionNotes: params.resolutionNotes,
-    });
     const restoredStatus = order.preDisputeStatus ?? 'DELIVERED';
     void this.orderRealtime
       .emitOrderDisputeResolved({
@@ -5452,7 +5442,6 @@ export class OrdersService {
       );
     });
 
-    this.orderMail.notifyOrderRejected(order.id, params.resolutionNotes);
     for (const key of [
       'order-rejected-for-brand',
       'order-rejected-for-creator',
@@ -5523,7 +5512,6 @@ export class OrdersService {
       .removeForOrder(order.id)
       .catch(() => undefined);
 
-    this.orderMail.notifyOrderRefunded(order.id, refundedAt);
     void this.events.emit('order-refunded-for-brand', {
       entityId: order.id,
       occurredAt: refundedAt,

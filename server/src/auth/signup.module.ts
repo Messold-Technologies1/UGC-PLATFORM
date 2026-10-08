@@ -2,7 +2,6 @@ import { Module, forwardRef } from '@nestjs/common';
 import { AgencyModule } from '../agency/agency.module';
 import { BrandProfileModule } from '../brand-profile/brand-profile.module';
 import { CreatorProfileModule } from '../creator-profile/creator-profile.module';
-import { CreatorReminderModule } from '../jobs/creator-reminder.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { StorageModule } from '../storage/storage.module';
@@ -21,7 +20,6 @@ import { SignupRegistrationService } from './signup-registration.service';
     forwardRef(() => CreatorProfileModule),
     forwardRef(() => BrandProfileModule),
     forwardRef(() => AgencyModule),
-    CreatorReminderModule,
     // PhoneVerificationService sends OTPs through the raw Cloud API transport
     // on the first tier, falling back to Twilio on later resends.
     WhatsAppModule,

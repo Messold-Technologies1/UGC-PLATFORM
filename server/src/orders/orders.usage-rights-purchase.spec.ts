@@ -71,23 +71,23 @@ describe('OrdersService extra-usage-rights purchase', () => {
       getPublicKeyId: jest.fn(() => 'key_test'),
     };
     const brandAccess = createBrandAccessMock();
-    const orderMail = { notifyExtraUsageRightsPurchased: jest.fn() };
     const orderRealtime = { emitOrderUsageRightsPurchased: jest.fn() };
+
+    const events = { emit: jest.fn().mockResolvedValue(undefined) };
 
     const service = new OrdersService(
       prisma as any,
       razorpay as any,
       orderRealtime as any,
-      orderMail as any,
       {} as any,
       brandAccess as any,
       {} as any,
       {} as any,
       {} as any,
       {} as never, // wallet
-      { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
+      events as never, // notification events
     );
-    return { service, prisma, razorpay, orderMail, orderRealtime, orderUpdate };
+    return { service, prisma, razorpay, events, orderRealtime, orderUpdate };
   }
 
   const completedOrder = {
@@ -179,7 +179,7 @@ describe('OrdersService extra-usage-rights purchase', () => {
   });
 
   it('captures the webhook: extends usage days, notifies, and is amount-verified', async () => {
-    const { service, orderUpdate, orderMail, orderRealtime } = makeService({
+    const { service, events, orderUpdate, orderRealtime } = makeService({
       purchaseForWebhook: {
         id: 'up-1',
         orderId: 'order-1',
@@ -201,9 +201,13 @@ describe('OrdersService extra-usage-rights purchase', () => {
         data: { usageRightsExtraDays: { increment: 90 } },
       }),
     );
-    expect(orderMail.notifyExtraUsageRightsPurchased).toHaveBeenCalledWith(
-      'order-1',
-      90,
+    expect(events.emit).toHaveBeenCalledWith(
+      'order-extra-usage-rights-purchased-for-brand',
+      { entityId: 'order-1', occurrenceKey: 'up-1' },
+    );
+    expect(events.emit).toHaveBeenCalledWith(
+      'order-extra-usage-rights-purchased-for-creator',
+      { entityId: 'order-1', occurrenceKey: 'up-1' },
     );
     expect(orderRealtime.emitOrderUsageRightsPurchased).toHaveBeenCalled();
   });

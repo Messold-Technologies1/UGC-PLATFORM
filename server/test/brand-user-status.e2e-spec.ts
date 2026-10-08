@@ -97,10 +97,8 @@ describe('Admin brand deactivate/activate (e2e)', () => {
             p,
             {} as never,
             {} as never,
-            {} as never,
             { emit: () => Promise.resolve() } as never,
-            {} as never,
-          ),
+            {} as never),
         inject: [PrismaService],
       })
       .overrideProvider(AuthService)

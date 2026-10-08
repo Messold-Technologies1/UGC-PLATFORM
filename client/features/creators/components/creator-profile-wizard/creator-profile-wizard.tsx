@@ -197,8 +197,8 @@ export function CreatorProfileWizard({
   );
   // Phone OTP verification (creators must verify before leaving the About step).
   // Already true for accounts that verified at signup; Google creators verify here.
-  const [phoneVerified, setPhoneVerified] = useState(
-    () => Boolean(initialProfile.phoneVerified),
+  const [phoneVerified, setPhoneVerified] = useState(() =>
+    Boolean(initialProfile.phoneVerified),
   );
 
   const enabled = adminMode || Boolean(user);
@@ -263,8 +263,7 @@ export function CreatorProfileWizard({
     ? Boolean(adminInstagramInsightsQuery.data?.connected)
     : (socialConnectionsQuery.data ?? []).some(
         (connection) =>
-          connection.platform === "INSTAGRAM" &&
-          connection.status === "ACTIVE",
+          connection.platform === "INSTAGRAM" && connection.status === "ACTIVE",
       );
 
   /**
@@ -1250,21 +1249,6 @@ export function CreatorProfileWizard({
     steps.length,
   ]);
 
-  // The primary footer button: in edit mode the editable steps save in place;
-  // review/go-live keep their submit/exit behavior, and onboarding keeps its
-  // save-and-advance flow.
-  const onPrimaryAction = useCallback(() => {
-    if (
-      canEditFreely &&
-      activeStep.id !== "review" &&
-      activeStep.id !== "go-live"
-    ) {
-      saveCurrentStep();
-      return;
-    }
-    handleContinue();
-  }, [canEditFreely, activeStep.id, saveCurrentStep, handleContinue]);
-
   // Submit (go live) from anywhere — the resubmit action for a withdrawn
   // profile. Persists all current edits and submits. If something required is
   // still missing, it jumps to Review so the creator can see the checklist.
@@ -1281,6 +1265,38 @@ export function CreatorProfileWizard({
       goLive: true,
     });
   }, [goLiveMissing, persist, stepIndex]);
+
+  // The primary footer button: in edit mode the editable steps save in place;
+  // review/go-live keep their submit/exit behavior, and onboarding keeps its
+  // save-and-advance flow.
+  const onPrimaryAction = useCallback(() => {
+    // A withdrawn profile submits from wherever the creator is. The header
+    // Submit button is hidden below 960px — the mobile stepper replaces that
+    // whole bar — so the footer is the only action a phone can reach, and
+    // without this it offered "Save changes": the one thing the resubmit flow
+    // deliberately does not do, while the banner above told them to click a
+    // Submit button that was not on the screen.
+    if (showResubmit) {
+      submitForReview();
+      return;
+    }
+    if (
+      canEditFreely &&
+      activeStep.id !== "review" &&
+      activeStep.id !== "go-live"
+    ) {
+      saveCurrentStep();
+      return;
+    }
+    handleContinue();
+  }, [
+    showResubmit,
+    submitForReview,
+    canEditFreely,
+    activeStep.id,
+    saveCurrentStep,
+    handleContinue,
+  ]);
 
   const handleBack = useCallback(() => {
     const leavingWizard = activeIndex === 0;
@@ -1452,6 +1468,8 @@ export function CreatorProfileWizard({
   ]);
 
   const continueLabel = useMemo(() => {
+    // Same words the reopened-for-editing banner tells them to look for.
+    if (showResubmit) return "Submit for review";
     if (activeStep.id === "review") return "Submit my profile";
     if (activeStep.id === "go-live") return "Go to dashboard";
     if (canEditFreely) return "Save changes";
@@ -1463,7 +1481,7 @@ export function CreatorProfileWizard({
       portfolio: "Save & Review Profile",
     };
     return labelMap[activeStep.id] ?? "Continue";
-  }, [activeStep.id, canEditFreely]);
+  }, [activeStep.id, canEditFreely, showResubmit]);
 
   // In editor mode, editable steps get a "save this step" reminder + a Save
   // button in the header (in addition to the footer one).
@@ -1518,6 +1536,33 @@ export function CreatorProfileWizard({
             />
           ))}
         </div>
+
+        {/* Resubmit lives here on a phone, under the stepper and above the
+            form, because the desktop header that normally carries it is
+            display:none below 960px — so a withdrawn profile had no Submit on
+            screen at all while the banner right below told the creator to
+            click one. Reachable from any step without scrolling to the end of
+            a long form, which is the point: Submit persists every edit. */}
+        {showResubmit ? (
+          <button
+            type="button"
+            className="cw-btn cw-btn-primary cw-mobile-submit"
+            onClick={submitForReview}
+            disabled={pending || uploadingMedia}
+          >
+            {pending ? (
+              <>
+                <Spinner className="size-4" aria-hidden />
+                Submitting…
+              </>
+            ) : (
+              <>
+                <Send size={16} />
+                Submit for review
+              </>
+            )}
+          </button>
+        ) : null}
       </div>
 
       <div className="cw-layout">
@@ -1648,7 +1693,11 @@ export function CreatorProfileWizard({
           {awaitingReview ? (
             <div className="cw-review-banner" role="status">
               <div className="cw-review-banner-copy">
-                <Clock size={18} aria-hidden className="cw-review-banner-icon" />
+                <Clock
+                  size={18}
+                  aria-hidden
+                  className="cw-review-banner-icon"
+                />
                 <div>
                   <p className="cw-review-banner-title">
                     Your profile is submitted and under review.
@@ -1909,7 +1958,9 @@ export function CreatorProfileWizard({
                   onEditStep={(stepId) => goToStep(stepIndex[stepId])}
                   policies={goLivePolicies}
                   onPoliciesChange={setGoLivePolicies}
-                  policiesDisabled={Boolean(initialProfile.acceptedGoLivePolicies)}
+                  policiesDisabled={Boolean(
+                    initialProfile.acceptedGoLivePolicies,
+                  )}
                   missingItems={goLiveMissing}
                 />
               ) : (
@@ -1927,7 +1978,7 @@ export function CreatorProfileWizard({
           {/* Footer */}
           {activeStep.id !== "go-live" ? (
             <div className="cw-foot">
-              {canEditFreely && !awaitingReview ? (
+              {canEditFreely && !awaitingReview && !showResubmit ? (
                 <span className="cw-foot-note">
                   Save each step after you edit it.
                 </span>

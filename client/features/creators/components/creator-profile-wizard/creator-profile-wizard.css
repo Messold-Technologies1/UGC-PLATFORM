@@ -74,6 +74,16 @@
     padding-inline: 12px;
   }
 }
+/* The resubmit action, sitting under the stepper on phones.
+   Nothing here needs to hide it on desktop: it lives inside .cw-mobile-stepper,
+   which is display:none above 960px, so the whole bar goes together. Declaring
+   display on this class would be misleading anyway — .cw-btn sets its own
+   further down the file and, at equal specificity, wins. So this only says
+   what .cw-btn does not: full width, with room above it. */
+.cw-mobile-submit {
+  width: 100%;
+  margin-top: 12px;
+}
 .cw-mobile-stepper-row {
   display: flex;
   align-items: center;
@@ -463,23 +473,16 @@
 .cw-pane-head > div {
   min-width: 0;
 }
-/* On phones, let the header wrap so the "Save changes" button drops onto its
-   own full-width row rather than overflowing next to the title. */
+/* Below 960px the mobile stepper replaces this whole bar, so it is hidden
+   rather than wrapped. Anything that must stay reachable on a phone therefore
+   cannot live here — the footer carries it. That is why the resubmit Submit
+   button is the footer's primary action and not only a header button: the
+   rules that used to sit here, dropping .cw-pane-head > .cw-btn onto its own
+   full-width row at 560px, could never apply, because the element was already
+   display:none a breakpoint earlier. */
 @media (max-width: 960px) {
   .cw-pane-head {
     display: none;
-  }
-}
-@media (max-width: 560px) {
-  .cw-pane-head {
-    flex-wrap: wrap;
-    gap: 12px 16px;
-  }
-  .cw-pane-head > .cw-btn {
-    order: 3;
-    width: 100%;
-    margin-left: 0 !important;
-    align-self: stretch !important;
   }
 }
 .cw-pane-icon {
@@ -658,7 +661,9 @@
   color: var(--primary);
   padding: 0;
   cursor: pointer;
-  transition: transform 0.14s, box-shadow 0.14s;
+  transition:
+    transform 0.14s,
+    box-shadow 0.14s;
 }
 .cw-photo-circle[data-empty="false"] {
   border-style: solid;
@@ -666,7 +671,8 @@
 }
 .cw-photo-circle:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px -10px color-mix(in oklab, var(--primary) 50%, transparent);
+  box-shadow: 0 8px 20px -10px
+    color-mix(in oklab, var(--primary) 50%, transparent);
 }
 .cw-photo-circle:disabled {
   cursor: not-allowed;
@@ -843,7 +849,9 @@
   font-size: 14px;
   color: var(--foreground);
   outline: none;
-  transition: border-color 0.14s, box-shadow 0.14s;
+  transition:
+    border-color 0.14s,
+    box-shadow 0.14s;
 }
 .cw-input:focus {
   border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
@@ -934,7 +942,9 @@
   border: 2px solid #a1a1aa;
   padding: 16px 18px;
   cursor: pointer;
-  transition: background 0.16s, border-color 0.16s;
+  transition:
+    background 0.16s,
+    border-color 0.16s;
 }
 .cw-confirm[data-checked="true"] {
   background: var(--p05);
@@ -1014,7 +1024,10 @@
   border: 2px solid #71717a;
   background: #fff;
   color: transparent;
-  transition: background 0.16s, border-color 0.16s, color 0.16s;
+  transition:
+    background 0.16s,
+    border-color 0.16s,
+    color 0.16s;
 }
 .cw-confirm[data-checked="true"] .cw-confirm-tick {
   background: var(--primary);
@@ -1148,7 +1161,10 @@
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
-  transition: filter 0.14s, background 0.14s, border-color 0.14s;
+  transition:
+    filter 0.14s,
+    background 0.14s,
+    border-color 0.14s;
 }
 .cw-btn-ghost {
   background: var(--background);
@@ -1280,7 +1296,9 @@
   color: var(--foreground);
   outline: none;
   resize: vertical;
-  transition: border-color 0.14s, box-shadow 0.14s;
+  transition:
+    border-color 0.14s,
+    box-shadow 0.14s;
 }
 .cw-textarea:focus {
   border-color: color-mix(in oklab, var(--primary) 55%, var(--border));

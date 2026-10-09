@@ -16,6 +16,7 @@ import {
   openRazorpayCheckout,
 } from "@/features/payments/lib/open-razorpay-checkout";
 import { useAuth } from "@/providers/auth-provider";
+import { invalidateBrandWallet } from "@/features/wallet/hooks";
 
 function getErrorMessage(error: unknown): string {
   if (isAxiosError(error)) {
@@ -83,6 +84,9 @@ export function useResumeOrderCheckout(orderId: string, packageName: string) {
           void queryClient.invalidateQueries({
             queryKey: brandOrderDetailsQueryOptions(paidOrderId).queryKey,
           });
+          // Resuming a checkout settles it, and it may have been part-paid
+          // from credit.
+          invalidateBrandWallet(queryClient);
           toast.success("Payment successful", {
             description: "Redirecting to order details...",
           });

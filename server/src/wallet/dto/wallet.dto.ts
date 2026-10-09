@@ -59,14 +59,29 @@ export class AdjustWalletDto {
 // ── Responses ────────────────────────────────────────────────────────────────
 
 export class WalletBalanceDto {
-  @ApiProperty({ description: 'Total credit owned (spendable + held), in paise.' })
+  @ApiProperty({
+    description: 'Total credit owned (spendable + held), in paise.',
+  })
   balancePaise!: number;
-  @ApiProperty({ description: 'Locked by pending withdrawal requests, in paise.' })
+  @ApiProperty({
+    description: 'Locked by pending withdrawal requests, in paise.',
+  })
   heldPaise!: number;
+  @ApiProperty({
+    description:
+      'Reward credit inside the balance: spendable at checkout, never refundable.',
+  })
+  promoPaise!: number;
   @ApiProperty({ description: 'Spendable now (balance - held), in paise.' })
   availablePaise!: number;
+  @ApiProperty({
+    description: 'Withdrawable now (balance - held - reward), in paise.',
+  })
+  refundablePaise!: number;
   @ApiProperty() currency!: string;
-  @ApiProperty({ description: 'Alias of heldPaise, kept for existing callers.' })
+  @ApiProperty({
+    description: 'Alias of heldPaise, kept for existing callers.',
+  })
   pendingWithdrawalPaise!: number;
 }
 
@@ -75,6 +90,11 @@ export class WalletTransactionDto {
   @ApiProperty({ description: 'Signed: positive credit, negative debit.' })
   amountPaise!: number;
   @ApiProperty() balanceAfterPaise!: number;
+  @ApiProperty({
+    description:
+      "This row's signed effect on the non-refundable reward balance; 0 for ordinary movements.",
+  })
+  promoPaise!: number;
   @ApiProperty({ enum: WalletTransactionType }) type!: WalletTransactionType;
   @ApiProperty({ nullable: true }) reason!: string | null;
   @ApiProperty({ nullable: true }) orderId!: string | null;
@@ -86,6 +106,7 @@ export class WalletTransactionDto {
       id: tx.id,
       amountPaise: tx.amountPaise,
       balanceAfterPaise: tx.balanceAfterPaise,
+      promoPaise: tx.promoPaise,
       type: tx.type,
       reason: tx.reason,
       orderId: tx.orderId,
@@ -176,8 +197,17 @@ export class AdminBrandCreditDto {
     description: 'Locked by pending withdrawal requests, in paise.',
   })
   heldPaise!: number;
+  @ApiProperty({
+    description:
+      'Reward credit inside the balance: spendable at checkout, never refundable.',
+  })
+  promoPaise!: number;
   @ApiProperty({ description: 'Spendable now (balance - held), in paise.' })
   availablePaise!: number;
+  @ApiProperty({
+    description: 'Withdrawable now (balance - held - reward), in paise.',
+  })
+  refundablePaise!: number;
   @ApiProperty() currency!: string;
   @ApiProperty({
     nullable: true,
@@ -196,10 +226,16 @@ export class AdminBrandCreditDto {
       contactEmail: row.contactEmail,
       balancePaise: row.balancePaise,
       heldPaise: row.heldPaise,
+      promoPaise: row.promoPaise,
       // Derived, never stored: held money still sits inside the balance, so a
       // single "credits" number would overstate what a brand can actually spend
-      // while a withdrawal is pending.
+      // while a withdrawal is pending. Reward credit is spendable but not
+      // payable out, so refundable takes it off again.
       availablePaise: row.balancePaise - row.heldPaise,
+      refundablePaise: Math.max(
+        0,
+        row.balancePaise - row.heldPaise - row.promoPaise,
+      ),
       currency: row.currency,
       lastActivityAt: row.lastActivityAt,
     };
@@ -217,4 +253,9 @@ export class AdminBrandCreditsPageDto {
   totalBalancePaise!: number;
   @ApiProperty({ description: 'Sum of heldPaise across ALL matches.' })
   totalHeldPaise!: number;
+  @ApiProperty({
+    description:
+      'Sum of non-refundable reward credit across ALL matches (platform reward liability).',
+  })
+  totalPromoPaise!: number;
 }

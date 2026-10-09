@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   Prisma,
   RoleName,
@@ -33,6 +34,7 @@ import {
   computeOrderPricingLedger,
   PLATFORM_FEE_RATE,
 } from './order-pricing-ledger.util';
+import { resolveOrderCompletionCreditPaise } from './order-completion-credit.util';
 import type { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
 import type {
   AbortDeliveryMultipartUploadDto,
@@ -539,6 +541,7 @@ export class OrdersService {
     private readonly coupons: CouponsService,
     private readonly wallet: WalletService,
     private readonly events: NotificationEventsService,
+    private readonly config: ConfigService,
   ) {}
 
   private async resolveBrandActor(params: {
@@ -4651,6 +4654,11 @@ export class OrdersService {
     const dispute = await this.loadLatestDispute(order.id);
     if (dispute) mappedOrder.dispute = dispute;
 
+    // Reward credit granted to the brand when this order completed, so an admin
+    // can see it on the order itself and not only in the brand's ledger.
+    mappedOrder.completionCredit =
+      await this.wallet.getCompletionCreditForOrder(order.id);
+
     return {
       order: mappedOrder,
       creator: {
@@ -5143,6 +5151,52 @@ export class OrdersService {
     };
   }
 
+  /**
+   * Grant the brand its reward credit for a completed order, when the feature is
+   * switched on and the order qualifies. Amount and on/off switch come from the
+   * environment, so support can change or stop the reward without a deploy.
+   *
+   * Idempotent: one reward per order, checked here and enforced by a partial
+   * unique index on the ledger. Existing orders are never backfilled — only
+   * orders accepted while the feature is on earn anything.
+   */
+  private async awardOrderCompletionCredit(
+    order: {
+      id: string;
+      brandId: string | null;
+      agencyId: string | null;
+      expectedAmountPaise: number;
+      isFreeOrder: boolean;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    const amountPaise = resolveOrderCompletionCreditPaise(
+      {
+        enabled: this.config.get<string>('ORDER_COMPLETION_CREDIT_ENABLED'),
+        amountPaise: this.config.get<string | number>(
+          'ORDER_COMPLETION_CREDIT_PAISE',
+        ),
+      },
+      order,
+    );
+    if (amountPaise <= 0) return;
+    if (await this.wallet.hasCompletionCredit(order.id, tx)) return;
+
+    await this.wallet.creditOrderCompletion(
+      {
+        brandId: order.brandId,
+        agencyId: order.agencyId,
+        orderId: order.id,
+        amountPaise,
+        reason: 'Reward for completing an order',
+      },
+      tx,
+    );
+    this.logger.log(
+      `[credits] order=${order.id} completed → ${amountPaise} paise reward credit (non-refundable)`,
+    );
+  }
+
   async acceptDelivery(params: {
     actorUserId: string;
     brandProfileId?: string | null;
@@ -5162,6 +5216,8 @@ export class OrdersService {
         agencyId: true,
         status: true,
         acceptedAt: true,
+        expectedAmountPaise: true,
+        isFreeOrder: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -5172,9 +5228,18 @@ export class OrdersService {
       throw new BadRequestException('Order is not awaiting acceptance');
     }
 
-    await this.updateOrder({
-      where: { id: order.id },
-      data: { status: 'ACCEPTED', acceptedAt: new Date() },
+    // Completion and its reward credit move together: one transaction, so the
+    // order can never end up ACCEPTED with the reward silently lost (nor the
+    // reward granted for an acceptance that rolled back).
+    await this.prisma.$transaction(async (tx) => {
+      await this.updateOrder(
+        {
+          where: { id: order.id },
+          data: { status: 'ACCEPTED', acceptedAt: new Date() },
+        },
+        tx,
+      );
+      await this.awardOrderCompletionCredit(order, tx);
     });
 
     // One legacy call mailed both sides; as events they are separate so an

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
@@ -38,6 +38,7 @@ import {
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
 import { useAuth } from "@/providers/auth-provider";
+import { useWalletBalance } from "@/features/wallet/hooks";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { SITE_NAME } from "@/config/site";
 
@@ -166,6 +167,11 @@ const roleConfigs: Record<string, NavItem[]> = {
   ],
 };
 
+/** Spendable credit, as the Credits page writes it: whole rupees, en-IN. */
+function formatCredits(paise: number): string {
+  return `₹${Math.round(paise / 100).toLocaleString("en-IN")}`;
+}
+
 function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
   const segment = pathname.split("/")[1];
   // Agency users reuse some /brand routes (orders, messages, etc.). Keep the
@@ -285,6 +291,28 @@ export function Navbar({ className }: { className?: string } = {}) {
   );
 
   const navItems = getNavItems(pathname || "", user);
+  // Only buyers have a wallet, and having the Credits destination is exactly
+  // what makes someone a buyer — so it gates the request. A creator or admin
+  // nav never fires it (the endpoint would 403 them). The query key is shared
+  // with the Credits page, so the two always show the same number and the
+  // navbar updates for free whenever that page refetches.
+  const creditsHref = navItems.find((item) =>
+    item.href?.endsWith("/credits"),
+  )?.href;
+  const { data: creditsBalance, refetch: refetchCredits } =
+    useWalletBalance(Boolean(creditsHref));
+  // The navbar sits in a persistent layout, so it never remounts as the buyer
+  // moves around — and plenty of things move the balance without this client
+  // knowing: an admin adjustment, a dispute resolved, a second tab, the
+  // completion reward landing when support accepts on the brand's behalf.
+  // Refetching on navigation keeps the badge honest without a page reload.
+  useEffect(() => {
+    if (creditsHref) void refetchCredits();
+  }, [pathname, creditsHref, refetchCredits]);
+  const navLabel = (item: NavItem): string =>
+    item.href && item.href === creditsHref && creditsBalance
+      ? `${item.label} (${formatCredits(creditsBalance.availablePaise)})`
+      : item.label;
   // Admin carries the most destinations of any role (nine, against four or
   // five elsewhere), so the pill that fits the others squeezes its labels.
   const isAdminNav = (pathname || "").split("/")[1] === "admin";
@@ -413,7 +441,7 @@ export function Navbar({ className }: { className?: string } = {}) {
                       )}
                     >
                       <item.icon className="size-4" />
-                      <span>{item.label}</span>
+                      <span>{navLabel(item)}</span>
                     </Link>
                   );
                 })}
@@ -552,7 +580,7 @@ export function Navbar({ className }: { className?: string } = {}) {
                         )}
                       >
                         <item.icon className="size-4" />
-                        {item.label}
+                        {navLabel(item)}
                       </Link>
                     );
                   })}

@@ -1815,7 +1815,8 @@ model CouponRedemption {
 
 // ─── Store-credit wallet ("Credits" in the UI) ───────────────────────────────
 // A brand's store-credit balance. Money enters when a paid order is cancelled
-// (ORDER_CANCELLATION_CREDIT) and leaves when the brand spends it at checkout
+// (ORDER_CANCELLATION_CREDIT) or an order completes (ORDER_COMPLETION_CREDIT,
+// non-withdrawable) and leaves when the brand spends it at checkout
 // (ORDER_CHECKOUT_DEBIT) or withdraws it to their bank (WITHDRAWAL_DEBIT, paid
 // off-platform by an admin). Amounts are integer paise, INR, matching
 // Order.expectedAmountPaise. The balance is a cached convenience value; the
@@ -1839,6 +1840,10 @@ enum WalletTransactionType {
   ADMIN_ADJUSTMENT_CREDIT
   /// Manual admin correction removing credit.
   ADMIN_ADJUSTMENT_DEBIT
+  /// Reward granted when an order completed successfully. Spendable at
+  /// checkout like any other credit, but never withdrawable (it adds to
+  /// BrandWallet.promoPaise as well as to the balance).
+  ORDER_COMPLETION_CREDIT
 }
 
 enum WalletWithdrawalStatus {
@@ -1858,6 +1863,12 @@ model BrandWallet {
   /// stays in balancePaise (it is only deducted when a withdrawal is completed)
   /// but cannot be spent while held. Spendable = balancePaise - heldPaise.
   heldPaise    Int      @default(0)
+  /// Portion of balancePaise that is reward credit: spendable at checkout but
+  /// never withdrawable. Refundable = balancePaise - heldPaise - promoPaise.
+  /// Checkout debits spend REFUNDABLE credit first and only fall back to this
+  /// bucket when that runs out, so each order shrinks what the brand could ask
+  /// back as cash while the reward stays available to spend on orders.
+  promoPaise   Int      @default(0)
   currency     String   @default("INR")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1881,6 +1892,11 @@ model WalletTransaction {
   type              WalletTransactionType
   /// Wallet balance immediately after this row was applied (audit snapshot).
   balanceAfterPaise Int
+  /// This row's signed effect on the wallet's non-withdrawable promo bucket
+  /// (positive when reward credit arrives, negative when a debit spends it).
+  /// 0 for ordinary movements. Makes the ledger the source of truth for the
+  /// promo bucket too, so a reversal can return promo money AS promo.
+  promoPaise        Int                   @default(0)
   /// Human-readable reason (cancellation note, admin adjustment reason, etc.).
   reason            String?
   /// The order this movement relates to (cancellation credit, checkout debit,

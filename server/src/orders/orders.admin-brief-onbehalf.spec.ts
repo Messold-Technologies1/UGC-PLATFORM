@@ -55,6 +55,7 @@ describe('OrdersService admin brief actions on behalf', () => {
       {} as never,
       wallet as never,
       events as never, // notification events
+      { get: () => undefined } as never, // config
     );
     return { service, orderUpdate, orderRealtime, events, wallet, brandAccess };
   }

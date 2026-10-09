@@ -81,6 +81,23 @@ export const envValidationSchema = Joi.object({
     .optional()
     .default('approval_first'),
 
+  // ---- Order-completion reward credit ----
+  /**
+   * Grant the brand a fixed reward credit when an order is accepted. Off by
+   * default so it is switched on deliberately; flipping it to 'false' stops new
+   * grants immediately (credits already granted stay in the brands' wallets).
+   */
+  ORDER_COMPLETION_CREDIT_ENABLED: Joi.string()
+    .valid('true', 'false')
+    .optional()
+    .default('false'),
+  /** Reward amount in paise. 5000 = ₹50. 0 disables the grant as surely as the flag. */
+  ORDER_COMPLETION_CREDIT_PAISE: Joi.number()
+    .integer()
+    .min(0)
+    .optional()
+    .default(5000),
+
   // Storage: S3 + CDN
   AWS_REGION: Joi.string().min(1).required(),
   AWS_S3_ACCESS_KEY_ID: Joi.string().min(1).required(),

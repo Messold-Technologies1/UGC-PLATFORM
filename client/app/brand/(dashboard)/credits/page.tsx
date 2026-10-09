@@ -3,6 +3,7 @@
 import { useState, type ComponentType } from "react";
 import {
   ArrowDownLeft,
+  Award,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -71,6 +72,8 @@ function txnVisual(type: WalletTransactionType): {
   switch (type) {
     case "ORDER_CANCELLATION_CREDIT":
       return { Icon: Gift, isCredit: true };
+    case "ORDER_COMPLETION_CREDIT":
+      return { Icon: Award, isCredit: true };
     case "CHECKOUT_REVERSAL_CREDIT":
     case "WITHDRAWAL_REVERSAL_CREDIT":
       return { Icon: RotateCcw, isCredit: true };
@@ -150,16 +153,21 @@ export default function BrandCreditsPage() {
   const [wdPage, setWdPage] = useState(1);
 
   // Spendable now = total balance minus funds held for pending withdrawals.
+  // Reward credit is part of that, but can never be taken out as money, so the
+  // refund form works off refundablePaise instead.
   const availablePaise = balance?.availablePaise ?? 0;
-  const availableRupees = Math.floor(availablePaise / 100);
   const heldPaise = balance?.heldPaise ?? 0;
+  const rewardPaise = balance?.promoPaise ?? 0;
+  const refundablePaise = balance?.refundablePaise ?? 0;
+  const refundableRupees = Math.floor(refundablePaise / 100);
 
-  // Genuine credit received all-time — cancellation credits and admin top-ups
-  // only (not withdrawal releases or checkout reversals).
+  // Genuine credit received all-time — cancellation credits, completion rewards
+  // and admin top-ups (not withdrawal releases or checkout reversals).
   const lifetimeCreditedPaise = transactions
     .filter(
       (t) =>
         t.type === "ORDER_CANCELLATION_CREDIT" ||
+        t.type === "ORDER_COMPLETION_CREDIT" ||
         t.type === "ADMIN_ADJUSTMENT_CREDIT",
     )
     .reduce((sum, t) => sum + t.amountPaise, 0);
@@ -184,10 +192,10 @@ export default function BrandCreditsPage() {
   const enteredRupees = Number(amount);
   const hasEnteredAmount =
     !refundFull && amount.trim() !== "" && Number.isFinite(enteredRupees);
-  const exceedsBalance = hasEnteredAmount && enteredRupees > availableRupees;
+  const exceedsBalance = hasEnteredAmount && enteredRupees > refundableRupees;
   const canSubmit =
     !requestMutation.isPending &&
-    availablePaise > 0 &&
+    refundablePaise > 0 &&
     (refundFull ||
       (hasEnteredAmount && enteredRupees > 0 && !exceedsBalance));
 
@@ -200,10 +208,10 @@ export default function BrandCreditsPage() {
 
   const submit = () => {
     const amountPaise = refundFull
-      ? availablePaise
+      ? refundablePaise
       : Math.round(Number(amount) * 100);
     if (!Number.isInteger(amountPaise) || amountPaise <= 0) return;
-    if (amountPaise > availablePaise) return;
+    if (amountPaise > refundablePaise) return;
     requestMutation.mutate(
       { amountPaise, brandNote: note || undefined },
       { onSuccess: resetForm },
@@ -229,6 +237,18 @@ export default function BrandCreditsPage() {
                 : inr(availablePaise)}
             </p>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/70">
+              {rewardPaise > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Award className="size-3.5" /> {inr(rewardPaise)} reward
+                  credits · not refundable
+                </span>
+              )}
+              {rewardPaise > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Landmark className="size-3.5" /> {inr(refundablePaise)}{" "}
+                  refundable
+                </span>
+              )}
               {heldPaise > 0 && (
                 <span className="inline-flex items-center gap-1.5">
                   <Clock className="size-3.5" /> {inr(heldPaise)} on hold
@@ -250,7 +270,7 @@ export default function BrandCreditsPage() {
             <button
               type="button"
               className="shrink-0 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#15181f] shadow-sm transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={availableRupees <= 0}
+              disabled={refundableRupees <= 0}
               onClick={() => setShowForm(true)}
             >
               Withdraw / Request refund
@@ -266,6 +286,13 @@ export default function BrandCreditsPage() {
             <Landmark className="size-4 text-primary" />
             <h2 className="text-sm font-bold">Request a refund to your bank</h2>
           </div>
+          {rewardPaise > 0 && (
+            <p className="mb-4 rounded-2xl bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+              {inr(rewardPaise)} of your credits are reward credits earned on
+              completed orders. You can spend them on a new order, but they
+              cannot be refunded — so {inr(refundablePaise)} is refundable.
+            </p>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 md:col-span-2">
               <div className="min-w-0">
@@ -273,16 +300,16 @@ export default function BrandCreditsPage() {
                   Refund the full amount
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Request {inr(availablePaise)} back to your bank
+                  Request {inr(refundablePaise)} back to your bank
                 </p>
               </div>
               <Switch
                 checked={refundFull}
                 onCheckedChange={(on) => {
                   setRefundFull(on);
-                  if (on) setAmount(String(availableRupees));
+                  if (on) setAmount(String(refundableRupees));
                 }}
-                disabled={availableRupees <= 0}
+                disabled={refundableRupees <= 0}
                 aria-label="Refund the full amount"
               />
             </div>
@@ -292,7 +319,7 @@ export default function BrandCreditsPage() {
                 htmlFor="withdraw-amount"
                 className="text-xs font-medium text-muted-foreground"
               >
-                Amount to withdraw (max {inr(availablePaise)})
+                Amount to withdraw (max {inr(refundablePaise)})
               </label>
               <div className="relative mt-1">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -302,8 +329,8 @@ export default function BrandCreditsPage() {
                   id="withdraw-amount"
                   type="number"
                   min={1}
-                  max={availableRupees}
-                  value={refundFull ? String(availableRupees) : amount}
+                  max={refundableRupees}
+                  value={refundFull ? String(refundableRupees) : amount}
                   onChange={(e) => {
                     setRefundFull(false);
                     setAmount(e.target.value);
@@ -327,8 +354,8 @@ export default function BrandCreditsPage() {
                   className="mt-1.5 text-xs font-medium text-destructive"
                   role="alert"
                 >
-                  This amount is more than your available balance of{" "}
-                  {inr(availablePaise)}.
+                  This amount is more than your refundable balance of{" "}
+                  {inr(refundablePaise)}.
                 </p>
               ) : null}
             </div>
@@ -403,7 +430,7 @@ export default function BrandCreditsPage() {
               {txPeriod === "all" && (
                 <p className="max-w-xs text-xs text-muted-foreground">
                   When an order is cancelled, its amount lands here as store
-                  credit.
+                  credit — and every completed order earns a reward credit.
                 </p>
               )}
             </div>
@@ -424,8 +451,19 @@ export default function BrandCreditsPage() {
                         <Icon className="size-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">
+                        <p className="flex items-center gap-2 truncate text-sm font-semibold">
                           {walletTransactionLabel(t.type)}
+                          {t.promoPaise > 0 && (
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                              {/* A return credits back whatever reward the
+                                  order had spent, which is usually only part
+                                  of the row — saying the whole amount is
+                                  non-refundable would be wrong. */}
+                              {t.promoPaise === t.amountPaise
+                                ? "Not refundable"
+                                : `${inr(t.promoPaise)} not refundable`}
+                            </span>
+                          )}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {formatDate(t.createdAt)}

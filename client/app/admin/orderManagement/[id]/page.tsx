@@ -785,6 +785,30 @@ export default function AdminOrderDetailsPage() {
                               </div>
                             </>
                           ) : null}
+                          {order.completionCredit ? (
+                            <div className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2 text-sm dark:bg-violet-900/20">
+                              <span
+                                className="font-semibold text-violet-700 dark:text-violet-400"
+                                title={`Credited ${formatDate(
+                                  order.completionCredit.creditedAt,
+                                )}. Spendable at checkout, never refundable.`}
+                              >
+                                Completion reward credited to brand
+                              </span>
+                              <span className="font-bold text-violet-700 dark:text-violet-400">
+                                {inr(order.completionCredit.amountPaise)}
+                              </span>
+                            </div>
+                          ) : null}
+                          {order.completionCredit ? (
+                            <p className="text-xs text-muted-foreground">
+                              Reward for completing this order, added to the
+                              brand&rsquo;s credits on{" "}
+                              {formatDate(order.completionCredit.creditedAt)}
+                              . Not refundable — it can only be spent on a new
+                              order, so it is never owed back as money.
+                            </p>
+                          ) : null}
                           <p className="pt-1 text-xs text-muted-foreground">
                             {!order.paidAt
                               ? "Never paid — nothing to settle. The creator is owed ₹0 and the brand is owed ₹0."

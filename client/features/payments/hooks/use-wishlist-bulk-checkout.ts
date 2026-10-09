@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -17,6 +18,7 @@ import {
   openRazorpayCheckout,
 } from "@/features/payments/lib/open-razorpay-checkout";
 import { useAuth } from "@/providers/auth-provider";
+import { invalidateBrandWallet } from "@/features/wallet/hooks";
 
 function getErrorMessage(error: unknown): string {
   if (isAxiosError(error)) {
@@ -38,6 +40,7 @@ export function useWishlistBulkCheckout() {
   const pathname = usePathname();
   const workspaceBase = buyerWorkspaceBaseFromPathname(pathname);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGatewayReady, setIsGatewayReady] = useState(false);
@@ -101,6 +104,8 @@ export function useWishlistBulkCheckout() {
           notes: { checkoutBatchId: session.batchId },
           onSuccess: () => {
             setIsProcessing(false);
+            // A bulk checkout can spend credit too, so the balance moved.
+            invalidateBrandWallet(queryClient);
             toast.success("Payment successful", {
               description: "Redirecting to your orders...",
             });
@@ -118,7 +123,7 @@ export function useWishlistBulkCheckout() {
         return false;
       }
     },
-    [isProcessing, router, user],
+    [isProcessing, queryClient, router, user],
   );
 
   return { isProcessing, isGatewayReady, startBulkCheckout };

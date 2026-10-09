@@ -8,7 +8,8 @@ export type WalletTransactionType =
   | "WITHDRAWAL_DEBIT"
   | "WITHDRAWAL_REVERSAL_CREDIT"
   | "ADMIN_ADJUSTMENT_CREDIT"
-  | "ADMIN_ADJUSTMENT_DEBIT";
+  | "ADMIN_ADJUSTMENT_DEBIT"
+  | "ORDER_COMPLETION_CREDIT";
 
 export type WalletWithdrawalStatus =
   | "REQUESTED"
@@ -21,8 +22,12 @@ export interface WalletBalance {
   balancePaise: number;
   /** Locked by pending withdrawal requests, in paise. */
   heldPaise: number;
-  /** Spendable now (balance - held), in paise. */
+  /** Reward credit inside the balance: spendable at checkout, never refundable. */
+  promoPaise: number;
+  /** Spendable now (balance - held), in paise. Reward credit included. */
   availablePaise: number;
+  /** Withdrawable now (balance - held - reward), in paise. */
+  refundablePaise: number;
   currency: string;
   /** Alias of heldPaise, kept for existing callers. */
   pendingWithdrawalPaise: number;
@@ -33,6 +38,8 @@ export interface WalletTransaction {
   /** Signed: positive credit, negative debit. */
   amountPaise: number;
   balanceAfterPaise: number;
+  /** Signed effect on the non-refundable reward balance; 0 for ordinary rows. */
+  promoPaise: number;
   type: WalletTransactionType;
   reason: string | null;
   orderId: string | null;
@@ -68,8 +75,12 @@ export interface AdminBrandCredit {
   balancePaise: number;
   /** Locked by pending withdrawal requests, in paise. */
   heldPaise: number;
+  /** Reward credit inside the balance: spendable at checkout, never refundable. */
+  promoPaise: number;
   /** Spendable now (balance - held), in paise. */
   availablePaise: number;
+  /** Withdrawable now (balance - held - reward), in paise. */
+  refundablePaise: number;
   currency: string;
   /** Last wallet movement; null if the owner has never held credit. */
   lastActivityAt: string | null;
@@ -81,6 +92,8 @@ export interface AdminBrandCreditsPage {
   /** Sums across every match, not just the current page. */
   totalBalancePaise: number;
   totalHeldPaise: number;
+  /** Platform-wide non-refundable reward liability. */
+  totalPromoPaise: number;
 }
 
 export interface AdminBrandLedger {
@@ -106,6 +119,8 @@ export function walletTransactionLabel(type: WalletTransactionType): string {
       return "Adjustment — added";
     case "ADMIN_ADJUSTMENT_DEBIT":
       return "Adjustment — removed";
+    case "ORDER_COMPLETION_CREDIT":
+      return "Order completed — reward credit";
     default:
       return type;
   }

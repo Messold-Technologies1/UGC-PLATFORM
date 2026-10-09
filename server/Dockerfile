@@ -6,9 +6,14 @@
 FROM node:22-slim AS base
 WORKDIR /app
 # openssl is required by Prisma's query engine; ca-certificates for outbound TLS
-# to SES, Meta and Razorpay.
+# to SES, Meta and Razorpay. fonts-dejavu-core + fontconfig are for the
+# watermark: it is SVG text rendered by sharp/librsvg, which silently falls back
+# to a thin substitute when the named font is missing — measured at ~23% of the
+# intended ink coverage on a bare image, i.e. a watermark barely there. 7 MB to
+# have the overlay look the way it is supposed to.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get install -y --no-install-recommends \
+        openssl ca-certificates fontconfig fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -34,6 +39,28 @@ RUN npm run build \
     && test -f dist/main.js \
     && test -f dist/main.worker.js \
     && test "$(find dist/mail/templates -name '*.hbs' | wc -l)" -gt 0
+
+# Prove the bundled ffmpeg can actually run the watermark overlay.
+#
+# The binary is NOT pinned by the lockfile: ffmpeg-static@5.3.0 declares release
+# tag b6.1.1, but the asset behind that tag now ships 7.0.2, so two builds of the
+# same commit can get different ffmpeg versions. That matters because an ffmpeg
+# which cannot run this filter graph does not fail — it writes an audio-only file
+# and exits 0 (this is exactly how a watermarked preview with no video stream
+# reached production). So run the real filter chain here, on a 64x64 clip: a
+# drifted binary fails the BUILD instead of shipping silent duds. ~0.1s.
+#
+# Keep the filter and the `-loop 1` input in step with WatermarkService.
+RUN FF=/app/node_modules/ffmpeg-static/ffmpeg \
+    && test -x "$FF" \
+    && "$FF" -v error -y -f lavfi -i testsrc2=s=64x64:r=10:d=1 -f lavfi -i sine=d=1 \
+        -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest /tmp/wm-src.mp4 \
+    && "$FF" -v error -y -f lavfi -i color=white@0.3:s=64x64:d=1 -frames:v 1 /tmp/wm-mark.png \
+    && "$FF" -v error -y -i /tmp/wm-src.mp4 -loop 1 -i /tmp/wm-mark.png \
+        -filter_complex '[1:v][0:v]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto' \
+        -c:v libx264 -pix_fmt yuv420p -c:a copy -shortest /tmp/wm-out.mp4 \
+    && "$FF" -v error -i /tmp/wm-out.mp4 -map 0:v:0 -f null - \
+    && rm -f /tmp/wm-src.mp4 /tmp/wm-mark.png /tmp/wm-out.mp4
 
 
 # ---- production dependencies -----------------------------------------------

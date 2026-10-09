@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
+import { assertEncodedVideoFrames } from './ffmpeg-output.util';
 
 // Prefer an explicit FFMPEG_PATH (set to the system ffmpeg in production —
 // ffmpeg-static ships a glibc binary that can't run on Alpine/musl). Fall back
@@ -318,10 +319,17 @@ export class WatermarkService {
       const wmPng = await sharp(this.watermarkSvg(1080, 1080)).png().toBuffer();
       await writeFile(wmPath, wmPng);
 
-      await this.runFfmpeg([
+      const stderr = await this.runFfmpeg([
         '-y',
         '-i',
         inPath,
+        // `-loop 1` makes the still watermark an ENDLESS source. scale2ref
+        // pulls from both of its inputs in lockstep, so a single-frame image
+        // ends the whole video branch at the first frame: on ffmpeg 7 that
+        // yields an output with ZERO video frames (audio only) while ffmpeg
+        // still exits 0. `-shortest` below ends the output with the video.
+        '-loop',
+        '1',
         '-i',
         wmPath,
         '-filter_complex',
@@ -339,8 +347,12 @@ export class WatermarkService {
         'copy',
         '-movflags',
         '+faststart',
+        // Required by `-loop 1`: without it the endless watermark would keep
+        // the encode running forever.
+        '-shortest',
         outPath,
       ]);
+      assertEncodedVideoFrames(stderr);
 
       return await readFile(outPath);
     } finally {
@@ -348,14 +360,14 @@ export class WatermarkService {
     }
   }
 
-  private runFfmpeg(args: string[]): Promise<void> {
+  private runFfmpeg(args: string[]): Promise<string> {
     // Hard cap so a hung encode can't occupy a worker slot forever and stall
     // the whole queue. Tunable via WATERMARK_FFMPEG_TIMEOUT_MS.
     const timeoutMs = Math.max(
       30_000,
       Number(process.env.WATERMARK_FFMPEG_TIMEOUT_MS) || 180_000,
     );
-    return new Promise((resolve, reject) => {
+    return new Promise<string>((resolve, reject) => {
       const proc = spawn(ffmpegPath, args, {
         stdio: ['ignore', 'ignore', 'pipe'],
       });
@@ -380,7 +392,7 @@ export class WatermarkService {
       proc.on('error', (err) => finish(() => reject(err)));
       proc.on('close', (code) => {
         finish(() => {
-          if (code === 0) resolve();
+          if (code === 0) resolve(stderr);
           else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
         });
       });

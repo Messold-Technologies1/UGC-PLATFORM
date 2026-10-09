@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import {
@@ -299,7 +299,16 @@ export function Navbar({ className }: { className?: string } = {}) {
   const creditsHref = navItems.find((item) =>
     item.href?.endsWith("/credits"),
   )?.href;
-  const { data: creditsBalance } = useWalletBalance(Boolean(creditsHref));
+  const { data: creditsBalance, refetch: refetchCredits } =
+    useWalletBalance(Boolean(creditsHref));
+  // The navbar sits in a persistent layout, so it never remounts as the buyer
+  // moves around — and plenty of things move the balance without this client
+  // knowing: an admin adjustment, a dispute resolved, a second tab, the
+  // completion reward landing when support accepts on the brand's behalf.
+  // Refetching on navigation keeps the badge honest without a page reload.
+  useEffect(() => {
+    if (creditsHref) void refetchCredits();
+  }, [pathname, creditsHref, refetchCredits]);
   const navLabel = (item: NavItem): string =>
     item.href && item.href === creditsHref && creditsBalance
       ? `${item.label} (${formatCredits(creditsBalance.availablePaise)})`

@@ -10,6 +10,7 @@ import {
   type AcceptOrderDeliveryPayload,
 } from "../api/accept-order-delivery";
 import { markReviewPrompt } from "../lib/review-prompt";
+import { invalidateBrandWallet } from "@/features/wallet/hooks";
 
 type AcceptOrderDeliveryMutationOptions = UseMutationOptions<
   void,
@@ -31,6 +32,8 @@ export function useAcceptOrderDeliveryMutation(
       markReviewPrompt(variables.orderId);
       toast.success("Delivery approved successfully");
       await queryClient.invalidateQueries({ queryKey: ["orders", "brand"] });
+      // Approving the delivery completes the order, which credits the reward.
+      invalidateBrandWallet(queryClient);
       options?.onSuccess?.(data, variables, onMutateResult, context);
     },
     onError: (error, variables, onMutateResult, context) => {

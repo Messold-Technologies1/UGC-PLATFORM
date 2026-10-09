@@ -251,6 +251,14 @@ export class WalletService {
    * magnitude is what a reversal or cancellation must put back AS promo, so a
    * brand cannot turn a non-refundable reward into refundable cash by cancelling
    * the order it was spent on.
+   *
+   * Grant rows are excluded, and that exclusion is the whole correctness of
+   * this: the reward an order EARNS on completion carries that same orderId and
+   * a positive promo delta, so counting it would cancel out the promo the order
+   * SPENT at checkout and the return would hand the money back as refundable
+   * cash. An order can hold both rows — a dispute may be opened after
+   * acceptance, so an admin reject can credit an order that was already
+   * rewarded.
    */
   private async outstandingPromoSpentOnOrder(
     tx: Prisma.TransactionClient,
@@ -258,7 +266,11 @@ export class WalletService {
     orderId: string,
   ): Promise<number> {
     const agg = await tx.walletTransaction.aggregate({
-      where: { walletId, orderId },
+      where: {
+        walletId,
+        orderId,
+        type: { notIn: [...ALWAYS_PROMO_TYPES] },
+      },
       _sum: { promoPaise: true },
     });
     return Math.max(0, -(agg._sum.promoPaise ?? 0));

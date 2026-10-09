@@ -124,7 +124,11 @@ class FakePrisma {
       const rows = this.txns.filter(
         (t) =>
           (where.walletId === undefined || t.walletId === where.walletId) &&
-          (where.orderId === undefined || t.orderId === where.orderId),
+          (where.orderId === undefined || t.orderId === where.orderId) &&
+          // Honour the type filter: ignoring it once hid a real bug, where the
+          // reward an order EARNED cancelled out the promo it SPENT.
+          (where.type?.notIn === undefined ||
+            !where.type.notIn.includes(t.type)),
       );
       return {
         _sum: {
@@ -491,6 +495,38 @@ describe('WalletService', () => {
       const b = await bal();
       expect(b.balancePaise).toBe(10000);
       expect(b.promoPaise).toBe(5000);
+    });
+
+    it('does not let the reward an order earned cancel out the promo it spent', async () => {
+      // A dispute can be opened after acceptance, so one order can carry BOTH
+      // its own reward (promo +5000) and a checkout debit that spent earlier
+      // reward credit (promo -5000). Netting the two would return the spend as
+      // refundable cash — the loophole this whole bucket exists to close.
+      await service.credit({
+        brandId,
+        amountPaise: 5000,
+        type: WalletTransactionType.ORDER_COMPLETION_CREDIT,
+        orderId: 'order-earlier',
+      });
+      await service.reserveForCheckout({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 5000,
+      });
+      // order-1 completes and earns its own reward...
+      await reward(5000, 'order-1');
+      // ...and is then disputed and rejected, crediting the amount paid back.
+      await service.creditOrderCancellation({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 5000,
+      });
+
+      const b = await bal();
+      expect(b.balancePaise).toBe(10000);
+      // Both the earned reward and the returned spend stay non-refundable.
+      expect(b.promoPaise).toBe(10000);
+      expect(b.refundablePaise).toBe(0);
     });
 
     it('hasCompletionCredit reports whether an order was already rewarded', async () => {

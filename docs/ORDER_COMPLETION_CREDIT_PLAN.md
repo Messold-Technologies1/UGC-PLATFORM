@@ -46,19 +46,30 @@ invariant        : heldPaise + promoPaise <= balancePaise
 A second wallet would mean splitting every checkout debit, every reversal and
 every admin screen across two balances — far more surface for a money bug.
 
-### Spend order: promo first
+### Spend order: refundable first
 
-A checkout debit consumes `promoPaise` before refundable credit. Two reasons:
-the brand's refundable money stays refundable for as long as possible, and the
-platform's liability drains first. Formally, for a debit of `A`:
+A checkout debit consumes REFUNDABLE credit before the reward, and touches the
+reward only for what refundable credit cannot cover. Formally, for a debit of
+`A`, with `refundable = balance − held − promo`:
 
 ```
-promo' = max(0, promo − A)
-balance' = balance − A        (after the usual spendable check)
+promoSpent = max(0, A − refundable)
+promo'     = promo − promoSpent
+balance'   = balance − A           (after the usual spendable check)
 ```
 
-Both invariants survive this (proof is trivial in each of the two branches, and
-the DB CHECK constraints below are the backstop).
+So every order shrinks what the brand could ask back as cash, while the reward
+stays in the wallet to be spent on a future order — which is the point of making
+it non-refundable in the first place. The alternative (reward first) clears the
+platform's reward liability sooner but leaves the brand's refundable balance
+untouched, so they can keep asking for the full amount back; the business chose
+to shrink the cash exposure instead.
+
+Both invariants survive. When `A <= refundable` the reward is untouched and
+`held + promo <= balance − A` follows directly. When `A > refundable` the
+arithmetic lands exactly on `held + promo' == balance'`, the boundary the DB
+CHECK constraint allows and nothing exceeds. Both branches are covered by tests,
+including the boundary one.
 
 ### Returning credit that was spent from the promo bucket
 
@@ -155,7 +166,7 @@ No backfill script — requirement 4.
 - `WalletAmounts` becomes `{ balancePaise, heldPaise, promoPaise }`; `applyWalletMutation` carries and compare-and-sets the third field too, and rejects any result violating `held + promo <= balance`.
 - `CREDIT_TYPES` gains `ORDER_COMPLETION_CREDIT`.
 - `credit()` takes an optional `promo?: boolean`; when set, `promo += amount` and the ledger row records `promoPaise = +amount`.
-- `debit()` drains promo first (`promo' = max(0, promo − amount)`) and records `promoPaise = −(promo − promo')` on the row.
+- `debit()` spends refundable credit first, taking from promo only the shortfall (`promoSpent = max(0, amount − refundable)`), and records `−promoSpent` on the row (normalised, so a spend that touched no reward records `0` and not `-0`).
 - `creditOrderCompletion({ brandId, agencyId, orderId, amountPaise })` — thin helper, `promo: true`.
 - `releaseCheckoutReservation()` and `creditOrderCancellation()` restore the promo portion: read `SUM(promoPaise)` over the order's rows, restore `min(−thatSum, amountPaise)` as promo.
 - `requestWithdrawal()` checks against **refundable**, not spendable, with a clear message: `"₹X of your credits are reward credits and can't be refunded."`
@@ -268,7 +279,8 @@ The agency page re-exports this one, so both get it from a single change.
 
 - `src/wallet/wallet.service.spec.ts`
   - a completion credit raises both `balancePaise` and `promoPaise`
-  - a checkout debit drains promo before refundable credit, and records the split on the ledger row
+  - a checkout debit leaves the reward alone while refundable credit covers it, takes only the shortfall once it does not, and records the split on the ledger row
+  - the boundary case holds `held + promo <= balance` when the reward is tapped
   - `requestWithdrawal` rejects an amount above `refundable` even when it is below `spendable`
   - checkout reversal and order cancellation restore the promo portion as promo
   - `held + promo <= balance` holds across a concurrent-mutation retry

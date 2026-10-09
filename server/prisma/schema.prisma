@@ -1865,8 +1865,9 @@ model BrandWallet {
   heldPaise    Int      @default(0)
   /// Portion of balancePaise that is reward credit: spendable at checkout but
   /// never withdrawable. Refundable = balancePaise - heldPaise - promoPaise.
-  /// Checkout debits drain this bucket first, so the brand's own money stays
-  /// refundable for as long as possible.
+  /// Checkout debits spend REFUNDABLE credit first and only fall back to this
+  /// bucket when that runs out, so each order shrinks what the brand could ask
+  /// back as cash while the reward stays available to spend on orders.
   promoPaise   Int      @default(0)
   currency     String   @default("INR")
   createdAt    DateTime @default(now())

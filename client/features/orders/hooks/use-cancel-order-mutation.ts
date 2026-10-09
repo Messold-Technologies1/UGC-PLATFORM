@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cancelOrder, type CancelOrderPayload } from "../api/cancel-order";
+import { invalidateBrandWallet } from "@/features/wallet/hooks";
 
 type CancelOrderMutationOptions = UseMutationOptions<
   void,
@@ -24,6 +25,9 @@ export function useCancelOrderMutation(options?: CancelOrderMutationOptions) {
     onSuccess: async (data, variables, onMutateResult, context) => {
       toast.success("Order cancelled");
       await queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // A paid cancellation credits the buyer's wallet, so the balance on
+      // screen (navbar badge and Credits page alike) is stale until this.
+      invalidateBrandWallet(queryClient);
       options?.onSuccess?.(data, variables, onMutateResult, context);
     },
     onError: (error, variables, onMutateResult, context) => {

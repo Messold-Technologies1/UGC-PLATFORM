@@ -455,7 +455,13 @@ export default function BrandCreditsPage() {
                           {walletTransactionLabel(t.type)}
                           {t.promoPaise > 0 && (
                             <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                              Not refundable
+                              {/* A return credits back whatever reward the
+                                  order had spent, which is usually only part
+                                  of the row — saying the whole amount is
+                                  non-refundable would be wrong. */}
+                              {t.promoPaise === t.amountPaise
+                                ? "Not refundable"
+                                : `${inr(t.promoPaise)} not refundable`}
                             </span>
                           )}
                         </p>

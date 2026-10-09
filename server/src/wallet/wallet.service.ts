@@ -54,8 +54,10 @@ export type AdminBrandCreditRow = {
  *  - `promoPaise` is reward credit sitting inside balancePaise: spendable at
  *    checkout like any other credit, but never withdrawable, so
  *    refundable = balancePaise - heldPaise - promoPaise and
- *    heldPaise + promoPaise <= balancePaise. A debit drains promo FIRST, so the
- *    brand's own (refundable) money stays refundable as long as possible.
+ *    heldPaise + promoPaise <= balancePaise. A debit spends REFUNDABLE credit
+ *    first and only falls back to the reward once that runs out, so each order
+ *    shrinks what the brand could ask back as cash while the reward stays
+ *    available to spend on orders — the point of making it non-refundable.
  *    WalletTransaction.promoPaise records each row's signed effect on that
  *    bucket, which makes the ledger the source of truth for it as well — that
  *    is what lets a reversal or cancellation return promo money AS promo
@@ -335,9 +337,11 @@ export class WalletService {
 
   /**
    * Remove credit from a buyer's wallet (respecting held funds — you can never
-   * spend money reserved for a pending withdrawal). Reward credit is spent
-   * first, so refundable money stays refundable as long as possible. Throws
-   * BadRequestException if the SPENDABLE balance is short. Composable via `tx`.
+   * spend money reserved for a pending withdrawal). Refundable credit is spent
+   * first and the reward only covers what refundable credit cannot, so every
+   * order reduces what the brand could withdraw rather than burning a reward
+   * they can only ever spend here. Throws BadRequestException if the SPENDABLE
+   * balance is short. Composable via `tx`.
    */
   async debit(
     params: {
@@ -360,10 +364,16 @@ export class WalletService {
           if (cur.balancePaise - cur.heldPaise < amount) {
             throw new BadRequestException('Insufficient credit balance');
           }
+          // Refundable money goes first; the reward is only touched once
+          // there is no refundable credit left to cover the spend. When it is
+          // touched, the arithmetic lands exactly on held + promo == balance,
+          // never past it.
+          const refundable = cur.balancePaise - cur.heldPaise - cur.promoPaise;
+          const promoSpent = Math.max(0, amount - refundable);
           return {
             balancePaise: cur.balancePaise - amount,
             heldPaise: cur.heldPaise,
-            promoPaise: Math.max(0, cur.promoPaise - amount),
+            promoPaise: cur.promoPaise - promoSpent,
           };
         },
         t,
@@ -376,7 +386,9 @@ export class WalletService {
         params.type,
         next.balancePaise,
         params,
-        -promoSpent,
+        // `-promoSpent` would be -0 for a spend that touched no reward, and -0
+        // is not 0 to anything comparing with Object.is.
+        promoSpent > 0 ? -promoSpent : 0,
       );
       return {
         balanceAfterPaise: next.balancePaise,

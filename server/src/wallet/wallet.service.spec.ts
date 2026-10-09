@@ -405,7 +405,10 @@ describe('WalletService', () => {
       expect((await bal()).refundablePaise).toBe(0);
     });
 
-    it('is spent before the brand own refundable credit', async () => {
+    it('is left alone while refundable credit can cover the order', async () => {
+      // Refundable money is spent first on purpose: every order then shrinks
+      // what the brand could ask back as cash, and the reward stays available
+      // for a future order instead of being burnt first.
       await reward();
       await service.credit({
         brandId,
@@ -419,11 +422,59 @@ describe('WalletService', () => {
       });
       const b = await bal();
       expect(b.balancePaise).toBe(17000);
-      expect(b.promoPaise).toBe(0); // reward drained first
-      expect(b.refundablePaise).toBe(17000);
+      expect(b.promoPaise).toBe(5000); // reward untouched
+      expect(b.refundablePaise).toBe(12000); // ₹80 came out of refundable
       const debit = prisma.txns.at(-1);
       expect(debit.type).toBe(WalletTransactionType.ORDER_CHECKOUT_DEBIT);
-      expect(debit.promoPaise).toBe(-5000); // the promo part of the spend
+      expect(debit.promoPaise).toBe(0); // no promo in this spend
+    });
+
+    it('covers only the shortfall from the reward once refundable runs out', async () => {
+      await reward(); // ₹50 reward
+      await service.credit({
+        brandId,
+        amountPaise: 20000, // ₹200 refundable
+        type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
+      });
+      // A ₹220 order: ₹200 refundable covers most of it, ₹20 comes from reward.
+      await service.reserveForCheckout({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 22000,
+      });
+      const b = await bal();
+      expect(b.balancePaise).toBe(3000);
+      expect(b.promoPaise).toBe(3000); // ₹20 of the reward spent
+      expect(b.refundablePaise).toBe(0);
+      expect(prisma.txns.at(-1).promoPaise).toBe(-2000);
+    });
+
+    it('keeps held + promo within the balance when the reward is tapped', async () => {
+      // The boundary case: spending everything spendable lands exactly on
+      // held + promo == balance, which the DB CHECK constraint allows but
+      // nothing may exceed.
+      await reward(); // ₹50 reward
+      await service.credit({
+        brandId,
+        amountPaise: 30000,
+        type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
+      });
+      await service.requestWithdrawal({
+        brandId,
+        requestedByUserId: 'user-1',
+        amountPaise: 10000, // ₹100 locked
+      });
+      // Spendable is ₹250 (balance ₹350 − held ₹100); spend all of it.
+      await service.reserveForCheckout({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 25000,
+      });
+      const b = await bal();
+      expect(b.balancePaise).toBe(10000);
+      expect(b.heldPaise).toBe(10000);
+      expect(b.promoPaise).toBe(0);
+      expect(b.heldPaise + b.promoPaise).toBeLessThanOrEqual(b.balancePaise);
     });
 
     it('comes back as reward credit when the checkout is reversed', async () => {
@@ -536,7 +587,7 @@ describe('WalletService', () => {
       expect(await service.hasCompletionCredit('order-other')).toBe(false);
     });
 
-    it('an admin debit also drains the reward bucket first', async () => {
+    it('an admin debit falls back to the reward when nothing else is there', async () => {
       await reward();
       await service.adminAdjust({
         brandId,

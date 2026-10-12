@@ -21,7 +21,7 @@ export function OrderStatusTab({
       id="orders-toolbar"
       className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm pt-4 lg:pt-5 pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10 2xl:-mx-12 2xl:px-12 mb-2"
     >
-      <div className="flex w-full flex-nowrap overflow-x-auto scrollbar-hide snap-x snap-mandatory lg:flex-wrap gap-1 rounded-[14px] border border-border bg-card p-1.5 shadow-sm">
+      <div className="flex w-full flex-nowrap overflow-x-auto scrollbar-hide snap-x snap-mandatory xl:flex-wrap gap-1.5 rounded-[14px] border border-border bg-card p-1.5 shadow-sm">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           const count = tabCounts[tab.key] ?? 0;
@@ -33,7 +33,7 @@ export function OrderStatusTab({
               type="button"
               onClick={() => onTabChange(tab.key)}
               className={cn(
-                "flex flex-1 shrink-0 snap-start items-center justify-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[13px] font-bold transition-colors duration-150 whitespace-nowrap",
+                "flex flex-1 shrink-0 snap-start items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 text-[13px] font-bold transition-colors duration-150 whitespace-nowrap min-w-[7.5rem]",
                 isActive
                   ? "bg-foreground text-white"
                   : "bg-transparent text-muted-foreground hover:text-foreground",

@@ -61,6 +61,10 @@ function OrderTableSkeleton({ rows }: { rows: number }) {
             <Skeleton className="mt-2 h-3 w-20" />
           </td>
           <td className="px-8 py-6">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="mt-2 h-3 w-16" />
+          </td>
+          <td className="px-8 py-6">
             <Skeleton className="h-6 w-28 rounded-full" />
           </td>
           <td className="px-8 py-6">
@@ -85,32 +89,41 @@ export default function OrderManagement() {
   const [limit, setLimit] = useState(5);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [gracePeriodCount, setGracePeriodCount] = useState(0);
 
-  // Filter and paginate the list on the server. Tab badges use statusCounts,
-  // which is a groupBy over every order (not this page and not this tab).
+  // Filter and paginate the list on the server. Tab badges use statusCounts /
+  // gracePeriodCount, which are aggregates over every order (not this page).
+  const isGraceTab = activeTab === "grace";
   const activeStatuses =
-    activeTab === "all" ? [] : (ADMIN_STATUS_TAB_GROUPS[activeTab] ?? []);
+    isGraceTab || activeTab === "all"
+      ? []
+      : (ADMIN_STATUS_TAB_GROUPS[activeTab] ?? []);
   const { data, isLoading, isError } = useAdminOrdersQuery({
     page,
     limit,
     statuses: activeStatuses.length > 0 ? activeStatuses.join(",") : undefined,
+    inGracePeriod: isGraceTab ? true : undefined,
   });
 
   useEffect(() => {
     if (data?.statusCounts) setStatusCounts(data.statusCounts);
-  }, [data?.statusCounts]);
+    if (typeof data?.gracePeriodCount === "number") {
+      setGracePeriodCount(data.gracePeriodCount);
+    }
+  }, [data?.statusCounts, data?.gracePeriodCount]);
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
 
-  const tabCounts = useMemo(
-    () =>
-      tabCountsFromStatusCounts(
-        statusCounts,
-        ADMIN_STATUS_TABS,
-        ADMIN_STATUS_TAB_GROUPS,
-      ),
-    [statusCounts],
-  );
+  const tabCounts = useMemo(() => {
+    const counts = tabCountsFromStatusCounts(
+      statusCounts,
+      ADMIN_STATUS_TABS,
+      ADMIN_STATUS_TAB_GROUPS,
+    );
+    // Grace is a date window, not a status group — override from the API field.
+    counts.grace = gracePeriodCount;
+    return counts;
+  }, [statusCounts, gracePeriodCount]);
 
   function handleTabChange(tab: string) {
     setActiveTab(tab);
@@ -123,7 +136,7 @@ export default function OrderManagement() {
   const showingEnd = Math.min(page * limit, total);
 
   return (
-    <div className="p-12 max-w-[1400px] mx-auto space-y-8 group selection-active">
+    <div className="p-8 xl:p-10 2xl:p-12 max-w-[1800px] mx-auto space-y-8 group selection-active">
       <OrderStatusTab
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -143,13 +156,14 @@ export default function OrderManagement() {
           </div>
         </div>
 
-        <div>
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1200px] text-left border-collapse">
             <thead className="bg-muted/50 dark:bg-card/30 text-[11px] text-muted-foreground uppercase tracking-[0.15em] font-black">
               <tr>
                 <th className="px-8 py-4">Creator & Brand</th>
                 <th className="px-8 py-4">Package Details</th>
                 <th className="px-8 py-4">Financials</th>
+                <th className="px-8 py-4">Due Date</th>
                 <th className="px-8 py-4">Status</th>
                 <th className="px-8 py-4">Actioned By</th>
                 <th className="px-8 py-4 text-right">Actions</th>
@@ -161,7 +175,7 @@ export default function OrderManagement() {
               {!isLoading && isError && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-8 py-20 text-center text-sm text-muted-foreground"
                   >
                     We could not load the order list right now. Try again
@@ -173,10 +187,12 @@ export default function OrderManagement() {
               {!isLoading && !isError && items.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-8 py-20 text-center text-sm text-muted-foreground"
                   >
-                    No orders are available yet.
+                    {isGraceTab
+                      ? "No orders are currently in their grace period."
+                      : "No orders are available yet."}
                   </td>
                 </tr>
               )}

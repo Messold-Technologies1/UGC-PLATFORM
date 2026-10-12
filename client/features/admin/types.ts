@@ -393,6 +393,11 @@ export interface AdminOrdersQueryDto {
    * to several). Comma-separated, e.g. "ACCEPTED,CREATOR_PAYMENT_DONE".
    */
   statuses?: string;
+  /**
+   * When true, list only orders currently in the delivery grace period
+   * (due date passed, grace deadline not yet reached, still undelivered).
+   */
+  inGracePeriod?: boolean;
 }
 
 export interface AdminBrandDetailDto {
@@ -466,6 +471,11 @@ export interface AdminOrdersListResponseDto {
    * status filter and pagination), so tab badges are always accurate.
    */
   statusCounts: Record<string, number>;
+  /**
+   * Orders currently in the delivery grace window. Independent of the active
+   * status tab so the Grace Period badge stays accurate.
+   */
+  gracePeriodCount: number;
 }
 
 export interface AdminCreatorPayoutDetailsDto {

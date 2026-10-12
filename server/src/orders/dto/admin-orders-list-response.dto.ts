@@ -27,4 +27,13 @@ export class AdminOrdersListResponseDto {
     additionalProperties: { type: 'number' },
   })
   statusCounts!: Record<string, number>;
+
+  @ApiProperty({
+    description:
+      'Orders currently in the delivery grace window (due date passed, grace ' +
+      'deadline not yet reached, still undelivered). Independent of the active ' +
+      'status tab and pagination so the Grace Period badge stays accurate.',
+    example: 2,
+  })
+  gracePeriodCount!: number;
 }

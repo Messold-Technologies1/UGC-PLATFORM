@@ -63,6 +63,7 @@ export class AdminOrdersController {
       brandId: query.brandId,
       agencyId: query.agencyId,
       statuses: query.statuses,
+      inGracePeriod: query.inGracePeriod,
     });
   }
 

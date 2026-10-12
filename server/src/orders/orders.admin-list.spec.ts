@@ -46,6 +46,7 @@ describe('OrdersService.listOrdersForAdmin', () => {
       ACCEPTED: 3,
       DELIVERED: 7,
     });
+    expect(res.gracePeriodCount).toBe(15);
     // The badge count is a groupBy over the base scope, not the page.
     expect(groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -66,13 +67,48 @@ describe('OrdersService.listOrdersForAdmin', () => {
 
     // List and its total are filtered by the active tab's statuses.
     const listWhere = { status: { in: ['ACCEPTED', 'CREATOR_PAYMENT_DONE'] } };
-    expect(count).toHaveBeenCalledWith({ where: listWhere });
+    expect(count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: listWhere }),
+    );
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: listWhere }),
     );
     // The badge aggregate ignores the status filter (where is the base scope).
     expect(groupBy).toHaveBeenCalledWith(
       expect.objectContaining({ where: undefined }),
+    );
+  });
+
+  it('filters the list by the grace-period window when inGracePeriod is set', async () => {
+    const { service, count, findMany } = makeService();
+
+    await service.listOrdersForAdmin({
+      inGracePeriod: true,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          deliveredAt: null,
+          deliveryDueAt: expect.objectContaining({ lte: expect.any(Date) }),
+          deliveryGraceDeadlineAt: expect.objectContaining({
+            gt: expect.any(Date),
+          }),
+        }),
+      }),
+    );
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          deliveredAt: null,
+          deliveryDueAt: expect.objectContaining({ lte: expect.any(Date) }),
+          deliveryGraceDeadlineAt: expect.objectContaining({
+            gt: expect.any(Date),
+          }),
+        }),
+      }),
     );
   });
 

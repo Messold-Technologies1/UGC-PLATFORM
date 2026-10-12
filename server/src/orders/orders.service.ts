@@ -50,7 +50,10 @@ import type {
   SubmitDeliveryDto,
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
-import { computeDeliveryDeadlines } from './delivery-deadline.util';
+import {
+  computeDeliveryDeadlines,
+  inGracePeriodWhere,
+} from './delivery-deadline.util';
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
@@ -4873,24 +4876,27 @@ export class OrdersService {
     brandId?: string;
     agencyId?: string;
     statuses?: OrderStatus[];
+    inGracePeriod?: boolean;
   }): Promise<AdminOrdersListResponseDto> {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
     const skip = (page - 1) * limit;
+    const now = new Date();
+    const graceWhere = inGracePeriodWhere(now);
 
     // Base scope: the whole table, a single brand, or a single agency.
-    const baseWhere: Prisma.OrderWhereInput | undefined = params.agencyId
-      ? { agencyId: params.agencyId }
-      : params.brandId
-        ? { brandId: params.brandId }
-        : undefined;
+    let baseWhere: Prisma.OrderWhereInput | undefined;
+    if (params.agencyId) baseWhere = { agencyId: params.agencyId };
+    else if (params.brandId) baseWhere = { brandId: params.brandId };
 
-    // The active status tab narrows the list (and its total) on top of the base
-    // scope. The count badges deliberately ignore it — see statusCounts below.
-    const listWhere: Prisma.OrderWhereInput | undefined =
-      params.statuses && params.statuses.length > 0
-        ? { ...(baseWhere ?? {}), status: { in: params.statuses } }
-        : baseWhere;
+    // Grace Period tab is a date-window filter, not a lifecycle status — it
+    // takes precedence over statuses. Other tabs still narrow by status group.
+    let listWhere: Prisma.OrderWhereInput | undefined = baseWhere;
+    if (params.inGracePeriod) {
+      listWhere = { ...baseWhere, ...graceWhere };
+    } else if (params.statuses && params.statuses.length > 0) {
+      listWhere = { ...baseWhere, status: { in: params.statuses } };
+    }
 
     // Per-status counts over the base scope (NOT the active tab and NOT the
     // page), so every badge is the full order total for that status.
@@ -4906,74 +4912,81 @@ export class OrdersService {
       _count: { _all: true },
     });
 
-    const [total, rows, grouped] = await this.prisma.$transaction([
-      this.prisma.order.count({ where: listWhere }),
-      this.prisma.order.findMany({
-        where: listWhere,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          status: true,
-          packageNameSnapshot: true,
-          priceAmountSnapshot: true,
-          expectedAmountPaise: true,
-          currency: true,
-          deliveryDaysSnapshot: true,
-          paidAt: true,
-          briefId: true,
-          briefSubmittedAt: true,
-          briefAcceptedAt: true,
-          requiresPhysicalProductShipment: true,
-          productReceivedAt: true,
-          deliveryDueAt: true,
-          deliveryGraceDeadlineAt: true,
-          deliveredAt: true,
-          revisionCount: true,
-          createdAt: true,
-          updatedAt: true,
-          refundedAt: true,
-          cancellationReason: true,
-          cancelledAt: true,
-          cancelledByUserId: true,
-          cancelledOnBehalfOf: true,
-          cancelledByUser: { select: orderActionActorSelect },
-          briefAcceptedByUser: { select: orderActionActorSelect },
-          disputes: {
-            orderBy: { openedAt: 'desc' },
-            take: 1,
-            select: { openedAt: true, resolvedAt: true, openedBy: true },
-          },
-          // Highest-numbered revision == the in-flight one (revisionCount).
-          // One batched relation load for the page, not a query per row.
-          revisions: {
-            orderBy: { revisionNumber: 'desc' },
-            take: 1,
-            select: { revisionNumber: true, note: true, createdAt: true },
-          },
-          creator: {
-            select: {
-              id: true,
-              displayName: true,
-              introVideoUrl: true,
-              profileImageUrl: true,
-              city: true,
+    const gracePeriodCountWhere: Prisma.OrderWhereInput = {
+      ...baseWhere,
+      ...graceWhere,
+    };
+
+    const [total, rows, grouped, gracePeriodCount] =
+      await this.prisma.$transaction([
+        this.prisma.order.count({ where: listWhere }),
+        this.prisma.order.findMany({
+          where: listWhere,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            packageNameSnapshot: true,
+            priceAmountSnapshot: true,
+            expectedAmountPaise: true,
+            currency: true,
+            deliveryDaysSnapshot: true,
+            paidAt: true,
+            briefId: true,
+            briefSubmittedAt: true,
+            briefAcceptedAt: true,
+            requiresPhysicalProductShipment: true,
+            productReceivedAt: true,
+            deliveryDueAt: true,
+            deliveryGraceDeadlineAt: true,
+            deliveredAt: true,
+            revisionCount: true,
+            createdAt: true,
+            updatedAt: true,
+            refundedAt: true,
+            cancellationReason: true,
+            cancelledAt: true,
+            cancelledByUserId: true,
+            cancelledOnBehalfOf: true,
+            cancelledByUser: { select: orderActionActorSelect },
+            briefAcceptedByUser: { select: orderActionActorSelect },
+            disputes: {
+              orderBy: { openedAt: 'desc' },
+              take: 1,
+              select: { openedAt: true, resolvedAt: true, openedBy: true },
+            },
+            // Highest-numbered revision == the in-flight one (revisionCount).
+            // One batched relation load for the page, not a query per row.
+            revisions: {
+              orderBy: { revisionNumber: 'desc' },
+              take: 1,
+              select: { revisionNumber: true, note: true, createdAt: true },
+            },
+            creator: {
+              select: {
+                id: true,
+                displayName: true,
+                introVideoUrl: true,
+                profileImageUrl: true,
+                city: true,
+              },
+            },
+            brand: {
+              select: adminOrderBrandSnapshotSelect,
+            },
+            agency: {
+              select: { id: true, name: true, logoUrl: true },
+            },
+            briefRef: {
+              select: { brandName: true },
             },
           },
-          brand: {
-            select: adminOrderBrandSnapshotSelect,
-          },
-          agency: {
-            select: { id: true, name: true, logoUrl: true },
-          },
-          briefRef: {
-            select: { brandName: true },
-          },
-        },
-      }),
-      statusCountsQuery,
-    ]);
+        }),
+        statusCountsQuery,
+        this.prisma.order.count({ where: gracePeriodCountWhere }),
+      ]);
 
     const statusCounts: Record<string, number> = {};
     for (const g of grouped) {
@@ -5012,7 +5025,7 @@ export class OrdersService {
       };
     });
 
-    return { items, total, page, limit, statusCounts };
+    return { items, total, page, limit, statusCounts, gracePeriodCount };
   }
 
   async getOrderBrief(params: {

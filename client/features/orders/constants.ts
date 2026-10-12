@@ -85,6 +85,7 @@ export const ADMIN_STATUS_TABS = [
   { key: "brief", label: "Brief Required" },
   { key: "payment", label: "Awaiting Payment" },
   { key: "progress", label: "In Progress" },
+  { key: "grace", label: "Grace Period" },
   { key: "review", label: "In Review" },
   { key: "dispute", label: "Dispute" },
   { key: "completed", label: "Completed" },

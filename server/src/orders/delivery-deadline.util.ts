@@ -1,9 +1,23 @@
+import type { Prisma } from '@prisma/client';
+
 export const DELIVERY_GRACE_DAYS = 2;
 
 export function addCalendarDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+/**
+ * Orders whose first-delivery clock is past the promised due date but still
+ * inside the grace window (content not yet delivered).
+ */
+export function inGracePeriodWhere(now: Date = new Date()): Prisma.OrderWhereInput {
+  return {
+    deliveredAt: null,
+    deliveryDueAt: { lte: now },
+    deliveryGraceDeadlineAt: { gt: now },
+  };
 }
 
 /** Promised delivery due date from when the delivery clock starts. */

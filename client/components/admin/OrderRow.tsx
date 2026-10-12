@@ -7,6 +7,11 @@ import {
   STATUS_LABELS,
   STATUS_TAB_GROUPS,
 } from "@/features/orders/constants";
+import {
+  getOrderWorkTimeline,
+  getPromisedDeliveryDueAt,
+} from "@/features/orders/lib/delivery-timeline";
+import type { OrderListSummary } from "@/features/orders/api/types";
 
 interface OrderRowProps extends AdminOrderListItemDto {
   delay?: number;
@@ -36,6 +41,18 @@ function formatDate(value: string) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function resolveDueAt(order: OrderListSummary): Date | null {
+  if (
+    order.status === "REVISION_REQUESTED" &&
+    order.currentRevision?.requestedAt
+  ) {
+    const start = new Date(order.currentRevision.requestedAt);
+    start.setDate(start.getDate() + order.deliveryDaysSnapshot);
+    return start;
+  }
+  return getPromisedDeliveryDueAt(order);
 }
 
 export default function OrderRow({
@@ -87,6 +104,21 @@ export default function OrderRow({
     : "Accepted";
   const onBehalf =
     order.cancelledBy === "BRAND" ? "brand" : "creator";
+
+  const dueAt = resolveDueAt(order);
+  const workTimeline = getOrderWorkTimeline(order);
+  let dueDateLabel: string | null = "Due";
+  if (workTimeline.phase === "delivered") dueDateLabel = "Delivered";
+  else if (workTimeline.phase === "not_started") dueDateLabel = null;
+  else if (workTimeline.isInGrace) dueDateLabel = "In grace";
+  else if (workTimeline.phase === "overdue") dueDateLabel = "Overdue";
+
+  let dueDateClass = "text-foreground";
+  if (workTimeline.isInGrace) {
+    dueDateClass = "text-amber-600 dark:text-amber-400";
+  } else if (workTimeline.phase === "overdue") {
+    dueDateClass = "text-destructive";
+  }
 
   return (
     <tr
@@ -175,6 +207,20 @@ export default function OrderRow({
             {order.currency} / {order.deliveryDaysSnapshot} days
           </span>
         </div>
+      </td>
+      <td className="px-8 py-6">
+        {dueAt && dueDateLabel ? (
+          <div className="flex flex-col gap-0.5">
+            <span className={`text-sm font-bold ${dueDateClass}`}>
+              {formatDate(dueAt.toISOString())}
+            </span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">
+              {dueDateLabel}
+            </span>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground/40">—</span>
+        )}
       </td>
       <td className="px-8 py-6">
         <div className="flex flex-col items-start gap-1">

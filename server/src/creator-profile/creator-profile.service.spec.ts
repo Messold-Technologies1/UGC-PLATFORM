@@ -260,6 +260,9 @@ describe('CreatorProfileService', () => {
       {
         resolveBrandContext: jest.fn().mockRejectedValue(new Error('no brand')),
       } as any,
+      // cities: nothing in these tests types a location, and an unresolved
+      // term is exactly the "not a state" path.
+      { resolveStateToCanonical: jest.fn().mockResolvedValue(null) } as any,
     );
   });
 

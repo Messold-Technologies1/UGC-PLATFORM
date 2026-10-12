@@ -29,6 +29,50 @@ describe('creator-list-filters.util', () => {
       );
     });
 
+    it('matches city names by substring when the term is not a state', () => {
+      expect(buildListCreatorsWhere({ city: 'Mumbai' })).toEqual({
+        AND: [
+          { isListed: true },
+          { city: { contains: 'Mumbai', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('filters the whole state when the term resolved to a state name', () => {
+      // "Delhi" is both a state and a city; the state wins, so a brand gets
+      // everyone in Delhi rather than only the creators stored as that city.
+      expect(
+        buildListCreatorsWhere({ city: 'Delhi' }, { locationStateName: 'Delhi' }),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { stateName: { equals: 'Delhi', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('uses the canonical state name, not what was typed', () => {
+      expect(
+        buildListCreatorsWhere({ city: 'orissa' }, { locationStateName: 'Odisha' }),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { stateName: { equals: 'Odisha', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('falls back to the city match when the resolved state is blank', () => {
+      expect(
+        buildListCreatorsWhere({ city: 'Pune' }, { locationStateName: '  ' }),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { city: { contains: 'Pune', mode: 'insensitive' } },
+        ],
+      });
+    });
+
     it('matches any selected category across primary or secondary niche (no rank restriction)', () => {
       const q: ListCreatorsQueryDto = {
         contentCategory: ['fashion', 'beauty_skincare'],

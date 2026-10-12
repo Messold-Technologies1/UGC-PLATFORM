@@ -1120,7 +1120,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             Location
                           </h5>
                           <Input
-                            placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                            placeholder="City or state — e.g. Mumbai, Karnataka"
                             value={localCity}
                             onChange={(e) => {
                               setLocalCity(e.target.value);
@@ -1403,7 +1403,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           Location
                         </h5>
                         <Input
-                          placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                          placeholder="City or state — e.g. Mumbai, Karnataka"
                           value={localCity}
                           onChange={(e) => {
                             setLocalCity(e.target.value);

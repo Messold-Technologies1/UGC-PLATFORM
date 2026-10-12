@@ -92,6 +92,7 @@ import { recomputeCreatorListingState } from './creator-listing-state.util';
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger.util';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
+import { CitiesService } from '../cities/cities.service';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
 import type {
@@ -327,6 +328,7 @@ export class CreatorProfileService {
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
     private readonly brandAccess: BrandAccessService,
+    private readonly cities: CitiesService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -1253,7 +1255,14 @@ export class CreatorProfileService {
     const skip = (page - 1) * limit;
     const now = new Date();
 
-    const where = buildListCreatorsWhere(query, { requireApproved: true });
+    // A location term that names a state filters the whole state; anything
+    // else is matched against city names. "Delhi" is both, and a brand typing
+    // it means the state, so the state lookup is tried first.
+    const locationStateName = await this.resolveLocationStateName(query.city);
+    const where = buildListCreatorsWhere(query, {
+      requireApproved: true,
+      locationStateName,
+    });
     const include = buildCreatorListRelationsInclude(query);
     const activeFeaturedWhere = buildActiveFeaturedCreatorWhere(where, now);
     const nonFeaturedWhere = buildNonFeaturedCreatorWhere(where, now);
@@ -1345,6 +1354,19 @@ export class CreatorProfileService {
     };
 
     return response;
+  }
+
+  /**
+   * The canonical state name for a typed location term, or null when the term
+   * is not a state. Alias-aware through the state catalog, so "Orissa" filters
+   * Odisha.
+   */
+  private async resolveLocationStateName(
+    term: string | undefined,
+  ): Promise<string | null> {
+    const trimmed = term?.trim();
+    if (!trimmed) return null;
+    return this.cities.resolveStateToCanonical(trimmed);
   }
 
   /** Approved creators only; preserves caller order and skips missing/unapproved ids. */

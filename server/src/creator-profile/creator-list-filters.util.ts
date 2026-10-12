@@ -94,6 +94,15 @@ export type BuildListCreatorsWhereOptions = {
    * so a single indexed predicate replaces the approval join + completeness check.
    */
   requireApproved?: boolean;
+  /**
+   * Set when the typed location term is itself a state (resolved against the
+   * state catalog, aliases included) to that state's canonical name. The
+   * location filter then matches the whole state rather than city names, so
+   * "Delhi" — a state and a city — returns everyone in Delhi, not just the
+   * creators whose city happens to be spelled that way. Resolving needs a
+   * query, so the caller does it and passes the answer in.
+   */
+  locationStateName?: string | null;
 };
 
 /**
@@ -112,9 +121,14 @@ export function buildListCreatorsWhere(
 
   const city = query.city?.trim();
   if (city) {
-    clauses.push({
-      city: { contains: city, mode: 'insensitive' },
-    });
+    const stateName = options?.locationStateName?.trim();
+    clauses.push(
+      stateName
+        ? // Whole state. Exact match, not a substring: the caller only sets
+          // this for a term that resolved to a real state name.
+          { stateName: { equals: stateName, mode: 'insensitive' } }
+        : { city: { contains: city, mode: 'insensitive' } },
+    );
   }
 
   const searchClause = buildCreatorListSearchWhere(query.search);

@@ -173,10 +173,15 @@ RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
 
-# Order-completion reward credit (non-refundable store credit for the brand).
-# Both are read at runtime: change them and restart, no deploy needed.
-ORDER_COMPLETION_CREDIT_ENABLED=false   # 'true' switches the reward on
+# Non-refundable reward credit for buyers. The two rewards are configured
+# independently — either can be switched on, off or re-priced without touching
+# the other — and all four are read at runtime: change them and restart, no
+# deploy needed. The signup reward covers BOTH brand and agency registration:
+# one switch, one amount, no agency-specific variable.
+ORDER_COMPLETION_CREDIT_ENABLED=false   # 'true' rewards a completed order
 ORDER_COMPLETION_CREDIT_PAISE=5000      # 5000 paise = ₹50
+SIGNUP_WELCOME_CREDIT_ENABLED=false     # 'true' rewards a new brand or agency
+SIGNUP_WELCOME_CREDIT_PAISE=10000       # 10000 paise = ₹100
 
 SWAGGER_ENABLED=true
 NODE_ENV=development

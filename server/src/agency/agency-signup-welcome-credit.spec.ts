@@ -53,8 +53,8 @@ describe('AgencyService → signup welcome credit', () => {
     service.createOwnedAgencyProfile('user-1', { name: 'Northstar' } as never);
 
   const enabled = {
-    BRAND_SIGNUP_CREDIT_ENABLED: 'true',
-    BRAND_SIGNUP_CREDIT_PAISE: '10000',
+    SIGNUP_WELCOME_CREDIT_ENABLED: 'true',
+    SIGNUP_WELCOME_CREDIT_PAISE: '10000',
   };
 
   it('credits the welcome amount to the agency, not a brand', async () => {
@@ -89,7 +89,7 @@ describe('AgencyService → signup welcome credit', () => {
     // No agency-specific variable exists: one switch covers both.
     const { service, wallet } = makeService({
       ...enabled,
-      BRAND_SIGNUP_CREDIT_ENABLED: 'false',
+      SIGNUP_WELCOME_CREDIT_ENABLED: 'false',
     });
 
     await expect(register(service)).resolves.toBeDefined();
@@ -99,7 +99,7 @@ describe('AgencyService → signup welcome credit', () => {
   it('follows the shared amount', async () => {
     const { service, wallet } = makeService({
       ...enabled,
-      BRAND_SIGNUP_CREDIT_PAISE: '25000',
+      SIGNUP_WELCOME_CREDIT_PAISE: '25000',
     });
 
     await register(service);

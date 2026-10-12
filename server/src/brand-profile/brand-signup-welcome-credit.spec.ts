@@ -61,8 +61,8 @@ describe('BrandProfileService → brand signup welcome credit', () => {
     } as never);
 
   const enabled = {
-    BRAND_SIGNUP_CREDIT_ENABLED: 'true',
-    BRAND_SIGNUP_CREDIT_PAISE: '10000',
+    SIGNUP_WELCOME_CREDIT_ENABLED: 'true',
+    SIGNUP_WELCOME_CREDIT_PAISE: '10000',
   };
 
   it('credits the configured welcome amount on registration', async () => {
@@ -91,7 +91,7 @@ describe('BrandProfileService → brand signup welcome credit', () => {
   it('honours a changed amount without a code change', async () => {
     const { service, wallet } = makeService({
       ...enabled,
-      BRAND_SIGNUP_CREDIT_PAISE: '25000',
+      SIGNUP_WELCOME_CREDIT_PAISE: '25000',
     });
 
     await register(service);
@@ -105,7 +105,7 @@ describe('BrandProfileService → brand signup welcome credit', () => {
   it('still registers the brand, with no credit, when the feature is off', async () => {
     const { service, wallet } = makeService({
       ...enabled,
-      BRAND_SIGNUP_CREDIT_ENABLED: 'false',
+      SIGNUP_WELCOME_CREDIT_ENABLED: 'false',
     });
 
     await expect(register(service)).resolves.toBeDefined();

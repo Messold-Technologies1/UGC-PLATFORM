@@ -83,9 +83,9 @@ export class BrandProfileService {
     brandProfileId: string,
   ): Promise<void> {
     const amountPaise = resolveSignupWelcomeCreditPaise({
-      enabled: this.config.get<string>('BRAND_SIGNUP_CREDIT_ENABLED'),
+      enabled: this.config.get<string>('SIGNUP_WELCOME_CREDIT_ENABLED'),
       amountPaise: this.config.get<string | number>(
-        'BRAND_SIGNUP_CREDIT_PAISE',
+        'SIGNUP_WELCOME_CREDIT_PAISE',
       ),
     });
     if (amountPaise <= 0) return;

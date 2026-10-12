@@ -98,18 +98,20 @@ export const envValidationSchema = Joi.object({
     .optional()
     .default(5000),
 
-  // ---- Brand signup welcome credit ----
+  // ---- Signup welcome credit ----
   /**
-   * Grant a brand non-withdrawable credit when it finishes registering.
-   * Configured entirely separately from the order-completion reward: either can
-   * be switched on, off or re-priced without touching the other.
+   * Grant a newly registered buyer non-withdrawable credit. One pair of settings
+   * covers BOTH brand and agency registration — there is deliberately no
+   * agency-specific variable, so switching this off switches it off for both.
+   * Configured entirely separately from the order-completion reward: either
+   * reward can be switched on, off or re-priced without touching the other.
    */
-  BRAND_SIGNUP_CREDIT_ENABLED: Joi.string()
+  SIGNUP_WELCOME_CREDIT_ENABLED: Joi.string()
     .valid('true', 'false')
     .optional()
     .default('false'),
   /** Welcome amount in paise. 10000 = ₹100. 0 disables the grant as surely as the flag. */
-  BRAND_SIGNUP_CREDIT_PAISE: Joi.number()
+  SIGNUP_WELCOME_CREDIT_PAISE: Joi.number()
     .integer()
     .min(0)
     .optional()

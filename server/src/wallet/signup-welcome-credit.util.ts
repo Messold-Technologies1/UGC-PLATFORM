@@ -16,11 +16,10 @@
  */
 
 export type SignupWelcomeCreditEnv = {
-  /** BRAND_SIGNUP_CREDIT_ENABLED: 'true' switches the welcome credit on, for
-   *  brands and agencies alike. The variable keeps its original name so an
-   *  operator that already set it does not silently lose the reward. */
+  /** SIGNUP_WELCOME_CREDIT_ENABLED: 'true' switches the welcome credit on, for
+   *  brands and agencies alike. */
   enabled: string | undefined;
-  /** BRAND_SIGNUP_CREDIT_PAISE: welcome amount in paise (10000 = ₹100). */
+  /** SIGNUP_WELCOME_CREDIT_PAISE: welcome amount in paise (10000 = ₹100). */
   amountPaise: string | number | undefined;
 };
 

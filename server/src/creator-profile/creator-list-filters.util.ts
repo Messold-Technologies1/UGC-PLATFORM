@@ -95,17 +95,41 @@ export type BuildListCreatorsWhereOptions = {
    */
   requireApproved?: boolean;
   /**
-   * Set when the typed location term is itself a state (resolved against the
-   * state catalog, aliases included) to that state's canonical name. The
-   * location filter then matches the whole state rather than city names, so
-   * "Delhi" — a state and a city — returns everyone in Delhi, not just the
-   * creators whose city happens to be spelled that way. Resolving needs a
-   * query, so the caller does it and passes the answer in. Left unset, the
-   * term is matched against city names and, exactly, against state names —
-   * which is how a state outside the India-only catalog still works.
+   * What the typed location term turned out to name, widest first: a country,
+   * else a state, else neither. Set by the caller, which has to look the term
+   * up; `buildLocationClause` below says why the order matters. Both unset
+   * means the term is treated as a city.
    */
+  locationCountryName?: string | null;
   locationStateName?: string | null;
 };
+
+/**
+ * One typed box covers country, state and city, so the term is matched at the
+ * widest level it names: "India" is a country, "Delhi" a state (and a city),
+ * "Mumbai" only a city. Widest wins because a brand typing a state means the
+ * state — otherwise "Delhi" would return only the creators whose city happens
+ * to be spelled that way and miss the rest of it.
+ *
+ * Country and state match exactly; only the city falls back to a substring, so
+ * a half-typed "Pun" finds Pune rather than being read as Punjab.
+ */
+function buildLocationClause(
+  term: string,
+  options?: BuildListCreatorsWhereOptions,
+): Prisma.CreatorProfileWhereInput {
+  const countryName = options?.locationCountryName?.trim();
+  if (countryName) {
+    return { countryName: { equals: countryName, mode: 'insensitive' } };
+  }
+
+  const stateName = options?.locationStateName?.trim();
+  if (stateName) {
+    return { stateName: { equals: stateName, mode: 'insensitive' } };
+  }
+
+  return { city: { contains: term, mode: 'insensitive' } };
+}
 
 /**
  * `where` for listing creators: AND of optional profile + portfolio predicates.
@@ -123,24 +147,7 @@ export function buildListCreatorsWhere(
 
   const city = query.city?.trim();
   if (city) {
-    const stateName = options?.locationStateName?.trim();
-    clauses.push(
-      stateName
-        ? // Whole state. Exact match, not a substring: the caller only sets
-          // this for a term that resolved to a real state name.
-          { stateName: { equals: stateName, mode: 'insensitive' } }
-        : {
-            // Unresolved term — it could still name a state the catalog does
-            // not carry, since the catalog is India-only while creators pick
-            // any country. So match it against both fields: "Dubai" finds the
-            // emirate as well as the city. The state side is exact, which is
-            // what keeps a half-typed "Pun" finding Pune and not Punjab.
-            OR: [
-              { city: { contains: city, mode: 'insensitive' } },
-              { stateName: { equals: city, mode: 'insensitive' } },
-            ],
-          },
-    );
+    clauses.push(buildLocationClause(city, options));
   }
 
   const searchClause = buildCreatorListSearchWhere(query.search);

@@ -1255,13 +1255,13 @@ export class CreatorProfileService {
     const skip = (page - 1) * limit;
     const now = new Date();
 
-    // A location term that names a state filters the whole state; anything
-    // else is matched against city names. "Delhi" is both, and a brand typing
-    // it means the state, so the state lookup is tried first.
-    const locationStateName = await this.resolveLocationStateName(query.city);
+    // One typed box covers country, state and city, so the term is resolved to
+    // the widest level it names before the filter is built.
+    const location = await this.resolveLocationTerm(query.city);
     const where = buildListCreatorsWhere(query, {
       requireApproved: true,
-      locationStateName,
+      locationCountryName: location.countryName,
+      locationStateName: location.stateName,
     });
     const include = buildCreatorListRelationsInclude(query);
     const activeFeaturedWhere = buildActiveFeaturedCreatorWhere(where, now);
@@ -1357,16 +1357,45 @@ export class CreatorProfileService {
   }
 
   /**
-   * The canonical state name for a typed location term, or null when the term
-   * is not a state. Alias-aware through the state catalog, so "Orissa" filters
-   * Odisha.
+   * What a typed location term names, widest first: a country, else a state,
+   * else nothing (the caller then treats it as a city). Both lookups are exact
+   * — a substring would read a half-typed "Pun" as Punjab and bury Pune.
+   *
+   * Country and state are matched against what listed creators actually store,
+   * so this works for anywhere a creator can pick rather than only the places
+   * a catalog knows. The India-only state catalog is consulted last, purely
+   * for its aliases: "Orissa" is nobody's stored state name, but it is Odisha.
    */
-  private async resolveLocationStateName(
-    term: string | undefined,
-  ): Promise<string | null> {
+  private async resolveLocationTerm(term: string | undefined): Promise<{
+    countryName: string | null;
+    stateName: string | null;
+  }> {
     const trimmed = term?.trim();
-    if (!trimmed) return null;
-    return this.cities.resolveStateToCanonical(trimmed);
+    if (!trimmed) return { countryName: null, stateName: null };
+
+    const match = { equals: trimmed, mode: 'insensitive' as const };
+    const [country, state] = await this.prisma.$transaction([
+      this.prisma.creatorProfile.findFirst({
+        where: { isListed: true, countryName: match },
+        select: { countryName: true },
+      }),
+      this.prisma.creatorProfile.findFirst({
+        where: { isListed: true, stateName: match },
+        select: { stateName: true },
+      }),
+    ]);
+
+    if (country?.countryName) {
+      return { countryName: country.countryName, stateName: null };
+    }
+    if (state?.stateName) {
+      return { countryName: null, stateName: state.stateName };
+    }
+
+    return {
+      countryName: null,
+      stateName: await this.cities.resolveStateToCanonical(trimmed),
+    };
   }
 
   /** Approved creators only; preserves caller order and skips missing/unapproved ids. */

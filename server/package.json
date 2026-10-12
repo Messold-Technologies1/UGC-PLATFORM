@@ -48,6 +48,7 @@
     "prisma:reclaim:orphan-portfolio-objects": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/reclaim-orphan-portfolio-objects.ts",
     "prisma:backfill:order-portfolio-videos": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/backfill-order-videos-to-portfolio.ts",
     "prisma:cleanup:face-creator-type": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/remove-face-creator-type.ts",
+    "prisma:cleanup:facet-options": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/cleanup-facet-options.ts",
     "data:gen:aliases": "ts-node prisma/scripts/generate-india-location-aliases.ts",
     "notifications:import-templates": "node dist/scripts/import-notification-templates.js",
     "notifications:import-templates:dev": "node -r ts-node/register/transpile-only src/scripts/import-notification-templates.ts",

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OpenRouterClient, OpenRouterError } from '../ai/openrouter.client';
 import { ConfigService } from '@nestjs/config';
 import { containsBlockedTerm } from './facet-other-blocklist';
+import { rejectFacetTextShape } from './facet-other-shape';
 import type { FacetOtherResolveResponseDto } from './dto/resolve-facet-other.dto';
 
 /** Trigram similarity above which a typed value is treated as an existing option. */
@@ -234,6 +235,15 @@ export class FacetOtherResolverService {
     if (normalized.length < 2 || !/[a-z]/.test(normalized)) {
       return { kind: 'reject', reason: 'invalid' };
     }
+    // Shape, before meaning: a note about yourself is not a facet value,
+    // whatever words it happens to contain.
+    const badShape = rejectFacetTextShape(normalized);
+    if (badShape) {
+      this.logger.warn(
+        `facet_other bad shape dimension=${dimension} reason=${badShape}`,
+      );
+      return { kind: 'reject', reason: 'invalid' };
+    }
     if (containsBlockedTerm(normalized)) {
       this.logger.warn(`facet_other blocked term dimension=${dimension}`);
       return { kind: 'reject', reason: 'inappropriate' };
@@ -300,7 +310,17 @@ export class FacetOtherResolverService {
       if (matchOpt) return { kind: 'match', option: matchOpt };
       // Model named a slug we don't have — fall through to treat as new.
     }
-    return { kind: 'new', label: this.titleCase(decision.label || typedText) };
+    // A proposed label becomes a catalog option every creator then sees, so it
+    // goes through the same shape rules as the typed text. A model that
+    // decides to echo the note back as a label cannot get it in this way.
+    const proposed = this.titleCase(decision.label || typedText);
+    if (rejectFacetTextShape(this.normalize(proposed))) {
+      this.logger.warn(
+        `facet_other llm proposed an unusable label dimension=${dimension}`,
+      );
+      return { kind: 'reject', reason: 'invalid' };
+    }
+    return { kind: 'new', label: proposed };
   }
 
   private async fuzzyMatch(
@@ -381,11 +401,26 @@ export class FacetOtherResolverService {
       .map((o) => `- ${o.slug}: ${o.label}`)
       .join('\n');
 
-    const system = `You canonicalize a free-text value a creator typed into an "Other" box for the "${noun}" field on a UGC creator marketplace. Decide ONE of:
+    const system = `You canonicalize a free-text value a creator typed into an "Other" box for the "${noun}" field on a UGC creator marketplace. The value must be usable as a filter chip that brands pick from, next to the existing options.
+
+Decide ONE of:
 - It means the same as an existing option (a synonym, abbreviation, misspelling, or regional variant) -> {"action":"match","slug":"<existing slug>"}.
 - It is a legitimate, distinct, safe ${noun} not already in the list -> {"action":"new","label":"<corrected, properly capitalized label>"}.
 - It is offensive, hateful, sexual, harassing, or a slur -> {"action":"reject","reason":"inappropriate"}.
-- It is gibberish, nonsense, or not a real ${noun} -> {"action":"reject","reason":"invalid"}.
+- Anything else -> {"action":"reject","reason":"invalid"}.
+
+"new" is the rare answer. The listed options already cover almost everything, so prefer "match", and reject rather than invent. A new label must be a short descriptor of 1-4 words that reads like the existing ones and describes a category of creator, never one person.
+
+Reject as invalid, whatever words it contains:
+- a person's name, or a name paired with a value ("Vaishnavi (Midsize) Manish (Athletic)", "Priya - athletic")
+- several values at once, or a value per person
+- a sentence, a note, a question, or an explanation of the creator's situation
+- contact details, ages, heights, measurements, prices, links, handles
+- a value for a different field (an occupation typed into ${noun}, say)
+- gibberish, keyboard mash, or a single letter
+
+Judge the whole input, not the best words in it: text that mentions a real ${noun} somewhere is still invalid if the input as a whole is a note rather than one value. When unsure, reject.
+
 Reply with STRICT JSON only, no prose, no code fences.`;
 
     const user = `Existing options:\n${list || '(none)'}\n\nCreator typed: "${typedText}"\n\nJSON:`;

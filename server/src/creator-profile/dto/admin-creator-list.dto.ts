@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { ApprovalStatus, CreatorGender } from '@prisma/client';
 import { CreatorPortfolioVideoPreviewResponseDto } from './creator-profile-response.dto';
+import { CreatorPublicListItemDto } from './creator-public-list-item.dto';
 import { PendingCreatorContentCategoryDto } from './pending-creator-approval-list-item.dto';
 
 export enum AdminCreatorListSegment {
@@ -287,4 +288,46 @@ export class AdminSaveBrowseOrderDto {
   @ArrayMaxSize(2000)
   @IsUUID('4', { each: true })
   creatorIds!: string[];
+}
+
+export class AdminBrowseOrderQueryDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+}
+
+/**
+ * A browse card as the admin board needs it: everything a brand's card
+ * carries, plus the creator's real name. The public card deliberately shows
+ * brands the opaque public slug in its `name`, which leaves an admin looking
+ * at a wall of identifiers with no way to tell one creator from another.
+ */
+export class AdminBrowseOrderCreatorDto extends CreatorPublicListItemDto {
+  @ApiProperty({ example: 'Jane Doe', description: "The creator's real name" })
+  displayName!: string;
+}
+
+export class AdminBrowseOrderListResponseDto {
+  @ApiProperty({ type: () => [AdminBrowseOrderCreatorDto] })
+  items!: AdminBrowseOrderCreatorDto[];
+
+  @ApiProperty({ example: 547 })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 50 })
+  limit!: number;
 }

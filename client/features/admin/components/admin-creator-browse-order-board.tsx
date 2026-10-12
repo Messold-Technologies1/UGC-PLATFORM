@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -21,7 +28,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Loader2 } from "lucide-react";
+import { GripVertical, Loader2, Search, X } from "lucide-react";
 import {
   CreatorCard,
   CreatorCardSkeleton,
@@ -36,7 +43,23 @@ import { cn } from "@/lib/utils";
 /** The public list endpoint caps a page at 50. */
 const PAGE_SIZE = 50;
 
-/** The card plus its drag affordances — the position badge and the grip. */
+/** Stops a wrong `hasNextPage` from spinning the search forever. */
+const MAX_SEARCH_PAGES = 100;
+
+function boardCardDomId(creatorId: string): string {
+  return `browse-order-card-${creatorId}`;
+}
+
+function matchesName(creator: Creator, needle: string): boolean {
+  return creator.name.toLowerCase().includes(needle);
+}
+
+/**
+ * The card as brands see it, with the admin's own strip underneath: position,
+ * name and grip. Kept below the card rather than laid over it — the card's top
+ * corners already carry the delivery and availability chips, and the name is
+ * the one thing a browse card deliberately leaves out.
+ */
 function BoardCard({
   creator,
   position,
@@ -49,27 +72,33 @@ function BoardCard({
   isOverlay?: boolean;
 }) {
   return (
-    <div className="relative h-full min-w-0">
-      <div className="pointer-events-none absolute left-2 top-2 z-30 flex items-center gap-1.5">
-        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground shadow-md">
-          {position}
-        </span>
-        <span
-          className={cn(
-            "flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white shadow-md backdrop-blur-sm transition-opacity",
-            isOverlay ? "opacity-100" : "opacity-0 group-hover/card:opacity-100",
-          )}
-        >
-          <GripVertical className="size-3.5" />
-        </span>
-      </div>
-
+    // Rows rather than a flex column so the card stretches to fill the cell
+    // and every strip in a row lines up, whatever the tags do to card height.
+    <div className="grid h-full min-w-0 grid-rows-[1fr_auto]">
       <CreatorCard
         creator={creator}
         index={position - 1}
         onOpen={onOpen}
         isBrand={false}
       />
+
+      <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-border/60 bg-card px-2 py-1.5">
+        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold tabular-nums text-primary-foreground">
+          {position}
+        </span>
+        <span
+          className="truncate text-xs font-semibold text-foreground"
+          title={creator.name}
+        >
+          {creator.name}
+        </span>
+        <GripVertical
+          className={cn(
+            "ml-auto size-3.5 shrink-0 text-muted-foreground transition-opacity",
+            isOverlay ? "opacity-100" : "opacity-40 group-hover/card:opacity-100",
+          )}
+        />
+      </div>
     </div>
   );
 }
@@ -78,10 +107,12 @@ function SortableBoardCard({
   creator,
   position,
   onOpen,
+  isMatch,
 }: {
   creator: Creator;
   position: number;
   onOpen: (creator: Creator) => void;
+  isMatch: boolean;
 }) {
   const {
     attributes,
@@ -95,12 +126,14 @@ function SortableBoardCard({
   return (
     <div
       ref={setNodeRef}
+      id={boardCardDomId(creator.id)}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       {...listeners}
       className={cn(
-        "group/card h-full min-w-0 cursor-grab touch-none outline-none active:cursor-grabbing",
-        "focus-visible:rounded-2xl focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        "group/card h-full min-w-0 cursor-grab touch-none rounded-2xl outline-none active:cursor-grabbing",
+        "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        isMatch && "ring-2 ring-primary ring-offset-2",
         // The original stays in place as a ghost so the gap it leaves reads as
         // the drop target; the DragOverlay carries the card under the cursor.
         isDragging && "opacity-30",
@@ -197,6 +230,74 @@ export function AdminCreatorBrowseOrderBoard() {
     return () => observer.disconnect();
   }, [loadMore]);
 
+  // Search jumps to a creator instead of filtering: a filtered board would let
+  // you drop a card at a position that does not exist in the real order.
+  const [query, setQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  // The nonce makes searching the same name twice scroll again, which a bare
+  // id would not (the value would not change).
+  const [match, setMatch] = useState<{ id: string; nonce: number } | null>(null);
+
+  useEffect(() => {
+    if (!match) return;
+    // The card may have only just been rendered by the page the search pulled
+    // in, so wait for that paint before measuring where to scroll.
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(boardCardDomId(match.id))
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [match]);
+
+  const runSearch = useCallback(
+    async (event: FormEvent) => {
+      event.preventDefault();
+      const needle = query.trim().toLowerCase();
+      setNotFound(false);
+      if (!needle) {
+        setMatch(null);
+        return;
+      }
+
+      let found = creators.find((creator) => matchesName(creator, needle));
+
+      // Not among the cards on screen — keep pulling pages in until it turns
+      // up or the board runs out, so search covers every listed creator and
+      // not just the ones scrolled to so far.
+      if (!found && hasNextPage) {
+        setIsSearching(true);
+        try {
+          let more = true;
+          for (let page = 0; !found && more && page < MAX_SEARCH_PAGES; page++) {
+            const result = await fetchNextPage();
+            found = (result.data?.pages ?? [])
+              .flatMap((item) => item.creators)
+              .find((creator) => matchesName(creator, needle));
+            more = result.hasNextPage ?? false;
+          }
+        } finally {
+          setIsSearching(false);
+        }
+      }
+
+      if (found) {
+        setMatch({ id: found.id, nonce: Date.now() });
+      } else {
+        setMatch(null);
+        setNotFound(true);
+      }
+    },
+    [query, creators, hasNextPage, fetchNextPage],
+  );
+
+  const clearSearch = () => {
+    setQuery("");
+    setMatch(null);
+    setNotFound(false);
+  };
+
   const openCreator = (creator: Creator) => {
     router.push(`/admin/creators/${creator.id}`);
   };
@@ -264,18 +365,54 @@ export function AdminCreatorBrowseOrderBoard() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
           Every listed creator, in the order brands and agencies see them on
           Browse creators. Drag a card to move it — the new order saves itself.
         </p>
-        {isSaving ? (
-          <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
-            Saving order…
-          </span>
-        ) : null}
+
+        <div className="flex shrink-0 items-center gap-3">
+          {isSaving ? (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
+              Saving order…
+            </span>
+          ) : null}
+
+          <form onSubmit={runSearch} className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setNotFound(false);
+              }}
+              placeholder="Jump to a creator by name"
+              aria-label="Jump to a creator by name"
+              className="h-9 w-full rounded-full border border-border bg-background pl-9 pr-9 text-sm outline-none focus:border-primary"
+            />
+            {isSearching ? (
+              <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+            ) : query ? (
+              <button
+                type="button"
+                onClick={clearSearch}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : null}
+          </form>
+        </div>
       </div>
+
+      {notFound ? (
+        <p className="text-xs font-medium text-destructive">
+          No listed creator matches “{query.trim()}”.
+        </p>
+      ) : null}
 
       <DndContext
         sensors={sensors}
@@ -297,6 +434,7 @@ export function AdminCreatorBrowseOrderBoard() {
                 creator={creator}
                 position={index + 1}
                 onOpen={openCreator}
+                isMatch={match?.id === creator.id}
               />
             ))}
           </div>

@@ -24,9 +24,10 @@ export interface CreatorCardProps {
    */
   isBrand: boolean;
   /**
-   * Show the creator's name above the price. Off for brands, who are only ever
-   * given the opaque public slug in `creator.name`; the admin browse-order
-   * board turns it on so its cards can be told apart.
+   * Show the creator's name in the footer, in the slot a brand's wishlist
+   * button occupies. Off for brands, who are only ever given the opaque public
+   * slug in `creator.name`; the admin browse-order board turns it on so its
+   * cards can be told apart.
    */
   showName?: boolean;
 }
@@ -332,14 +333,6 @@ export const CreatorCard = memo(function CreatorCard({
         </div>
 
         <div className="who">
-          {showName ? (
-            <div
-              className="truncate text-[12.5px] font-bold leading-tight text-white/95"
-              title={creator.name}
-            >
-              {creator.name}
-            </div>
-          ) : null}
           <div className="nm">{priceLabel}</div>
           <div className="lc">
             <MapPin size={11} /> {locationLabel}
@@ -374,6 +367,14 @@ export const CreatorCard = memo(function CreatorCard({
 
         <div className="fbottom">
           <div className="factions">
+            {showName ? (
+              <span
+                className="min-w-0 flex-1 truncate text-left text-[12.5px] font-bold text-foreground"
+                title={creator.name}
+              >
+                {creator.name}
+              </span>
+            ) : null}
             {isBrand ? (
               <SaveToWishlistButton
                 creatorId={creator.id}

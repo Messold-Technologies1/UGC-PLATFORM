@@ -36,7 +36,9 @@ import {
 import {
   AdminCreatorListItemDto,
   AdminFeatureCreatorDto,
+  AdminFeaturedCreatorsBoardDto,
   AdminFirstOrderFreeDto,
+  AdminReorderFeaturedCreatorsDto,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
   AdminCreatorSegmentCountsDto,
@@ -174,6 +176,33 @@ export class AdminCreatorController {
     @Query() query: PendingApprovalsQueryDto,
   ): Promise<RejectedCreatorsListResponseDto> {
     return this.creatorProfileService.listRejectedCreatorApprovals(query);
+  }
+
+  @Get('featured/cards')
+  @ApiOperation({
+    summary:
+      'Featured creators as discovery cards, in the order brands see them',
+  })
+  @ApiOkResponse({ type: AdminFeaturedCreatorsBoardDto })
+  async listFeaturedCreatorCards(): Promise<AdminFeaturedCreatorsBoardDto> {
+    return this.creatorProfileService.listFeaturedCreatorCards();
+  }
+
+  @Patch('featured/order')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Save the featured order after a drag — index becomes the card position',
+  })
+  @ApiOkResponse({ type: AdminFeaturedCreatorsBoardDto })
+  async reorderFeaturedCreators(
+    @Body() dto: AdminReorderFeaturedCreatorsDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<AdminFeaturedCreatorsBoardDto> {
+    return this.creatorProfileService.reorderFeaturedCreators(
+      req.user.id,
+      dto.creatorIds,
+    );
   }
 
   @Patch(':id/approve')

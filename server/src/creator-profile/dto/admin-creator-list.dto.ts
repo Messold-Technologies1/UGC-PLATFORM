@@ -1,18 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
 import { ApprovalStatus, CreatorGender } from '@prisma/client';
 import { CreatorPortfolioVideoPreviewResponseDto } from './creator-profile-response.dto';
+import { CreatorPublicListItemDto } from './creator-public-list-item.dto';
 import { PendingCreatorContentCategoryDto } from './pending-creator-approval-list-item.dto';
 
 export enum AdminCreatorListSegment {
@@ -225,12 +229,19 @@ export class AdminCreatorsListResponseDto {
 }
 
 export class AdminFeatureCreatorDto {
-  @ApiPropertyOptional({ example: 1, description: 'Lower rank appears first' })
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      'Lower rank appears first. Omit it to append the creator to the end of ' +
+      'the featured order (the drag-and-drop board owns the ordering); an ' +
+      'already-featured creator keeps its current place.',
+  })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @Max(1_000_000)
-  rank: number = 0;
+  rank?: number;
 
   @ApiPropertyOptional({
     example: '2026-08-01T00:00:00.000Z',
@@ -282,4 +293,31 @@ export class AdminCreatorSegmentCountsDto {
 
   @ApiProperty({ example: 5 })
   featured!: number;
+}
+
+/**
+ * The featured order as the admin board sends it back after a drag: every
+ * featured creator id, in the exact order brands and agencies should see them.
+ */
+export class AdminReorderFeaturedCreatorsDto {
+  @ApiProperty({
+    type: [String],
+    example: ['uuid-first', 'uuid-second'],
+    description:
+      'Featured creator ids in display order — index 0 is shown first. Must ' +
+      'contain each id at most once, and every id must already be featured.',
+  })
+  @IsArray()
+  @ArrayMaxSize(500)
+  @IsUUID('4', { each: true })
+  creatorIds!: string[];
+}
+
+/**
+ * Featured creators rendered as the same discovery cards brands see, in
+ * featured order. Used by the admin drag-and-drop board.
+ */
+export class AdminFeaturedCreatorsBoardDto {
+  @ApiProperty({ type: [CreatorPublicListItemDto] })
+  items!: CreatorPublicListItemDto[];
 }

@@ -11,9 +11,13 @@ export const adminCreatorsQueryKey = (query: AdminCreatorsListQueryDto) => [
   query.search?.trim() || "",
 ];
 
-export function useAdminCreatorsQuery(query: AdminCreatorsListQueryDto) {
+export function useAdminCreatorsQuery(
+  query: AdminCreatorsListQueryDto,
+  enabled = true,
+) {
   return useQuery({
     queryKey: adminCreatorsQueryKey(query),
     queryFn: () => fetchAdminCreators(query),
+    enabled,
   });
 }

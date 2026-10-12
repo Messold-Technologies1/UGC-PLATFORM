@@ -51,6 +51,7 @@ import { RejectedCreatorApprovalListItemDto } from './dto/rejected-creator-appro
 import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-response.dto';
 import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
 import {
+  AdminBrowseOrderListResponseDto,
   AdminCreatorListItemDto,
   AdminCreatorListSegment,
   AdminCreatorsListQueryDto,
@@ -2054,6 +2055,43 @@ export class CreatorProfileService {
       filename: `listed-missing-instagram-identity-${stamp}.xlsx`,
       contentType:
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+  }
+
+  /**
+   * The browse board's cards: the public listing itself, page for page, with
+   * each creator's real name added.
+   *
+   * It goes through `listCreators` rather than querying alongside it, so the
+   * board is the brand view by construction and the two cannot drift. The name
+   * is the one thing added: the public card carries the opaque public slug in
+   * its `name`, which tells an admin nothing about who they are dragging.
+   */
+  async listCreatorsForBrowseOrderBoard(query: {
+    page?: number;
+    limit?: number;
+  }): Promise<AdminBrowseOrderListResponseDto> {
+    const listing = await this.listCreators({
+      page: query.page ?? 1,
+      limit: query.limit ?? 50,
+    } as ListCreatorsQueryDto);
+
+    const profiles = await this.prisma.creatorProfile.findMany({
+      where: { id: { in: listing.items.map((item) => item.id) } },
+      select: { id: true, displayName: true },
+    });
+    const displayNameById = new Map(
+      profiles.map((profile) => [profile.id, profile.displayName]),
+    );
+
+    return {
+      items: listing.items.map((item) => ({
+        ...item,
+        displayName: displayNameById.get(item.id) ?? item.name,
+      })),
+      total: listing.total,
+      page: listing.page,
+      limit: listing.limit,
     };
   }
 

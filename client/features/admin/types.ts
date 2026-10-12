@@ -5,6 +5,7 @@ import type {
   OrderListSummary,
 } from "@/features/orders/api/types";
 import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
+import type { CreatorPublicListItemApi } from "@/features/creators/api/types";
 
 export type ApprovalStatus =
   | "PENDING"
@@ -281,6 +282,21 @@ export interface FirstOrderFreeCreatorsQuery {
   page?: number;
   limit?: number;
   search?: string;
+}
+
+/**
+ * A browse card for the admin board: the brand card plus the creator's real
+ * name. The public card's `name` is the opaque public slug brands see.
+ */
+export interface AdminBrowseOrderCreatorApi extends CreatorPublicListItemApi {
+  displayName: string;
+}
+
+export interface AdminBrowseOrderListResponseDto {
+  items: AdminBrowseOrderCreatorApi[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface RejectedCreatorApprovalListItemDto extends PendingCreatorApprovalListItemDto {

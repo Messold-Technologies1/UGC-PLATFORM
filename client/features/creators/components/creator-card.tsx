@@ -23,6 +23,12 @@ export interface CreatorCardProps {
    * auth query independently.
    */
   isBrand: boolean;
+  /**
+   * Show the creator's name above the price. Off for brands, who are only ever
+   * given the opaque public slug in `creator.name`; the admin browse-order
+   * board turns it on so its cards can be told apart.
+   */
+  showName?: boolean;
 }
 
 function isHttpUrl(url: string | null | undefined): url is string {
@@ -37,6 +43,7 @@ export const CreatorCard = memo(function CreatorCard({
   index,
   onOpen,
   isBrand,
+  showName = false,
 }: CreatorCardProps) {
   const [g1, g2] = posterColor(index);
   const tags = (
@@ -325,6 +332,14 @@ export const CreatorCard = memo(function CreatorCard({
         </div>
 
         <div className="who">
+          {showName ? (
+            <div
+              className="truncate text-[12.5px] font-bold leading-tight text-white/95"
+              title={creator.name}
+            >
+              {creator.name}
+            </div>
+          ) : null}
           <div className="nm">{priceLabel}</div>
           <div className="lc">
             <MapPin size={11} /> {locationLabel}

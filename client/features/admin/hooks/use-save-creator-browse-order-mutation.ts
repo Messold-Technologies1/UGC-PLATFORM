@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { saveCreatorBrowseOrder } from "../api/save-creator-browse-order";
+import { adminBrowseOrderCreatorsQueryKey } from "./use-admin-browse-order-creators-query";
 
 export function useSaveCreatorBrowseOrderMutation() {
   const queryClient = useQueryClient();
@@ -17,7 +18,9 @@ export function useSaveCreatorBrowseOrderMutation() {
       toast.error("Could not save the new order");
       // The board is showing an order the server rejected: pull the real one
       // back so what is on screen is what brands would see.
-      void queryClient.invalidateQueries({ queryKey: ["creators", "list"] });
+      void queryClient.invalidateQueries({
+        queryKey: adminBrowseOrderCreatorsQueryKey,
+      });
     },
   });
 }

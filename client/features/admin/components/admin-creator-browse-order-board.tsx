@@ -28,13 +28,14 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Loader2, Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import {
   CreatorCard,
   CreatorCardSkeleton,
 } from "@/features/creators/components/creator-card";
 import "@/features/creators/components/browse-creators/browse-creators.css";
-import { useInfiniteCreatorsListQuery } from "@/features/creators/hooks/use-creators-list-query";
+import "./admin-browse-order-board.css";
+import { useAdminBrowseOrderCreatorsQuery } from "@/features/admin/hooks/use-admin-browse-order-creators-query";
 import type { Creator } from "@/features/creators/types";
 import { useSaveCreatorBrowseOrderMutation } from "@/features/admin/hooks/use-save-creator-browse-order-mutation";
 import { Button } from "@/components/ui/button";
@@ -55,50 +56,35 @@ function matchesName(creator: Creator, needle: string): boolean {
 }
 
 /**
- * The card as brands see it, with the admin's own strip underneath: position,
- * name and grip. Kept below the card rather than laid over it — the card's top
- * corners already carry the delivery and availability chips, and the name is
- * the one thing a browse card deliberately leaves out.
+ * The brand card with two admin-only additions: the creator's name inside the
+ * card, and its position in the top-right corner. The name is the one thing a
+ * brand card leaves out — brands are shown the opaque public slug — so without
+ * it the board is a wall of near-identical cards.
  */
 function BoardCard({
   creator,
   position,
   onOpen,
-  isOverlay = false,
 }: {
   creator: Creator;
   position: number;
   onOpen: (creator: Creator) => void;
-  isOverlay?: boolean;
 }) {
   return (
-    // Rows rather than a flex column so the card stretches to fill the cell
-    // and every strip in a row lines up, whatever the tags do to card height.
-    <div className="grid h-full min-w-0 grid-rows-[1fr_auto]">
+    <div className="relative h-full min-w-0">
+      {/* Rides the card's 4px hover lift so the badge stays pinned to its
+          corner rather than sliding down it. */}
+      <span className="pointer-events-none absolute right-2 top-2 z-30 flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold tabular-nums text-primary-foreground shadow-md transition-transform duration-200 group-hover/card:-translate-y-1">
+        {position}
+      </span>
+
       <CreatorCard
         creator={creator}
         index={position - 1}
         onOpen={onOpen}
         isBrand={false}
+        showName
       />
-
-      <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-border/60 bg-card px-2 py-1.5">
-        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold tabular-nums text-primary-foreground">
-          {position}
-        </span>
-        <span
-          className="truncate text-xs font-semibold text-foreground"
-          title={creator.name}
-        >
-          {creator.name}
-        </span>
-        <GripVertical
-          className={cn(
-            "ml-auto size-3.5 shrink-0 text-muted-foreground transition-opacity",
-            isOverlay ? "opacity-100" : "opacity-40 group-hover/card:opacity-100",
-          )}
-        />
-      </div>
     </div>
   );
 }
@@ -160,7 +146,7 @@ export function AdminCreatorBrowseOrderBoard() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteCreatorsListQuery({ filters: { limit: PAGE_SIZE } });
+  } = useAdminBrowseOrderCreatorsQuery(PAGE_SIZE);
   const { mutate: saveOrder, isPending: isSaving } =
     useSaveCreatorBrowseOrderMutation();
 
@@ -371,7 +357,7 @@ export function AdminCreatorBrowseOrderBoard() {
           Browse creators. Drag a card to move it — the new order saves itself.
         </p>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex w-full items-center gap-3 sm:w-auto sm:shrink-0">
           {isSaving ? (
             <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" />
@@ -379,7 +365,7 @@ export function AdminCreatorBrowseOrderBoard() {
             </span>
           ) : null}
 
-          <form onSubmit={runSearch} className="relative w-full sm:w-64">
+          <form onSubmit={runSearch} className="relative w-full sm:w-96 lg:w-[28rem]">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
@@ -427,7 +413,7 @@ export function AdminCreatorBrowseOrderBoard() {
           items={creators.map((creator) => creator.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="reelgrid browse-redesign-scope">
+          <div className="reelgrid browse-redesign-scope browse-order-board">
             {creators.map((creator, index) => (
               <SortableBoardCard
                 key={creator.id}
@@ -442,12 +428,11 @@ export function AdminCreatorBrowseOrderBoard() {
 
         <DragOverlay>
           {activeCreator ? (
-            <div className="browse-redesign-scope w-full cursor-grabbing">
+            <div className="browse-redesign-scope browse-order-board w-full cursor-grabbing">
               <BoardCard
                 creator={activeCreator}
                 position={activePosition}
                 onOpen={() => {}}
-                isOverlay
               />
             </div>
           ) : null}

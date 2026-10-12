@@ -34,6 +34,8 @@ import {
   RejectCreatorProfileDto,
 } from './dto/admin-creator-approval.dto';
 import {
+  AdminBrowseOrderListResponseDto,
+  AdminBrowseOrderQueryDto,
   AdminCreatorListItemDto,
   AdminFirstOrderFreeDto,
   AdminSaveBrowseOrderDto,
@@ -174,6 +176,19 @@ export class AdminCreatorController {
     @Query() query: PendingApprovalsQueryDto,
   ): Promise<RejectedCreatorsListResponseDto> {
     return this.creatorProfileService.listRejectedCreatorApprovals(query);
+  }
+
+  @Get('browse-order')
+  @ApiOperation({
+    summary:
+      'Browse-board cards: the public listing, page for page, plus each ' +
+      "creator's real name",
+  })
+  @ApiOkResponse({ type: AdminBrowseOrderListResponseDto })
+  async listCreatorsForBrowseOrderBoard(
+    @Query() query: AdminBrowseOrderQueryDto,
+  ): Promise<AdminBrowseOrderListResponseDto> {
+    return this.creatorProfileService.listCreatorsForBrowseOrderBoard(query);
   }
 
   @Patch('browse-order')

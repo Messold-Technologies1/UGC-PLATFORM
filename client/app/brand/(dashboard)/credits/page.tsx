@@ -13,6 +13,7 @@ import {
   Plus,
   RotateCcw,
   ShoppingBag,
+  Sparkles,
   Wallet,
 } from "lucide-react";
 
@@ -74,6 +75,8 @@ function txnVisual(type: WalletTransactionType): {
       return { Icon: Gift, isCredit: true };
     case "ORDER_COMPLETION_CREDIT":
       return { Icon: Award, isCredit: true };
+    case "BRAND_SIGNUP_CREDIT":
+      return { Icon: Sparkles, isCredit: true };
     case "CHECKOUT_REVERSAL_CREDIT":
     case "WITHDRAWAL_REVERSAL_CREDIT":
       return { Icon: RotateCcw, isCredit: true };
@@ -288,9 +291,9 @@ export default function BrandCreditsPage() {
           </div>
           {rewardPaise > 0 && (
             <p className="mb-4 rounded-2xl bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-              {inr(rewardPaise)} of your credits are reward credits earned on
-              completed orders. You can spend them on a new order, but they
-              cannot be refunded — so {inr(refundablePaise)} is refundable.
+              {inr(rewardPaise)} of your credits are reward credits. You can
+              spend them on a new order, but they cannot be refunded — so{" "}
+              {inr(refundablePaise)} is refundable.
             </p>
           )}
           <div className="grid gap-4 md:grid-cols-2">

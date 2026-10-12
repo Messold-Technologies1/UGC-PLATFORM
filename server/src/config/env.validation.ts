@@ -98,6 +98,23 @@ export const envValidationSchema = Joi.object({
     .optional()
     .default(5000),
 
+  // ---- Brand signup welcome credit ----
+  /**
+   * Grant a brand non-withdrawable credit when it finishes registering.
+   * Configured entirely separately from the order-completion reward: either can
+   * be switched on, off or re-priced without touching the other.
+   */
+  BRAND_SIGNUP_CREDIT_ENABLED: Joi.string()
+    .valid('true', 'false')
+    .optional()
+    .default('false'),
+  /** Welcome amount in paise. 10000 = ₹100. 0 disables the grant as surely as the flag. */
+  BRAND_SIGNUP_CREDIT_PAISE: Joi.number()
+    .integer()
+    .min(0)
+    .optional()
+    .default(10000),
+
   // Storage: S3 + CDN
   AWS_REGION: Joi.string().min(1).required(),
   AWS_S3_ACCESS_KEY_ID: Joi.string().min(1).required(),

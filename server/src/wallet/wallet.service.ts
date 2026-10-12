@@ -80,6 +80,7 @@ const CREDIT_TYPES: ReadonlySet<WalletTransactionType> = new Set([
   WalletTransactionType.WITHDRAWAL_REVERSAL_CREDIT,
   WalletTransactionType.ADMIN_ADJUSTMENT_CREDIT,
   WalletTransactionType.ORDER_COMPLETION_CREDIT,
+  WalletTransactionType.BRAND_SIGNUP_CREDIT,
 ]);
 
 const DEBIT_TYPES: ReadonlySet<WalletTransactionType> = new Set([
@@ -98,6 +99,7 @@ export type WalletMovementMeta = {
 /** Reward credit is non-withdrawable, so it always enters the promo bucket. */
 const ALWAYS_PROMO_TYPES: ReadonlySet<WalletTransactionType> = new Set([
   WalletTransactionType.ORDER_COMPLETION_CREDIT,
+  WalletTransactionType.BRAND_SIGNUP_CREDIT,
 ]);
 
 export type WalletBalance = {
@@ -507,6 +509,47 @@ export class WalletService {
       : null;
   }
 
+  /**
+   * Welcome the brand with non-withdrawable credit for registering. One per
+   * brand — a partial unique index on the ledger makes a second impossible, so
+   * a retried or raced registration cannot pay twice. Callers check first, so
+   * the common case never relies on the error.
+   */
+  async creditBrandSignup(
+    params: {
+      brandId: string;
+      amountPaise: number;
+      reason?: string | null;
+    },
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ balanceAfterPaise: number; promoAfterPaise: number }> {
+    return this.credit(
+      {
+        brandId: params.brandId,
+        amountPaise: params.amountPaise,
+        type: WalletTransactionType.BRAND_SIGNUP_CREDIT,
+        reason: params.reason ?? null,
+      },
+      tx,
+    );
+  }
+
+  /** Has this brand already had its welcome reward? Keeps the award idempotent. */
+  async hasBrandSignupCredit(
+    brandId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const client = tx ?? this.prisma;
+    const existing = await client.walletTransaction.findFirst({
+      where: {
+        type: WalletTransactionType.BRAND_SIGNUP_CREDIT,
+        wallet: { brandId },
+      },
+      select: { id: true },
+    });
+    return existing != null;
+  }
+
   /** Has this order already been rewarded? Keeps the award idempotent. */
   async hasCompletionCredit(
     orderId: string,
@@ -662,7 +705,7 @@ export class WalletService {
           if (refundable < amount) {
             throw new BadRequestException(
               cur.promoPaise > 0
-                ? 'Not enough refundable credit — reward credits earned on completed orders can be spent on new orders but cannot be refunded'
+                ? 'Not enough refundable credit — reward credits can be spent on new orders but cannot be refunded'
                 : 'Insufficient credit balance',
             );
           }

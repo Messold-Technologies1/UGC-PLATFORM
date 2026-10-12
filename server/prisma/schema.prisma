@@ -1815,8 +1815,9 @@ model CouponRedemption {
 
 // ─── Store-credit wallet ("Credits" in the UI) ───────────────────────────────
 // A brand's store-credit balance. Money enters when a paid order is cancelled
-// (ORDER_CANCELLATION_CREDIT) or an order completes (ORDER_COMPLETION_CREDIT,
-// non-withdrawable) and leaves when the brand spends it at checkout
+// (ORDER_CANCELLATION_CREDIT), an order completes (ORDER_COMPLETION_CREDIT) or
+// a brand registers (BRAND_SIGNUP_CREDIT) — the last two non-withdrawable —
+// and leaves when the brand spends it at checkout
 // (ORDER_CHECKOUT_DEBIT) or withdraws it to their bank (WITHDRAWAL_DEBIT, paid
 // off-platform by an admin). Amounts are integer paise, INR, matching
 // Order.expectedAmountPaise. The balance is a cached convenience value; the
@@ -1844,6 +1845,10 @@ enum WalletTransactionType {
   /// checkout like any other credit, but never withdrawable (it adds to
   /// BrandWallet.promoPaise as well as to the balance).
   ORDER_COMPLETION_CREDIT
+  /// Welcome reward granted once when a brand finishes registering. Same
+  /// non-withdrawable terms as the completion reward — a signup bonus that
+  /// could be withdrawn would pay anyone who registers.
+  BRAND_SIGNUP_CREDIT
 }
 
 enum WalletWithdrawalStatus {

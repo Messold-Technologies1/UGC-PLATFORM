@@ -9,7 +9,8 @@ export type WalletTransactionType =
   | "WITHDRAWAL_REVERSAL_CREDIT"
   | "ADMIN_ADJUSTMENT_CREDIT"
   | "ADMIN_ADJUSTMENT_DEBIT"
-  | "ORDER_COMPLETION_CREDIT";
+  | "ORDER_COMPLETION_CREDIT"
+  | "BRAND_SIGNUP_CREDIT";
 
 export type WalletWithdrawalStatus =
   | "REQUESTED"
@@ -121,6 +122,8 @@ export function walletTransactionLabel(type: WalletTransactionType): string {
       return "Adjustment — removed";
     case "ORDER_COMPLETION_CREDIT":
       return "Order completed — reward credit";
+    case "BRAND_SIGNUP_CREDIT":
+      return "Welcome reward — joining GoCollab";
     default:
       return type;
   }

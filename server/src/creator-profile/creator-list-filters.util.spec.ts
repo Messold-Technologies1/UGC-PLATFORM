@@ -29,11 +29,34 @@ describe('creator-list-filters.util', () => {
       );
     });
 
-    it('matches city names by substring when the term is not a state', () => {
-      expect(buildListCreatorsWhere({ city: 'Mumbai' })).toEqual({
+    it('matches an unresolved term against city substrings and exact states', () => {
+      // The state catalog is India-only, so a term like "Dubai" arrives
+      // unresolved and still has to find the emirate, not just the city.
+      expect(buildListCreatorsWhere({ city: 'Dubai' })).toEqual({
         AND: [
           { isListed: true },
-          { city: { contains: 'Mumbai', mode: 'insensitive' } },
+          {
+            OR: [
+              { city: { contains: 'Dubai', mode: 'insensitive' } },
+              { stateName: { equals: 'Dubai', mode: 'insensitive' } },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('does not read a half-typed term as a state', () => {
+      // "Pun" must find Pune. The state side being exact is what stops it
+      // pulling in all of Punjab.
+      expect(buildListCreatorsWhere({ city: 'Pun' })).toEqual({
+        AND: [
+          { isListed: true },
+          {
+            OR: [
+              { city: { contains: 'Pun', mode: 'insensitive' } },
+              { stateName: { equals: 'Pun', mode: 'insensitive' } },
+            ],
+          },
         ],
       });
     });
@@ -62,13 +85,18 @@ describe('creator-list-filters.util', () => {
       });
     });
 
-    it('falls back to the city match when the resolved state is blank', () => {
+    it('falls back to the unresolved match when the resolved state is blank', () => {
       expect(
         buildListCreatorsWhere({ city: 'Pune' }, { locationStateName: '  ' }),
       ).toEqual({
         AND: [
           { isListed: true },
-          { city: { contains: 'Pune', mode: 'insensitive' } },
+          {
+            OR: [
+              { city: { contains: 'Pune', mode: 'insensitive' } },
+              { stateName: { equals: 'Pune', mode: 'insensitive' } },
+            ],
+          },
         ],
       });
     });
@@ -102,7 +130,12 @@ describe('creator-list-filters.util', () => {
       expect(buildListCreatorsWhere(q)).toEqual({
         AND: [
           { isListed: true },
-          { city: { contains: 'Kolkata', mode: 'insensitive' } },
+          {
+            OR: [
+              { city: { contains: 'Kolkata', mode: 'insensitive' } },
+              { stateName: { equals: 'Kolkata', mode: 'insensitive' } },
+            ],
+          },
           {
             facetSelections: {
               some: {

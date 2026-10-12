@@ -100,7 +100,9 @@ export type BuildListCreatorsWhereOptions = {
    * location filter then matches the whole state rather than city names, so
    * "Delhi" — a state and a city — returns everyone in Delhi, not just the
    * creators whose city happens to be spelled that way. Resolving needs a
-   * query, so the caller does it and passes the answer in.
+   * query, so the caller does it and passes the answer in. Left unset, the
+   * term is matched against city names and, exactly, against state names —
+   * which is how a state outside the India-only catalog still works.
    */
   locationStateName?: string | null;
 };
@@ -127,7 +129,17 @@ export function buildListCreatorsWhere(
         ? // Whole state. Exact match, not a substring: the caller only sets
           // this for a term that resolved to a real state name.
           { stateName: { equals: stateName, mode: 'insensitive' } }
-        : { city: { contains: city, mode: 'insensitive' } },
+        : {
+            // Unresolved term — it could still name a state the catalog does
+            // not carry, since the catalog is India-only while creators pick
+            // any country. So match it against both fields: "Dubai" finds the
+            // emirate as well as the city. The state side is exact, which is
+            // what keeps a half-typed "Pun" finding Pune and not Punjab.
+            OR: [
+              { city: { contains: city, mode: 'insensitive' } },
+              { stateName: { equals: city, mode: 'insensitive' } },
+            ],
+          },
     );
   }
 

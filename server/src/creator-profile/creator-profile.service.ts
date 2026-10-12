@@ -52,6 +52,7 @@ import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-re
 import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
 import {
   AdminFeatureCreatorDto,
+  AdminFeaturedCreatorsBoardDto,
   AdminCreatorListItemDto,
   AdminCreatorListSegment,
   AdminCreatorsListQueryDto,
@@ -2082,16 +2083,26 @@ export class CreatorProfileService {
       throw new BadRequestException('featuredUntil must be a valid ISO date');
     }
 
+    // Ordering is owned by the admin drag-and-drop board, so a feature without
+    // an explicit rank must not disturb it: an already-featured creator keeps
+    // its place, and a newly featured one lands at the end of the board.
+    const existing = await this.prisma.creatorFeature.findUnique({
+      where: { creatorId: creatorProfileId },
+      select: { rank: true },
+    });
+    const rank =
+      dto.rank ?? existing?.rank ?? (await this.nextFeaturedCreatorRank());
+
     await this.prisma.creatorFeature.upsert({
       where: { creatorId: creatorProfileId },
       create: {
         creatorId: creatorProfileId,
-        rank: dto.rank ?? 0,
+        rank,
         featuredUntil,
         featuredById: adminUserId,
       },
       update: {
-        rank: dto.rank ?? 0,
+        rank,
         featuredUntil,
         featuredById: adminUserId,
       },
@@ -2100,10 +2111,78 @@ export class CreatorProfileService {
     return this.getAdminCreatorListItemById(creatorProfileId);
   }
 
+  /** One past the last featured rank, so a new feature appends to the board. */
+  private async nextFeaturedCreatorRank(): Promise<number> {
+    const last = await this.prisma.creatorFeature.findFirst({
+      orderBy: { rank: 'desc' },
+      select: { rank: true },
+    });
+    if (!last) return 0;
+    return Math.min(last.rank + 1, 1_000_000);
+  }
+
   async unfeatureCreatorProfile(creatorProfileId: string): Promise<void> {
     await this.prisma.creatorFeature.deleteMany({
       where: { creatorId: creatorProfileId },
     });
+  }
+
+  /**
+   * Featured creators as the very cards brands and agencies see, in the order
+   * they are shown. Backs the admin drag-and-drop board, so what the admin
+   * arranges is exactly what gets published.
+   */
+  async listFeaturedCreatorCards(): Promise<AdminFeaturedCreatorsBoardDto> {
+    const now = new Date();
+    const rows = await this.prisma.creatorFeature.findMany({
+      where: {
+        creator: { isListed: true },
+        OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
+      },
+      orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+      select: { creatorId: true },
+    });
+
+    const items = await this.getApprovedPublicListItemsByIds(
+      rows.map((row) => row.creatorId),
+    );
+
+    return { items };
+  }
+
+  /**
+   * Persist the board's order: rank becomes the card's index, so the public
+   * listing (ordered by rank asc) shows brands exactly what the admin laid out.
+   */
+  async reorderFeaturedCreators(
+    adminUserId: string,
+    creatorIds: string[],
+  ): Promise<AdminFeaturedCreatorsBoardDto> {
+    const ordered = creatorIds.filter(Boolean);
+    if (new Set(ordered).size !== ordered.length) {
+      throw new BadRequestException('creatorIds must not repeat a creator');
+    }
+
+    const featured = await this.prisma.creatorFeature.findMany({
+      where: { creatorId: { in: ordered } },
+      select: { creatorId: true },
+    });
+    if (featured.length !== ordered.length) {
+      throw new BadRequestException(
+        'Every creator in the order must already be featured',
+      );
+    }
+
+    await this.prisma.$transaction(
+      ordered.map((creatorId, index) =>
+        this.prisma.creatorFeature.update({
+          where: { creatorId },
+          data: { rank: index, featuredById: adminUserId },
+        }),
+      ),
+    );
+
+    return this.listFeaturedCreatorCards();
   }
 
   /**

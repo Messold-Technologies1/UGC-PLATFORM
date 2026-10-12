@@ -13,6 +13,7 @@ import { CreatorBioGeneratorService } from './creator-bio-generator.service';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import { PreviewVideoModule } from '../preview-video/preview-video.module';
 import { MediaNormalizeModule } from '../media-normalize/media-normalize.module';
+import { CitiesModule } from '../cities/cities.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MediaNormalizeModule } from '../media-normalize/media-normalize.module'
     AiModule,
     PreviewVideoModule,
     MediaNormalizeModule,
+    CitiesModule,
   ],
   controllers: [CreatorProfileController, AdminCreatorController],
   providers: [

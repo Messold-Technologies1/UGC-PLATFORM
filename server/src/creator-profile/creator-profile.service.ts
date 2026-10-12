@@ -92,6 +92,7 @@ import { recomputeCreatorListingState } from './creator-listing-state.util';
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 import { creatorPayoutPaiseFromOrderTotal } from '../orders/order-pricing-ledger.util';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
+import { CitiesService } from '../cities/cities.service';
 import { PreviewVideoQueueService } from '../preview-video/preview-video-queue.service';
 import { MediaNormalizeQueueService } from '../media-normalize/media-normalize-queue.service';
 import type {
@@ -327,6 +328,7 @@ export class CreatorProfileService {
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
     private readonly brandAccess: BrandAccessService,
+    private readonly cities: CitiesService,
   ) {}
 
   async presignProfileIntroVideoUpload(
@@ -1253,7 +1255,14 @@ export class CreatorProfileService {
     const skip = (page - 1) * limit;
     const now = new Date();
 
-    const where = buildListCreatorsWhere(query, { requireApproved: true });
+    // One typed box covers country, state and city, so the term is resolved to
+    // the widest level it names before the filter is built.
+    const location = await this.resolveLocationTerm(query.city);
+    const where = buildListCreatorsWhere(query, {
+      requireApproved: true,
+      locationCountryName: location.countryName,
+      locationStateName: location.stateName,
+    });
     const include = buildCreatorListRelationsInclude(query);
     const activeFeaturedWhere = buildActiveFeaturedCreatorWhere(where, now);
     const nonFeaturedWhere = buildNonFeaturedCreatorWhere(where, now);
@@ -1345,6 +1354,48 @@ export class CreatorProfileService {
     };
 
     return response;
+  }
+
+  /**
+   * What a typed location term names, widest first: a country, else a state,
+   * else nothing (the caller then treats it as a city). Both lookups are exact
+   * — a substring would read a half-typed "Pun" as Punjab and bury Pune.
+   *
+   * Country and state are matched against what listed creators actually store,
+   * so this works for anywhere a creator can pick rather than only the places
+   * a catalog knows. The India-only state catalog is consulted last, purely
+   * for its aliases: "Orissa" is nobody's stored state name, but it is Odisha.
+   */
+  private async resolveLocationTerm(term: string | undefined): Promise<{
+    countryName: string | null;
+    stateName: string | null;
+  }> {
+    const trimmed = term?.trim();
+    if (!trimmed) return { countryName: null, stateName: null };
+
+    const match = { equals: trimmed, mode: 'insensitive' as const };
+    const [country, state] = await this.prisma.$transaction([
+      this.prisma.creatorProfile.findFirst({
+        where: { isListed: true, countryName: match },
+        select: { countryName: true },
+      }),
+      this.prisma.creatorProfile.findFirst({
+        where: { isListed: true, stateName: match },
+        select: { stateName: true },
+      }),
+    ]);
+
+    if (country?.countryName) {
+      return { countryName: country.countryName, stateName: null };
+    }
+    if (state?.stateName) {
+      return { countryName: null, stateName: state.stateName };
+    }
+
+    return {
+      countryName: null,
+      stateName: await this.cities.resolveStateToCanonical(trimmed),
+    };
   }
 
   /** Approved creators only; preserves caller order and skips missing/unapproved ids. */

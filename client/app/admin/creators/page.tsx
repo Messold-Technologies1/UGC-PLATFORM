@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReviewDrawer from "@/components/admin/ReviewDrawer";
 import { AdminCreatorListRow } from "@/features/admin/components/admin-creator-list-row";
-import { AdminFeaturedCreatorsBoard } from "@/features/admin/components/admin-featured-creators-board";
+import { AdminCreatorBrowseOrderBoard } from "@/features/admin/components/admin-creator-browse-order-board";
 import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
 import { AdminCreatorSegmentTabs } from "@/features/admin/components/admin-creator-segment-tabs";
 import { AdminBuildingProfileAnalytics } from "@/features/admin/components/admin-building-profile-analytics";
@@ -85,9 +85,11 @@ function AdminCreatorsPageInner() {
   const showingStart = creators.length === 0 ? 0 : (page - 1) * limit + 1;
   const showingEnd = Math.min(page * limit, total);
   const activeTabMeta = getAdminCreatorTabs().find((tab) => tab.value === segment);
-  // Featured is arranged, not browsed: one drag-and-drop board of the very
-  // cards brands see, so no row list, no search and no pagination.
-  const isFeaturedBoard = segment === "featured" && !analyticsActive;
+  // Featured is arranged, not browsed: one drag-and-drop board of every listed
+  // creator, as the card brands see, so no row list, no search and no
+  // pagination. Search is left out on purpose — dragging inside a filtered
+  // list would save positions that do not line up with the real board.
+  const isBrowseOrderBoard = segment === "featured" && !analyticsActive;
 
   const handleTabChange = (next: AdminCreatorListSegment) => {
     setSegment(next);
@@ -119,7 +121,7 @@ function AdminCreatorsPageInner() {
           analyticsActive={analyticsActive}
           onSelectAnalytics={handleSelectAnalytics}
           trailing={
-            analyticsActive || isFeaturedBoard ? null : (
+            analyticsActive || isBrowseOrderBoard ? null : (
               <AdminCreatorListSearch
                 value={search}
                 isLoading={searchLoading}
@@ -135,8 +137,8 @@ function AdminCreatorsPageInner() {
 
         {analyticsActive ? (
           <AdminBuildingProfileAnalytics enabled={analyticsActive} />
-        ) : isFeaturedBoard ? (
-          <AdminFeaturedCreatorsBoard />
+        ) : isBrowseOrderBoard ? (
+          <AdminCreatorBrowseOrderBoard />
         ) : isError && !isLoading ? (
           <div className="rounded-2xl border border-border/10 bg-card/10 py-20 text-center text-sm text-muted-foreground glass-panel">
             We could not load creators right now. Try again shortly.

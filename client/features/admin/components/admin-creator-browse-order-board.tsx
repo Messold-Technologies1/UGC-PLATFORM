@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -27,14 +27,17 @@ import {
   CreatorCardSkeleton,
 } from "@/features/creators/components/creator-card";
 import "@/features/creators/components/browse-creators/browse-creators.css";
-import { mapProfileToListingCreator } from "@/features/creators/api/map-profile-to-creator";
+import { useInfiniteCreatorsListQuery } from "@/features/creators/hooks/use-creators-list-query";
 import type { Creator } from "@/features/creators/types";
-import { useAdminFeaturedCreatorsQuery } from "@/features/admin/hooks/use-admin-featured-creators-query";
-import { useReorderFeaturedCreatorsMutation } from "@/features/admin/hooks/use-reorder-featured-creators-mutation";
+import { useSaveCreatorBrowseOrderMutation } from "@/features/admin/hooks/use-save-creator-browse-order-mutation";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+/** The public list endpoint caps a page at 50. */
+const PAGE_SIZE = 50;
+
 /** The card plus its drag affordances — the position badge and the grip. */
-function FeaturedCardShell({
+function BoardCard({
   creator,
   position,
   onOpen,
@@ -61,12 +64,17 @@ function FeaturedCardShell({
         </span>
       </div>
 
-      <CreatorCard creator={creator} index={position - 1} onOpen={onOpen} isBrand={false} />
+      <CreatorCard
+        creator={creator}
+        index={position - 1}
+        onOpen={onOpen}
+        isBrand={false}
+      />
     </div>
   );
 }
 
-function SortableFeaturedCard({
+function SortableBoardCard({
   creator,
   position,
   onOpen,
@@ -87,10 +95,7 @@ function SortableFeaturedCard({
   return (
     <div
       ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       {...listeners}
       className={cn(
@@ -102,25 +107,49 @@ function SortableFeaturedCard({
       )}
       aria-label={`${creator.name}, position ${position}. Press space, then use the arrow keys to move this creator.`}
     >
-      <FeaturedCardShell creator={creator} position={position} onOpen={onOpen} />
+      <BoardCard creator={creator} position={position} onOpen={onOpen} />
     </div>
   );
 }
 
-export function AdminFeaturedCreatorsBoard() {
+/**
+ * Every listed creator, as the card brands see, in the order brands see them —
+ * dragged into place. The list comes from the public browse endpoint itself,
+ * so the board cannot drift from the real brand view.
+ */
+export function AdminCreatorBrowseOrderBoard() {
   const router = useRouter();
-  const { data, isLoading, isError, refetch } = useAdminFeaturedCreatorsQuery();
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteCreatorsListQuery({ filters: { limit: PAGE_SIZE } });
   const { mutate: saveOrder, isPending: isSaving } =
-    useReorderFeaturedCreatorsMutation();
+    useSaveCreatorBrowseOrderMutation();
 
-  const serverCreators = useMemo(
-    () => (data?.items ?? []).map(mapProfileToListingCreator),
-    [data],
-  );
+  const serverCreators = useMemo(() => {
+    // Deduped by id: a page fetched after a save reflects the new order while
+    // the pages already cached still reflect the old one, so a creator who
+    // moved across a page boundary can come back twice. Two cards with the
+    // same id would break both the React keys and the sortable ids.
+    const seen = new Set<string>();
+    return (data?.pages ?? [])
+      .flatMap((page) => page.creators)
+      .filter((creator) => {
+        if (seen.has(creator.id)) return false;
+        seen.add(creator.id);
+        return true;
+      });
+  }, [data]);
+  const total = data?.pages?.[0]?.total ?? 0;
 
   // Only the dragged-into order is held locally; the cards themselves still
   // come from the server. Deriving the list (rather than copying it into state
-  // and syncing it back in an effect) means a creator featured or unfeatured
+  // and syncing it back in an effect) means a creator listed or unlisted
   // elsewhere shows up without the board snapping out of the order on screen.
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -132,8 +161,6 @@ export function AdminFeaturedCreatorsBoard() {
       .map((id) => byId.get(id))
       .filter((creator): creator is Creator => !!creator);
     const placed = new Set(ordered.map((creator) => creator.id));
-    // Anyone featured since the last drag sits at the end, where the server
-    // puts them too.
     return [
       ...ordered,
       ...serverCreators.filter((creator) => !placed.has(creator.id)),
@@ -151,16 +178,27 @@ export function AdminFeaturedCreatorsBoard() {
     }),
   );
 
+  // Pull the next page in as the end of the board comes into view.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMore();
+      },
+      { rootMargin: "600px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
   const openCreator = (creator: Creator) => {
     router.push(`/admin/creators/${creator.id}`);
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
-  };
-
-  const handleDragCancel = () => {
-    setActiveId(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -173,17 +211,20 @@ export function AdminFeaturedCreatorsBoard() {
     const to = creators.findIndex((creator) => creator.id === over.id);
     if (from === -1 || to === -1) return;
 
-    const nextIds = arrayMove(creators, from, to).map((creator) => creator.id);
-    setLocalOrder(nextIds);
-    saveOrder(nextIds);
+    const next = arrayMove(creators, from, to);
+    setLocalOrder(next.map((creator) => creator.id));
+    // Only the run from the first card through the furthest position the move
+    // touched needs saving. Leaving the tail alone is what keeps a freshly
+    // listed creator surfacing right behind the arranged cards rather than
+    // behind every one of them.
+    const touchedThrough = Math.max(from, to);
+    saveOrder(next.slice(0, touchedThrough + 1).map((creator) => creator.id));
   };
 
   const activeCreator = activeId
     ? creators.find((creator) => creator.id === activeId)
     : null;
-  const activePosition = activeCreator
-    ? creators.indexOf(activeCreator) + 1
-    : 1;
+  const activePosition = activeCreator ? creators.indexOf(activeCreator) + 1 : 1;
 
   if (isLoading) {
     return (
@@ -200,7 +241,7 @@ export function AdminFeaturedCreatorsBoard() {
   if (isError) {
     return (
       <div className="glass-panel rounded-2xl border border-border/10 bg-card/10 py-20 text-center text-sm text-muted-foreground">
-        We could not load the featured creators right now.{" "}
+        We could not load the creators right now.{" "}
         <button
           type="button"
           onClick={() => void refetch()}
@@ -215,8 +256,8 @@ export function AdminFeaturedCreatorsBoard() {
   if (creators.length === 0) {
     return (
       <div className="glass-panel rounded-2xl border border-border/10 bg-card/10 py-20 text-center text-sm text-muted-foreground">
-        No featured creators yet. Feature someone from the Listed tab and they
-        will show up here, at the end of the order.
+        No listed creators yet. Once a creator is listed they appear here, and
+        you can drag them into the order brands see.
       </div>
     );
   }
@@ -225,8 +266,8 @@ export function AdminFeaturedCreatorsBoard() {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <p className="text-xs text-muted-foreground">
-          Drag a card to move it. The order here is exactly what brands and
-          agencies see at the top of Browse creators.
+          Every listed creator, in the order brands and agencies see them on
+          Browse creators. Drag a card to move it — the new order saves itself.
         </p>
         {isSaving ? (
           <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
@@ -239,9 +280,11 @@ export function AdminFeaturedCreatorsBoard() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
+        onDragStart={(event: DragStartEvent) =>
+          setActiveId(String(event.active.id))
+        }
         onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
+        onDragCancel={() => setActiveId(null)}
       >
         <SortableContext
           items={creators.map((creator) => creator.id)}
@@ -249,7 +292,7 @@ export function AdminFeaturedCreatorsBoard() {
         >
           <div className="reelgrid browse-redesign-scope">
             {creators.map((creator, index) => (
-              <SortableFeaturedCard
+              <SortableBoardCard
                 key={creator.id}
                 creator={creator}
                 position={index + 1}
@@ -262,7 +305,7 @@ export function AdminFeaturedCreatorsBoard() {
         <DragOverlay>
           {activeCreator ? (
             <div className="browse-redesign-scope w-full cursor-grabbing">
-              <FeaturedCardShell
+              <BoardCard
                 creator={activeCreator}
                 position={activePosition}
                 onOpen={() => {}}
@@ -272,6 +315,26 @@ export function AdminFeaturedCreatorsBoard() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <div
+        ref={sentinelRef}
+        className="flex min-h-12 items-center justify-center pt-2"
+      >
+        {isFetchingNextPage ? (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="size-3.5 animate-spin" />
+            Loading more…
+          </span>
+        ) : hasNextPage ? (
+          <Button variant="ghost" size="sm" onClick={loadMore}>
+            Load more ({creators.length} of {total})
+          </Button>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            All {creators.length} listed creators
+          </span>
+        )}
+      </div>
     </div>
   );
 }

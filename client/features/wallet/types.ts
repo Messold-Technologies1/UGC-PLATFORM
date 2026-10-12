@@ -29,6 +29,12 @@ export interface WalletBalance {
   availablePaise: number;
   /** Withdrawable now (balance - held - reward), in paise. */
   refundablePaise: number;
+  /**
+   * Every rupee of genuine credit ever received, across the whole ledger.
+   * Server-computed: the client only ever holds the most recent transactions,
+   * so it cannot add this up itself without quietly meaning "recently".
+   */
+  lifetimeCreditedPaise: number;
   currency: string;
   /** Alias of heldPaise, kept for existing callers. */
   pendingWithdrawalPaise: number;

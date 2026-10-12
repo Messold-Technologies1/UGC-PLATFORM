@@ -120,19 +120,36 @@ class FakePrisma {
       );
       return row ? { ...row } : null;
     },
-    aggregate: async ({ where }: any) => {
+    aggregate: async ({ where, _sum }: any) => {
+      const walletIds = where.wallet
+        ? [...this.wallets.values()]
+            .filter(
+              (w) =>
+                (where.wallet.brandId === undefined ||
+                  w.brandId === where.wallet.brandId) &&
+                (where.wallet.agencyId === undefined ||
+                  w.agencyId === where.wallet.agencyId),
+            )
+            .map((w) => w.id)
+        : null;
       const rows = this.txns.filter(
         (t) =>
           (where.walletId === undefined || t.walletId === where.walletId) &&
+          (walletIds === null || walletIds.includes(t.walletId)) &&
           (where.orderId === undefined || t.orderId === where.orderId) &&
           // Honour the type filter: ignoring it once hid a real bug, where the
           // reward an order EARNED cancelled out the promo it SPENT.
           (where.type?.notIn === undefined ||
-            !where.type.notIn.includes(t.type)),
+            !where.type.notIn.includes(t.type)) &&
+          (where.amountPaise?.gt === undefined ||
+            t.amountPaise > where.amountPaise.gt),
       );
+      const sum = (field: string) =>
+        rows.reduce((total, t) => total + (t[field] ?? 0), 0);
       return {
         _sum: {
-          promoPaise: rows.reduce((sum, t) => sum + (t.promoPaise ?? 0), 0),
+          promoPaise: sum('promoPaise'),
+          ...(_sum?.amountPaise ? { amountPaise: sum('amountPaise') } : {}),
         },
       };
     },
@@ -365,6 +382,75 @@ describe('WalletService', () => {
           processedByUserId: 'admin-1',
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('lifetimeCreditedPaise', () => {
+    it('counts every kind of genuine credit, including new ones', async () => {
+      // This replaced a per-type allow-list on the client that had to be
+      // extended by hand and was not when the welcome reward shipped, so the
+      // figure under-reported by exactly the missing type.
+      await service.creditSignupWelcome({ brandId, amountPaise: 10000 });
+      await service.creditOrderCompletion({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 5000,
+      });
+      await service.credit({
+        brandId,
+        amountPaise: 20000,
+        type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
+      });
+      await service.adminAdjust({
+        brandId,
+        amountPaise: 1000,
+        reason: 'goodwill',
+        adminUserId: 'admin-1',
+      });
+
+      expect((await bal()).lifetimeCreditedPaise).toBe(36000);
+    });
+
+    it('does not count money handed back, which was never new', async () => {
+      await service.credit({
+        brandId,
+        amountPaise: 20000,
+        type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
+      });
+      await service.reserveForCheckout({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 8000,
+      });
+      // The reversal returns the brand's own money; it is not income.
+      await service.releaseCheckoutReservation({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 8000,
+      });
+
+      expect((await bal()).lifetimeCreditedPaise).toBe(20000);
+    });
+
+    it('is not reduced by spending', async () => {
+      await service.credit({
+        brandId,
+        amountPaise: 20000,
+        type: WalletTransactionType.ORDER_CANCELLATION_CREDIT,
+      });
+      await service.reserveForCheckout({
+        brandId,
+        orderId: 'order-1',
+        amountPaise: 15000,
+      });
+
+      const b = await bal();
+      expect(b.balancePaise).toBe(5000);
+      expect(b.lifetimeCreditedPaise).toBe(20000);
+    });
+
+    it('is zero for a buyer that has never held credit', async () => {
+      expect((await bal()).lifetimeCreditedPaise).toBe(0);
     });
   });
 

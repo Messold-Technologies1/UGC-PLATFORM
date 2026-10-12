@@ -78,6 +78,11 @@ export class WalletBalanceDto {
     description: 'Withdrawable now (balance - held - reward), in paise.',
   })
   refundablePaise!: number;
+  @ApiProperty({
+    description:
+      'Every rupee of genuine credit ever received, across the whole ledger. Excludes money handed back (checkout reversals, released withdrawal holds).',
+  })
+  lifetimeCreditedPaise!: number;
   @ApiProperty() currency!: string;
   @ApiProperty({
     description: 'Alias of heldPaise, kept for existing callers.',

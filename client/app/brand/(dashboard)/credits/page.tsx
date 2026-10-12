@@ -164,16 +164,12 @@ export default function BrandCreditsPage() {
   const refundablePaise = balance?.refundablePaise ?? 0;
   const refundableRupees = Math.floor(refundablePaise / 100);
 
-  // Genuine credit received all-time — cancellation credits, completion rewards
-  // and admin top-ups (not withdrawal releases or checkout reversals).
-  const lifetimeCreditedPaise = transactions
-    .filter(
-      (t) =>
-        t.type === "ORDER_CANCELLATION_CREDIT" ||
-        t.type === "ORDER_COMPLETION_CREDIT" ||
-        t.type === "ADMIN_ADJUSTMENT_CREDIT",
-    )
-    .reduce((sum, t) => sum + t.amountPaise, 0);
+  // Genuine credit received all-time, counted by the server over the whole
+  // ledger. It used to be summed here from the transactions in hand, which was
+  // wrong twice over: the list is only the most recent rows, and the per-type
+  // allow-list had to be extended for every new credit type — the welcome
+  // reward was missed and the figure silently under-reported.
+  const lifetimeCreditedPaise = balance?.lifetimeCreditedPaise ?? 0;
 
   const filteredTx = transactions.filter((t) =>
     inPeriod(t.createdAt, txPeriod),

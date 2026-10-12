@@ -97,6 +97,20 @@ export type WalletMovementMeta = {
 };
 
 /** Reward credit is non-withdrawable, so it always enters the promo bucket. */
+/**
+ * Credits that are NOT new money — a brand getting back what it already had.
+ * Everything else positive counts towards "credited all-time".
+ *
+ * Deliberately a deny-list. The allow-list this replaced had to be extended by
+ * hand for every new credit type, and the first time one was added it was
+ * forgotten, so the figure silently under-reported. A new type now counts
+ * unless someone states otherwise.
+ */
+const NOT_NEW_CREDIT_TYPES: ReadonlySet<WalletTransactionType> = new Set([
+  WalletTransactionType.CHECKOUT_REVERSAL_CREDIT,
+  WalletTransactionType.WITHDRAWAL_REVERSAL_CREDIT,
+]);
+
 const ALWAYS_PROMO_TYPES: ReadonlySet<WalletTransactionType> = new Set([
   WalletTransactionType.ORDER_COMPLETION_CREDIT,
   WalletTransactionType.SIGNUP_WELCOME_CREDIT,
@@ -111,6 +125,12 @@ export type WalletBalance = {
   promoPaise: number;
   /** Spendable now (balancePaise - heldPaise). Reward credit included. */
   availablePaise: number;
+  /**
+   * Every rupee of genuine credit this buyer has ever received, over the WHOLE
+   * ledger — not a page of it, and net of nothing. Excludes money handed back
+   * (checkout reversals, released withdrawal holds), which was never new.
+   */
+  lifetimeCreditedPaise: number;
   /** Withdrawable now (balancePaise - heldPaise - promoPaise). */
   refundablePaise: number;
   currency: string;
@@ -630,11 +650,25 @@ export class WalletService {
     const balancePaise = wallet?.balancePaise ?? 0;
     const heldPaise = wallet?.heldPaise ?? 0;
     const promoPaise = wallet?.promoPaise ?? 0;
+    // Aggregated here rather than summed from a page of transactions on the
+    // client: "all-time" has to mean all time, and the client only ever holds
+    // the most recent rows.
+    const lifetime = wallet
+      ? await this.prisma.walletTransaction.aggregate({
+          where: {
+            wallet: creditOwnerWhere(normalized),
+            amountPaise: { gt: 0 },
+            type: { notIn: [...NOT_NEW_CREDIT_TYPES] },
+          },
+          _sum: { amountPaise: true },
+        })
+      : null;
     return {
       balancePaise,
       heldPaise,
       promoPaise,
       availablePaise: balancePaise - heldPaise,
+      lifetimeCreditedPaise: lifetime?._sum.amountPaise ?? 0,
       refundablePaise: Math.max(0, balancePaise - heldPaise - promoPaise),
       currency: wallet?.currency ?? 'INR',
       pendingWithdrawalPaise: heldPaise,

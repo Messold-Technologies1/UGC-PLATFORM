@@ -4,8 +4,8 @@ import { CreatorFacetDimension, PrismaClient } from '@prisma/client';
  * Retires creator-proposed facet options that should never have entered the
  * catalog, moving every creator holding one onto a real option.
  *
- * Same shape as {@link ./remove-face-creator-type.ts}, which did this once for
- * "Face Creator"; the list below is what is left:
+ * Same shape as {@link ../../prisma/remove-face-creator-type.ts}, which did
+ * this once for "Face Creator"; the list below is what is left:
  *
  *   1. APPEARANCE "Vaishnavi (Midsize) Manish (Athletic)" — a creator's note
  *      about two people, accepted as a body type by the "Other" resolver and
@@ -28,9 +28,21 @@ import { CreatorFacetDimension, PrismaClient } from '@prisma/client';
  *   - Idempotent: a second run finds no options and exits cleanly.
  *   - Each retirement is applied in its own transaction.
  *
- * Usage:
- *   npm run prisma:cleanup:facet-options               # dry run
- *   FACET_CLEANUP_APPLY=true npm run prisma:cleanup:facet-options
+ * Usage (from server/, in the deployed container):
+ *   npm run cleanup:facet-options                      # dry run
+ *   FACET_CLEANUP_APPLY=true npm run cleanup:facet-options
+ *
+ * Or in dev, without a build:
+ *   node -r ts-node/register/transpile-only src/scripts/cleanup-facet-options.ts
+ *
+ * It lives here rather than in prisma/ so it runs from `dist` with plain node,
+ * the way the backfill scripts do. A prisma/ script goes through `ts-node`, a
+ * devDependency that a production install prunes, so in a deployed container it
+ * fails before it starts with:
+ *
+ *     Error: Cannot find module 'ts-node/register/transpile-only'
+ *
+ * (The same move {@link ./import-notification-templates.ts} documents.)
  */
 
 const prisma = new PrismaClient();

@@ -2,14 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Banknote,
   MapPin,
   Pencil,
   Play,
   SendHorizontal,
-  Sparkles,
   Instagram,
   UserX,
   Video,
@@ -25,10 +24,8 @@ import {
 import { formatFollowers } from "@/features/admin/lib/format-followers";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
-import { useFeatureCreatorMutation } from "@/features/admin/hooks/use-feature-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { useSendCreatorForReviewMutation } from "@/features/admin/hooks/use-send-creator-for-review-mutation";
-import { useUnfeatureCreatorMutation } from "@/features/admin/hooks/use-unfeature-creator-mutation";
 import { RejectDialog } from "@/components/admin/RejectDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -319,11 +316,6 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
           Listed
         </Badge>
       ) : null}
-      {creator.isFeatured ? (
-        <Badge className="border-amber-500/20 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20">
-          Featured{creator.featureRank != null ? ` #${creator.featureRank}` : ""}
-        </Badge>
-      ) : null}
       <span className="shrink-0 rounded-md border border-primary/20 bg-primary-container/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
         {primaryCategory}
       </span>
@@ -396,14 +388,9 @@ export function AdminCreatorListRow({
     useRejectCreatorMutation();
   const { mutate: sendForReview, isPending: isSendingForReview } =
     useSendCreatorForReviewMutation();
-  const { mutate: featureCreator, isPending: isFeaturing } =
-    useFeatureCreatorMutation();
-  const { mutate: unfeatureCreator, isPending: isUnfeaturing } =
-    useUnfeatureCreatorMutation();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const portfolioAssets = toCarouselAssets(creator.portfolioVideos);
-  const [rank, setRank] = useState(String(creator.featureRank ?? 0));
 
   const isPending = creator.approvalStatus === "PENDING";
   const isRejected = creator.approvalStatus === "REJECTED";
@@ -412,23 +399,12 @@ export function AdminCreatorListRow({
   const isIncompleteSegment = segment === "incomplete";
   const isSelfCompletedSegment = segment === "self_completed";
   const isListedSegment = segment === "listed";
-  const isFeaturedSegment = segment === "featured";
-  const showFeatureControls = isListedSegment || isFeaturedSegment;
   const profileFirst = isProfileFirstOnboardingMode();
   const isAwaitingReviewSegment = segment === "pending";
   const canModeratePending =
     isPending && (!profileFirst || creator.completeProfile);
-  const isWorking =
-    isApproving ||
-    isRejecting ||
-    isSendingForReview ||
-    isFeaturing ||
-    isUnfeaturing;
+  const isWorking = isApproving || isRejecting || isSendingForReview;
   const dateColumn = getRowDateColumn(creator, segment);
-
-  useEffect(() => {
-    setRank(String(creator.featureRank ?? 0));
-  }, [creator.id, creator.featureRank]);
 
   const handleApprove = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -448,21 +424,6 @@ export function AdminCreatorListRow({
   const handleSendForReviewClick = (event: React.MouseEvent) => {
     event.stopPropagation();
     sendForReview(creator.id);
-  };
-
-  const handleFeatureClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    const parsed = Number.parseInt(rank.trim(), 10);
-    featureCreator({
-      id: creator.id,
-      rank: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0,
-      featuredUntil: null,
-    });
-  };
-
-  const handleUnfeatureClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    unfeatureCreator(creator.id);
   };
 
   return (
@@ -543,51 +504,6 @@ export function AdminCreatorListRow({
                 <span className="truncate" title={creator.approvedByName ?? undefined}>
                   {creator.approvedByName ?? "—"}
                 </span>
-              </RowMetric>
-            ) : null}
-
-            {showFeatureControls ? (
-              <RowMetric label="Featured Rank" className="min-w-[140px]">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={rank}
-                    onChange={(e) => setRank(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-9 w-20 rounded-lg border border-border bg-background px-2 text-sm font-semibold"
-                  />
-                  {creator.isFeatured ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleFeatureClick}
-                        disabled={isWorking}
-                        className="inline-flex h-9 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 text-xs font-bold text-primary"
-                      >
-                        Update
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleUnfeatureClick}
-                        disabled={isWorking}
-                        className="inline-flex h-9 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 text-xs font-bold text-amber-700"
-                      >
-                        Unfeature
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleFeatureClick}
-                      disabled={isWorking}
-                      className="inline-flex h-9 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 text-xs font-bold text-primary"
-                    >
-                      <Sparkles className="size-3" />
-                      Feature
-                    </button>
-                  )}
-                </div>
               </RowMetric>
             ) : null}
 

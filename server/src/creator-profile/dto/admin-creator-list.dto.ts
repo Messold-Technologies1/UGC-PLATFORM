@@ -1,18 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
 import { ApprovalStatus, CreatorGender } from '@prisma/client';
 import { CreatorPortfolioVideoPreviewResponseDto } from './creator-profile-response.dto';
+import { CreatorPublicListItemDto } from './creator-public-list-item.dto';
 import { PendingCreatorContentCategoryDto } from './pending-creator-approval-list-item.dto';
 
 export enum AdminCreatorListSegment {
@@ -224,25 +227,6 @@ export class AdminCreatorsListResponseDto {
   limit!: number;
 }
 
-export class AdminFeatureCreatorDto {
-  @ApiPropertyOptional({ example: 1, description: 'Lower rank appears first' })
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(1_000_000)
-  rank: number = 0;
-
-  @ApiPropertyOptional({
-    example: '2026-08-01T00:00:00.000Z',
-    nullable: true,
-    description:
-      'Optional expiry. Null/omitted means featured until manually removed.',
-  })
-  @IsOptional()
-  @IsDateString()
-  featuredUntil?: string | null;
-}
-
 export class AdminFirstOrderFreeDto {
   @ApiProperty({
     example: true,
@@ -282,4 +266,68 @@ export class AdminCreatorSegmentCountsDto {
 
   @ApiProperty({ example: 5 })
   featured!: number;
+}
+
+/**
+ * What the admin board sends after a drag: the run of creators from the very
+ * first card through the furthest one the move touched, in their new order.
+ * Only that leading run needs saving — everything past it still falls back to
+ * the default newest-first ordering, which is what keeps a freshly listed
+ * creator surfacing near the top instead of behind every arranged card.
+ */
+export class AdminSaveBrowseOrderDto {
+  @ApiProperty({
+    type: [String],
+    example: ['uuid-first', 'uuid-second'],
+    description:
+      'Listed creator ids, starting at the first card on the board, in the ' +
+      'order brands should see them. Each id at most once; every id must be ' +
+      'a listed creator.',
+  })
+  @IsArray()
+  @ArrayMaxSize(2000)
+  @IsUUID('4', { each: true })
+  creatorIds!: string[];
+}
+
+export class AdminBrowseOrderQueryDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+}
+
+/**
+ * A browse card as the admin board needs it: everything a brand's card
+ * carries, plus the creator's real name. The public card deliberately shows
+ * brands the opaque public slug in its `name`, which leaves an admin looking
+ * at a wall of identifiers with no way to tell one creator from another.
+ */
+export class AdminBrowseOrderCreatorDto extends CreatorPublicListItemDto {
+  @ApiProperty({ example: 'Jane Doe', description: "The creator's real name" })
+  displayName!: string;
+}
+
+export class AdminBrowseOrderListResponseDto {
+  @ApiProperty({ type: () => [AdminBrowseOrderCreatorDto] })
+  items!: AdminBrowseOrderCreatorDto[];
+
+  @ApiProperty({ example: 547 })
+  total!: number;
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 50 })
+  limit!: number;
 }

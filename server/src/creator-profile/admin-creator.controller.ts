@@ -1,5 +1,4 @@
 import {
-  Delete,
   Body,
   Controller,
   Get,
@@ -15,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiProduces,
@@ -34,9 +34,11 @@ import {
   RejectCreatorProfileDto,
 } from './dto/admin-creator-approval.dto';
 import {
+  AdminBrowseOrderListResponseDto,
+  AdminBrowseOrderQueryDto,
   AdminCreatorListItemDto,
-  AdminFeatureCreatorDto,
   AdminFirstOrderFreeDto,
+  AdminSaveBrowseOrderDto,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
   AdminCreatorSegmentCountsDto,
@@ -176,6 +178,36 @@ export class AdminCreatorController {
     return this.creatorProfileService.listRejectedCreatorApprovals(query);
   }
 
+  @Get('browse-order')
+  @ApiOperation({
+    summary:
+      'Browse-board cards: the public listing, page for page, plus each ' +
+      "creator's real name",
+  })
+  @ApiOkResponse({ type: AdminBrowseOrderListResponseDto })
+  async listCreatorsForBrowseOrderBoard(
+    @Query() query: AdminBrowseOrderQueryDto,
+  ): Promise<AdminBrowseOrderListResponseDto> {
+    return this.creatorProfileService.listCreatorsForBrowseOrderBoard(query);
+  }
+
+  @Patch('browse-order')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Save the order the admin dragged the browse board into (index = position)',
+  })
+  @ApiNoContentResponse({ description: 'Order saved' })
+  async saveCreatorBrowseOrder(
+    @Body() dto: AdminSaveBrowseOrderDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<void> {
+    await this.creatorProfileService.saveCreatorBrowseOrder(
+      req.user.id,
+      dto.creatorIds,
+    );
+  }
+
   @Patch(':id/approve')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Approve a creator profile' })
@@ -235,33 +267,6 @@ export class AdminCreatorController {
       req.user.id,
       id,
     );
-  }
-
-  @Patch(':id/feature')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Feature a listed creator for discovery ordering' })
-  @ApiOkResponse({ type: AdminCreatorListItemDto })
-  async featureCreator(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: AdminFeatureCreatorDto,
-    @Req() req: Request & { user: { id: string } },
-  ): Promise<AdminCreatorListItemDto> {
-    return this.creatorProfileService.featureCreatorProfile(
-      req.user.id,
-      id,
-      dto,
-    );
-  }
-
-  @Delete(':id/feature')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Remove a creator from featured discovery ordering',
-  })
-  async unfeatureCreator(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<void> {
-    await this.creatorProfileService.unfeatureCreatorProfile(id);
   }
 
   @Patch(':id/first-order-free')

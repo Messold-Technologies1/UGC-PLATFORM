@@ -1,0 +1,8 @@
+/* Admin-only tweaks to the shared browse card, scoped to the ordering board. */
+
+/* The card's top row already fills both corners — the delivery chip on the
+   left, Online/Offline on the right. Reserve room on the right so the board's
+   position badge can own that corner without covering the availability chip. */
+.browse-order-board .rcard .reel .top {
+  padding-right: 32px;
+}

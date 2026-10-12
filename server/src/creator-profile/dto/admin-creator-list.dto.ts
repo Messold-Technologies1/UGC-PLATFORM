@@ -4,7 +4,6 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
@@ -16,7 +15,6 @@ import {
 } from 'class-validator';
 import { ApprovalStatus, CreatorGender } from '@prisma/client';
 import { CreatorPortfolioVideoPreviewResponseDto } from './creator-profile-response.dto';
-import { CreatorPublicListItemDto } from './creator-public-list-item.dto';
 import { PendingCreatorContentCategoryDto } from './pending-creator-approval-list-item.dto';
 
 export enum AdminCreatorListSegment {
@@ -228,32 +226,6 @@ export class AdminCreatorsListResponseDto {
   limit!: number;
 }
 
-export class AdminFeatureCreatorDto {
-  @ApiPropertyOptional({
-    example: 1,
-    description:
-      'Lower rank appears first. Omit it to append the creator to the end of ' +
-      'the featured order (the drag-and-drop board owns the ordering); an ' +
-      'already-featured creator keeps its current place.',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(1_000_000)
-  rank?: number;
-
-  @ApiPropertyOptional({
-    example: '2026-08-01T00:00:00.000Z',
-    nullable: true,
-    description:
-      'Optional expiry. Null/omitted means featured until manually removed.',
-  })
-  @IsOptional()
-  @IsDateString()
-  featuredUntil?: string | null;
-}
-
 export class AdminFirstOrderFreeDto {
   @ApiProperty({
     example: true,
@@ -296,28 +268,23 @@ export class AdminCreatorSegmentCountsDto {
 }
 
 /**
- * The featured order as the admin board sends it back after a drag: every
- * featured creator id, in the exact order brands and agencies should see them.
+ * What the admin board sends after a drag: the run of creators from the very
+ * first card through the furthest one the move touched, in their new order.
+ * Only that leading run needs saving — everything past it still falls back to
+ * the default newest-first ordering, which is what keeps a freshly listed
+ * creator surfacing near the top instead of behind every arranged card.
  */
-export class AdminReorderFeaturedCreatorsDto {
+export class AdminSaveBrowseOrderDto {
   @ApiProperty({
     type: [String],
     example: ['uuid-first', 'uuid-second'],
     description:
-      'Featured creator ids in display order — index 0 is shown first. Must ' +
-      'contain each id at most once, and every id must already be featured.',
+      'Listed creator ids, starting at the first card on the board, in the ' +
+      'order brands should see them. Each id at most once; every id must be ' +
+      'a listed creator.',
   })
   @IsArray()
-  @ArrayMaxSize(500)
+  @ArrayMaxSize(2000)
   @IsUUID('4', { each: true })
   creatorIds!: string[];
-}
-
-/**
- * Featured creators rendered as the same discovery cards brands see, in
- * featured order. Used by the admin drag-and-drop board.
- */
-export class AdminFeaturedCreatorsBoardDto {
-  @ApiProperty({ type: [CreatorPublicListItemDto] })
-  items!: CreatorPublicListItemDto[];
 }

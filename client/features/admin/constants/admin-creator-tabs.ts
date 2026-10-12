@@ -90,9 +90,11 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
   {
     value: "featured",
     label: "Featured",
-    description: "Creators pinned to the top of browse results, ordered by rank.",
+    description:
+      "Every listed creator as a browse card — drag them into the order brands and agencies see.",
     icon: Sparkles,
-    countKey: "featured",
+    // The board holds every listed creator, so its badge is the listed count.
+    countKey: "listed",
     badgeClassName: "bg-amber-100 text-amber-700",
   },
 ];
@@ -171,9 +173,11 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
   {
     value: "featured",
     label: "Featured",
-    description: "Creators pinned to the top of browse results, ordered by rank.",
+    description:
+      "Every listed creator as a browse card — drag them into the order brands and agencies see.",
     icon: Sparkles,
-    countKey: "featured",
+    // The board holds every listed creator, so its badge is the listed count.
+    countKey: "listed",
     badgeClassName: "bg-amber-100 text-amber-700",
   },
 ];
@@ -239,7 +243,7 @@ export function getAdminCreatorEmptyMessage(
     case "listed_incomplete":
       return "Every listed creator has a complete profile — nothing to chase.";
     case "featured":
-      return "No featured creators yet. Feature a listed creator to pin them to the top of browse results.";
+      return "No listed creators yet. Once a creator is listed they appear on the board, ready to be dragged into order.";
     default:
       return "No creators found.";
   }

@@ -222,10 +222,7 @@ export const ENDPOINTS = {
         `/api/admin/creators/${encodeURIComponent(id)}/reject`,
       SEND_FOR_REVIEW: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/send-for-review`,
-      FEATURE: (id: string) =>
-        `/api/admin/creators/${encodeURIComponent(id)}/feature`,
-      FEATURED_CARDS: "/api/admin/creators/featured/cards",
-      FEATURED_ORDER: "/api/admin/creators/featured/order",
+      BROWSE_ORDER: "/api/admin/creators/browse-order",
       FIRST_ORDER_FREE: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/first-order-free`,
       FIRST_ORDER_FREE_LIST: "/api/admin/creators/first-order-free",

@@ -5,7 +5,6 @@ import type {
   OrderListSummary,
 } from "@/features/orders/api/types";
 import type { BrandCategoryApi } from "@/features/brands/api/brand-category-types";
-import type { CreatorPublicListItemApi } from "@/features/creators/api/types";
 
 export type ApprovalStatus =
   | "PENDING"
@@ -282,20 +281,6 @@ export interface FirstOrderFreeCreatorsQuery {
   page?: number;
   limit?: number;
   search?: string;
-}
-
-export interface AdminFeatureCreatorDto {
-  /**
-   * Omit it to append the creator to the end of the featured board — the
-   * drag-and-drop board owns the ordering, so featuring must not reshuffle it.
-   */
-  rank?: number;
-  featuredUntil?: string | null;
-}
-
-/** Featured creators as the discovery cards brands see, in featured order. */
-export interface AdminFeaturedCreatorsBoardDto {
-  items: CreatorPublicListItemApi[];
 }
 
 export interface RejectedCreatorApprovalListItemDto extends PendingCreatorApprovalListItemDto {

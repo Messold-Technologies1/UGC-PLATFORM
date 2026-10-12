@@ -9,7 +9,6 @@ import {
   Pencil,
   Play,
   SendHorizontal,
-  Sparkles,
   Instagram,
   UserX,
   Video,
@@ -25,10 +24,8 @@ import {
 import { formatFollowers } from "@/features/admin/lib/format-followers";
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 import { useApproveCreatorMutation } from "@/features/admin/hooks/use-approve-creator-mutation";
-import { useFeatureCreatorMutation } from "@/features/admin/hooks/use-feature-creator-mutation";
 import { useRejectCreatorMutation } from "@/features/admin/hooks/use-reject-creator-mutation";
 import { useSendCreatorForReviewMutation } from "@/features/admin/hooks/use-send-creator-for-review-mutation";
-import { useUnfeatureCreatorMutation } from "@/features/admin/hooks/use-unfeature-creator-mutation";
 import { RejectDialog } from "@/components/admin/RejectDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -319,11 +316,6 @@ function StatusBadges({ creator }: { creator: AdminCreatorListItemDto }) {
           Listed
         </Badge>
       ) : null}
-      {creator.isFeatured ? (
-        <Badge className="border-amber-500/20 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20">
-          Featured
-        </Badge>
-      ) : null}
       <span className="shrink-0 rounded-md border border-primary/20 bg-primary-container/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
         {primaryCategory}
       </span>
@@ -396,10 +388,6 @@ export function AdminCreatorListRow({
     useRejectCreatorMutation();
   const { mutate: sendForReview, isPending: isSendingForReview } =
     useSendCreatorForReviewMutation();
-  const { mutate: featureCreator, isPending: isFeaturing } =
-    useFeatureCreatorMutation();
-  const { mutate: unfeatureCreator, isPending: isUnfeaturing } =
-    useUnfeatureCreatorMutation();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const portfolioAssets = toCarouselAssets(creator.portfolioVideos);
@@ -411,20 +399,11 @@ export function AdminCreatorListRow({
   const isIncompleteSegment = segment === "incomplete";
   const isSelfCompletedSegment = segment === "self_completed";
   const isListedSegment = segment === "listed";
-  // Featured ordering lives on the drag-and-drop board, so the only feature
-  // control left on a row is putting a listed creator on the board (at the
-  // end of it) or taking them off again.
-  const showFeatureControls = isListedSegment;
   const profileFirst = isProfileFirstOnboardingMode();
   const isAwaitingReviewSegment = segment === "pending";
   const canModeratePending =
     isPending && (!profileFirst || creator.completeProfile);
-  const isWorking =
-    isApproving ||
-    isRejecting ||
-    isSendingForReview ||
-    isFeaturing ||
-    isUnfeaturing;
+  const isWorking = isApproving || isRejecting || isSendingForReview;
   const dateColumn = getRowDateColumn(creator, segment);
 
   const handleApprove = (event: React.MouseEvent) => {
@@ -445,18 +424,6 @@ export function AdminCreatorListRow({
   const handleSendForReviewClick = (event: React.MouseEvent) => {
     event.stopPropagation();
     sendForReview(creator.id);
-  };
-
-  const handleFeatureClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    // No rank: the server appends the creator to the end of the featured
-    // board, leaving the order the admin dragged untouched.
-    featureCreator({ id: creator.id, featuredUntil: null });
-  };
-
-  const handleUnfeatureClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    unfeatureCreator(creator.id);
   };
 
   return (
@@ -537,32 +504,6 @@ export function AdminCreatorListRow({
                 <span className="truncate" title={creator.approvedByName ?? undefined}>
                   {creator.approvedByName ?? "—"}
                 </span>
-              </RowMetric>
-            ) : null}
-
-            {showFeatureControls ? (
-              <RowMetric label="Featured" className="min-w-[120px]">
-                {creator.isFeatured ? (
-                  <button
-                    type="button"
-                    onClick={handleUnfeatureClick}
-                    disabled={isWorking}
-                    className="inline-flex h-9 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 text-xs font-bold text-amber-700"
-                  >
-                    Unfeature
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleFeatureClick}
-                    disabled={isWorking}
-                    className="inline-flex h-9 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 text-xs font-bold text-primary"
-                    title="Adds the creator to the end of the Featured board"
-                  >
-                    <Sparkles className="size-3" />
-                    Feature
-                  </button>
-                )}
               </RowMetric>
             ) : null}
 

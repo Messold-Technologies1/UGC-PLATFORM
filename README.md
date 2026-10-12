@@ -178,7 +178,9 @@ RAZORPAY_WEBHOOK_SECRET=
 # and all four are read at runtime: change them and restart, no deploy needed.
 ORDER_COMPLETION_CREDIT_ENABLED=false   # 'true' rewards a completed order
 ORDER_COMPLETION_CREDIT_PAISE=5000      # 5000 paise = ₹50
-BRAND_SIGNUP_CREDIT_ENABLED=false       # 'true' rewards a brand for registering
+# The signup reward covers BOTH brand and agency registration — one switch, one
+# amount, no agency-specific variable.
+BRAND_SIGNUP_CREDIT_ENABLED=false       # 'true' rewards a new brand or agency
 BRAND_SIGNUP_CREDIT_PAISE=10000         # 10000 paise = ₹100
 
 SWAGGER_ENABLED=true

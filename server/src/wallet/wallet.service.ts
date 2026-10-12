@@ -80,7 +80,7 @@ const CREDIT_TYPES: ReadonlySet<WalletTransactionType> = new Set([
   WalletTransactionType.WITHDRAWAL_REVERSAL_CREDIT,
   WalletTransactionType.ADMIN_ADJUSTMENT_CREDIT,
   WalletTransactionType.ORDER_COMPLETION_CREDIT,
-  WalletTransactionType.BRAND_SIGNUP_CREDIT,
+  WalletTransactionType.SIGNUP_WELCOME_CREDIT,
 ]);
 
 const DEBIT_TYPES: ReadonlySet<WalletTransactionType> = new Set([
@@ -99,7 +99,7 @@ export type WalletMovementMeta = {
 /** Reward credit is non-withdrawable, so it always enters the promo bucket. */
 const ALWAYS_PROMO_TYPES: ReadonlySet<WalletTransactionType> = new Set([
   WalletTransactionType.ORDER_COMPLETION_CREDIT,
-  WalletTransactionType.BRAND_SIGNUP_CREDIT,
+  WalletTransactionType.SIGNUP_WELCOME_CREDIT,
 ]);
 
 export type WalletBalance = {
@@ -510,14 +510,16 @@ export class WalletService {
   }
 
   /**
-   * Welcome the brand with non-withdrawable credit for registering. One per
-   * brand — a partial unique index on the ledger makes a second impossible, so
-   * a retried or raced registration cannot pay twice. Callers check first, so
-   * the common case never relies on the error.
+   * Welcome a newly registered buyer — brand or agency — with non-withdrawable
+   * credit. One per wallet, and a wallet belongs to exactly one of the two, so
+   * a partial unique index on the ledger makes a second impossible however the
+   * registration is retried or raced. Callers check first, so the common case
+   * never relies on the error.
    */
-  async creditBrandSignup(
+  async creditSignupWelcome(
     params: {
-      brandId: string;
+      brandId?: string | null;
+      agencyId?: string | null;
       amountPaise: number;
       reason?: string | null;
     },
@@ -526,24 +528,26 @@ export class WalletService {
     return this.credit(
       {
         brandId: params.brandId,
+        agencyId: params.agencyId,
         amountPaise: params.amountPaise,
-        type: WalletTransactionType.BRAND_SIGNUP_CREDIT,
+        type: WalletTransactionType.SIGNUP_WELCOME_CREDIT,
         reason: params.reason ?? null,
       },
       tx,
     );
   }
 
-  /** Has this brand already had its welcome reward? Keeps the award idempotent. */
-  async hasBrandSignupCredit(
-    brandId: string,
+  /** Has this buyer already had its welcome reward? Keeps the award idempotent. */
+  async hasSignupWelcomeCredit(
+    owner: CreditOwner,
     tx?: Prisma.TransactionClient,
   ): Promise<boolean> {
+    const normalized = normalizeCreditOwner(owner);
     const client = tx ?? this.prisma;
     const existing = await client.walletTransaction.findFirst({
       where: {
-        type: WalletTransactionType.BRAND_SIGNUP_CREDIT,
-        wallet: { brandId },
+        type: WalletTransactionType.SIGNUP_WELCOME_CREDIT,
+        wallet: creditOwnerWhere(normalized),
       },
       select: { id: true },
     });

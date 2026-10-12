@@ -38,7 +38,7 @@ import { BRAND_CATEGORY_OPTIONS } from './brand-category-options';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { ConfigService } from '@nestjs/config';
 import { WalletService } from '../wallet/wallet.service';
-import { resolveBrandSignupCreditPaise } from './brand-signup-credit.util';
+import { resolveSignupWelcomeCreditPaise } from '../wallet/signup-welcome-credit.util';
 
 const ONGOING_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.PENDING_PAYMENT,
@@ -69,8 +69,9 @@ export class BrandProfileService {
 
   /**
    * Grant the brand its welcome credit, when the feature is switched on. Amount
-   * and on/off switch come from the environment and are entirely separate from
-   * the order-completion reward, so either can change without the other.
+   * and on/off switch come from the environment, are entirely separate from the
+   * order-completion reward, and are shared with agency registration — one
+   * switch covers both buyer types.
    *
    * Runs inside the registration transaction: a brand cannot end up registered
    * without the credit, nor credited for a registration that rolled back.
@@ -81,14 +82,19 @@ export class BrandProfileService {
     tx: any,
     brandProfileId: string,
   ): Promise<void> {
-    const amountPaise = resolveBrandSignupCreditPaise({
+    const amountPaise = resolveSignupWelcomeCreditPaise({
       enabled: this.config.get<string>('BRAND_SIGNUP_CREDIT_ENABLED'),
-      amountPaise: this.config.get<string | number>('BRAND_SIGNUP_CREDIT_PAISE'),
+      amountPaise: this.config.get<string | number>(
+        'BRAND_SIGNUP_CREDIT_PAISE',
+      ),
     });
     if (amountPaise <= 0) return;
-    if (await this.wallet.hasBrandSignupCredit(brandProfileId, tx)) return;
+    if (
+      await this.wallet.hasSignupWelcomeCredit({ brandId: brandProfileId }, tx)
+    )
+      return;
 
-    await this.wallet.creditBrandSignup(
+    await this.wallet.creditSignupWelcome(
       {
         brandId: brandProfileId,
         amountPaise,

@@ -1,6 +1,8 @@
 /**
- * Brand signup welcome credit: how much (if anything) a brand earns for
- * finishing registration.
+ * Signup welcome credit: how much (if anything) a newly registered buyer earns.
+ * One rule for both buyer types — a brand and an agency are rewarded on
+ * identical terms from the same two settings, so switching it off switches it
+ * off for both.
  *
  * Pure and env-driven, like the order-completion reward it sits beside, so the
  * amount and the on/off switch are an environment change plus a restart — never
@@ -13,16 +15,18 @@
  * real money to anyone who registers an account.
  */
 
-export type BrandSignupCreditEnv = {
-  /** BRAND_SIGNUP_CREDIT_ENABLED: 'true' switches the welcome credit on. */
+export type SignupWelcomeCreditEnv = {
+  /** BRAND_SIGNUP_CREDIT_ENABLED: 'true' switches the welcome credit on, for
+   *  brands and agencies alike. The variable keeps its original name so an
+   *  operator that already set it does not silently lose the reward. */
   enabled: string | undefined;
   /** BRAND_SIGNUP_CREDIT_PAISE: welcome amount in paise (10000 = ₹100). */
   amountPaise: string | number | undefined;
 };
 
 /** The welcome credit due, in paise; 0 when none is due. */
-export function resolveBrandSignupCreditPaise(
-  env: BrandSignupCreditEnv,
+export function resolveSignupWelcomeCreditPaise(
+  env: SignupWelcomeCreditEnv,
 ): number {
   if (env.enabled?.trim() !== 'true') return 0;
 

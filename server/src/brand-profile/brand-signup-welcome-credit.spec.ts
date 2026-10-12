@@ -25,8 +25,8 @@ describe('BrandProfileService → brand signup welcome credit', () => {
       ),
     };
     const wallet = {
-      hasBrandSignupCredit: jest.fn().mockResolvedValue(false),
-      creditBrandSignup: jest.fn().mockResolvedValue({
+      hasSignupWelcomeCredit: jest.fn().mockResolvedValue(false),
+      creditSignupWelcome: jest.fn().mockResolvedValue({
         balanceAfterPaise: 10000,
         promoAfterPaise: 10000,
       }),
@@ -70,7 +70,7 @@ describe('BrandProfileService → brand signup welcome credit', () => {
 
     await register(service);
 
-    expect(wallet.creditBrandSignup).toHaveBeenCalledWith(
+    expect(wallet.creditSignupWelcome).toHaveBeenCalledWith(
       expect.objectContaining({ brandId: BRAND_ID, amountPaise: 10000 }),
       expect.anything(),
     );
@@ -82,7 +82,7 @@ describe('BrandProfileService → brand signup welcome credit', () => {
     await register(service);
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(wallet.creditBrandSignup).toHaveBeenCalledWith(
+    expect(wallet.creditSignupWelcome).toHaveBeenCalledWith(
       expect.anything(),
       tx,
     );
@@ -96,7 +96,7 @@ describe('BrandProfileService → brand signup welcome credit', () => {
 
     await register(service);
 
-    expect(wallet.creditBrandSignup).toHaveBeenCalledWith(
+    expect(wallet.creditSignupWelcome).toHaveBeenCalledWith(
       expect.objectContaining({ amountPaise: 25000 }),
       expect.anything(),
     );
@@ -109,7 +109,7 @@ describe('BrandProfileService → brand signup welcome credit', () => {
     });
 
     await expect(register(service)).resolves.toBeDefined();
-    expect(wallet.creditBrandSignup).not.toHaveBeenCalled();
+    expect(wallet.creditSignupWelcome).not.toHaveBeenCalled();
   });
 
   it('is independent of the order-completion reward being off', async () => {
@@ -121,21 +121,21 @@ describe('BrandProfileService → brand signup welcome credit', () => {
 
     await register(service);
 
-    expect(wallet.creditBrandSignup).toHaveBeenCalled();
+    expect(wallet.creditSignupWelcome).toHaveBeenCalled();
   });
 
   it('never credits the same brand twice', async () => {
     const { service, wallet } = makeService(enabled);
-    wallet.hasBrandSignupCredit.mockResolvedValue(true);
+    wallet.hasSignupWelcomeCredit.mockResolvedValue(true);
 
     await register(service);
 
-    expect(wallet.creditBrandSignup).not.toHaveBeenCalled();
+    expect(wallet.creditSignupWelcome).not.toHaveBeenCalled();
   });
 
   it('rolls the registration back when the credit fails', async () => {
     const { service, wallet } = makeService(enabled);
-    wallet.creditBrandSignup.mockRejectedValue(new Error('wallet down'));
+    wallet.creditSignupWelcome.mockRejectedValue(new Error('wallet down'));
 
     await expect(register(service)).rejects.toThrow('wallet down');
   });

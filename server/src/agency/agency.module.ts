@@ -1,12 +1,17 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { StorageModule } from '../storage/storage.module';
+import { WalletModule } from '../wallet/wallet.module';
 import { AdminAgencyController } from './admin-agency.controller';
 import { AgencyController } from './agency.controller';
 import { AgencyService } from './agency.service';
 
 @Module({
-  imports: [forwardRef(() => AuthGuardsModule), StorageModule],
+  imports: [
+    forwardRef(() => AuthGuardsModule),
+    StorageModule,
+    forwardRef(() => WalletModule),
+  ],
   controllers: [AgencyController, AdminAgencyController],
   providers: [AgencyService],
   exports: [AgencyService],

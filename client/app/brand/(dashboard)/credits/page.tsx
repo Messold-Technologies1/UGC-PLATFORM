@@ -75,7 +75,7 @@ function txnVisual(type: WalletTransactionType): {
       return { Icon: Gift, isCredit: true };
     case "ORDER_COMPLETION_CREDIT":
       return { Icon: Award, isCredit: true };
-    case "BRAND_SIGNUP_CREDIT":
+    case "SIGNUP_WELCOME_CREDIT":
       return { Icon: Sparkles, isCredit: true };
     case "CHECKOUT_REVERSAL_CREDIT":
     case "WITHDRAWAL_REVERSAL_CREDIT":

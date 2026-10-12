@@ -53,7 +53,12 @@ function build(opts: { existingAgency?: boolean; role?: boolean } = {}) {
     user: { update: jest.fn().mockResolvedValue({}) },
   };
 
-  const service = new AgencyService({} as never, {} as never);
+  const service = new AgencyService(
+    {} as never, // prisma
+    {} as never, // storage
+    {} as never, // wallet
+    { get: () => undefined } as never, // config
+  );
   return { service, tx, create };
 }
 

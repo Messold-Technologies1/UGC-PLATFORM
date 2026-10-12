@@ -13,6 +13,7 @@ import {
   Plus,
   RotateCcw,
   ShoppingBag,
+  Sparkles,
   Wallet,
 } from "lucide-react";
 
@@ -74,6 +75,8 @@ function txnVisual(type: WalletTransactionType): {
       return { Icon: Gift, isCredit: true };
     case "ORDER_COMPLETION_CREDIT":
       return { Icon: Award, isCredit: true };
+    case "SIGNUP_WELCOME_CREDIT":
+      return { Icon: Sparkles, isCredit: true };
     case "CHECKOUT_REVERSAL_CREDIT":
     case "WITHDRAWAL_REVERSAL_CREDIT":
       return { Icon: RotateCcw, isCredit: true };
@@ -161,16 +164,12 @@ export default function BrandCreditsPage() {
   const refundablePaise = balance?.refundablePaise ?? 0;
   const refundableRupees = Math.floor(refundablePaise / 100);
 
-  // Genuine credit received all-time — cancellation credits, completion rewards
-  // and admin top-ups (not withdrawal releases or checkout reversals).
-  const lifetimeCreditedPaise = transactions
-    .filter(
-      (t) =>
-        t.type === "ORDER_CANCELLATION_CREDIT" ||
-        t.type === "ORDER_COMPLETION_CREDIT" ||
-        t.type === "ADMIN_ADJUSTMENT_CREDIT",
-    )
-    .reduce((sum, t) => sum + t.amountPaise, 0);
+  // Genuine credit received all-time, counted by the server over the whole
+  // ledger. It used to be summed here from the transactions in hand, which was
+  // wrong twice over: the list is only the most recent rows, and the per-type
+  // allow-list had to be extended for every new credit type — the welcome
+  // reward was missed and the figure silently under-reported.
+  const lifetimeCreditedPaise = balance?.lifetimeCreditedPaise ?? 0;
 
   const filteredTx = transactions.filter((t) =>
     inPeriod(t.createdAt, txPeriod),
@@ -288,9 +287,9 @@ export default function BrandCreditsPage() {
           </div>
           {rewardPaise > 0 && (
             <p className="mb-4 rounded-2xl bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-              {inr(rewardPaise)} of your credits are reward credits earned on
-              completed orders. You can spend them on a new order, but they
-              cannot be refunded — so {inr(refundablePaise)} is refundable.
+              {inr(rewardPaise)} of your credits are reward credits. You can
+              spend them on a new order, but they cannot be refunded — so{" "}
+              {inr(refundablePaise)} is refundable.
             </p>
           )}
           <div className="grid gap-4 md:grid-cols-2">

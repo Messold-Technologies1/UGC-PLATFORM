@@ -2,12 +2,16 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { RoleName } from '@prisma/client';
 import { PresignUploadResponseDto } from '../brand-profile/dto/presign-brand-logo-upload.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { ConfigService } from '@nestjs/config';
+import { WalletService } from '../wallet/wallet.service';
+import { resolveSignupWelcomeCreditPaise } from '../wallet/signup-welcome-credit.util';
 import type { CreateAgencyAtSignupInput } from './dto/create-agency-at-signup.input';
 import type { CreateAgencyProfileDto } from './dto/create-agency-profile.dto';
 import type { UpdateAgencyProfileDto } from './dto/update-agency-profile.dto';
@@ -41,10 +45,50 @@ type AgencyRow = {
 
 @Injectable()
 export class AgencyService {
+  private readonly logger = new Logger(AgencyService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly wallet: WalletService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Grant the agency its welcome credit, when the feature is switched on. Reads
+   * the same two settings as brand registration on purpose — one switch covers
+   * both buyer types, so turning the reward off turns it off everywhere.
+   *
+   * Runs inside the registration transaction: an agency cannot end up
+   * registered without the credit, nor credited for a registration that rolled
+   * back. Idempotent — one per agency, checked here and enforced by a partial
+   * unique index on the ledger. Existing agencies are never backfilled.
+   */
+  private async awardAgencySignupCredit(
+    tx: any,
+    agencyId: string,
+  ): Promise<void> {
+    const amountPaise = resolveSignupWelcomeCreditPaise({
+      enabled: this.config.get<string>('SIGNUP_WELCOME_CREDIT_ENABLED'),
+      amountPaise: this.config.get<string | number>(
+        'SIGNUP_WELCOME_CREDIT_PAISE',
+      ),
+    });
+    if (amountPaise <= 0) return;
+    if (await this.wallet.hasSignupWelcomeCredit({ agencyId }, tx)) return;
+
+    await this.wallet.creditSignupWelcome(
+      {
+        agencyId,
+        amountPaise,
+        reason: 'Welcome reward for registering',
+      },
+      tx,
+    );
+    this.logger.log(
+      `[credits] agency=${agencyId} registered → ${amountPaise} paise welcome credit (non-refundable)`,
+    );
+  }
 
   private mapAgency(agency: AgencyRow): AgencyProfileResponseDto {
     return {
@@ -243,6 +287,9 @@ export class AgencyService {
           },
         );
 
+        // Registration and its welcome credit move together.
+        await this.awardAgencySignupCredit(tx, created.id);
+
         const logoKey = dto.logoKey?.trim();
         if (logoKey) {
           if (!this.storage.isTempAgencyLogoKeyForUser(ownerUserId, logoKey)) {
@@ -283,7 +330,7 @@ export class AgencyService {
       { timeout: 30_000, maxWait: 10_000 },
     );
 
-    return this.mapAgency(profile as AgencyRow);
+    return this.mapAgency(profile);
   }
 
   async getAgencyProfileForOwner(

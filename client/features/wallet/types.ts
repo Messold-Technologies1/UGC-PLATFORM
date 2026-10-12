@@ -9,7 +9,8 @@ export type WalletTransactionType =
   | "WITHDRAWAL_REVERSAL_CREDIT"
   | "ADMIN_ADJUSTMENT_CREDIT"
   | "ADMIN_ADJUSTMENT_DEBIT"
-  | "ORDER_COMPLETION_CREDIT";
+  | "ORDER_COMPLETION_CREDIT"
+  | "SIGNUP_WELCOME_CREDIT";
 
 export type WalletWithdrawalStatus =
   | "REQUESTED"
@@ -28,6 +29,12 @@ export interface WalletBalance {
   availablePaise: number;
   /** Withdrawable now (balance - held - reward), in paise. */
   refundablePaise: number;
+  /**
+   * Every rupee of genuine credit ever received, across the whole ledger.
+   * Server-computed: the client only ever holds the most recent transactions,
+   * so it cannot add this up itself without quietly meaning "recently".
+   */
+  lifetimeCreditedPaise: number;
   currency: string;
   /** Alias of heldPaise, kept for existing callers. */
   pendingWithdrawalPaise: number;
@@ -121,6 +128,8 @@ export function walletTransactionLabel(type: WalletTransactionType): string {
       return "Adjustment — removed";
     case "ORDER_COMPLETION_CREDIT":
       return "Order completed — reward credit";
+    case "SIGNUP_WELCOME_CREDIT":
+      return "Welcome reward — joining GoCollab";
     default:
       return type;
   }

@@ -36,6 +36,9 @@ import { BrandUserStatusDto } from './dto/brand-user-status.dto';
 import { BrandCategoryOptionsResponseDto } from './dto/brand-category-options-response.dto';
 import { BRAND_CATEGORY_OPTIONS } from './brand-category-options';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
+import { ConfigService } from '@nestjs/config';
+import { WalletService } from '../wallet/wallet.service';
+import { resolveSignupWelcomeCreditPaise } from '../wallet/signup-welcome-credit.util';
 
 const ONGOING_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.PENDING_PAYMENT,
@@ -60,7 +63,49 @@ export class BrandProfileService {
     private readonly brandAccess: BrandAccessService,
     private readonly events: NotificationEventsService,
     private readonly metaCapi: MetaCapiService,
+    private readonly wallet: WalletService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Grant the brand its welcome credit, when the feature is switched on. Amount
+   * and on/off switch come from the environment, are entirely separate from the
+   * order-completion reward, and are shared with agency registration — one
+   * switch covers both buyer types.
+   *
+   * Runs inside the registration transaction: a brand cannot end up registered
+   * without the credit, nor credited for a registration that rolled back.
+   * Idempotent — one per brand, checked here and enforced by a partial unique
+   * index on the ledger. Existing brands are never backfilled.
+   */
+  private async awardBrandSignupCredit(
+    tx: any,
+    brandProfileId: string,
+  ): Promise<void> {
+    const amountPaise = resolveSignupWelcomeCreditPaise({
+      enabled: this.config.get<string>('SIGNUP_WELCOME_CREDIT_ENABLED'),
+      amountPaise: this.config.get<string | number>(
+        'SIGNUP_WELCOME_CREDIT_PAISE',
+      ),
+    });
+    if (amountPaise <= 0) return;
+    if (
+      await this.wallet.hasSignupWelcomeCredit({ brandId: brandProfileId }, tx)
+    )
+      return;
+
+    await this.wallet.creditSignupWelcome(
+      {
+        brandId: brandProfileId,
+        amountPaise,
+        reason: 'Welcome reward for registering',
+      },
+      tx,
+    );
+    this.logger.log(
+      `[credits] brand=${brandProfileId} registered → ${amountPaise} paise welcome credit (non-refundable)`,
+    );
+  }
 
   private assertTempBrandLogoKeyOwner(userId: string, key: string): void {
     if (!this.storage.isTempBrandLogoKeyForUser(userId, key)) {
@@ -423,8 +468,8 @@ export class BrandProfileService {
     const pronunciationAudioKey = dto.brandPronunciationAudioKey?.trim();
 
     const brandProfileId = await this.prisma.$transaction(
-      async (tx) =>
-        this.runCreateOwnedBrandProfileInTransaction(
+      async (tx) => {
+        const createdId = await this.runCreateOwnedBrandProfileInTransaction(
           tx,
           userId,
           {
@@ -439,7 +484,11 @@ export class BrandProfileService {
               : {}),
           },
           { forcePrimaryBrandRole: true },
-        ),
+        );
+        // Registration and its welcome credit move together.
+        await this.awardBrandSignupCredit(tx, createdId);
+        return createdId;
+      },
       { timeout: 30_000, maxWait: 10_000 },
     );
 

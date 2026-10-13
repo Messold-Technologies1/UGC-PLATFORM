@@ -35,6 +35,11 @@ import {
   PLATFORM_FEE_RATE,
 } from './order-pricing-ledger.util';
 import { resolveOrderCompletionCreditPaise } from './order-completion-credit.util';
+import {
+  MetaCapiService,
+  purchaseEventId,
+  splitFullName,
+} from '../meta-capi/meta-capi.service';
 import type { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
 import type {
   AbortDeliveryMultipartUploadDto,
@@ -545,7 +550,114 @@ export class OrdersService {
     private readonly wallet: WalletService,
     private readonly events: NotificationEventsService,
     private readonly config: ConfigService,
+    private readonly metaCapi: MetaCapiService,
   ) {}
+
+  /**
+   * Send the Meta "Purchase" conversion via the Conversions API, once an order
+   * has actually been paid for — the moment it reaches
+   * `BRIEF_SUBMISSION_PENDING` with a `paidAt`.
+   *
+   * Server-side only: an order is marked paid by a Razorpay webhook, or placed
+   * outright when a coupon or store credit covers it, so there is no browser
+   * moment to fire from and nothing to deduplicate against. The event id is
+   * derived from the order instead, so webhook redelivery, a retried call or
+   * two paid paths meeting on the same order are all counted once by Meta.
+   *
+   * Re-reads the order rather than trusting the caller, so the status guard is
+   * checked against committed state. Best-effort and fire-and-forget: never
+   * blocks or fails a payment. No-op when the brand dataset is not configured.
+   */
+  private async firePurchaseMetaEvent(orderId: string): Promise<void> {
+    if (!this.metaCapi.enabledFor('brand')) return;
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          status: true,
+          paidAt: true,
+          creatorId: true,
+          currency: true,
+          expectedAmountPaise: true,
+          creditsAppliedPaise: true,
+          discountAmountPaise: true,
+          grossAmountPaise: true,
+          couponCodeSnapshot: true,
+          packageNameSnapshot: true,
+          isFreeOrder: true,
+          brand: {
+            select: {
+              brandName: true,
+              contactFullName: true,
+              contactEmail: true,
+              contactPhone: true,
+              user: { select: { email: true } },
+            },
+          },
+          agency: {
+            select: {
+              name: true,
+              contactFullName: true,
+              contactEmail: true,
+              contactPhone: true,
+            },
+          },
+        },
+      });
+      // The caller fires on the paid transition; this guard keeps the event
+      // honest if it is ever reached from somewhere the order isn't paid.
+      if (!order || !order.paidAt) return;
+      if (order.status !== 'BRIEF_SUBMISSION_PENDING') return;
+
+      const { agency, brand } = order;
+      const accountName = agency ? agency.name : brand?.brandName;
+      const contactFullName = agency
+        ? agency.contactFullName
+        : brand?.contactFullName;
+      const email = agency
+        ? agency.contactEmail
+        : brand?.contactEmail || brand?.user?.email;
+      const phone = agency ? agency.contactPhone : brand?.contactPhone;
+
+      await this.metaCapi.sendEvent({
+        audience: 'brand',
+        eventName: 'Purchase',
+        eventId: purchaseEventId(orderId),
+        // The purchase happened on the website even though a webhook reports it.
+        actionSource: 'website',
+        eventTime: Math.floor(order.paidAt.getTime() / 1000),
+        userData: {
+          email,
+          phone,
+          ...splitFullName(contactFullName),
+        },
+        customData: {
+          account_type: agency ? 'agency' : 'brand',
+          ...(accountName ? { brand_name: accountName } : {}),
+          content_ids: [order.creatorId],
+          content_type: 'product',
+          num_items: 1,
+          // What the brand pays for this order in total. Store credit is a
+          // payment method, not a discount, so it stays inside `value`; the
+          // breakdown rides along for reconciliation.
+          value: order.expectedAmountPaise / 100,
+          currency: order.currency || 'INR',
+          gross_value: order.grossAmountPaise / 100,
+          credits_applied: order.creditsAppliedPaise / 100,
+          discount: order.discountAmountPaise / 100,
+          free_order: order.isFreeOrder,
+          package_label: order.packageNameSnapshot,
+          ...(order.couponCodeSnapshot
+            ? { coupon_code: order.couponCodeSnapshot }
+            : {}),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send Purchase Meta event for order ${orderId}: ${(error as Error).message}`,
+      );
+    }
+  }
 
   private async resolveBrandActor(params: {
     actorUserId: string;
@@ -637,6 +749,7 @@ export class OrdersService {
       audience: 'brand_and_creator',
       meta: { zeroRupee: true },
     });
+    void this.firePurchaseMetaEvent(params.orderId);
     this.logger.log(
       `[checkout] zero-rupee order placed order=${params.orderId} (no Razorpay)`,
     );
@@ -1122,6 +1235,7 @@ export class OrdersService {
           audience: 'brand_and_creator',
           meta: { creditPaid: true },
         });
+        void this.firePurchaseMetaEvent(created.id);
         this.logger.log(
           `[checkout] credit-paid order placed order=${created.id} credits=${creditsToApply} (no Razorpay)`,
         );
@@ -1567,6 +1681,7 @@ export class OrdersService {
           audience: 'brand_and_creator',
           meta: { zeroRupee: true },
         });
+        void this.firePurchaseMetaEvent(orderId);
       }
       this.logger.log(
         `bulk zero-rupee batch=${batchId} orders=${orderIds.length} grossPaise=${couponGrossTotalPaise} free=${consumedFree.size} (no Razorpay)`,
@@ -1804,6 +1919,8 @@ export class OrdersService {
       });
     }
 
+    void this.firePurchaseMetaEvent(order.id);
+
     this.logger.log(
       `[payment] captured order marked PAID order=${order.id} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
     );
@@ -1896,6 +2013,10 @@ export class OrdersService {
         );
       }
     });
+
+    for (const o of orders) {
+      void this.firePurchaseMetaEvent(o.id);
+    }
 
     this.logger.log(
       `[payment] captured bulk batch marked PAID batch=${batch.id} orders=${orders.length} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,

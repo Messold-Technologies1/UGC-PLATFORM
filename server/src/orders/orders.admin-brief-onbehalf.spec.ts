@@ -56,6 +56,7 @@ describe('OrdersService admin brief actions on behalf', () => {
       wallet as never,
       events as never, // notification events
       { get: () => undefined } as never, // config
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests
     );
     return { service, orderUpdate, orderRealtime, events, wallet, brandAccess };
   }

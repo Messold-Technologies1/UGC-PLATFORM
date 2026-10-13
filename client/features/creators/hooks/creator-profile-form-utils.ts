@@ -92,7 +92,6 @@ export const facetSections: Array<{
 export const genderOptions: Array<{ value: CreatorGender; label: string }> = [
   { value: "FEMALE", label: "Female" },
   { value: "MALE", label: "Male" },
-  { value: "NON_BINARY", label: "Non-binary" },
   { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" },
   { value: "OTHER", label: "Other" },
 ];

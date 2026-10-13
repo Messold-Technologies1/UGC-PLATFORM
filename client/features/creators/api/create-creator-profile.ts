@@ -3,7 +3,6 @@ import type { CreatorFacetDimension } from "./get-creator-facet-options";
 export type CreatorGender =
   | "FEMALE"
   | "MALE"
-  | "NON_BINARY"
   | "PREFER_NOT_TO_SAY"
   | "OTHER";
 

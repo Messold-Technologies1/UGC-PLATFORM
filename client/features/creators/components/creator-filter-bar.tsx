@@ -59,7 +59,6 @@ const PRICE_STEP = 250;
 const GENDER_OPTIONS = [
   { value: "MALE", label: "Male" },
   { value: "FEMALE", label: "Female" },
-  { value: "NON_BINARY", label: "Non-Binary" },
   { value: "OTHER", label: "Other" },
 ] as const;
 

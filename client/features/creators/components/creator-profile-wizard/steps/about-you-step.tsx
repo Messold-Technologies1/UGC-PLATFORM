@@ -290,18 +290,19 @@ export function AboutYouStep(props: AboutYouStepProps) {
           </label>
           {adminMode ? (
             <div className="cw-phone">
-              <span className="cw-phone-prefix">+91</span>
+              <span className="cw-phone-prefix">+</span>
               <input
                 id="cw-phone"
                 className="cw-input cw-phone-input"
-                value={phone ?? ""}
+                value={(phone ?? "").replace(/^\+/, "")}
                 disabled={disabled}
-                inputMode="numeric"
+                inputMode="tel"
                 autoComplete="tel"
-                placeholder="Creator's phone number"
-                onChange={(e) =>
-                  onPhoneChange?.(e.target.value.replace(/\D/g, ""))
-                }
+                placeholder="919876543210"
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "");
+                  onPhoneChange?.(digits ? `+${digits}` : "");
+                }}
               />
             </div>
           ) : (
@@ -316,12 +317,10 @@ export function AboutYouStep(props: AboutYouStepProps) {
               <PhoneVerificationField
                 idPrefix="cw"
                 disabled={disabled}
-                initialPhone={phone ? `+91${phone}` : undefined}
+                initialPhone={phone || undefined}
                 initialVerified={phoneVerified}
                 onVerifiedChange={(v) => onPhoneVerifiedChange?.(v)}
-                onVerifiedPhone={(p) =>
-                  onPhoneChange?.(p.replace(/^\+91/, ""))
-                }
+                onVerifiedPhone={(p) => onPhoneChange?.(p)}
               />
               <span className="cw-facet-help">
                 {phoneVerified

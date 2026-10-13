@@ -192,9 +192,13 @@ export function CreatorProfileWizard({
   const [shippingAddress, setShippingAddress] = useState(
     () => initialProfile.shippingAddress?.trim() ?? "",
   );
-  const [phone, setPhone] = useState(
-    () => initialProfile.phone?.replace("+91", "") ?? "",
-  );
+  // Full E.164 (e.g. +9198…). Legacy national-only values are treated as +91.
+  const [phone, setPhone] = useState(() => {
+    const raw = initialProfile.phone?.trim() ?? "";
+    if (!raw) return "";
+    if (raw.startsWith("+")) return raw;
+    return `+91${raw.replace(/\D/g, "")}`;
+  });
   // Phone OTP verification (creators must verify before leaving the About step).
   // Already true for accounts that verified at signup; Google creators verify here.
   const [phoneVerified, setPhoneVerified] = useState(() =>
@@ -855,7 +859,13 @@ export function CreatorProfileWizard({
         facetSelections,
         profileLanguages,
         restrictions: selectedRestrictions,
-        ...(phone ? { phone: "+91" + phone } : {}),
+        ...(phone
+          ? {
+              phone: phone.startsWith("+")
+                ? phone
+                : `+91${phone.replace(/\D/g, "")}`,
+            }
+          : {}),
         ...(profileImage.profileImageRemoved
           ? { profileImageKey: "" }
           : profileImage.pendingProfileImageKey

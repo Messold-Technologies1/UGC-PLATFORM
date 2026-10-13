@@ -135,9 +135,16 @@ export function SaveToWishlistButton({
    * Report the save to the brand Meta dataset. Fired from both save paths —
    * adding to an existing wishlist and creating one around this creator — and
    * deliberately not awaited, so a slow pixel never holds up the UI.
+   *
+   * The wishlist id is what deduplicates this against the server's copy of the
+   * same save, so both paths have to pass the real one.
    */
-  async function reportAddToWishlist(wishlistName: string) {
-    trackAddToWishlist(await resolveBuyerIdentity(), creatorId, wishlistName);
+  async function reportAddToWishlist(wishlistId: string, wishlistName: string) {
+    trackAddToWishlist(await resolveBuyerIdentity(), {
+      wishlistId,
+      creatorId,
+      wishlistName,
+    });
   }
 
   async function handleToggle(wishlist: Wishlist) {
@@ -153,7 +160,7 @@ export function SaveToWishlistButton({
       try {
         await addMutation.mutateAsync({ wishlistId: wishlist.id, creatorId });
         toast.success(`Added to "${wishlist.name}"`);
-        void reportAddToWishlist(wishlist.name);
+        void reportAddToWishlist(wishlist.id, wishlist.name);
       } catch {
         toast.error("Failed to add to wishlist");
       }
@@ -165,10 +172,13 @@ export function SaveToWishlistButton({
     if (!name) return;
     extendCreatorCardNavigationSuppress();
     try {
-      await createMutation.mutateAsync({ name, creatorIds: [creatorId] });
+      const created = await createMutation.mutateAsync({
+        name,
+        creatorIds: [creatorId],
+      });
       extendCreatorCardNavigationSuppress();
       toast.success(`Created wishlist "${name}"`);
-      void reportAddToWishlist(name);
+      void reportAddToWishlist(created.id, name);
       setNewName("");
       setShowCreate(false);
     } catch (err: any) {

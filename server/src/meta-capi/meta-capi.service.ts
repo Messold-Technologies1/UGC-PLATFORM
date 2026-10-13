@@ -80,6 +80,23 @@ export function brandRegistrationEventId(brandProfileId: string): string {
   return `brand-registration-${brandProfileId}`;
 }
 
+/**
+ * Event id shared by the browser pixel and the server copy of `AddToWishlist`,
+ * so Meta counts the pair once. Derived from the (wishlist, creator) pair,
+ * which both sides know: the client mirrors this in
+ * `client/features/analytics/lib/buyer-pixel-events.ts`.
+ *
+ * Stable rather than random, which also means re-adding a creator the buyer
+ * had removed is deduplicated against the earlier save inside Meta's window —
+ * toggling the heart can't inflate the count.
+ */
+export function addToWishlistEventId(
+  wishlistId: string,
+  creatorId: string,
+): string {
+  return `wishlist-add-${wishlistId}-${creatorId}`;
+}
+
 export type MetaBrowserAttribution = {
   fbp?: string | null;
   fbc?: string | null;

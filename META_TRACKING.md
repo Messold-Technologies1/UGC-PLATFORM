@@ -3,7 +3,7 @@
 This project reports conversions to Meta through two channels:
 
 - **Browser Pixel** — `fbq` loaded in `client/app/layout.tsx`, helpers in `client/lib/meta-pixel.ts`, signup call sites in `client/features/auth/lib/track-signup-events.ts`, buyer-funnel call sites in `client/features/analytics/`.
-- **Conversions API (CAPI)** — server-to-server from `server/src/meta-capi/`.
+- **Conversions API (CAPI)** — server-to-server from `server/src/meta-capi/`, with call sites in `server/src/brand-profile/`, `server/src/creator-profile/` and `server/src/wishlists/`.
 
 Everything is **env-gated**: clear the env vars and all tracking becomes a silent no-op — no code change needed.
 
@@ -27,12 +27,16 @@ Each side is independently gated. Clearing `NEXT_PUBLIC_META_BRAND_PIXEL_ID` sen
 | `PageView` | every page load | both | Browser pixel | — |
 | `BrandRegistration` | the brand profile is created — at the role-choice step for email+password signup (an OTP-verified phone is already on file, so brand setup is skipped) or on `/onboarding/brand` for the Google route | Brand | Browser pixel **+** server CAPI | ✅ shared `event_id` |
 | `ExploreCreators` | a brand/agency opens the creator catalogue — "Creators" in the navbar (`/brand/creators`, `/agency/creators`) | Brand | Browser pixel | — |
-| `AddToWishlist` | a brand/agency saves a creator to a wishlist — into an existing one, or into one created around that creator | Brand | Browser pixel | — |
+| `AddToWishlist` | a brand/agency saves a creator to a wishlist — into an existing one, or into one created around that creator | Brand | Browser pixel **+** server CAPI | ✅ shared `event_id` |
 | `CreatorProfileListed` | the creator's `isListed` flips false→true (admin approval of a complete profile, or the creator completing their profile after an earlier approval) | Creator | Server CAPI | — |
 
 **Creators are not tracked at signup.** Their conversion is `CreatorProfileListed` — a creator only becomes worth anything to the marketplace once they are listed, so that is the event campaigns optimize on.
 
-**Deduplication:** `BrandRegistration` fires from both the browser and the server with the same `event_id` — `brand-registration-<brandProfileId>`, built identically on both sides (`brandRegistrationEventId` in `client/features/auth/lib/track-signup-events.ts` and `server/src/meta-capi/meta-capi.service.ts`; keep the two in step). Meta counts them once. The browser gives a real-time signal; the server copy survives ad-blockers.
+**Deduplication:** two events fire from both sides with a matching `event_id`, so Meta counts each once — the browser gives a real-time signal, the server copy survives ad-blockers.
+
+`AddToWishlist` uses `wishlist-add-<wishlistId>-<creatorId>`, built identically in `addToWishlistEventId` on both sides (`client/features/analytics/lib/buyer-pixel-events.ts` and `server/src/meta-capi/meta-capi.service.ts`; keep the two in step). It is stable rather than random, so re-adding a creator the buyer had removed is deduplicated against the earlier save inside Meta's window — toggling the heart can't inflate the count.
+
+`BrandRegistration` fires from both the browser and the server with the same `event_id` — `brand-registration-<brandProfileId>`, built identically on both sides (`brandRegistrationEventId` in `client/features/auth/lib/track-signup-events.ts` and `server/src/meta-capi/meta-capi.service.ts`; keep the two in step). Meta counts them once. The browser gives a real-time signal; the server copy survives ad-blockers.
 
 ### Where each signup route fires
 
@@ -54,7 +58,8 @@ Buyer-side steps are browser-only and live in `client/features/analytics/`:
 | Events | `buyer-pixel-events.ts` — both senders, both pinned to the **brand** dataset |
 | Who fired it | `use-buyer-identity-resolver.ts` — resolves the acting brand/agency name |
 | `ExploreCreators` | `use-explore-creators-pixel.ts`, called from `BrandCreatorsBrowser` |
-| `AddToWishlist` | `SaveToWishlistButton`, after either save path succeeds |
+| `AddToWishlist` (browser) | `SaveToWishlistButton`, after either save path succeeds |
+| `AddToWishlist` (server) | `WishlistsService.fireAddToWishlistMetaEvent`, on the save request itself |
 
 Both events carry `account_type` (`brand` / `agency`) and, when the profile has
 one, `brand_name` — the brand's name, or the agency's — so Events Manager can be
@@ -76,6 +81,24 @@ identity — the event still fires, just without the breakdown.
 `ExploreCreators` is a **custom** event, so optimizing a campaign on it needs a
 Custom Conversion (see below). `AddToWishlist` is one of Meta's **standard**
 events and is available to ad delivery optimization directly.
+
+**The server copy of `AddToWishlist`** is sent from `WishlistsService` on the
+save request itself, deduplicated against the browser's by the shared event id
+above. It fires from both save paths — `addCreator`, and `createWishlist` once
+per creator the new wishlist is seeded with (an empty wishlist sends nothing).
+It is fire-and-forget and wrapped: a Meta outage can't fail a save.
+
+Attribution: `_fbp` / `_fbc` are readable only in the browser, so the client
+posts them with the save (`metaFbp` / `metaFbc` on `AddWishlistCreatorDto` and
+`CreateWishlistDto`) and the server replays them, plus the request's IP,
+user-agent and Referer, so the server copy matches as well as the pixel's. They
+are used for that event only and never stored. The acting account's own contact
+email, phone and name go out as Advanced Matching, hashed server-side.
+
+Two paths deliberately send **nothing**: importing a shared shortlist
+(`importFromShare`) and editing a wishlist's creator list wholesale
+(`updateWishlist`). Neither has a browser counterpart, so firing there would
+produce server-only events that can't be deduplicated.
 
 **Advanced Matching (identifiers sent for match quality):**
 
@@ -148,4 +171,4 @@ No code change required.
 ## Turning it off / removing
 
 - **Off (instant):** clear the client pixel IDs and/or the server dataset IDs. Each of the four vars switches off one channel of one dataset on its own.
-- **Full removal:** delete `client/lib/meta-pixel.ts`, `client/features/auth/lib/track-signup-events.ts`, `client/features/analytics/` (plus its call sites in `client/features/brands/components/brand-creators-browser.tsx` and `client/features/wishlists/components/save-to-wishlist-button.tsx`), `server/src/meta-capi/`, the pixel `<Script>` in `client/app/layout.tsx`, and the trigger call sites in `client/features/auth/components/role-choice-view.tsx`, `client/features/auth/components/brand-google-setup-dialog.tsx`, `server/src/brand-profile/brand-profile.service.ts`, and `server/src/creator-profile/creator-profile.service.ts`; drop the `metaFbp` / `metaFbc` fields from `POST /auth/onboarding/role` and `POST /brands/profile`; then drop the `metaFbp` / `metaFbc` / `metaSignupIp` / `metaSignupUserAgent` columns on `CreatorProfile`.
+- **Full removal:** delete `client/lib/meta-pixel.ts`, `client/features/auth/lib/track-signup-events.ts`, `client/features/analytics/` (plus its call sites in `client/features/brands/components/brand-creators-browser.tsx` and `client/features/wishlists/components/save-to-wishlist-button.tsx`), `server/src/meta-capi/`, the pixel `<Script>` in `client/app/layout.tsx`, and the trigger call sites in `client/features/auth/components/role-choice-view.tsx`, `client/features/auth/components/brand-google-setup-dialog.tsx`, `server/src/brand-profile/brand-profile.service.ts`, `server/src/creator-profile/creator-profile.service.ts`, and the `fireAddToWishlistMetaEvent` call sites in `server/src/wishlists/wishlists.service.ts` (plus the `metaFbp` / `metaFbc` fields on the two wishlist DTOs); drop the `metaFbp` / `metaFbc` fields from `POST /auth/onboarding/role` and `POST /brands/profile`; then drop the `metaFbp` / `metaFbc` / `metaSignupIp` / `metaSignupUserAgent` columns on `CreatorProfile`.

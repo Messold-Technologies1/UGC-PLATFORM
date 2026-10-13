@@ -55,26 +55,48 @@ export function trackExploreCreators(identity: BuyerIdentity): boolean {
 }
 
 /**
+ * Event id shared by this browser event and the server's Conversions API copy,
+ * so Meta counts the pair once. Derived from the (wishlist, creator) pair,
+ * which both sides know. Mirrors `addToWishlistEventId` in
+ * `server/src/meta-capi/meta-capi.service.ts` — keep the two in step.
+ */
+export function addToWishlistEventId(
+  wishlistId: string,
+  creatorId: string,
+): string {
+  return `wishlist-add-${wishlistId}-${creatorId}`;
+}
+
+/**
  * Step 2 of the buyer funnel — a creator was saved to a wishlist, either into
  * an existing wishlist or into one created on the spot.
  *
  * `AddToWishlist` is a Meta **standard** event, so it is sent with
  * `trackSingle` and is available to ad delivery optimization directly, with no
  * Custom Conversion needed.
+ *
+ * The server sends the same event with the same id from the save request, so
+ * an ad-blocked browser still converts and a working one is not double-counted.
  */
 export function trackAddToWishlist(
   identity: BuyerIdentity,
-  creatorId: string,
-  wishlistName?: string | null,
+  save: {
+    wishlistId: string;
+    creatorId: string;
+    wishlistName?: string | null;
+  },
 ): boolean {
   return trackPixelEvent(
     "AddToWishlist",
     {
       ...buyerParams(identity),
-      content_ids: [creatorId],
+      content_ids: [save.creatorId],
       content_type: "product",
-      ...(wishlistName ? { wishlist_name: wishlistName } : {}),
+      ...(save.wishlistName ? { wishlist_name: save.wishlistName } : {}),
     },
-    { audience: "brand" },
+    {
+      audience: "brand",
+      eventId: addToWishlistEventId(save.wishlistId, save.creatorId),
+    },
   );
 }

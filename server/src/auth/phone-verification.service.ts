@@ -54,7 +54,7 @@ const DEV_BYPASS_OTP_CODE = '000000';
 /** How long a code stays valid. */
 const OTP_TTL_MS = 10 * 60_000;
 /** Minimum gap between two sends to the same number. */
-const RESEND_COOLDOWN_MS = 60_000;
+const RESEND_COOLDOWN_MS = 30_000;
 /** Wrong guesses allowed against one code before it is burned. */
 const MAX_VERIFY_ATTEMPTS = 5;
 /** Codes per number per rolling hour, and per rolling day. */

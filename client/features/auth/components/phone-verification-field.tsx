@@ -26,16 +26,12 @@ import {
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
 
-// Five minutes. Long enough that a slow WhatsApp delivery has clearly failed
-// before the user burns a rung of the channel ladder on a resend.
-const PHONE_OTP_RESEND_SECONDS = 300;
+/** Client-side resend lock; must stay ≤ server `RESEND_COOLDOWN_MS` (30s). */
+const PHONE_OTP_RESEND_SECONDS = 30;
 const OTP_CODE_REGEX = /^\d{4,10}$/;
 
-/** `m:ss` while the resend lock runs, so a 5-minute wait reads sensibly. */
 function formatResendCountdown(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${totalSeconds}s`;
 }
 
 export function normalizePhoneForOtp(raw: string): string {
@@ -396,7 +392,14 @@ export function PhoneVerificationField({
               !PHONE_E164_REGEX.test(normalizedPhone) ||
               (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
             }
-            className="h-full rounded-none border-l border-slate-200 !bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] px-4 text-xs font-semibold dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300"
+            className={cn(
+              "h-full min-w-[5.75rem] shrink-0 rounded-none border-l border-slate-200 px-3.5 text-xs font-bold dark:border-slate-800",
+              phoneVerified
+                ? "!bg-emerald-50 !text-emerald-700 hover:!bg-emerald-50 dark:!bg-emerald-950/40 dark:!text-emerald-300"
+                : resendSecondsRemaining > 0 && activeOtpPhone
+                  ? "!bg-[#f4f1f1] !text-[#8b8489] dark:!bg-slate-900 dark:!text-slate-400"
+                  : "!bg-deep-pink !text-deep-pink-foreground hover:!bg-deep-pink/90 dark:!bg-deep-pink dark:!text-white",
+            )}
           >
             {phoneVerified
               ? "Verified"
@@ -404,7 +407,9 @@ export function PhoneVerificationField({
                 ? "Sending..."
                 : resendSecondsRemaining > 0 && activeOtpPhone
                   ? formatResendCountdown(resendSecondsRemaining)
-                  : "Send OTP"}
+                  : activeOtpPhone
+                    ? "Resend"
+                    : "Send OTP"}
           </Button>
         ) : null}
       </div>

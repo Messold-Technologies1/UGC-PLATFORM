@@ -39,15 +39,11 @@ import {
   AuthDivider,
 } from "./unified-auth-controls";
 
-// Five minutes. Long enough that a slow WhatsApp delivery has clearly failed
-// before the user burns a rung of the channel ladder on a resend.
-const PHONE_OTP_RESEND_MS = 5 * 60_000;
+/** Client-side resend lock; must stay ≤ server `RESEND_COOLDOWN_MS` (30s). */
+const PHONE_OTP_RESEND_MS = 30_000;
 
-/** `m:ss`, so a 5-minute wait reads sensibly on the button. */
 function formatResendCountdown(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${totalSeconds}s`;
 }
 
 const signupSchema = z.object({
@@ -370,8 +366,12 @@ export function UnifiedSignupForm() {
               onClick={handleSendOtp}
               disabled={pending || !phoneComplete || resendSeconds > 0}
               className={cn(
-                "h-[42px] shrink-0 rounded-[11px] border-[1.5px] bg-white px-3.5 text-[13px] font-semibold text-[#181313] hover:bg-[#faf4f6] disabled:opacity-60",
-                needsOtpWarning ? "border-amber-500" : "border-[#e7e1e4]",
+                "h-[42px] min-w-[5.75rem] shrink-0 rounded-[11px] px-3.5 text-[13px] font-bold disabled:opacity-70",
+                needsOtpWarning && resendSeconds === 0
+                  ? "border-[1.5px] border-amber-500 bg-deep-pink text-deep-pink-foreground"
+                  : resendSeconds > 0
+                    ? "border-[1.5px] border-[#e7e1e4] bg-[#faf4f6] text-[#8B8489]"
+                    : "border-[1.5px] border-deep-pink bg-deep-pink text-deep-pink-foreground hover:bg-deep-pink/90",
               )}
             >
               {sendOtpMutation.isPending

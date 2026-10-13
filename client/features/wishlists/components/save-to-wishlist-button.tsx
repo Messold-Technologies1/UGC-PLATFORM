@@ -140,11 +140,9 @@ export function SaveToWishlistButton({
    * same save, so both paths have to pass the real one.
    */
   async function reportAddToWishlist(wishlistId: string, wishlistName: string) {
-    trackAddToWishlist(await resolveBuyerIdentity(), {
-      wishlistId,
-      creatorId,
-      wishlistName,
-    });
+    const identity = await resolveBuyerIdentity();
+    if (!identity) return;
+    trackAddToWishlist(identity, { wishlistId, creatorId, wishlistName });
   }
 
   async function handleToggle(wishlist: Wishlist) {

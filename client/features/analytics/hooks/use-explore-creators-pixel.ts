@@ -35,6 +35,7 @@ export function useExploreCreatorsPixel(): void {
     let timer: number | undefined;
 
     void resolveIdentity().then((identity) => {
+      if (!identity) return;
       let attempts = 0;
       const send = () => {
         if (cancelled || trackExploreCreators(identity)) return;

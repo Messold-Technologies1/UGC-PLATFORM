@@ -33,6 +33,9 @@ export type BuyerIdentity = {
  */
 export const BUYER_PROFILE_STALE_MS = 5 * 60_000;
 
+/** The marketplace prices in rupees, so every event's `value` is INR. */
+const BUYER_CURRENCY = "INR";
+
 /** The account breakdown attached to every buyer event. */
 function buyerParams(identity: BuyerIdentity): Record<string, unknown> {
   return {
@@ -52,6 +55,36 @@ export function trackExploreCreators(identity: BuyerIdentity): boolean {
   return trackPixelCustom("ExploreCreators", buyerParams(identity), {
     audience: "brand",
   });
+}
+
+/**
+ * Step 3 of the buyer funnel — the brand/agency opened a creator's full public
+ * profile from the browse drawer ("View profile").
+ *
+ * `ViewContent` is a Meta **standard** event. It carries the creator's starting
+ * price as `value`, which is what a collab with them would open at — reporting
+ * metadata, not a transaction.
+ *
+ * Browser-only: the profile opens in a new tab and no request of ours marks the
+ * click, so there is nothing for a server copy to hook into.
+ */
+export function trackViewProfile(
+  identity: BuyerIdentity,
+  creator: { creatorId: string; startingPrice?: number | null },
+): boolean {
+  const { startingPrice } = creator;
+  return trackPixelEvent(
+    "ViewContent",
+    {
+      ...buyerParams(identity),
+      content_ids: [creator.creatorId],
+      content_type: "product",
+      ...(typeof startingPrice === "number" && startingPrice > 0
+        ? { value: startingPrice, currency: BUYER_CURRENCY }
+        : {}),
+    },
+    { audience: "brand" },
+  );
 }
 
 /**

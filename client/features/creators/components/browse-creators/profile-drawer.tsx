@@ -15,6 +15,8 @@ import React, {
 } from "react";
 import { OrderModal } from "./order-modal";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
+import { trackViewProfile } from "@/features/analytics/lib/buyer-pixel-events";
+import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import {
   X,
   MapPin,
@@ -746,6 +748,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   const router = useRouter();
   const workspaceBase = useBuyerWorkspaceBase();
   const { data: meUser } = usePublicAuthUser({ enabled: landingPage });
+  // Resolved on click: the drawer also renders on the public shared-shortlist
+  // page, where the viewer is nobody and the resolver returns null.
+  const resolveBuyerIdentity = useBuyerIdentityResolver();
   const isBrand =
     (meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY")) ??
     false;
@@ -934,6 +939,16 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     displayName: profileApi?.displayName ?? c.name,
   });
 
+  /**
+   * Step 3 of the buyer funnel. The profile opens in a new tab, so this page
+   * stays alive and the pixel's beacon leaves on its own — no flush needed.
+   */
+  async function reportViewProfile(creatorId: string, startingPrice: number) {
+    const identity = await resolveBuyerIdentity();
+    if (!identity) return;
+    trackViewProfile(identity, { creatorId, startingPrice });
+  }
+
   const showIntro = !!c.introVideoUrl && !introFailed;
   const introPoster = c.previewVideoThumbnail || c.thumbnail;
 
@@ -1059,6 +1074,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="dr-tabs-profile-link"
+                onClick={() => {
+                  if (activeId) {
+                    void reportViewProfile(activeId, c.startingPrice);
+                  }
+                }}
               >
                 View profile
                 <ExternalLink size={13} />

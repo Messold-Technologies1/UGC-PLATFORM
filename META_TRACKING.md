@@ -14,7 +14,7 @@ Creator-side and brand-side ads are bought against separate Meta datasets, so th
 | Dataset | Client env var | Server env vars | Gets |
 |---|---|---|---|
 | Creator (main) | `NEXT_PUBLIC_META_PIXEL_ID` | `META_CAPI_DATASET_ID` + `META_CAPI_ACCESS_TOKEN` | `PageView`, `CreatorProfileListed` |
-| Brand (`Brands_Gocollab`) | `NEXT_PUBLIC_META_BRAND_PIXEL_ID` | `META_CAPI_BRAND_DATASET_ID` (+ optional `META_CAPI_BRAND_ACCESS_TOKEN`) | `PageView`, `BrandRegistration`, `ExploreCreators`, `AddToWishlist`, `ViewContent` |
+| Brand (`Brands_Gocollab`) | `NEXT_PUBLIC_META_BRAND_PIXEL_ID` | `META_CAPI_BRAND_DATASET_ID` (+ optional `META_CAPI_BRAND_ACCESS_TOKEN`) | `PageView`, `BrandRegistration`, `ExploreCreators`, `AddToWishlist`, `ViewContent`, `AddToCart`, `InitiateCheckout` |
 
 Both pixels are initialized by the base loader and both receive `PageView`. Every other browser event is sent with Meta's per-pixel `trackSingleCustom`, so it lands in exactly one dataset — a plain `fbq('track', …)` would report to both.
 
@@ -29,6 +29,8 @@ Each side is independently gated. Clearing `NEXT_PUBLIC_META_BRAND_PIXEL_ID` sen
 | `ExploreCreators` | a brand/agency opens the creator catalogue — "Creators" in the navbar (`/brand/creators`, `/agency/creators`) | Brand | Browser pixel | — |
 | `AddToWishlist` | a brand/agency saves a creator to a wishlist — into an existing one, or into one created around that creator | Brand | Browser pixel **+** server CAPI | ✅ shared `event_id` |
 | `ViewContent` | a brand/agency opens a creator's full public profile from the browse drawer ("View profile") | Brand | Browser pixel | — |
+| `AddToCart` | a brand/agency clicks "Place order" on a creator and the order modal opens | Brand | Browser pixel | — |
+| `InitiateCheckout` | a brand/agency clicks "Create checkout" in the order modal, handing off to payment | Brand | Browser pixel | — |
 | `CreatorProfileListed` | the creator's `isListed` flips false→true (admin approval of a complete profile, or the creator completing their profile after an earlier approval) | Creator | Server CAPI | — |
 
 **Creators are not tracked at signup.** Their conversion is `CreatorProfileListed` — a creator only becomes worth anything to the marketplace once they are listed, so that is the event campaigns optimize on.
@@ -62,6 +64,8 @@ Buyer-side steps are browser-only and live in `client/features/analytics/`:
 | `AddToWishlist` (browser) | `SaveToWishlistButton`, after either save path succeeds |
 | `AddToWishlist` (server) | `WishlistsService.fireAddToWishlistMetaEvent`, on the save request itself |
 | `ViewContent` | `ProfileDrawer`, on the "View profile" link |
+| `AddToCart` | `ProfileDrawer`, on the "Place order" button |
+| `InitiateCheckout` | `OrderModal.handleCheckout`, on "Create checkout" |
 
 Every buyer event carries `account_type` (`brand` / `agency`) and, when the
 profile has one, `brand_name` — the brand's name, or the agency's — so Events
@@ -94,10 +98,41 @@ identity — the event still fires, just without the breakdown.
 Custom Conversion (see below). `AddToWishlist` is one of Meta's **standard**
 events and is available to ad delivery optimization directly.
 
+**The checkout steps.** The platform's own funnel words map onto Meta's standard
+events, which is what the code and Events Manager use:
+
+| Funnel step | Event | Fires on |
+|---|---|---|
+| Explore Creators | `ExploreCreators` (custom) | opening the catalogue |
+| Wishlist Added | `AddToWishlist` | saving a creator |
+| View Content / View Profile | `ViewContent` | "View profile" |
+| Begin Checkout | `AddToCart` | "Place order" — the modal opens |
+| Checkout Initiate | `InitiateCheckout` | "Create checkout" — payment starts |
+
+`AddToCart` carries the creator's **starting price** as `value`: at that point
+the package and add-ons aren't chosen, so it is what the order opens at, not
+what it will cost. `InitiateCheckout` carries `netTotal` — what the buyer
+actually owes after coupon and credits — plus `package_label`, `add_on_count`
+and `coupon_code`. That value can legitimately be 0 (a free first order, or one
+fully covered by credits); the step still happened, so it is still reported.
+
+Both fire only on the clicks that really advance the funnel: `AddToCart` not
+when the click bounces off an unavailable creator, a failed profile load or the
+landing page's redirect to sign up, and `InitiateCheckout` not when
+`handleCheckout` returns early with no package or a checkout already running.
+Neither is awaited — a pixel must never delay the payment handoff.
+
 `ViewContent` is browser-only by nature: the profile opens in a new tab and no
 request of ours marks the click, so there is nothing for a server copy to hook
 into. The new tab also means the page stays alive, so the pixel's beacon leaves
-without needing a flush delay.
+without needing a flush delay. `AddToCart` and `InitiateCheckout` are
+browser-only too, for now: both open an overlay rather than navigating, so the
+beacon leaves safely, and neither has a server moment of its own yet.
+
+**Not yet covered:** the wishlist bulk checkout
+(`BulkCheckoutModal` → `useWishlistBulkCheckout`) is a second way into payment,
+from a wishlist rather than a creator. It sends nothing today — worth adding an
+`InitiateCheckout` there if that path matters to a campaign.
 
 **The server copy of `AddToWishlist`** is sent from `WishlistsService` on the
 save request itself, deduplicated against the browser's by the shared event id
@@ -171,7 +206,7 @@ Neither event carries PII in `custom_data` — identifiers travel only through A
 
 ## Optimizing ad delivery on conversions (optional)
 
-`BrandRegistration`, `CreatorProfileListed` and `ExploreCreators` are **custom** events (`AddToWishlist` and `ViewContent` are standard events and need none of this). They work for reporting, audiences, and custom conversions, but Meta's automated ad-delivery optimization favors standard events. To optimize a campaign on them:
+`BrandRegistration`, `CreatorProfileListed` and `ExploreCreators` are **custom** events (`AddToWishlist`, `ViewContent`, `AddToCart` and `InitiateCheckout` are standard events and need none of this). They work for reporting, audiences, and custom conversions, but Meta's automated ad-delivery optimization favors standard events. To optimize a campaign on them:
 
 - Events Manager → **Custom Conversions → Create** → map it to the `BrandRegistration` (or `CreatorProfileListed` / `ExploreCreators`) event.
 - Then select that Custom Conversion as the campaign's optimization goal.
@@ -188,4 +223,4 @@ No code change required.
 ## Turning it off / removing
 
 - **Off (instant):** clear the client pixel IDs and/or the server dataset IDs. Each of the four vars switches off one channel of one dataset on its own.
-- **Full removal:** delete `client/lib/meta-pixel.ts`, `client/features/auth/lib/track-signup-events.ts`, `client/features/analytics/` (plus its call sites in `client/features/brands/components/brand-creators-browser.tsx` and `client/features/wishlists/components/save-to-wishlist-button.tsx`), `server/src/meta-capi/`, the pixel `<Script>` in `client/app/layout.tsx`, and the trigger call sites in `client/features/creators/components/browse-creators/profile-drawer.tsx`, `client/features/auth/components/role-choice-view.tsx`, `client/features/auth/components/brand-google-setup-dialog.tsx`, `server/src/brand-profile/brand-profile.service.ts`, `server/src/creator-profile/creator-profile.service.ts`, and the `fireAddToWishlistMetaEvent` call sites in `server/src/wishlists/wishlists.service.ts` (plus the `metaFbp` / `metaFbc` fields on the two wishlist DTOs); drop the `metaFbp` / `metaFbc` fields from `POST /auth/onboarding/role` and `POST /brands/profile`; then drop the `metaFbp` / `metaFbc` / `metaSignupIp` / `metaSignupUserAgent` columns on `CreatorProfile`.
+- **Full removal:** delete `client/lib/meta-pixel.ts`, `client/features/auth/lib/track-signup-events.ts`, `client/features/analytics/` (plus its call sites in `client/features/brands/components/brand-creators-browser.tsx` and `client/features/wishlists/components/save-to-wishlist-button.tsx`), `server/src/meta-capi/`, the pixel `<Script>` in `client/app/layout.tsx`, and the trigger call sites in `client/features/creators/components/browse-creators/profile-drawer.tsx`, `client/features/creators/components/browse-creators/order-modal.tsx`, `client/features/auth/components/role-choice-view.tsx`, `client/features/auth/components/brand-google-setup-dialog.tsx`, `server/src/brand-profile/brand-profile.service.ts`, `server/src/creator-profile/creator-profile.service.ts`, and the `fireAddToWishlistMetaEvent` call sites in `server/src/wishlists/wishlists.service.ts` (plus the `metaFbp` / `metaFbc` fields on the two wishlist DTOs); drop the `metaFbp` / `metaFbc` fields from `POST /auth/onboarding/role` and `POST /brands/profile`; then drop the `metaFbp` / `metaFbc` / `metaSignupIp` / `metaSignupUserAgent` columns on `CreatorProfile`.

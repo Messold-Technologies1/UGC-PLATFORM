@@ -15,7 +15,10 @@ import React, {
 } from "react";
 import { OrderModal } from "./order-modal";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
-import { trackViewProfile } from "@/features/analytics/lib/buyer-pixel-events";
+import {
+  trackBeginCheckout,
+  trackViewProfile,
+} from "@/features/analytics/lib/buyer-pixel-events";
 import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import {
   X,
@@ -949,6 +952,17 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     trackViewProfile(identity, { creatorId, startingPrice });
   }
 
+  /**
+   * Step 4 of the buyer funnel, reported only once the order modal is actually
+   * opening — not when the click bounced off an unavailable creator, a failed
+   * profile load, or the landing page's redirect to sign up.
+   */
+  async function reportBeginCheckout(creatorId: string, startingPrice: number) {
+    const identity = await resolveBuyerIdentity();
+    if (!identity) return;
+    trackBeginCheckout(identity, { creatorId, startingPrice });
+  }
+
   const showIntro = !!c.introVideoUrl && !introFailed;
   const introPoster = c.previewVideoThumbnail || c.thumbnail;
 
@@ -1164,6 +1178,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               if (isProfileError) {
                 toast.error("Could not load creator packages. Try again.");
                 return;
+              }
+              if (activeId) {
+                void reportBeginCheckout(activeId, c.startingPrice);
               }
               setOrderOpen(true);
             }}

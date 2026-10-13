@@ -88,6 +88,72 @@ export function trackViewProfile(
 }
 
 /**
+ * Step 4 of the buyer funnel — "Place order" clicked on a creator, opening the
+ * order modal. The package and add-ons aren't chosen yet, so `value` is the
+ * creator's starting price: what the order opens at, not what it will cost.
+ *
+ * `AddToCart` is Meta's standard event for picking out an item to buy, which is
+ * exactly this step: the creator is chosen, the checkout is not yet configured.
+ */
+export function trackBeginCheckout(
+  identity: BuyerIdentity,
+  creator: { creatorId: string; startingPrice?: number | null },
+): boolean {
+  const { startingPrice } = creator;
+  return trackPixelEvent(
+    "AddToCart",
+    {
+      ...buyerParams(identity),
+      content_ids: [creator.creatorId],
+      content_type: "product",
+      num_items: 1,
+      ...(typeof startingPrice === "number" && startingPrice > 0
+        ? { value: startingPrice, currency: BUYER_CURRENCY }
+        : {}),
+    },
+    { audience: "brand" },
+  );
+}
+
+/**
+ * Step 5 of the buyer funnel — "Create checkout" clicked in the order modal,
+ * handing off to payment. The order is fully configured by now, so `value` is
+ * what the buyer actually owes: package + add-ons, less any coupon and credits.
+ * It can legitimately be 0 (a free first order, or one fully covered by
+ * credits) — the step still happened, so it is still reported.
+ *
+ * `InitiateCheckout` is Meta's standard event for entering checkout before
+ * completing it.
+ */
+export function trackCheckoutInitiate(
+  identity: BuyerIdentity,
+  order: {
+    creatorId: string;
+    /** Net payable in rupees, after coupon and credits. */
+    value: number;
+    packageLabel?: string | null;
+    addOnCount?: number;
+    couponCode?: string | null;
+  },
+): boolean {
+  return trackPixelEvent(
+    "InitiateCheckout",
+    {
+      ...buyerParams(identity),
+      content_ids: [order.creatorId],
+      content_type: "product",
+      num_items: 1,
+      value: order.value,
+      currency: BUYER_CURRENCY,
+      ...(order.packageLabel ? { package_label: order.packageLabel } : {}),
+      ...(order.addOnCount ? { add_on_count: order.addOnCount } : {}),
+      ...(order.couponCode ? { coupon_code: order.couponCode } : {}),
+    },
+    { audience: "brand" },
+  );
+}
+
+/**
  * Event id shared by this browser event and the server's Conversions API copy,
  * so Meta counts the pair once. Derived from the (wishlist, creator) pair,
  * which both sides know. Mirrors `addToWishlistEventId` in

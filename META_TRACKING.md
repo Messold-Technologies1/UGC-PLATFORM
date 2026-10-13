@@ -2,7 +2,7 @@
 
 This project reports conversions to Meta through two channels:
 
-- **Browser Pixel** — `fbq` loaded in `client/app/layout.tsx`, helpers in `client/lib/meta-pixel.ts`, signup call sites in `client/features/auth/lib/track-signup-events.ts`.
+- **Browser Pixel** — `fbq` loaded in `client/app/layout.tsx`, helpers in `client/lib/meta-pixel.ts`, signup call sites in `client/features/auth/lib/track-signup-events.ts`, buyer-funnel call sites in `client/features/analytics/`.
 - **Conversions API (CAPI)** — server-to-server from `server/src/meta-capi/`.
 
 Everything is **env-gated**: clear the env vars and all tracking becomes a silent no-op — no code change needed.
@@ -14,7 +14,7 @@ Creator-side and brand-side ads are bought against separate Meta datasets, so th
 | Dataset | Client env var | Server env vars | Gets |
 |---|---|---|---|
 | Creator (main) | `NEXT_PUBLIC_META_PIXEL_ID` | `META_CAPI_DATASET_ID` + `META_CAPI_ACCESS_TOKEN` | `PageView`, `CreatorProfileListed` |
-| Brand (`Brands_Gocollab`) | `NEXT_PUBLIC_META_BRAND_PIXEL_ID` | `META_CAPI_BRAND_DATASET_ID` (+ optional `META_CAPI_BRAND_ACCESS_TOKEN`) | `PageView`, `BrandRegistration` |
+| Brand (`Brands_Gocollab`) | `NEXT_PUBLIC_META_BRAND_PIXEL_ID` | `META_CAPI_BRAND_DATASET_ID` (+ optional `META_CAPI_BRAND_ACCESS_TOKEN`) | `PageView`, `BrandRegistration`, `ExploreCreators`, `AddToWishlist` |
 
 Both pixels are initialized by the base loader and both receive `PageView`. Every other browser event is sent with Meta's per-pixel `trackSingleCustom`, so it lands in exactly one dataset — a plain `fbq('track', …)` would report to both.
 
@@ -26,6 +26,8 @@ Each side is independently gated. Clearing `NEXT_PUBLIC_META_BRAND_PIXEL_ID` sen
 |---|---|---|---|---|
 | `PageView` | every page load | both | Browser pixel | — |
 | `BrandRegistration` | the brand profile is created — at the role-choice step for email+password signup (an OTP-verified phone is already on file, so brand setup is skipped) or on `/onboarding/brand` for the Google route | Brand | Browser pixel **+** server CAPI | ✅ shared `event_id` |
+| `ExploreCreators` | a brand/agency opens the creator catalogue — "Creators" in the navbar (`/brand/creators`, `/agency/creators`) | Brand | Browser pixel | — |
+| `AddToWishlist` | a brand/agency saves a creator to a wishlist — into an existing one, or into one created around that creator | Brand | Browser pixel | — |
 | `CreatorProfileListed` | the creator's `isListed` flips false→true (admin approval of a complete profile, or the creator completing their profile after an earlier approval) | Creator | Server CAPI | — |
 
 **Creators are not tracked at signup.** Their conversion is `CreatorProfileListed` — a creator only becomes worth anything to the marketplace once they are listed, so that is the event campaigns optimize on.
@@ -42,6 +44,38 @@ Both signup routes converge on the role-choice screen (`/onboarding/role`), and 
 | Google | nothing at signup | role choice (no profile yet) → `/onboarding/brand` → `BrandRegistration` after the phone is verified |
 
 The server copy is fired from `createOwnedBrandProfileForUser`, the one function both routes pass through, so it cannot miss a route or double-count.
+
+### Buyer funnel (brand + agency)
+
+Buyer-side steps are browser-only and live in `client/features/analytics/`:
+
+| | |
+|---|---|
+| Events | `buyer-pixel-events.ts` — both senders, both pinned to the **brand** dataset |
+| Who fired it | `use-buyer-identity-resolver.ts` — resolves the acting brand/agency name |
+| `ExploreCreators` | `use-explore-creators-pixel.ts`, called from `BrandCreatorsBrowser` |
+| `AddToWishlist` | `SaveToWishlistButton`, after either save path succeeds |
+
+Both events carry `account_type` (`brand` / `agency`) and, when the profile has
+one, `brand_name` — the brand's name, or the agency's — so Events Manager can be
+broken down by account. `AddToWishlist` also carries `content_ids` (the creator
+id), `content_type` and `wishlist_name`. **No PII:** creators travel as opaque
+ids, never names.
+
+`BrandCreatorsBrowser` is the single mount point for both `/brand/creators` and
+`/agency/creators`, so `ExploreCreators` fires once per visit — filtering,
+searching and paging don't remount it, and navigating away and back counts as a
+new visit.
+
+The acting account is read with `fetchQuery` at the moment an event fires rather
+than with a subscribing `useQuery`: `SaveToWishlistButton` renders once per
+creator card, so a subscription would mean one React Query observer per card for
+a value only needed on click. A profile that can't be read yields a name-less
+identity — the event still fires, just without the breakdown.
+
+`ExploreCreators` is a **custom** event, so optimizing a campaign on it needs a
+Custom Conversion (see below). `AddToWishlist` is one of Meta's **standard**
+events and is available to ad delivery optimization directly.
 
 **Advanced Matching (identifiers sent for match quality):**
 
@@ -97,9 +131,9 @@ Neither event carries PII in `custom_data` — identifiers travel only through A
 
 ## Optimizing ad delivery on conversions (optional)
 
-`BrandRegistration` and `CreatorProfileListed` are **custom** events. They work for reporting, audiences, and custom conversions, but Meta's automated ad-delivery optimization favors standard events. To optimize a campaign on them:
+`BrandRegistration`, `CreatorProfileListed` and `ExploreCreators` are **custom** events (`AddToWishlist` is standard and needs none of this). They work for reporting, audiences, and custom conversions, but Meta's automated ad-delivery optimization favors standard events. To optimize a campaign on them:
 
-- Events Manager → **Custom Conversions → Create** → map it to the `BrandRegistration` (or `CreatorProfileListed`) event.
+- Events Manager → **Custom Conversions → Create** → map it to the `BrandRegistration` (or `CreatorProfileListed` / `ExploreCreators`) event.
 - Then select that Custom Conversion as the campaign's optimization goal.
 
 No code change required.
@@ -114,4 +148,4 @@ No code change required.
 ## Turning it off / removing
 
 - **Off (instant):** clear the client pixel IDs and/or the server dataset IDs. Each of the four vars switches off one channel of one dataset on its own.
-- **Full removal:** delete `client/lib/meta-pixel.ts`, `client/features/auth/lib/track-signup-events.ts`, `server/src/meta-capi/`, the pixel `<Script>` in `client/app/layout.tsx`, and the trigger call sites in `client/features/auth/components/role-choice-view.tsx`, `client/features/auth/components/brand-google-setup-dialog.tsx`, `server/src/brand-profile/brand-profile.service.ts`, and `server/src/creator-profile/creator-profile.service.ts`; drop the `metaFbp` / `metaFbc` fields from `POST /auth/onboarding/role` and `POST /brands/profile`; then drop the `metaFbp` / `metaFbc` / `metaSignupIp` / `metaSignupUserAgent` columns on `CreatorProfile`.
+- **Full removal:** delete `client/lib/meta-pixel.ts`, `client/features/auth/lib/track-signup-events.ts`, `client/features/analytics/` (plus its call sites in `client/features/brands/components/brand-creators-browser.tsx` and `client/features/wishlists/components/save-to-wishlist-button.tsx`), `server/src/meta-capi/`, the pixel `<Script>` in `client/app/layout.tsx`, and the trigger call sites in `client/features/auth/components/role-choice-view.tsx`, `client/features/auth/components/brand-google-setup-dialog.tsx`, `server/src/brand-profile/brand-profile.service.ts`, and `server/src/creator-profile/creator-profile.service.ts`; drop the `metaFbp` / `metaFbc` fields from `POST /auth/onboarding/role` and `POST /brands/profile`; then drop the `metaFbp` / `metaFbc` / `metaSignupIp` / `metaSignupUserAgent` columns on `CreatorProfile`.

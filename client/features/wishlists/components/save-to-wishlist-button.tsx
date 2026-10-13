@@ -25,6 +25,8 @@ import {
   registerWishlistOverlayClose,
   registerWishlistOverlayOpen,
 } from "../lib/suppress-creator-card-navigation";
+import { trackAddToWishlist } from "@/features/analytics/lib/buyer-pixel-events";
+import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import { useWishlistsData } from "../hooks/use-wishlists-data";
 import { useCreateWishlistMutation } from "../hooks/use-create-wishlist-mutation";
 import { useAddWishlistCreatorMutation } from "../hooks/use-add-wishlist-creator-mutation";
@@ -103,6 +105,9 @@ export function SaveToWishlistButton({
   const [imageError, setImageError] = useState(false);
 
   const { wishlists, isLoading } = useWishlistsData();
+  // Resolved on save rather than on render: this button is rendered once per
+  // creator card, and the acting brand/agency is only needed when one is saved.
+  const resolveBuyerIdentity = useBuyerIdentityResolver();
 
   const addMutation = useAddWishlistCreatorMutation();
   const removeMutation = useRemoveWishlistCreatorMutation();
@@ -126,6 +131,15 @@ export function SaveToWishlistButton({
 
   const savedCount = wishlists.filter(isInWishlist).length;
 
+  /**
+   * Report the save to the brand Meta dataset. Fired from both save paths —
+   * adding to an existing wishlist and creating one around this creator — and
+   * deliberately not awaited, so a slow pixel never holds up the UI.
+   */
+  async function reportAddToWishlist(wishlistName: string) {
+    trackAddToWishlist(await resolveBuyerIdentity(), creatorId, wishlistName);
+  }
+
   async function handleToggle(wishlist: Wishlist) {
     extendCreatorCardNavigationSuppress();
     if (isInWishlist(wishlist)) {
@@ -139,6 +153,7 @@ export function SaveToWishlistButton({
       try {
         await addMutation.mutateAsync({ wishlistId: wishlist.id, creatorId });
         toast.success(`Added to "${wishlist.name}"`);
+        void reportAddToWishlist(wishlist.name);
       } catch {
         toast.error("Failed to add to wishlist");
       }
@@ -153,6 +168,7 @@ export function SaveToWishlistButton({
       await createMutation.mutateAsync({ name, creatorIds: [creatorId] });
       extendCreatorCardNavigationSuppress();
       toast.success(`Created wishlist "${name}"`);
+      void reportAddToWishlist(name);
       setNewName("");
       setShowCreate(false);
     } catch (err: any) {

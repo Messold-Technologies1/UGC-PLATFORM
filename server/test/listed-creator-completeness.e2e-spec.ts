@@ -127,7 +127,7 @@ describe('Listed creators split by profile completeness (e2e)', () => {
         displayName: handle,
         publicSlug: handle,
         profileImageUrl: 'https://cdn.example/p.jpg',
-        // The post-listing requirement: absent unless the creator uploaded one.
+        // Optional for listed completeness; still seeded so other flows can use it.
         introVideoUrl: gaps.introVideo
           ? null
           : `https://cdn.example/${handle}-intro.mp4`,
@@ -318,6 +318,7 @@ describe('Listed creators split by profile completeness (e2e)', () => {
   describe('the split', () => {
     beforeEach(async () => {
       await seedListedCreator('whole');
+      // Intro video is optional for listed · complete.
       await seedListedCreator('needs-intro', { introVideo: true });
       await seedListedCreator('needs-several', {
         introVideo: true,
@@ -326,19 +327,21 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       });
     });
 
-    it('puts only the genuinely finished profile in listed · complete', async () => {
+    it('puts finished profiles (including no intro video) in listed · complete', async () => {
       const res = await listSegment('listed_complete').expect(200);
       const body = res.body as ListBody;
-      expect(names(body)).toEqual(['whole']);
-      expect(body.total).toBe(1);
-      expect(body.items[0]?.missingRequirements).toEqual([]);
+      expect(names(body)).toEqual(['needs-intro', 'whole']);
+      expect(body.total).toBe(2);
+      for (const item of body.items) {
+        expect(item.missingRequirements).toEqual([]);
+      }
     });
 
     it('collects everyone still owing something in listed · incomplete', async () => {
       const res = await listSegment('listed_incomplete').expect(200);
       const body = res.body as ListBody;
-      expect(names(body)).toEqual(['needs-intro', 'needs-several']);
-      expect(body.total).toBe(2);
+      expect(names(body)).toEqual(['needs-several']);
+      expect(body.total).toBe(1);
     });
 
     it('leaves the plain Listed tab showing every listed creator', async () => {
@@ -355,16 +358,13 @@ describe('Listed creators split by profile completeness (e2e)', () => {
         ]),
       );
 
-      // The designed post-listing gap, and nothing else.
-      expect(byName.get('needs-intro')).toEqual(['Intro video']);
-
       expect(byName.get('needs-several')).toEqual(
         expect.arrayContaining([
           'At least 3 portfolio videos',
           'Instagram connected',
-          'Intro video',
         ]),
       );
+      expect(byName.get('needs-several')).not.toContain('Intro video');
     });
 
     it('counts both segments, and they add up to Listed', async () => {
@@ -374,17 +374,17 @@ describe('Listed creators split by profile completeness (e2e)', () => {
         .expect(200);
       const body = res.body as CountsBody;
 
-      expect(body.listedComplete).toBe(1);
-      expect(body.listedIncomplete).toBe(2);
+      expect(body.listedComplete).toBe(2);
+      expect(body.listedIncomplete).toBe(1);
       expect(body.listedComplete + body.listedIncomplete).toBe(body.listed);
     });
 
     it('narrows the derived segment by search', async () => {
       const res = await listSegment('listed_incomplete', {
-        search: 'needs-intro',
+        search: 'needs-several',
       }).expect(200);
       const body = res.body as ListBody;
-      expect(names(body)).toEqual(['needs-intro']);
+      expect(names(body)).toEqual(['needs-several']);
       expect(body.total).toBe(1);
     });
   });
@@ -406,9 +406,9 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       const res = await listSegment('listed_incomplete').expect(200);
       const body = res.body as ListBody;
       expect(names(body)).toEqual(['latched']);
-      expect(body.items[0]?.missingRequirements).toEqual(
-        expect.arrayContaining(['At least one language', 'Intro video']),
-      );
+      expect(body.items[0]?.missingRequirements).toEqual([
+        'At least one language',
+      ]);
     });
 
     it('counts a missing primary category against a listed creator', async () => {
@@ -524,7 +524,7 @@ describe('Listed creators split by profile completeness (e2e)', () => {
     });
 
     it('returns an empty page past the end rather than erroring', async () => {
-      await seedListedCreator('only-one', { introVideo: true });
+      await seedListedCreator('only-one', { language: true });
 
       const res = await listSegment('listed_incomplete', {
         page: 9,
@@ -542,16 +542,16 @@ describe('Listed creators split by profile completeness (e2e)', () => {
 
     it('returns only the incomplete creators, with contact details', async () => {
       await seedListedCreator('whole');
-      await seedListedCreator('needs-intro', { introVideo: true });
+      await seedListedCreator('needs-language', { language: true });
 
       const rows = await cohort();
 
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
-        displayName: 'needs-intro',
+        displayName: 'needs-language',
         phoneVerified: true,
-        contactEmail: 'needs-intro@creator.test',
-        missing: ['Intro video'],
+        contactEmail: 'needs-language@creator.test',
+        missing: ['At least one language'],
       });
       expect(rows[0]?.phone).toMatch(/^\+9199\d{8}$/);
       expect(rows[0]?.userId).toEqual(expect.any(String));
@@ -560,7 +560,7 @@ describe('Listed creators split by profile completeness (e2e)', () => {
     it('still returns a creator with no phone on file, flagged as unverified', async () => {
       // The sender decides what to do about a missing number; dropping them
       // here would hide the gap from whoever is chasing the cohort.
-      await seedListedCreator('no-phone', { introVideo: true, phone: null });
+      await seedListedCreator('no-phone', { language: true, phone: null });
 
       const rows = await cohort();
 
@@ -579,17 +579,14 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       const [row] = await cohort();
 
       expect(row?.missing).toEqual(
-        expect.arrayContaining([
-          'Primary niche',
-          'Instagram connected',
-          'Intro video',
-        ]),
+        expect.arrayContaining(['Primary niche', 'Instagram connected']),
       );
+      expect(row?.missing).not.toContain('Intro video');
     });
 
     it('agrees exactly with the admin listed · incomplete tab', async () => {
       await seedListedCreator('whole');
-      await seedListedCreator('gap-a', { introVideo: true });
+      await seedListedCreator('gap-a', { instagram: true });
       await seedListedCreator('gap-b', { language: true });
 
       const rows = await cohort();

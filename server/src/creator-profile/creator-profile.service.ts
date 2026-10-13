@@ -2343,7 +2343,6 @@ export class CreatorProfileService {
         where,
         select: {
           id: true,
-          introVideoUrl: true,
           profileImageUrl: true,
           displayName: true,
           contactEmail: true,
@@ -2392,7 +2391,6 @@ export class CreatorProfileService {
 
     for (const profile of profiles) {
       const { missing } = evaluateListedProfileCompleteness({
-        introVideoUrl: profile.introVideoUrl,
         profileImageUrl: profile.profileImageUrl,
         displayName: profile.displayName,
         contactEmail: profile.contactEmail,

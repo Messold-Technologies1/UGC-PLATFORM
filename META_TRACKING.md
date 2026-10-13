@@ -14,7 +14,7 @@ Creator-side and brand-side ads are bought against separate Meta datasets, so th
 | Dataset | Client env var | Server env vars | Gets |
 |---|---|---|---|
 | Creator (main) | `NEXT_PUBLIC_META_PIXEL_ID` | `META_CAPI_DATASET_ID` + `META_CAPI_ACCESS_TOKEN` | `PageView`, `CreatorProfileListed` |
-| Brand (`Brands_Gocollab`) | `NEXT_PUBLIC_META_BRAND_PIXEL_ID` | `META_CAPI_BRAND_DATASET_ID` (+ optional `META_CAPI_BRAND_ACCESS_TOKEN`) | `PageView`, `BrandRegistration`, `ExploreCreators`, `AddToWishlist`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Purchase` |
+| Brand (`Brands_Gocollab`) | `NEXT_PUBLIC_META_BRAND_PIXEL_ID` | `META_CAPI_BRAND_DATASET_ID` (+ optional `META_CAPI_BRAND_ACCESS_TOKEN`) | `PageView`, `BrandRegistration`, `ExploreCreators`, `HotBrand`, `AddToWishlist`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Purchase` |
 
 Both pixels are initialized by the base loader and both receive `PageView`. Every other browser event is sent with Meta's per-pixel `trackSingleCustom`, so it lands in exactly one dataset — a plain `fbq('track', …)` would report to both.
 
@@ -27,6 +27,7 @@ Each side is independently gated. Clearing `NEXT_PUBLIC_META_BRAND_PIXEL_ID` sen
 | `PageView` | every page load | both | Browser pixel | — |
 | `BrandRegistration` | the brand profile is created — at the role-choice step for email+password signup (an OTP-verified phone is already on file, so brand setup is skipped) or on `/onboarding/brand` for the Google route | Brand | Browser pixel **+** server CAPI | ✅ shared `event_id` |
 | `ExploreCreators` | a brand/agency opens the creator catalogue — "Creators" in the navbar (`/brand/creators`, `/agency/creators`) | Brand | Browser pixel | — |
+| `HotBrand` | a brand/agency spends 30 seconds actually looking at the creator catalogue | Brand | Browser pixel | — |
 | `AddToWishlist` | a brand/agency saves a creator to a wishlist — into an existing one, or into one created around that creator | Brand | Browser pixel **+** server CAPI | ✅ shared `event_id` |
 | `ViewContent` | a brand/agency opens a creator's full public profile from the browse drawer ("View profile") | Brand | Browser pixel | — |
 | `AddToCart` | a brand/agency clicks "Place order" on a creator and the order modal opens | Brand | Browser pixel | — |
@@ -62,6 +63,7 @@ Buyer-side steps are browser-only and live in `client/features/analytics/`:
 | Events | `buyer-pixel-events.ts` — both senders, both pinned to the **brand** dataset |
 | Who fired it | `use-buyer-identity-resolver.ts` — resolves the acting brand/agency name |
 | `ExploreCreators` | `use-explore-creators-pixel.ts`, called from `BrandCreatorsBrowser` |
+| `HotBrand` | the same hook's dwell timer, at `HOT_BRAND_SECONDS` |
 | `AddToWishlist` (browser) | `SaveToWishlistButton`, after either save path succeeds |
 | `AddToWishlist` (server) | `WishlistsService.fireAddToWishlistMetaEvent`, on the save request itself |
 | `ViewContent` | `ProfileDrawer`, on the "View profile" link |
@@ -90,13 +92,41 @@ click never races a half-loaded session.
 searching and paging don't remount it, and navigating away and back counts as a
 new visit.
 
+### HotBrand — the engaged-browsing signal
+
+Browsing is the one funnel step with no click to measure, so dwell time stands
+in for intent: a glance bounces, a real search doesn't. After
+`HOT_BRAND_SECONDS` (30) on the catalogue, the buyer is reported as hot.
+
+**Only visible seconds count.** The timer ticks once a second and skips every
+tick where `document.visibilityState` isn't `visible`, so a tab left open behind
+another window doesn't mark a visitor hot overnight — which would make the
+signal mean nothing. Browsers throttle timers in background tabs anyway, so
+this is both the honest reading and the one they can deliver.
+
+**It is an event, not a number.** Meta optimizes on whether an event happened
+and cannot read a `seconds` field, so a threshold crossed is a usable signal
+where a duration would be reporting only. It is also fired from the live page
+rather than on exit: a browser tearing down a tab drops in-flight beacons, and
+it drops the long sessions first — exactly the population this is meant to find.
+
+**Once per visit.** Leaving before 30 seconds sends nothing; coming back and
+browsing again marks them hot again, which is a fair reading of a buyer who
+keeps returning. If you would rather count each account once a day, that needs a
+per-viewer guard (e.g. `sessionStorage`) in `startDwellTimer`.
+
+Custom event: building a **Custom Audience** from it needs nothing (Events
+Manager → Audiences → Website → `HotBrand`); optimizing a campaign on it needs a
+Custom Conversion, as below. `account_type` tells brands and agencies apart —
+the name follows the funnel, not the account kind.
+
 The acting account is read with `fetchQuery` at the moment an event fires rather
 than with a subscribing `useQuery`: `SaveToWishlistButton` renders once per
 creator card, so a subscription would mean one React Query observer per card for
 a value only needed on click. A profile that can't be read yields a name-less
 identity — the event still fires, just without the breakdown.
 
-`ExploreCreators` is a **custom** event, so optimizing a campaign on it needs a
+`ExploreCreators` and `HotBrand` are **custom** events, so optimizing a campaign on one needs a
 Custom Conversion (see below). `AddToWishlist` is one of Meta's **standard**
 events and is available to ad delivery optimization directly.
 
@@ -260,9 +290,9 @@ Neither event carries PII in `custom_data` — identifiers travel only through A
 
 ## Optimizing ad delivery on conversions (optional)
 
-`BrandRegistration`, `CreatorProfileListed` and `ExploreCreators` are **custom** events (`AddToWishlist`, `ViewContent`, `AddToCart`, `InitiateCheckout` and `Purchase` are standard events and need none of this). They work for reporting, audiences, and custom conversions, but Meta's automated ad-delivery optimization favors standard events. To optimize a campaign on them:
+`BrandRegistration`, `CreatorProfileListed`, `ExploreCreators` and `HotBrand` are **custom** events (`AddToWishlist`, `ViewContent`, `AddToCart`, `InitiateCheckout` and `Purchase` are standard events and need none of this). They work for reporting, audiences, and custom conversions, but Meta's automated ad-delivery optimization favors standard events. To optimize a campaign on them:
 
-- Events Manager → **Custom Conversions → Create** → map it to the `BrandRegistration` (or `CreatorProfileListed` / `ExploreCreators`) event.
+- Events Manager → **Custom Conversions → Create** → map it to the `BrandRegistration` (or `CreatorProfileListed` / `ExploreCreators` / `HotBrand`) event.
 - Then select that Custom Conversion as the campaign's optimization goal.
 
 No code change required.

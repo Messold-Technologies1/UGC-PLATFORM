@@ -58,6 +58,36 @@ export function trackExploreCreators(identity: BuyerIdentity): boolean {
 }
 
 /**
+ * How long a brand/agency has to stay on the creator catalogue before they
+ * count as engaged. Browsing is the one funnel step with no click to measure,
+ * so dwell time stands in for intent: a glance bounces, a real search doesn't.
+ */
+export const HOT_BRAND_SECONDS = 30;
+
+/**
+ * A brand/agency spent {@link HOT_BRAND_SECONDS} actually looking at the
+ * creator catalogue — a "hot" buyer, worth its own audience.
+ *
+ * Deliberately an **event**, not a duration attached to `ExploreCreators`: Meta
+ * optimizes on whether an event happened, and cannot read a `seconds` field, so
+ * a threshold crossed is a usable signal where a number is only reporting.
+ * Firing it from the live page rather than on exit is what makes it reliable —
+ * a browser tearing down a tab drops in-flight beacons, and it drops the long
+ * sessions first, which is exactly the population this is trying to find.
+ *
+ * Custom event, so optimizing a campaign on it needs a Custom Conversion;
+ * building a Custom Audience from it needs nothing. `account_type` tells brands
+ * and agencies apart — the name follows the funnel, not the account kind.
+ */
+export function trackHotBrand(identity: BuyerIdentity): boolean {
+  return trackPixelCustom(
+    "HotBrand",
+    { ...buyerParams(identity), engaged_seconds: HOT_BRAND_SECONDS },
+    { audience: "brand" },
+  );
+}
+
+/**
  * Step 3 of the buyer funnel — the brand/agency opened a creator's full public
  * profile from the browse drawer ("View profile").
  *

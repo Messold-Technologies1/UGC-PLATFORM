@@ -165,11 +165,23 @@ that figure; `gross_value`, `credits_applied`, `discount`, `coupon_code`,
 fully-credited order reports a value of 0.
 
 **Match quality.** The buyer's email, phone and name go out as Advanced
-Matching (hashed by `MetaCapiService`), but **`_fbp` / `_fbc` are not sent** —
-they are readable only in the browser, and nothing stores them against an
-order. Adding `metaFbp` / `metaFbc` columns to `Order`, captured when checkout
-is created, would raise match quality on the one event where it matters most;
-it needs a migration, so it is not done here.
+Matching (hashed by `MetaCapiService`), alongside the `_fbp` / `_fbc` cookies
+captured at checkout — without which this event would carry no ad-click signal
+at all, since it fires from a webhook with no browser request of its own.
+
+`Order.metaFbp` / `Order.metaFbc` (migration
+`20261013120000_order_meta_attribution`) hold them. The client attaches them to
+both checkout calls (`createCheckout`, `createBulkCheckout`), and they are
+written on every order a checkout creates — the free one, the credit-covered
+one, the plain pending one, and each child of a bulk batch — and refreshed when
+a draft order is reused for a later attempt, so the newest click an order is
+attributed to wins. An ad-blocked browser simply has no cookies to send: both
+columns stay null and the purchase still converts on the hashed contact alone.
+
+The request's IP and user-agent would lift match quality further still, the way
+`CreatorProfileListed` replays them. They are not stored on orders — that is
+more personal data held per order than the cookies are, so it is a deliberate
+choice rather than an oversight.
 
 **Not yet covered:** the wishlist bulk checkout
 (`BulkCheckoutModal` → `useWishlistBulkCheckout`) is a second way into payment,

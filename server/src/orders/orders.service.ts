@@ -84,6 +84,21 @@ import { CouponsService } from '../coupons/coupons.service';
 import { WalletService } from '../wallet/wallet.service';
 
 /**
+ * Normalize the Meta attribution cookies a checkout carries into order write
+ * data. Blank or absent becomes null — an ad-blocked browser has no cookies to
+ * send, and a null is honest about that where an empty string is not.
+ */
+function metaAttributionWriteData(source: {
+  metaFbp?: string | null;
+  metaFbc?: string | null;
+}): { metaFbp: string | null; metaFbc: string | null } {
+  return {
+    metaFbp: source.metaFbp?.trim() || null,
+    metaFbc: source.metaFbc?.trim() || null,
+  };
+}
+
+/**
  * Nested `BrandProfile` fields for order API brand snapshots.
  * Cast so Prisma accepts the select object even if generated types lag (run `npx prisma generate` in `server/` after schema changes).
  */
@@ -585,6 +600,8 @@ export class OrdersService {
           couponCodeSnapshot: true,
           packageNameSnapshot: true,
           isFreeOrder: true,
+          metaFbp: true,
+          metaFbc: true,
           brand: {
             select: {
               brandName: true,
@@ -630,6 +647,10 @@ export class OrdersService {
           email,
           phone,
           ...splitFullName(contactFullName),
+          // Captured in the buyer's browser at checkout: this event fires from
+          // a webhook, so they are the only ad-click signal it can carry.
+          fbp: order.metaFbp,
+          fbc: order.metaFbc,
         },
         customData: {
           account_type: agency ? 'agency' : 'brand',
@@ -1030,6 +1051,13 @@ export class OrdersService {
      * predates it keeps the previous behaviour, matching only keyless drafts.
      */
     checkoutSessionKey?: string | null;
+    /**
+     * Meta attribution cookies from the buyer's browser, stored on the order so
+     * the server-side Purchase conversion can replay them (see
+     * {@link firePurchaseMetaEvent}).
+     */
+    metaFbp?: string | null;
+    metaFbc?: string | null;
   }): Promise<CheckoutSessionResult> {
     const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -1037,6 +1065,9 @@ export class OrdersService {
     });
     const owner = this.ownerCreateData(actor);
     const checkoutSessionKey = params.checkoutSessionKey ?? null;
+    // Written on every order this checkout creates, and refreshed when it
+    // reuses a draft, so the newest click an order is attributed to wins.
+    const metaWriteData = metaAttributionWriteData(params);
 
     const {
       pkg,
@@ -1119,6 +1150,7 @@ export class OrdersService {
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: 0,
           checkoutSessionKey,
+          ...metaWriteData,
           ...zeroWriteData,
         },
         select: { id: true, currency: true },
@@ -1191,6 +1223,7 @@ export class OrdersService {
             expectedAmountPaise: netAmountPaise,
             creditsAppliedPaise: creditsToApply,
             checkoutSessionKey,
+            ...metaWriteData,
             ...couponWriteData,
           },
           select: { id: true, currency: true },
@@ -1401,6 +1434,7 @@ export class OrdersService {
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: netAmountPaise,
           creditsAppliedPaise: 0,
+          ...metaWriteData,
           ...couponWriteData,
           razorpayOrderId,
         },
@@ -1446,6 +1480,7 @@ export class OrdersService {
         addOnsTotalSnapshot: addOnsTotalDecimal,
         expectedAmountPaise: netAmountPaise,
         checkoutSessionKey,
+        ...metaWriteData,
         ...couponWriteData,
       },
       select: { id: true, currency: true },
@@ -1501,6 +1536,9 @@ export class OrdersService {
       addOnIds?: string[];
     }>;
     couponCode?: string | null;
+    /** See {@link createCheckout} — replayed on each child order's Purchase. */
+    metaFbp?: string | null;
+    metaFbc?: string | null;
   }): Promise<BulkCheckoutSessionResult> {
     const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -1625,6 +1663,9 @@ export class OrdersService {
         : (resolvedCoupon?.discountType ?? null),
       discountAmountPaise: p.childDiscount,
       grossAmountPaise: p.free ? 0 : p.childGross,
+      // One payment, many orders: every child carries the buyer's attribution,
+      // so each one's Purchase can be matched on its own.
+      ...metaAttributionWriteData(params),
     });
 
     // Zero-rupee cart: a full-value (e.g. 100%) coupon covers the whole cart, so

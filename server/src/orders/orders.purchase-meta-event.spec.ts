@@ -40,6 +40,8 @@ describe('OrdersService Purchase Meta event', () => {
     couponCodeSnapshot: 'DIWALI20',
     packageNameSnapshot: 'Standard',
     isFreeOrder: false,
+    metaFbp: 'fb.1.1700000000.123456789',
+    metaFbc: 'fb.1.1700000000.IwAR0abc',
     brand: {
       brandName: 'Messold Technologies',
       contactFullName: 'Anuj Sharma',
@@ -146,6 +148,28 @@ describe('OrdersService Purchase Meta event', () => {
       phone: '+919876543210',
       firstName: 'Anuj',
       lastName: 'Sharma',
+      // Captured in the buyer's browser at checkout. This event fires from a
+      // webhook with no browser request, so without the stored copy there
+      // would be no ad-click signal on it at all.
+      fbp: 'fb.1.1700000000.123456789',
+      fbc: 'fb.1.1700000000.IwAR0abc',
+    });
+  });
+
+  it('still reports a purchase when the browser had no Meta cookies', async () => {
+    const { service, sendEvent } = makeService({
+      paidOrder: { ...PAID_BRAND_ORDER, metaFbp: null, metaFbc: null },
+    });
+
+    await markPaid(service);
+    await flush();
+
+    // An ad-blocked checkout still converts, matched on the hashed contact.
+    expect(sendEvent).toHaveBeenCalledTimes(1);
+    expect(sendEvent.mock.calls[0][0].userData).toMatchObject({
+      email: 'anuj@messold.com',
+      fbp: null,
+      fbc: null,
     });
   });
 

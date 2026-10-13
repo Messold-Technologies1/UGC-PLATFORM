@@ -14,13 +14,21 @@ import {
   verifyPhoneOtp,
   type PhoneOtpChannel,
 } from "@/features/auth/api/phone-otp";
+import { PhoneCountryCodeSelect } from "@/features/auth/components/phone-country-code-select";
+import {
+  buildE164Phone,
+  findPhoneCountryByIso,
+  getPhoneCountryOptions,
+  maxNationalDigits,
+  PHONE_E164_REGEX,
+  splitE164Phone,
+} from "@/features/auth/lib/phone-country-codes";
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
 
 // Five minutes. Long enough that a slow WhatsApp delivery has clearly failed
 // before the user burns a rung of the channel ladder on a resend.
 const PHONE_OTP_RESEND_SECONDS = 300;
-const PHONE_E164_REGEX = /^\+\d{8,15}$/;
 const OTP_CODE_REGEX = /^\d{4,10}$/;
 
 /** `m:ss` while the resend lock runs, so a 5-minute wait reads sensibly. */
@@ -67,6 +75,19 @@ function phoneOtpErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function initialCountryAndNational(initialPhone?: string): {
+  iso: string;
+  national: string;
+} {
+  const normalized = normalizePhoneForOtp(initialPhone ?? "");
+  if (!normalized.startsWith("+")) {
+    return { iso: "IN", national: normalized.replace(/\D/g, "") };
+  }
+  const split = splitE164Phone(normalized);
+  if (!split) return { iso: "IN", national: "" };
+  return { iso: split.option.isoCode, national: split.national };
+}
+
 export function PhoneVerificationField({
   idPrefix,
   disabled = false,
@@ -104,8 +125,20 @@ export function PhoneVerificationField({
    */
   initialVerified?: boolean;
 }) {
+  const phoneCountries = useMemo(() => getPhoneCountryOptions(), []);
+  const seeded = useMemo(
+    () => initialCountryAndNational(initialPhone),
+    [initialPhone],
+  );
+  const [countryIso, setCountryIso] = useState(seeded.iso);
+  const [nationalDigits, setNationalDigits] = useState(seeded.national);
+  const selectedCountry =
+    findPhoneCountryByIso(countryIso, phoneCountries) ?? phoneCountries[0];
+  const dialCode = selectedCountry?.dialCode ?? "91";
+
   const [phoneInput, setPhoneInput] = useState(() =>
-    normalizePhoneForOtp(initialPhone ?? ""),
+    normalizePhoneForOtp(initialPhone ?? "") ||
+    buildE164Phone(dialCode, seeded.national),
   );
   const [otpSentToPhone, setOtpSentToPhone] = useState<string | null>(null);
   // The number that was already verified when the field mounted (grandfathered
@@ -130,6 +163,19 @@ export function PhoneVerificationField({
    * (WhatsApp -> SMS), so the user has to be told where to look.
    */
   const [otpChannel, setOtpChannel] = useState<PhoneOtpChannel>("whatsapp");
+
+  const syncPhone = useCallback(
+    (nextDial: string, nextNational: string) => {
+      const capped = nextNational
+        .replace(/\D/g, "")
+        .slice(0, maxNationalDigits(nextDial));
+      setNationalDigits(capped);
+      setPhoneInput(buildE164Phone(nextDial, capped));
+      setVerifiedPhone(null);
+      setPhoneError(null);
+    },
+    [],
+  );
 
   const normalizedPhone = useMemo(
     () => normalizePhoneForOtp(phoneInput),
@@ -234,6 +280,11 @@ export function PhoneVerificationField({
 
       setVerifiedPhone(variables.phone);
       setPhoneInput(variables.phone);
+      const split = splitE164Phone(variables.phone, phoneCountries);
+      if (split) {
+        setCountryIso(split.option.isoCode);
+        setNationalDigits(split.national);
+      }
       setOtpSentToPhone(null);
       setOtpCode("");
       setOtpError(null);
@@ -259,7 +310,7 @@ export function PhoneVerificationField({
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForOtp(phoneInput);
     if (!PHONE_E164_REGEX.test(phone)) {
-      const message = "Enter a mobile number in E.164 format, like +919876543210.";
+      const message = "Enter a valid phone number with country code.";
       setPhoneError(message);
       toast.error(message);
       return;
@@ -294,7 +345,7 @@ export function PhoneVerificationField({
     }
 
     setOtpError(null);
-verifyPhoneOtpMutation.mutate({ phone, code });
+    verifyPhoneOtpMutation.mutate({ phone, code });
   }, [otpCode, otpSentToPhone, phoneInput, verifyPhoneOtpMutation]);
 
   return (
@@ -307,51 +358,54 @@ verifyPhoneOtpMutation.mutate({ phone, code });
             : "border-slate-200 dark:border-slate-800 focus-within:ring-slate-950 dark:focus-within:ring-slate-300",
         )}
       >
-        <div className="flex h-full items-center justify-center bg-[#f4f1f1] px-3 border-r border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-sm font-medium text-[#8b8489]">
-          +91
-        </div>
+        <PhoneCountryCodeSelect
+          value={countryIso}
+          disabled={disabled || phoneOtpPending}
+          triggerClassName="h-full border-r border-slate-200 dark:border-slate-800 bg-[#f4f1f1] dark:bg-slate-900"
+          onValueChange={(iso) => {
+            const next =
+              findPhoneCountryByIso(iso, phoneCountries) ?? selectedCountry;
+            setCountryIso(iso);
+            syncPhone(next?.dialCode ?? dialCode, nationalDigits);
+          }}
+        />
         <Input
           id={`${idPrefix}-phone`}
-          placeholder="9876543210"
+          placeholder="Phone number"
           autoComplete="tel-national"
           inputMode="tel"
           disabled={disabled || phoneOtpPending}
-          aria-invalid={phoneError || (invalid && !phoneVerified) ? true : undefined}
+          aria-invalid={
+            phoneError || (invalid && !phoneVerified) ? true : undefined
+          }
           className="flex-1 h-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 px-3"
-          value={phoneInput.startsWith("+91") ? phoneInput.slice(3) : phoneInput}
+          value={nationalDigits}
           onChange={(event) => {
-            let val = event.target.value;
-            if (val.startsWith("+91")) val = val.slice(3);
-            const digits = val.replace(/\D/g, "");
-            setPhoneInput(digits ? `+91${digits}` : "");
-            setVerifiedPhone(null);
-            setPhoneError(null);
+            syncPhone(dialCode, event.target.value);
           }}
         />
         {otpEnabled ? (
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={handleSendPhoneOtp}
-          disabled={
-            disabled ||
-            phoneOtpPending ||
-            phoneVerified ||
-            !PHONE_E164_REGEX.test(normalizedPhone) ||
-            (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
-          }
-          className="h-full rounded-none border-l border-slate-200 !bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] px-4 text-xs font-semibold dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300"
-        >
-          {phoneVerified ? (
-            "Verified"
-          ) : phoneOtpPending ? (
-            "Sending..."
-          ) : resendSecondsRemaining > 0 && activeOtpPhone ? (
-            formatResendCountdown(resendSecondsRemaining)
-          ) : (
-            "Send OTP"
-          )}
-        </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={handleSendPhoneOtp}
+            disabled={
+              disabled ||
+              phoneOtpPending ||
+              phoneVerified ||
+              !PHONE_E164_REGEX.test(normalizedPhone) ||
+              (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
+            }
+            className="h-full rounded-none border-l border-slate-200 !bg-[#f4f1f1] hover:!bg-[#e8e5e5] !text-[#8b8489] px-4 text-xs font-semibold dark:!bg-slate-900 dark:border-slate-800 dark:hover:!bg-slate-800 dark:!text-slate-300"
+          >
+            {phoneVerified
+              ? "Verified"
+              : phoneOtpPending
+                ? "Sending..."
+                : resendSecondsRemaining > 0 && activeOtpPhone
+                  ? formatResendCountdown(resendSecondsRemaining)
+                  : "Send OTP"}
+          </Button>
         ) : null}
       </div>
       {phoneError ? <p className="text-xs text-destructive">{phoneError}</p> : null}
@@ -362,7 +416,12 @@ verifyPhoneOtpMutation.mutate({ phone, code });
       ) : null}
       {activeOtpPhone && !phoneVerified ? (
         <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <Label htmlFor={`${idPrefix}-phone-otp`} className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-heading">Verification code</Label>
+          <Label
+            htmlFor={`${idPrefix}-phone-otp`}
+            className="inline-flex items-center gap-1.5 text-[12.5px] !font-[800] !text-black font-heading"
+          >
+            Verification code
+          </Label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               id={`${idPrefix}-phone-otp`}
@@ -398,7 +457,9 @@ verifyPhoneOtpMutation.mutate({ phone, code });
               : "Code sent by SMS"}{" "}
             to {activeOtpPhone}
           </p>
-          {otpError ? <p className="text-xs text-destructive">{otpError}</p> : null}
+          {otpError ? (
+            <p className="text-xs text-destructive">{otpError}</p>
+          ) : null}
         </div>
       ) : null}
     </div>

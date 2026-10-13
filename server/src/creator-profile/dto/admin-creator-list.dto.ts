@@ -203,9 +203,10 @@ export class AdminCreatorListItemDto {
     type: [String],
     description:
       'Requirements this LISTED creator is still missing, re-evaluated live ' +
-      '(Go-Live checklist + the intro video). Empty when nothing is missing. ' +
-      'Only populated for the listed_complete / listed_incomplete segments.',
-    example: ['Intro video'],
+      '(Go-Live checklist; intro video is optional). Empty when nothing is ' +
+      'missing. Only populated for the listed_complete / listed_incomplete ' +
+      'segments.',
+    example: ['Instagram connected'],
   })
   missingRequirements?: string[];
 

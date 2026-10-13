@@ -233,40 +233,34 @@ describe('evaluateListedProfileCompleteness', () => {
     overrides: Partial<ListedProfileCompletenessInput> = {},
   ): ListedProfileCompletenessInput => ({
     ...completeInput(),
-    introVideoUrl: 'https://cdn/intro.mp4',
     ...overrides,
   });
 
-  it('is complete when the go-live checklist is met and an intro video exists', () => {
+  it('is complete when the go-live checklist is met', () => {
     const { complete, missing } =
       evaluateListedProfileCompleteness(listedInput());
     expect(complete).toBe(true);
     expect(missing).toEqual([]);
   });
 
-  it.each([[null], [undefined], [''], ['   ']])(
-    'flags a missing intro video (%p)',
-    (introVideoUrl) => {
-      const { complete, missing } = evaluateListedProfileCompleteness(
-        listedInput({ introVideoUrl }),
-      );
-      expect(complete).toBe(false);
-      expect(missing).toEqual([INTRO_VIDEO_REQUIREMENT.label]);
-    },
-  );
-
-  it('does NOT change the go-live gate — the same profile can still go live', () => {
-    // The intro video is not asked for at registration, so requiring it here
-    // must never leak into the Go-Live checklist.
-    const input = listedInput({ introVideoUrl: null });
-    expect(evaluateProfileCompleteness(input).complete).toBe(true);
-    expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
+  it('does not require an intro video for listed · complete', () => {
+    // Intro video still affects wizard Profile Strength, not the admin segment.
+    expect(INTRO_VIDEO_REQUIREMENT.label).toBe('Intro video');
+    expect(evaluateListedProfileCompleteness(listedInput()).complete).toBe(
+      true,
+    );
   });
 
-  it('reports checklist gaps alongside the intro video', () => {
+  it('matches the go-live gate for the same checklist', () => {
+    const input = listedInput();
+    expect(evaluateProfileCompleteness(input)).toEqual(
+      evaluateListedProfileCompleteness(input),
+    );
+  });
+
+  it('reports checklist gaps without treating intro as required', () => {
     const { complete, missing } = evaluateListedProfileCompleteness(
       listedInput({
-        introVideoUrl: null,
         instagramConnected: false,
         publicVideoCount: 0,
       }),
@@ -276,22 +270,19 @@ describe('evaluateListedProfileCompleteness', () => {
       expect.arrayContaining([
         `At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`,
         'Instagram connected',
-        INTRO_VIDEO_REQUIREMENT.label,
       ]),
     );
+    expect(missing).not.toContain(INTRO_VIDEO_REQUIREMENT.label);
   });
 
-  it('keeps every go-live requirement, plus the intro video, in the catalog', () => {
-    expect(LISTED_PROFILE_REQUIREMENTS).toEqual([
-      ...GO_LIVE_REQUIREMENTS,
-      INTRO_VIDEO_REQUIREMENT,
-    ]);
+  it('uses the go-live catalog for listed requirements', () => {
+    expect(LISTED_PROFILE_REQUIREMENTS).toEqual(GO_LIVE_REQUIREMENTS);
   });
 
   it('every label it can emit maps back to a catalog entry', () => {
     // Guards the WhatsApp templating: a label with no stable key is unusable.
     const { missing } = evaluateListedProfileCompleteness({
-      ...listedInput({ introVideoUrl: null }),
+      ...listedInput(),
       profileImageUrl: null,
       displayName: '',
       contactEmail: '',

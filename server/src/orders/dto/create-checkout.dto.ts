@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Length,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateCheckoutDto {
@@ -57,4 +58,21 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsUUID()
   checkoutSessionKey?: string;
+
+  /**
+   * Meta attribution cookies read in the buyer's own browser. Stored on the
+   * order so the server-side Purchase conversion — which fires from a webhook,
+   * with no browser request of its own — can replay them.
+   */
+  @ApiPropertyOptional({ description: 'Meta _fbp browser cookie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  metaFbp?: string;
+
+  @ApiPropertyOptional({ description: 'Meta _fbc ad-click cookie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  metaFbc?: string;
 }

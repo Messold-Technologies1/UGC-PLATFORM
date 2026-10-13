@@ -229,6 +229,8 @@ export class OrdersController {
       couponCode: dto.couponCode,
       useCredits: dto.useCredits,
       checkoutSessionKey: dto.checkoutSessionKey,
+      metaFbp: dto.metaFbp,
+      metaFbc: dto.metaFbc,
     });
   }
 
@@ -254,6 +256,8 @@ export class OrdersController {
         addOnIds: item.addOnIds,
       })),
       couponCode: dto.couponCode,
+      metaFbp: dto.metaFbp,
+      metaFbc: dto.metaFbc,
     });
   }
 

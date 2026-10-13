@@ -1,5 +1,6 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import { getMetaBrowserIds } from "@/lib/meta-pixel";
 
 export type BulkCheckoutItem = {
   creatorId: string;
@@ -42,9 +43,15 @@ export type BulkCheckoutSession = {
 export async function createBulkCheckout(
   payload: CreateBulkCheckoutPayload,
 ): Promise<BulkCheckoutSession> {
+  // Stored on every child order, so each one's Purchase can be attributed.
+  const { fbp, fbc } = getMetaBrowserIds();
   const { data } = await api.post<BulkCheckoutSession>(
     ENDPOINTS.ORDERS.CHECKOUT_BULK,
-    payload,
+    {
+      ...payload,
+      ...(fbp ? { metaFbp: fbp } : {}),
+      ...(fbc ? { metaFbc: fbc } : {}),
+    },
   );
   return data;
 }

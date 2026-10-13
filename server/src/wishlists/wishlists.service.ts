@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -10,6 +11,12 @@ import {
   BrandAccessService,
   type ResolvedOrderActor,
 } from '../brand-access/brand-access.service';
+import {
+  addToWishlistEventId,
+  MetaCapiService,
+  splitFullName,
+  type MetaBrowserAttribution,
+} from '../meta-capi/meta-capi.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateWishlistDto } from './dto/create-wishlist.dto';
 import type { UpdateWishlistDto } from './dto/update-wishlist.dto';
@@ -172,10 +179,83 @@ type WishlistOwnerRow = {
 
 @Injectable()
 export class WishlistsService {
+  private readonly logger = new Logger(WishlistsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly brandAccess: BrandAccessService,
+    private readonly metaCapi: MetaCapiService,
   ) {}
+
+  /**
+   * Send the Meta "AddToWishlist" conversion via the Conversions API,
+   * deduplicated against the browser pixel's copy by a shared event id derived
+   * from the (wishlist, creator) pair. The browser copy gives a real-time
+   * signal; this one survives ad-blockers.
+   *
+   * Best-effort and fire-and-forget: never blocks or fails the save. No-op
+   * when the brand dataset is not configured.
+   */
+  private async fireAddToWishlistMetaEvent(params: {
+    actor: ResolvedOrderActor;
+    wishlistId: string;
+    creatorId: string;
+    wishlistName?: string | null;
+    meta?: MetaBrowserAttribution;
+  }): Promise<void> {
+    if (!this.metaCapi.enabledFor('brand')) return;
+    try {
+      const { actor } = params;
+      const isAgency = actor.isAgencyWorkspace;
+      // Agency buyers act as the agency; standalone brands as the brand.
+      const accountName = isAgency
+        ? actor.agency?.name
+        : actor.brand?.brandName;
+      const contactFullName = isAgency
+        ? actor.agency?.contactFullName
+        : actor.brand?.contactFullName;
+      const email = isAgency
+        ? actor.agency?.contactEmail
+        : actor.brand?.contactEmail || actor.brand?.user?.email;
+      const phone = isAgency
+        ? actor.agency?.contactPhone
+        : actor.brand?.contactPhone;
+
+      // The browser pixel builds the same id, so Meta counts the pair once.
+      await this.metaCapi.sendEvent({
+        audience: 'brand',
+        eventName: 'AddToWishlist',
+        eventId: addToWishlistEventId(params.wishlistId, params.creatorId),
+        // The browser fires this too, from the page the request came from.
+        actionSource: 'website',
+        ...(params.meta?.sourceUrl
+          ? { eventSourceUrl: params.meta.sourceUrl }
+          : {}),
+        userData: {
+          email,
+          phone,
+          ...splitFullName(contactFullName),
+          fbp: params.meta?.fbp,
+          fbc: params.meta?.fbc,
+          clientIpAddress: params.meta?.ipAddress,
+          clientUserAgent: params.meta?.userAgent,
+        },
+        customData: {
+          account_type: isAgency ? 'agency' : 'brand',
+          ...(accountName ? { brand_name: accountName } : {}),
+          content_ids: [params.creatorId],
+          content_type: 'product',
+          ...(params.wishlistName
+            ? { wishlist_name: params.wishlistName }
+            : {}),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send AddToWishlist Meta event for wishlist ${params.wishlistId}: ${(error as Error).message}`,
+      );
+    }
+  }
 
   private async resolveOwner(params: {
     actorUserId: string;
@@ -272,6 +352,7 @@ export class WishlistsService {
     actorUserId: string;
     brandProfileId?: string | null;
     dto: CreateWishlistDto;
+    meta?: MetaBrowserAttribution;
   }): Promise<{ id: string }> {
     const actor = await this.resolveOwner(params);
     const owner = this.brandAccess.orderOwnerCreateData(actor);
@@ -294,6 +375,16 @@ export class WishlistsService {
         },
         select: { id: true },
       });
+      // A wishlist created around a creator is still that creator being saved.
+      for (const creatorId of params.dto.creatorIds ?? []) {
+        void this.fireAddToWishlistMetaEvent({
+          actor,
+          wishlistId: wishlist.id,
+          creatorId,
+          wishlistName: params.dto.name,
+          meta: params.meta,
+        });
+      }
       return { id: wishlist.id };
     } catch (err: any) {
       if (err?.code === 'P2002') {
@@ -447,12 +538,13 @@ export class WishlistsService {
     wishlistId: string;
     creatorId: string;
     addOnIds?: string[];
+    meta?: MetaBrowserAttribution;
   }): Promise<void> {
     const actor = await this.resolveOwner(params);
 
     const wishlist = await this.prisma.brandWishlist.findUnique({
       where: { id: params.wishlistId },
-      select: { brandId: true, agencyId: true },
+      select: { brandId: true, agencyId: true, name: true },
     });
     if (!wishlist) throw new NotFoundException('Wishlist not found');
     this.assertOwnsWishlist(wishlist, actor);
@@ -475,6 +567,14 @@ export class WishlistsService {
         selectedAddOnIds,
       },
       update: params.addOnIds !== undefined ? { selectedAddOnIds } : {},
+    });
+
+    void this.fireAddToWishlistMetaEvent({
+      actor,
+      wishlistId: params.wishlistId,
+      creatorId: params.creatorId,
+      wishlistName: wishlist.name,
+      meta: params.meta,
     });
   }
 

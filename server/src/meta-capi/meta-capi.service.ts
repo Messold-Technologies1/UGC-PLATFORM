@@ -80,6 +80,36 @@ export function brandRegistrationEventId(brandProfileId: string): string {
   return `brand-registration-${brandProfileId}`;
 }
 
+/**
+ * Event id shared by the browser pixel and the server copy of `AddToWishlist`,
+ * so Meta counts the pair once. Derived from the (wishlist, creator) pair,
+ * which both sides know: the client mirrors this in
+ * `client/features/analytics/lib/buyer-pixel-events.ts`.
+ *
+ * Stable rather than random, which also means re-adding a creator the buyer
+ * had removed is deduplicated against the earlier save inside Meta's window —
+ * toggling the heart can't inflate the count.
+ */
+export function addToWishlistEventId(
+  wishlistId: string,
+  creatorId: string,
+): string {
+  return `wishlist-add-${wishlistId}-${creatorId}`;
+}
+
+/**
+ * Event id for the server copy of `Purchase`. Derived from the order, so the
+ * same order can never be counted twice however many paid paths or webhook
+ * retries reach it — Razorpay redelivers, and a bulk batch fans out per order.
+ *
+ * Browser-only events do not use this: the purchase completes server-side
+ * (a Razorpay webhook, or a free/credit order placed without one), so there is
+ * no browser copy to deduplicate against.
+ */
+export function purchaseEventId(orderId: string): string {
+  return `purchase-${orderId}`;
+}
+
 export type MetaBrowserAttribution = {
   fbp?: string | null;
   fbc?: string | null;

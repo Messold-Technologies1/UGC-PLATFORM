@@ -39,7 +39,14 @@ describe('WishlistsService add-on persistence', () => {
         }),
       ),
     };
-    const service = new WishlistsService(prisma as any, brandAccess as any);
+    // Meta tracking is switched off here, so addCreator's fire-and-forget
+    // AddToWishlist event is a no-op and these tests stay about persistence.
+    const metaCapi = { enabledFor: jest.fn(() => false), sendEvent: jest.fn() };
+    const service = new WishlistsService(
+      prisma as any,
+      brandAccess as any,
+      metaCapi as any,
+    );
     return { service, upsert };
   }
 

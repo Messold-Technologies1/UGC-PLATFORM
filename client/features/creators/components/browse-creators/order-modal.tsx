@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import type { CreatorProfile, Package, AddOn } from "../../types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
+import { trackCheckoutInitiate } from "@/features/analytics/lib/buyer-pixel-events";
+import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import { useAvailableCoupons } from "@/features/payments/hooks/use-available-coupons";
 import { CouponInput } from "@/features/payments/components/coupon-input";
 import { useWalletBalance } from "@/features/wallet/hooks";
@@ -367,6 +369,8 @@ const OrderModalContent = React.memo(function OrderModalContent({
     useCredits: useCredits && canUseCredits,
   });
 
+  const resolveBuyerIdentity = useBuyerIdentityResolver();
+
   const toggleAddOn = useCallback((id: string) => {
     setSelectedAddOnIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -375,8 +379,31 @@ const OrderModalContent = React.memo(function OrderModalContent({
 
   const handleCheckout = useCallback(() => {
     if (!selectedPackage || isProcessing) return;
+    // Step 5 of the buyer funnel, reported only on the clicks that really hand
+    // off to payment. `netTotal` is what the buyer owes after coupon and
+    // credits, so a free or fully-credited order reports a value of 0 rather
+    // than the sticker price. Not awaited: the handoff must not wait on a pixel.
+    void resolveBuyerIdentity().then((identity) => {
+      if (!identity) return;
+      trackCheckoutInitiate(identity, {
+        creatorId: creator.id,
+        value: netTotal,
+        packageLabel: selectedPackage.label,
+        addOnCount: selectedAddOns.length,
+        couponCode: selectedCouponCode,
+      });
+    });
     void startCheckout();
-  }, [selectedPackage, isProcessing, startCheckout]);
+  }, [
+    selectedPackage,
+    isProcessing,
+    startCheckout,
+    resolveBuyerIdentity,
+    creator.id,
+    netTotal,
+    selectedAddOns.length,
+    selectedCouponCode,
+  ]);
 
   const handleScrimClick = useCallback(() => {
     if (!isProcessing) onClose();

@@ -272,6 +272,20 @@ export function evaluateListedProfileCompleteness(
   return { complete: missing.length === 0, missing };
 }
 
+/**
+ * Resolves a label `evaluateListedProfileCompleteness` emitted back to its
+ * catalog entry. Every label it can emit is in the catalog (a spec guards
+ * that), so the fallback only exists to keep the return type total.
+ */
+export function requirementForLabel(label: string): GoLiveRequirement {
+  return (
+    LISTED_PROFILE_REQUIREMENTS.find((entry) => entry.label === label) ?? {
+      key: 'unknown',
+      label,
+    }
+  );
+}
+
 /** Every requirement a LISTED creator is measured against, in display order. */
 export const LISTED_PROFILE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   ...GO_LIVE_REQUIREMENTS,

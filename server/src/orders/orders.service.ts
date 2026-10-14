@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
@@ -22,6 +24,7 @@ import type { BrandOrderListItemDto } from './dto/brand-order-list-item.dto';
 import type { CreatorOrdersListResponseDto } from './dto/creator-orders-list-response.dto';
 import type { CreatorOrderListItemDto } from './dto/creator-order-list-item.dto';
 import type { AcceptBriefResponseDto } from './dto/accept-brief-response.dto';
+import { loadCreatorCompleteness } from '../creator-profile/listed-completeness.query';
 import type { MarkProductReceivedResponseDto } from './dto/mark-product-received-response.dto';
 import type { OrderBriefResponseDto } from './dto/order-brief-response.dto';
 import type { OrderListSummaryDto } from './dto/order-list-summary.dto';
@@ -2985,7 +2988,8 @@ export class OrdersService {
     creatorUserId: string;
     dto: SubmitDeliveryDto;
   }): Promise<SubmitDeliveryResponseDto> {
-    const creator: any = await this.prisma.creatorProfile.findUnique({
+    // Typed (not `any`) because the completeness gate below reads `creator.id`.
+    const creator = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
     });
@@ -3033,6 +3037,27 @@ export class OrdersService {
       throw new BadRequestException(
         'Order is not ready for delivery submission',
       );
+    }
+
+    // Last point where an unfinished profile still costs nothing to fix: the
+    // brand is about to receive the work, and we are about to owe the creator
+    // money we have no account to send. Accepting the brief is deliberately
+    // NOT gated — the creator takes the order first and finishes their profile
+    // while they shoot. The client sends them to the completion page rather
+    // than letting them hit this, so reaching it means the API was called
+    // directly or a gap appeared mid-order (a revoked Instagram token, a
+    // deleted portfolio video).
+    const completeness = await loadCreatorCompleteness(this.prisma, {
+      id: creator.id,
+    });
+    if (!completeness.complete) {
+      throw new ConflictException({
+        message:
+          'Complete your profile before submitting this delivery. Finish the missing details and try again.',
+        error: 'PROFILE_INCOMPLETE',
+        statusCode: HttpStatus.CONFLICT,
+        missing: completeness.missing,
+      });
     }
 
     const expectedPrefix = `order-deliveries/${order.id}/`;

@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSubmitDeliveryFlowMutation } from "../../hooks/use-submit-delivery-flow-mutation";
+import { useProfileCompletionGate } from "../../hooks/use-profile-completion-gate";
 import { useGetCreatorOrderDeliveriesQuery } from "../../hooks/use-get-creator-deliveries-query";
 import type { OrderDeliveryAsset } from "../../api/get-brand-order-deliveries";
 import {
@@ -161,6 +162,10 @@ export function CreatorContentUploadCard({
     enabled: Boolean(orderId),
   });
 
+  // Submitting is the point an unfinished profile has to be finished: the
+  // brand is about to get the work, and we are about to owe for it. The API
+  // refuses it too, so this is the explanation rather than the lock.
+  const profileGate = useProfileCompletionGate(orderId);
   const submitMutation = useSubmitDeliveryFlowMutation();
   const isUploading = submitMutation.isPending;
   // A half-gigabyte video can take minutes; a bare spinner would read as a
@@ -274,6 +279,14 @@ export function CreatorContentUploadCard({
       });
       return;
     }
+    if (profileGate.requiresProfileCompletion) {
+      toast.info("Finish your profile first", {
+        description:
+          "A few details are missing before you can submit this delivery.",
+      });
+      profileGate.redirectToCompletion();
+      return;
+    }
     const note = withNote ? submissionNote.trim() || undefined : undefined;
     setUploadProgress(0);
     submitMutation.mutate(
@@ -284,6 +297,7 @@ export function CreatorContentUploadCard({
         onProgress: setUploadProgress,
       },
       {
+        onError: (error) => profileGate.handleError(error),
         onSuccess: () => {
           delete stagedUploadsCache[orderId];
           setPendingUpload(null);

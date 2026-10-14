@@ -40,6 +40,13 @@ import type { ExportListedCreatorsQueryDto } from './dto/export-listed-creators-
 import type { CreatorTopReviewDto } from '../creator-reviews/dto/creator-top-review.dto';
 import { mapUnavailabilityToPublicAvailability } from './creator-unavailability.util';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
+import { CreatorProfileCompletenessDto } from './dto/creator-profile-completeness.dto';
+import {
+  listedCompletenessSelect,
+  loadCreatorCompleteness,
+  mandatoryAddOnNames,
+  toListedCompletenessInput,
+} from './listed-completeness.query';
 import {
   allocateUniqueCreatorPublicSlug,
   normalizeCreatorPublicProfileSlug,
@@ -2342,107 +2349,35 @@ export class CreatorProfileService {
       search,
     );
 
-    const [profiles, mandatoryOptions] = await Promise.all([
+    const [profiles, addOnNames] = await Promise.all([
       this.prisma.creatorProfile.findMany({
         where,
-        select: {
-          id: true,
-          profileImageUrl: true,
-          displayName: true,
-          contactEmail: true,
-          bio: true,
-          countryName: true,
-          stateName: true,
-          city: true,
-          gender: true,
-          dateOfBirth: true,
-          shippingAddress: true,
-          user: { select: { phoneOtpLastStatus: true } },
-          payoutDetails: {
-            select: { accountNumber: true, ifsc: true, upiId: true },
-          },
-          facetSelections: {
-            select: { rank: true, option: { select: { dimension: true } } },
-          },
-          addOns: { select: { name: true } },
-          _count: {
-            select: {
-              profileLanguages: true,
-              packages: true,
-              restrictions: true,
-            },
-          },
-          portfolioVideos: {
-            where: {
-              visibilityStatus: PortfolioVisibilityStatus.PUBLIC,
-              ...playableAssetWhere(),
-            },
-            select: { id: true },
-          },
-          socialConnections: {
-            where: {
-              platform: SocialPlatform.INSTAGRAM,
-              status: SocialConnectionStatus.ACTIVE,
-            },
-            select: { id: true },
-          },
-        },
+        select: listedCompletenessSelect(),
       }),
-      this.prisma.creatorAddOnOption.findMany({
-        where: { mandatory: true },
-        select: { name: true },
-      }),
+      mandatoryAddOnNames(this.prisma),
     ]);
 
-    const mandatoryAddOnNames = mandatoryOptions.map((o) => o.name);
     const byCreatorId = new Map<string, string[]>();
 
     for (const profile of profiles) {
-      const { missing } = evaluateListedProfileCompleteness({
-        profileImageUrl: profile.profileImageUrl,
-        displayName: profile.displayName,
-        contactEmail: profile.contactEmail,
-        bio: profile.bio,
-        countryName: profile.countryName,
-        stateName: profile.stateName,
-        city: profile.city,
-        gender: profile.gender,
-        dateOfBirth: profile.dateOfBirth,
-        shippingAddress: profile.shippingAddress,
-        selectedFacetDimensions: profile.facetSelections.map(
-          (selection) => selection.option.dimension,
-        ),
-        nichePrimaryCount: profile.facetSelections.filter(
-          (s) =>
-            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
-            s.rank === 0,
-        ).length,
-        nicheSecondaryCount: profile.facetSelections.filter(
-          (s) =>
-            s.option.dimension === CreatorFacetDimension.CONTENT_CATEGORY &&
-            s.rank > 0,
-        ).length,
-        restrictionCount: profile._count.restrictions,
-        languageCount: profile._count.profileLanguages,
-        packageCount: profile._count.packages,
-        publicVideoCount: profile.portfolioVideos.length,
-        mandatoryAddOnsPriced: mandatoryAddOnNames.every((name) =>
-          profile.addOns.some((addOn) => addOn.name === name),
-        ),
-        instagramConnected: profile.socialConnections.length > 0,
-        phoneOtpLastStatus: profile.user?.phoneOtpLastStatus ?? null,
-        // Payable means a full bank account or a UPI ID — the same rule the
-        // creator's own masked endpoint reports as "configured".
-        hasPayoutDetails: Boolean(
-          (profile.payoutDetails?.accountNumber &&
-            profile.payoutDetails?.ifsc) ||
-          profile.payoutDetails?.upiId,
-        ),
-      });
+      const { missing } = evaluateListedProfileCompleteness(
+        toListedCompletenessInput(profile, addOnNames),
+      );
       byCreatorId.set(profile.id, missing);
     }
 
     return byCreatorId;
+  }
+
+  /**
+   * The signed-in creator's own view of the same checklist the admin "Listed ·
+   * incomplete" segment is built from, with the stable requirement keys the UI
+   * needs to route each gap to the step that fixes it.
+   */
+  async getCompletenessForCurrentCreator(
+    userId: string,
+  ): Promise<CreatorProfileCompletenessDto> {
+    return loadCreatorCompleteness(this.prisma, { userId });
   }
 
   /**

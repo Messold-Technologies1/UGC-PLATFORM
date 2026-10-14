@@ -1,14 +1,27 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { CreatorProfileWizard } from "@/features/creators/components/creator-profile-wizard/creator-profile-wizard";
 import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 import { useAuth } from "@/providers/auth-provider";
 
+/**
+ * Only in-app destinations are honoured, so a crafted `?returnTo=` cannot turn
+ * the wizard's Exit into an open redirect.
+ */
+function safeReturnTo(value: string | null): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  return value;
+}
+
 export default function CreatorSettingsProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Somewhere sent the creator here to fix one thing (the order profile gate,
+  // for one) and wants them back when they are done.
+  const returnTo = safeReturnTo(searchParams.get("returnTo"));
   const { user, isLoading: authLoading } = useAuth();
   const {
     data: profile,
@@ -45,7 +58,7 @@ export default function CreatorSettingsProfilePage() {
       <CreatorProfileWizard
         profileId={profile.id}
         initialProfile={profile}
-        onExit={() => router.push("/creator/orders")}
+        onExit={() => router.push(returnTo ?? "/creator/orders")}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -29,6 +30,7 @@ import { brandDisplayName } from "@/features/brands/lib/brand-display";
 import { useGetCreatorOrderDetailsQuery } from "../../hooks/use-get-creator-order-details-query";
 import { useGetOrderBriefQuery } from "../../hooks/use-get-order-brief-query";
 import { useAcceptBriefMutation } from "../../hooks/use-accept-brief-mutation";
+import { useProfileCompletionGate } from "../../hooks/use-profile-completion-gate";
 import { useRejectBriefMutation } from "../../hooks/use-reject-brief-mutation";
 import { useMarkProductReceivedMutation } from "../../hooks/use-mark-product-received-mutation";
 import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
@@ -394,7 +396,13 @@ function CreatorStatusBanner({
 }
 
 function BriefDecisionActions({ orderId }: Readonly<{ orderId: string }>) {
-  const acceptMutation = useAcceptBriefMutation();
+  // Accepting is never blocked; an unfinished profile is sent to the
+  // completion page afterwards, since delivery is what needs it.
+  const profileGate = useProfileCompletionGate(orderId);
+  const router = useRouter();
+  const acceptMutation = useAcceptBriefMutation({
+    onSuccess: () => profileGate.afterAccepted(() => router.refresh()),
+  });
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const rejectMutation = useRejectBriefMutation({
     onSuccess: () => setIsRejectOpen(false),

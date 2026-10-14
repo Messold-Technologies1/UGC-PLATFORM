@@ -20,8 +20,8 @@ export type WizardStepId =
   | "about"
   | "base"
   | "identity"
-  | "intro-video"
   | "payouts"
+  | "intro-video"
   | "portfolio"
   | "pricing"
   | "review"
@@ -86,19 +86,19 @@ export const WIZARD_STEPS: WizardStep[] = [
     ready: false,
   },
   {
-    id: "intro-video",
-    label: "Intro Video",
-    title: "Your intro video",
-    tagline: "A 30-second hello that turns profile views into bookings.",
-    icon: Film,
-    ready: false,
-  },
-  {
     id: "payouts",
     label: "Payouts",
     title: "Where we send your money",
     tagline: "Add the bank account or UPI ID we pay your earnings into.",
     icon: Wallet,
+    ready: false,
+  },
+  {
+    id: "intro-video",
+    label: "Intro Video",
+    title: "Your intro video",
+    tagline: "A 30-second hello that turns profile views into bookings.",
+    icon: Film,
     ready: false,
   },
   {

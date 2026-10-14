@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -146,10 +147,10 @@ const LISTED_HIDDEN_STEPS = new Set<WizardStepId>(["review", "go-live"]);
 /**
  * Steps that only matter once a creator is listed, so they are dropped from the
  * onboarding funnel entirely and shown only after the profile is listed (live &
- * approved), where they become the final steps: the optional intro video, and
- * the payout details we send their earnings to.
+ * approved), where they become the last two steps: the payout details we send
+ * their earnings to, then the optional intro video.
  */
-const LISTED_ONLY_STEPS = new Set<WizardStepId>(["intro-video", "payouts"]);
+const LISTED_ONLY_STEPS = new Set<WizardStepId>(["payouts", "intro-video"]);
 
 /**
  * Payout details are written through a dedicated, self-scoped endpoint
@@ -158,6 +159,42 @@ const LISTED_ONLY_STEPS = new Set<WizardStepId>(["intro-video", "payouts"]);
  * read them from the creator detail page instead, so the step is hidden here.
  */
 const CREATOR_ONLY_STEPS = new Set<WizardStepId>(["payouts"]);
+
+/**
+ * The steps this profile actually walks through. Once a profile is listed
+ * (live & approved) there is nothing to re-submit — the wizard is just an
+ * editor — so Review and Go Live drop out and the listed-only steps appear.
+ */
+function visibleWizardSteps(isListed: boolean, adminMode: boolean) {
+  return isListed
+    ? WIZARD_STEPS.filter(
+        (step) =>
+          !LISTED_HIDDEN_STEPS.has(step.id) &&
+          !(adminMode && CREATOR_ONLY_STEPS.has(step.id)),
+      )
+    : WIZARD_STEPS.filter((step) => !LISTED_ONLY_STEPS.has(step.id));
+}
+
+/**
+ * `?step=<id>` deep-links into one step — the payout banner's "Configure
+ * payouts" uses it. Only honoured on a profile whose steps are all reachable
+ * anyway (listed, admin or withdrawn); during first-time onboarding the funnel
+ * order is the point, so an unknown or out-of-reach step just starts at the
+ * beginning.
+ */
+function initialStepIndex(params: {
+  requestedStepId: string | null;
+  isListed: boolean;
+  adminMode: boolean;
+  canEditFreely: boolean;
+}): number {
+  const { requestedStepId, isListed, adminMode, canEditFreely } = params;
+  if (!requestedStepId || !canEditFreely) return 0;
+  const index = visibleWizardSteps(isListed, adminMode).findIndex(
+    (step) => step.id === requestedStepId,
+  );
+  return index >= 0 ? index : 0;
+}
 
 // Package price rule mirrored from the long form (>= ₹500, steps of ₹500).
 function validatePackagePrice(value: string): string | undefined {
@@ -181,7 +218,20 @@ export function CreatorProfileWizard({
       (adminMode ? "" : (user?.email ?? "")),
   );
 
-  const [activeIndex, setActiveIndex] = useState(0);
+  const searchParams = useSearchParams();
+  const [activeIndex, setActiveIndex] = useState(() =>
+    initialStepIndex({
+      requestedStepId: searchParams.get("step"),
+      isListed: Boolean(initialProfile.isListed),
+      adminMode,
+      // `canEditFreely` is derived below from the same three facts; inlined
+      // here because state initializers run before it exists.
+      canEditFreely:
+        adminMode ||
+        Boolean(initialProfile.completeProfile) ||
+        initialProfile.approvalStatus === "WITHDRAWN",
+    }),
+  );
   const [triedContinue, setTriedContinue] = useState<
     Partial<Record<WizardStepId, boolean>>
   >({});
@@ -656,19 +706,8 @@ export function CreatorProfileWizard({
     markDirty,
   ]);
 
-  // Once a profile is listed (live & approved) there's nothing to re-submit —
-  // the wizard is just an editor, so drop the Review and Go Live steps and add
-  // the (optional) intro-video step. Before listing the intro video is not part
-  // of the funnel at all.
   const steps = useMemo(
-    () =>
-      initialProfile.isListed
-        ? WIZARD_STEPS.filter(
-            (step) =>
-              !LISTED_HIDDEN_STEPS.has(step.id) &&
-              !(adminMode && CREATOR_ONLY_STEPS.has(step.id)),
-          )
-        : WIZARD_STEPS.filter((step) => !LISTED_ONLY_STEPS.has(step.id)),
+    () => visibleWizardSteps(Boolean(initialProfile.isListed), adminMode),
     [initialProfile.isListed, adminMode],
   );
   /**
@@ -805,9 +844,9 @@ export function CreatorProfileWizard({
 
   // Profile Strength is derived from the same go-live snapshot as the checklist,
   // so a pre-listing profile reads 100% only when there are zero go-live items
-  // left. The intro video is the one item beyond go-live: it counts toward the
-  // final few percent once the creator is listed (a listed profile without one
-  // reads 96%), and is excluded before listing.
+  // left. Payout details and the intro video are the two items beyond go-live:
+  // they split the final few percent once the creator is listed (a listed
+  // profile with neither reads 96%), and are excluded before listing.
   const strength = useMemo(
     () =>
       computeProfileStrength(goLiveSnapshot, {

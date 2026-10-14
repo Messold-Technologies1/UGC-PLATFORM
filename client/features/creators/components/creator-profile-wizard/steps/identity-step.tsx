@@ -19,6 +19,21 @@ type SelectedFacets = Partial<Record<NonLanguageDimension, string[]>>;
 type CustomLabels = Partial<Record<NonLanguageDimension, string>>;
 
 const OTHER_SLUG = "other";
+/** How many chips to show before collapsing behind "+N more". */
+const CHIP_PREVIEW_COUNT = 8;
+
+type ChipOption = { slug: string; label: string };
+
+/** Keep API order for regular options; always pin "Other" to the end. */
+function orderOptionsWithOtherLast(options: ChipOption[]): ChipOption[] {
+  const rest: ChipOption[] = [];
+  let other: ChipOption | undefined;
+  for (const opt of options) {
+    if (opt.slug === OTHER_SLUG) other = opt;
+    else rest.push(opt);
+  }
+  return other ? [...rest, other] : rest;
+}
 
 export type OtherNotice = { type: "info" | "warning"; message: string };
 export type OtherNotices = Partial<Record<NonLanguageDimension, OtherNotice>>;
@@ -123,6 +138,78 @@ function Chip({
       ) : null}
       {label}
     </button>
+  );
+}
+
+/**
+ * Chip grid: first 8 visible, then "+N more" to reveal the rest.
+ * "Other" is always ordered last (including after expand).
+ */
+function CollapsibleChips({
+  options,
+  selectedSlugs,
+  disabled,
+  onSelect,
+}: {
+  options: ChipOption[];
+  /** Current selection(s) — used to auto-expand when a pick is behind "+N more". */
+  selectedSlugs: string[];
+  disabled: boolean;
+  onSelect: (slug: string) => void;
+}) {
+  const ordered = useMemo(() => orderOptionsWithOtherLast(options), [options]);
+  const [expanded, setExpanded] = useState(false);
+  const hiddenCount = Math.max(0, ordered.length - CHIP_PREVIEW_COUNT);
+
+  useEffect(() => {
+    if (expanded || hiddenCount === 0) return;
+    const preview = new Set(
+      ordered.slice(0, CHIP_PREVIEW_COUNT).map((opt) => opt.slug),
+    );
+    if (selectedSlugs.some((slug) => slug && !preview.has(slug))) {
+      setExpanded(true);
+    }
+  }, [selectedSlugs, ordered, expanded, hiddenCount]);
+
+  const visible =
+    expanded || hiddenCount === 0
+      ? ordered
+      : ordered.slice(0, CHIP_PREVIEW_COUNT);
+
+  return (
+    <div className="pe-chips">
+      {visible.map((opt) => (
+        <Chip
+          key={opt.slug}
+          label={opt.label}
+          selected={selectedSlugs.includes(opt.slug)}
+          disabled={disabled}
+          onClick={() => onSelect(opt.slug)}
+        />
+      ))}
+      {hiddenCount > 0 && !expanded ? (
+        <button
+          type="button"
+          className="pe-chip"
+          disabled={disabled}
+          onClick={() => setExpanded(true)}
+          aria-label={`Show ${hiddenCount} more options`}
+        >
+          +{hiddenCount} more
+        </button>
+      ) : null}
+      {hiddenCount > 0 && expanded ? (
+        <button
+          type="button"
+          className="pe-chip"
+          disabled={disabled}
+          onClick={() => setExpanded(false)}
+          aria-label="Show fewer options"
+        >
+          Show less
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -301,17 +388,12 @@ export function IdentityStep({
           <span className="cw-facet-help">
             The one thing you&apos;re best known for. Brands see this first.
           </span>
-          <div className="pe-chips">
-            {nicheOptions.map((opt) => (
-              <Chip
-                key={opt.slug}
-                label={opt.label}
-                selected={primaryNiche === opt.slug}
-                disabled={disabled}
-                onClick={() => onSetPrimaryNiche(opt.slug)}
-              />
-            ))}
-          </div>
+          <CollapsibleChips
+            options={nicheOptions}
+            selectedSlugs={primaryNiche ? [primaryNiche] : []}
+            disabled={disabled}
+            onSelect={onSetPrimaryNiche}
+          />
           {errors.primaryNiche ? (
             <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.primaryNiche}</p>
           ) : null}
@@ -358,22 +440,12 @@ export function IdentityStep({
               ? `Pick ${REQUIRED_SECONDARY_NICHES} more areas you also create in.`
               : "Choose your primary niche first."}
           </span>
-          <div className="pe-chips">
-            {nicheOptions
-              .filter((opt) => opt.slug !== primaryNiche)
-              .map((opt) => {
-                const isOn = secondaryNiches.includes(opt.slug);
-                return (
-                  <Chip
-                    key={opt.slug}
-                    label={opt.label}
-                    selected={isOn}
-                    disabled={disabled || !primaryNiche}
-                    onClick={() => onToggleSecondaryNiche(opt.slug)}
-                  />
-                );
-              })}
-          </div>
+          <CollapsibleChips
+            options={nicheOptions.filter((opt) => opt.slug !== primaryNiche)}
+            selectedSlugs={secondaryNiches}
+            disabled={disabled || !primaryNiche}
+            onSelect={onToggleSecondaryNiche}
+          />
           {errors.secondaryNiches ? (
             <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.secondaryNiches}</p>
           ) : null}
@@ -428,17 +500,12 @@ export function IdentityStep({
                 </span>
               </div>
               <span className="cw-facet-help">{help}</span>
-              <div className="pe-chips">
-                {options.map((opt) => (
-                  <Chip
-                    key={opt.slug}
-                    label={opt.label}
-                    selected={selected === opt.slug}
-                    disabled={disabled}
-                    onClick={() => onSelectSingleFacet(dimension, opt.slug)}
-                  />
-                ))}
-              </div>
+              <CollapsibleChips
+                options={options}
+                selectedSlugs={selected ? [selected] : []}
+                disabled={disabled}
+                onSelect={(slug) => onSelectSingleFacet(dimension, slug)}
+              />
               {dimErr ? (
                 <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{dimErr}</p>
               ) : null}
@@ -509,28 +576,15 @@ export function IdentityStep({
             Optional — skip if none apply. Pick the categories you&apos;re open
             to creating for so brands can match you to the right briefs.
           </span>
-          <div className="pe-chips">
-            {OPEN_TO_OPTIONS.map((name) => {
-              const isOn = selectedRestrictions.includes(name);
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  className="pe-chip"
-                  data-selected={isOn}
-                  disabled={disabled}
-                  onClick={() => onToggleRestriction(name)}
-                >
-                  {isOn ? (
-                    <span className="pe-chip-tick">
-                      <Check size={13} strokeWidth={3} />
-                    </span>
-                  ) : null}
-                  {name}
-                </button>
-              );
-            })}
-          </div>
+          <CollapsibleChips
+            options={OPEN_TO_OPTIONS.map((name) => ({
+              slug: name,
+              label: name,
+            }))}
+            selectedSlugs={selectedRestrictions}
+            disabled={disabled}
+            onSelect={onToggleRestriction}
+          />
         </div>
         </WizardAccordionSection>
       </div>

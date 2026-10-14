@@ -455,10 +455,10 @@ export function buildAdminCreatorsListWhere(
     case AdminCreatorListSegment.LISTED:
     // Both completeness segments start from the same set of listed creators —
     // the split between them is derived live from the Go-Live checklist plus
-    // the intro video, which Prisma's `where` cannot express (it has no
-    // "at least N related rows" filter, and the mandatory add-ons rule is a
-    // comparison against the catalog). `splitListedCreatorsByCompleteness`
-    // narrows this set; see `listListedCreatorsByCompleteness`.
+    // OTP verification and payout details (never the intro video, which stays
+    // optional), which Prisma's `where` cannot express (it has no "at least N
+    // related rows" filter, and the mandatory add-ons rule is a comparison
+    // against the catalog). `listListedCreatorsByCompleteness` narrows it.
     case AdminCreatorListSegment.LISTED_COMPLETE:
     case AdminCreatorListSegment.LISTED_INCOMPLETE:
       segmentClause = { isListed: true };

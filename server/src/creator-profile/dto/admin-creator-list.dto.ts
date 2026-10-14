@@ -203,10 +203,10 @@ export class AdminCreatorListItemDto {
     type: [String],
     description:
       'Requirements this LISTED creator is still missing, re-evaluated live ' +
-      '(Go-Live checklist + OTP verification; intro video is optional). Empty ' +
-      'when nothing is missing. Only populated for the listed_complete / ' +
-      'listed_incomplete segments.',
-    example: ['OTP verification', 'Instagram connected'],
+      '(Go-Live checklist + OTP verification + payout details; intro video is ' +
+      'optional). Empty when nothing is missing. Only populated for the ' +
+      'listed_complete / listed_incomplete segments.',
+    example: ['OTP verification', 'Payout details'],
   })
   missingRequirements?: string[];
 

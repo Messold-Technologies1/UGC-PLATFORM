@@ -6,6 +6,7 @@ import {
   INTRO_VIDEO_REQUIREMENT,
   LISTED_PROFILE_REQUIREMENTS,
   OTP_VERIFICATION_REQUIREMENT,
+  PAYOUT_DETAILS_REQUIREMENT,
   isIdentitySectionComplete,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_FACET_DIMENSIONS,
@@ -235,10 +236,11 @@ describe('evaluateListedProfileCompleteness', () => {
   ): ListedProfileCompletenessInput => ({
     ...completeInput(),
     phoneOtpLastStatus: 'approved',
+    hasPayoutDetails: true,
     ...overrides,
   });
 
-  it('is complete when the go-live checklist is met and OTP is approved', () => {
+  it('is complete when the go-live checklist is met, OTP is approved and payouts are set', () => {
     const { complete, missing } =
       evaluateListedProfileCompleteness(listedInput());
     expect(complete).toBe(true);
@@ -270,6 +272,21 @@ describe('evaluateListedProfileCompleteness', () => {
     expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
   });
 
+  it('flags payout details when neither a bank account nor a UPI ID is on file', () => {
+    const { complete, missing } = evaluateListedProfileCompleteness(
+      listedInput({ hasPayoutDetails: false }),
+    );
+    expect(complete).toBe(false);
+    expect(missing).toEqual([PAYOUT_DETAILS_REQUIREMENT.label]);
+  });
+
+  it('does not add payout details to the go-live gate', () => {
+    // A creator gets listed first and sorts out their bank details after.
+    const input = listedInput({ hasPayoutDetails: false });
+    expect(evaluateProfileCompleteness(input).complete).toBe(true);
+    expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
+  });
+
   it('reports checklist gaps without treating intro as required', () => {
     const { complete, missing } = evaluateListedProfileCompleteness(
       listedInput({
@@ -287,17 +304,18 @@ describe('evaluateListedProfileCompleteness', () => {
     expect(missing).not.toContain(INTRO_VIDEO_REQUIREMENT.label);
   });
 
-  it('extends the go-live catalog with OTP verification', () => {
+  it('extends the go-live catalog with OTP verification and payout details', () => {
     expect(LISTED_PROFILE_REQUIREMENTS).toEqual([
       ...GO_LIVE_REQUIREMENTS,
       OTP_VERIFICATION_REQUIREMENT,
+      PAYOUT_DETAILS_REQUIREMENT,
     ]);
   });
 
   it('every label it can emit maps back to a catalog entry', () => {
     // Guards the WhatsApp templating: a label with no stable key is unusable.
     const { missing } = evaluateListedProfileCompleteness({
-      ...listedInput({ phoneOtpLastStatus: null }),
+      ...listedInput({ phoneOtpLastStatus: null, hasPayoutDetails: false }),
       profileImageUrl: null,
       displayName: '',
       contactEmail: '',

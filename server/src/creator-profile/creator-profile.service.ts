@@ -2358,6 +2358,9 @@ export class CreatorProfileService {
           dateOfBirth: true,
           shippingAddress: true,
           user: { select: { phoneOtpLastStatus: true } },
+          payoutDetails: {
+            select: { accountNumber: true, ifsc: true, upiId: true },
+          },
           facetSelections: {
             select: { rank: true, option: { select: { dimension: true } } },
           },
@@ -2428,6 +2431,13 @@ export class CreatorProfileService {
         ),
         instagramConnected: profile.socialConnections.length > 0,
         phoneOtpLastStatus: profile.user?.phoneOtpLastStatus ?? null,
+        // Payable means a full bank account or a UPI ID — the same rule the
+        // creator's own masked endpoint reports as "configured".
+        hasPayoutDetails: Boolean(
+          (profile.payoutDetails?.accountNumber &&
+            profile.payoutDetails?.ifsc) ||
+          profile.payoutDetails?.upiId,
+        ),
       });
       byCreatorId.set(profile.id, missing);
     }

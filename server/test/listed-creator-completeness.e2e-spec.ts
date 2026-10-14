@@ -107,6 +107,8 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       secondaryNiches?: boolean;
       /** When true, leave `phoneOtpLastStatus` unset (listed · incomplete). */
       otpUnverified?: boolean;
+      /** When true, seed no bank/UPI row (listed · incomplete). */
+      payoutDetails?: boolean;
       /** `null` seeds a creator with no phone on file. */
       phone?: string | null;
     } = {},
@@ -224,6 +226,17 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       });
     }
 
+    if (!gaps.payoutDetails) {
+      await prisma.creatorPayoutDetails.create({
+        data: {
+          creatorId: profile.id,
+          accountHolderName: handle,
+          accountNumber: '123456789012',
+          ifsc: 'HDFC0001234',
+        },
+      });
+    }
+
     if (!gaps.instagram) {
       await prisma.socialConnection.create({
         data: {
@@ -267,7 +280,9 @@ describe('Listed creators split by profile completeness (e2e)', () => {
               {} as never,
               {} as never,
               {} as never,
-              {} as never),
+              {} as never,
+              {} as never,
+            ),
           inject: [PrismaService],
         },
         {
@@ -390,6 +405,20 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       const body = res.body as ListBody;
       expect(names(body)).toEqual(['needs-several']);
       expect(body.total).toBe(1);
+    });
+
+    it('puts listed creators with no bank or UPI details in listed · incomplete', async () => {
+      // Payout details are deliberately NOT a go-live requirement — a creator
+      // gets listed first and sorts their bank details out afterwards — so
+      // this gap can only ever show up here.
+      await seedListedCreator('needs-payout', { payoutDetails: true });
+
+      const res = await listSegment('listed_incomplete', {
+        search: 'needs-payout',
+      }).expect(200);
+      const body = res.body as ListBody;
+      expect(names(body)).toEqual(['needs-payout']);
+      expect(body.items[0]?.missingRequirements).toEqual(['Payout details']);
     });
 
     it('puts listed creators without approved OTP in listed · incomplete', async () => {

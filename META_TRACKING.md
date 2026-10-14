@@ -29,7 +29,7 @@ Each side is independently gated. Clearing `NEXT_PUBLIC_META_BRAND_PIXEL_ID` sen
 | `ExploreCreators` | a brand/agency opens the creator catalogue — "Creators" in the navbar (`/brand/creators`, `/agency/creators`) | Brand | Browser pixel | — |
 | `HotBrand` | a brand/agency spends 30 seconds actually looking at the creator catalogue | Brand | Browser pixel | — |
 | `AddToWishlist` | a brand/agency saves a creator to a wishlist — into an existing one, or into one created around that creator | Brand | Browser pixel **+** server CAPI | ✅ shared `event_id` |
-| `ViewContent` | a brand/agency opens a creator's full public profile from the browse drawer ("View profile") | Brand | Browser pixel | — |
+| `ViewContent` | a brand/agency opens a creator from the catalogue — the card's "View" button, the card itself, or the keyboard | Brand | Browser pixel | — |
 | `AddToCart` | a brand/agency clicks "Place order" on a creator and the order modal opens | Brand | Browser pixel | — |
 | `InitiateCheckout` | a brand/agency clicks "Create checkout" in the order modal, handing off to payment | Brand | Browser pixel | — |
 | `Purchase` | an order is paid for — it reaches `BRIEF_SUBMISSION_PENDING` with a `paidAt` | Brand | Server CAPI | n/a (no browser copy) |
@@ -66,7 +66,7 @@ Buyer-side steps are browser-only and live in `client/features/analytics/`:
 | `HotBrand` | the same hook's dwell timer, at `HOT_BRAND_SECONDS` |
 | `AddToWishlist` (browser) | `SaveToWishlistButton`, after either save path succeeds |
 | `AddToWishlist` (server) | `WishlistsService.fireAddToWishlistMetaEvent`, on the save request itself |
-| `ViewContent` | `ProfileDrawer`, on the "View profile" link |
+| `ViewContent` | `CreatorListing.openDrawer` — every way a card is opened |
 | `AddToCart` | `ProfileDrawer`, on the "Place order" button |
 | `InitiateCheckout` | `OrderModal.handleCheckout`, on "Create checkout" |
 | `Purchase` | `OrdersService.firePurchaseMetaEvent`, on the paid transition |
@@ -155,12 +155,18 @@ landing page's redirect to sign up, and `InitiateCheckout` not when
 `handleCheckout` returns early with no package or a checkout already running.
 Neither is awaited — a pixel must never delay the payment handoff.
 
-`ViewContent` is browser-only by nature: the profile opens in a new tab and no
-request of ours marks the click, so there is nothing for a server copy to hook
-into. The new tab also means the page stays alive, so the pixel's beacon leaves
-without needing a flush delay. `AddToCart` and `InitiateCheckout` are
-browser-only too, for now: both open an overlay rather than navigating, so the
-beacon leaves safely, and neither has a server moment of its own yet.
+`ViewContent` fires from `openDrawer`, not from a single button: the card's
+"View" button, a click on the card body and Enter/Space all open the same
+drawer through it, so hooking one button would miss most opens. The
+`?creatorId=` deep link sets the drawer state directly and deliberately doesn't
+count — nobody chose that creator from the catalogue. The "View profile" link
+*inside* the drawer doesn't fire it either; that is a second look at a creator
+already viewed.
+
+`ViewContent`, `AddToCart` and `InitiateCheckout` are browser-only: each is
+client state or an overlay rather than a request of ours, so there is no server
+moment for a copy to hook into, and nothing navigates away, so the beacon
+leaves safely without a flush delay.
 
 ### Purchase (server-only)
 

@@ -12,6 +12,7 @@ export type AgencyProfile = {
   contactEmail: string;
   contactPhone: string | null;
   contactPhoneVerified: boolean;
+  phoneOtpLastStatus?: string | null;
   brandNames: string[];
   createdAt: string;
   updatedAt: string;

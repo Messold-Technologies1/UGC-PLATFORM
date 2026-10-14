@@ -199,10 +199,11 @@ export function CreatorProfileWizard({
     if (raw.startsWith("+")) return raw;
     return `+91${raw.replace(/\D/g, "")}`;
   });
-  // Phone OTP verification (creators must verify before leaving the About step).
-  // Already true for accounts that verified at signup; Google creators verify here.
-  const [phoneVerified, setPhoneVerified] = useState(() =>
-    Boolean(initialProfile.phoneVerified),
+  // Phone OTP: verified only when both flags are set (matches admin listed completeness).
+  const [phoneVerified, setPhoneVerified] = useState(
+    () =>
+      Boolean(initialProfile.phoneVerified) &&
+      initialProfile.phoneOtpLastStatus === "approved",
   );
 
   const enabled = adminMode || Boolean(user);

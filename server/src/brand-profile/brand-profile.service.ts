@@ -292,13 +292,28 @@ export class BrandProfileService {
         (b: { category: BrandCategory }) => b.category,
       ) ?? [];
 
+    const contactPhone = profile.contactPhone ?? null;
+    const ownerPhone = profile.user?.phone ?? null;
+    const phoneOtpLastStatus = profile.user?.phoneOtpLastStatus ?? null;
+    const phoneMatches =
+      Boolean(contactPhone) &&
+      Boolean(ownerPhone) &&
+      String(contactPhone).replace(/\s/g, '') ===
+        String(ownerPhone).replace(/\s/g, '');
+    const contactPhoneVerified =
+      phoneMatches &&
+      Boolean(profile.user?.phoneVerified) &&
+      phoneOtpLastStatus === 'approved';
+
     return {
       id: profile.id,
       userId: profile.userId ?? null,
       email: profile.user?.email ?? profile.contactEmail ?? '',
       contactFullName: profile.contactFullName ?? null,
       contactEmail: profile.contactEmail ?? null,
-      contactPhone: profile.contactPhone ?? null,
+      contactPhone,
+      contactPhoneVerified,
+      phoneOtpLastStatus,
       brandName: profile.brandName,
       brandPronunciationAudioKey: profile.brandPronunciationAudioKey ?? null,
       brandPronunciationAudioUrl: profile.brandPronunciationAudioUrl ?? null,
@@ -405,7 +420,14 @@ export class BrandProfileService {
         otherCategoryLabel: true,
         createdAt: true,
         updatedAt: true,
-        user: { select: { email: true } },
+        user: {
+          select: {
+            email: true,
+            phone: true,
+            phoneVerified: true,
+            phoneOtpLastStatus: true,
+          },
+        },
         brandCategories: { select: { category: true } },
       } as any,
     });
@@ -864,7 +886,14 @@ export class BrandProfileService {
         otherCategoryLabel: true,
         createdAt: true,
         updatedAt: true,
-        user: { select: { email: true } },
+        user: {
+          select: {
+            email: true,
+            phone: true,
+            phoneVerified: true,
+            phoneOtpLastStatus: true,
+          },
+        },
         brandCategories: { select: { category: true } },
       } as any,
     });

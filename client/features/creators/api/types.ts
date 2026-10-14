@@ -112,6 +112,8 @@ export type CreatorProfileItemApi = {
   publicSlug?: string;
   phone?: string | null;
   phoneVerified?: boolean;
+  /** Last OTP outcome on User; `approved` when verification succeeded. */
+  phoneOtpLastStatus?: string | null;
   profileImageUrl?: string | null;
   introVideoUrl?: string | null;
   /** Server-generated card preview (faststart + downscaled), when available. */

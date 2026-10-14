@@ -25,6 +25,21 @@ export class BrandProfileResponseDto {
   @ApiPropertyOptional({ example: '+91 98765 43210' })
   contactPhone!: string | null;
 
+  @ApiProperty({
+    description:
+      'True when contactPhone matches the owner User phone and OTP verification ' +
+      'succeeded (phoneVerified + phoneOtpLastStatus === approved).',
+  })
+  contactPhoneVerified!: boolean;
+
+  @ApiPropertyOptional({
+    example: 'approved',
+    nullable: true,
+    description:
+      'Last phone OTP outcome on the owner User. `approved` when verification succeeded.',
+  })
+  phoneOtpLastStatus!: string | null;
+
   @ApiPropertyOptional({ example: 'Acme', nullable: true })
   brandName!: string | null;
 

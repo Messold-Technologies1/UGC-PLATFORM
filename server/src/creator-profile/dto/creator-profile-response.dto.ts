@@ -159,6 +159,15 @@ export class CreatorProfileResponseDto {
   phoneVerified?: boolean;
 
   @ApiPropertyOptional({
+    example: 'approved',
+    nullable: true,
+    description:
+      'Last phone OTP outcome on User (`approved` when verification succeeded). ' +
+      'Omitted when the viewer is not the profile owner or an admin.',
+  })
+  phoneOtpLastStatus?: string | null;
+
+  @ApiPropertyOptional({
     example: 'https://cdn.example.com/creator-profile/<id>/intro/<uuid>.mp4',
     description: 'CDN URL for the creator intro video (optional).',
   })

@@ -23,7 +23,10 @@ export type AboutYouStepProps = {
   adminMode?: boolean;
   phone?: string;
   onPhoneChange?: (value: string) => void;
-  /** Whether the creator's phone is already OTP-verified. */
+  /**
+   * Whether the creator's phone is fully OTP-verified
+   * (`phoneVerified` and `phoneOtpLastStatus === 'approved'`).
+   */
   phoneVerified?: boolean;
   /** Fires when the phone becomes verified via the OTP widget. */
   onPhoneVerifiedChange?: (verified: boolean) => void;

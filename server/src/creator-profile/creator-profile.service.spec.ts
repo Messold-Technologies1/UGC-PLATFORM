@@ -402,7 +402,11 @@ describe('CreatorProfileService', () => {
       id: 'profile-1',
       userId: 'owner-user',
       displayName: 'Jane',
-      user: { phone: '+919876543210', phoneVerified: true },
+      user: {
+        phone: '+919876543210',
+        phoneVerified: true,
+        phoneOtpLastStatus: 'approved',
+      },
       introVideoUrl: null,
       city: null,
       countryName: null,
@@ -459,6 +463,7 @@ describe('CreatorProfileService', () => {
       expect(result.id).toBe('profile-1');
       expect(result.phone).toBe('+919876543210');
       expect(result.phoneVerified).toBe(true);
+      expect(result.phoneOtpLastStatus).toBe('approved');
       expect(result.contactEmail).toBe('jane@example.com');
       expect(result.instagramUrl).toBe('https://instagram.com/jane');
       expect(result.youtubeUrl).toBe('https://youtube.com/@jane');
@@ -478,6 +483,7 @@ describe('CreatorProfileService', () => {
       expect(result.id).toBe('profile-1');
       expect(result).not.toHaveProperty('phone');
       expect(result).not.toHaveProperty('phoneVerified');
+      expect(result).not.toHaveProperty('phoneOtpLastStatus');
       expect(result).not.toHaveProperty('contactEmail');
       expect(result).not.toHaveProperty('instagramUrl');
       expect(result).not.toHaveProperty('youtubeUrl');

@@ -144,7 +144,9 @@ const CREATOR_LIST_BASE_SELECT = {
 } as const;
 
 const creatorProfileWithRelationsInclude = {
-  user: { select: { phone: true, phoneVerified: true } },
+  user: {
+    select: { phone: true, phoneVerified: true, phoneOtpLastStatus: true },
+  },
   facetSelections: { include: { option: true } },
   profileLanguages: { include: { option: true } },
   restrictions: true,
@@ -503,6 +505,7 @@ export class CreatorProfileService {
       publicSlug: mapped.publicSlug,
       phone: mapped.user?.phone ?? null,
       phoneVerified: mapped.user?.phoneVerified ?? false,
+      phoneOtpLastStatus: mapped.user?.phoneOtpLastStatus ?? null,
       introVideoUrl: mapped.introVideoUrl ?? null,
       profileImageUrl: mapped.profileImageUrl ?? null,
       countryName: mapped.countryName ?? null,
@@ -755,6 +758,7 @@ export class CreatorProfileService {
     const {
       phone: _phone,
       phoneVerified: _phoneVerified,
+      phoneOtpLastStatus: _phoneOtpLastStatus,
       contactEmail: _contactEmail,
       instagramUrl: _instagramUrl,
       youtubeUrl: _youtubeUrl,

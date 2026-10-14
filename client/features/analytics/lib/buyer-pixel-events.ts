@@ -88,17 +88,20 @@ export function trackHotBrand(identity: BuyerIdentity): boolean {
 }
 
 /**
- * Step 3 of the buyer funnel — the brand/agency opened a creator's full public
- * profile from the browse drawer ("View profile").
+ * Step 3 of the buyer funnel — the brand/agency opened a creator from the
+ * catalogue, by the card's "View" button, the card itself, or the keyboard.
+ *
+ * Deep links (`?creatorId=`) deliberately do not count: the drawer opens there
+ * without anyone choosing that creator from the grid.
  *
  * `ViewContent` is a Meta **standard** event. It carries the creator's starting
  * price as `value`, which is what a collab with them would open at — reporting
  * metadata, not a transaction.
  *
- * Browser-only: the profile opens in a new tab and no request of ours marks the
- * click, so there is nothing for a server copy to hook into.
+ * Browser-only: opening the drawer is pure client state, so there is no request
+ * of ours for a server copy to hook into.
  */
-export function trackViewProfile(
+export function trackViewCreator(
   identity: BuyerIdentity,
   creator: { creatorId: string; startingPrice?: number | null },
 ): boolean {

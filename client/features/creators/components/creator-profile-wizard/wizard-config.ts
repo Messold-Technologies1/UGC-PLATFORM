@@ -7,6 +7,7 @@ import {
   Rocket,
   Sparkles,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import {
   MIN_PORTFOLIO_VIDEOS,
@@ -19,6 +20,7 @@ export type WizardStepId =
   | "about"
   | "base"
   | "identity"
+  | "payouts"
   | "intro-video"
   | "portfolio"
   | "pricing"
@@ -81,6 +83,14 @@ export const WIZARD_STEPS: WizardStep[] = [
     title: "Your portfolio",
     tagline: "Your best reels — proof that you deliver scroll-stopping work.",
     icon: Images,
+    ready: false,
+  },
+  {
+    id: "payouts",
+    label: "Payouts",
+    title: "Where we send your money",
+    tagline: "Add the bank account or UPI ID we pay your earnings into.",
+    icon: Wallet,
     ready: false,
   },
   {
@@ -162,11 +172,11 @@ export const BIO_MAX_CHARS = 500;
  * The Profile Strength meter is derived from the SAME `GoLiveSnapshot` the
  * go-live checklist uses (`computeGoLiveMissing`), so the two can never drift:
  * a pre-listing profile reads 100% if and only if every go-live requirement is
- * met. The optional intro video is the one item beyond go-live — it counts only
- * once a creator is listed, as the final few percent (see `includeIntroVideo`).
+ * met. Two items sit beyond go-live and count only once a creator is listed
+ * (see `listed`): the optional intro video and the payout details.
  *
  * Every go-live requirement carries a weight; the requirement weights sum to 96
- * and the intro video is the remaining 4. Pre-listing the intro video is
+ * and the two post-listing items split the remaining 4. Pre-listing both are
  * excluded and the reachable max (96) is rescaled to 100.
  */
 const STRENGTH_WEIGHTS = {
@@ -199,11 +209,13 @@ const STRENGTH_WEIGHTS = {
   // Policies
   policies: 6,
   // Beyond go-live (listed creators only)
-  introVideo: 4,
+  introVideo: 2,
+  payoutDetails: 2,
 } as const;
 
-/** Sum of every requirement weight excluding the post-listing intro video. */
-const GO_LIVE_WEIGHT_TOTAL = 100 - STRENGTH_WEIGHTS.introVideo; // 96
+/** Sum of every requirement weight excluding the post-listing items. */
+const GO_LIVE_WEIGHT_TOTAL =
+  100 - STRENGTH_WEIGHTS.introVideo - STRENGTH_WEIGHTS.payoutDetails; // 96
 
 function isBlank(value: string | null | undefined): boolean {
   return !value || value.trim().length === 0;
@@ -213,18 +225,23 @@ function isBlank(value: string | null | undefined): boolean {
  * Turns a go-live snapshot into a 0–100 Profile Strength percentage plus a
  * short, actionable hint pointing at the highest-impact thing still missing.
  *
- * `includeIntroVideo` (true once the creator is listed) folds the optional
- * intro video into the final 4%; before listing it is excluded and the score is
- * rescaled so an otherwise go-live-ready profile reads 100%, not 96%.
+ * `listed` (true once the creator is listed) folds the two post-listing items —
+ * the optional intro video and the payout details — into the final 4%; before
+ * listing they are excluded and the score is rescaled so an otherwise
+ * go-live-ready profile reads 100%, not 96%.
  */
 export function computeProfileStrength(
   snapshot: GoLiveSnapshot,
-  options: { includeIntroVideo?: boolean; hasIntroVideo?: boolean } = {},
+  options: {
+    listed?: boolean;
+    hasIntroVideo?: boolean;
+    hasPayoutDetails?: boolean;
+  } = {},
 ): {
   pct: number;
   hint: string;
 } {
-  const includeIntroVideo = options.includeIntroVideo ?? true;
+  const listed = options.listed ?? true;
   const facets = new Set(snapshot.selectedFacetDimensions);
 
   let score = 0;
@@ -255,12 +272,13 @@ export function computeProfileStrength(
     STRENGTH_WEIGHTS.portfolio;
   if (snapshot.instagramConnected) score += STRENGTH_WEIGHTS.instagram;
   if (snapshot.policiesAccepted) score += STRENGTH_WEIGHTS.policies;
-  if (includeIntroVideo && options.hasIntroVideo)
-    score += STRENGTH_WEIGHTS.introVideo;
+  if (listed && options.hasIntroVideo) score += STRENGTH_WEIGHTS.introVideo;
+  if (listed && options.hasPayoutDetails)
+    score += STRENGTH_WEIGHTS.payoutDetails;
 
   // Pre-listing the reachable max is GO_LIVE_WEIGHT_TOTAL (96); rescale to 100
   // so a go-live-ready profile reads 100% rather than being capped at 96%.
-  const maxScore = includeIntroVideo ? 100 : GO_LIVE_WEIGHT_TOTAL;
+  const maxScore = listed ? 100 : GO_LIVE_WEIGHT_TOTAL;
   const pct = Math.max(0, Math.min(100, Math.round((score / maxScore) * 100)));
 
   // Ordered by impact — the last matching line wins (highest priority).
@@ -286,6 +304,9 @@ export function computeProfileStrength(
     hint = "Add a profile photo to build instant trust.";
   if (isBlank(snapshot.displayName))
     hint = "Start with your name so brands know you.";
+  // A listed creator can earn right away, so unpaid earnings outrank polish.
+  if (listed && !options.hasPayoutDetails)
+    hint = "Add your bank or UPI details so we can pay you.";
 
   return { pct, hint };
 }

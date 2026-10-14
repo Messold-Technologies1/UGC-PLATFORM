@@ -22,6 +22,12 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import {
+  ACCOUNT_HOLDER_MIN_CHARS,
+  ACCOUNT_NUMBER_REGEX,
+  IFSC_REGEX,
+  UPI_ID_REGEX,
+} from "@/features/creators/lib/payout-details";
 import { useCreatorPayoutDetailsQuery } from "@/features/creators/hooks/use-creator-payout-details-query";
 import { useCreatorPayoutDetailsMutation } from "@/features/creators/hooks/use-creator-payout-details-mutation";
 import { useAuth } from "@/providers/auth-provider";
@@ -30,16 +36,22 @@ import { CLARITY_MASK } from "@/lib/clarity";
 const payoutSchema = z.discriminatedUnion("method", [
   z.object({
     method: z.literal("bank"),
-    accountHolderName: z.string().trim().min(3, "Full name is required (min 3 chars)"),
+    accountHolderName: z
+      .string()
+      .trim()
+      .min(
+        ACCOUNT_HOLDER_MIN_CHARS,
+        `Full name is required (min ${ACCOUNT_HOLDER_MIN_CHARS} chars)`,
+      ),
     accountNumber: z
       .string()
       .trim()
-      .regex(/^\d{9,18}$/, "Account number must be between 9 and 18 digits"),
+      .regex(ACCOUNT_NUMBER_REGEX, "Account number must be between 9 and 18 digits"),
     ifsc: z
       .string()
       .trim()
       .toUpperCase()
-      .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format (e.g., HDFC0001234)"),
+      .regex(IFSC_REGEX, "Invalid IFSC format (e.g., HDFC0001234)"),
     upiId: z.string().optional(),
   }),
   z.object({
@@ -48,10 +60,7 @@ const payoutSchema = z.discriminatedUnion("method", [
       .string()
       .trim()
       .toLowerCase()
-      .regex(
-        /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/,
-        "Invalid UPI ID format (e.g., name@bank)",
-      ),
+      .regex(UPI_ID_REGEX, "Invalid UPI ID format (e.g., name@bank)"),
     accountHolderName: z.string().optional(),
     accountNumber: z.string().optional(),
     ifsc: z.string().optional(),

@@ -67,6 +67,7 @@ import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update
 
 import { useCreatorProfileImage } from "@/features/creators/hooks/use-creator-profile-image";
 import { useCreatorIntroVideo } from "@/features/creators/hooks/use-creator-intro-video";
+import { useCreatorPayoutForm } from "@/features/creators/hooks/use-creator-payout-form";
 import { useCreatorLocationForm } from "@/features/creators/hooks/use-creator-location-form";
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
@@ -125,6 +126,7 @@ import { AboutYouStep } from "./steps/about-you-step";
 import { YourBaseStep } from "./steps/your-base-step";
 import { IdentityStep } from "./steps/identity-step";
 import { IntroVideoStep } from "./steps/intro-video-step";
+import { PayoutDetailsStep } from "./steps/payout-details-step";
 import { PortfolioStep } from "./steps/portfolio-step";
 import { PricingStep } from "./steps/pricing-step";
 import { ReviewStep, type ReviewRow } from "./steps/review-step";
@@ -142,11 +144,20 @@ export type CreatorProfileWizardProps = {
 const LISTED_HIDDEN_STEPS = new Set<WizardStepId>(["review", "go-live"]);
 
 /**
- * The intro video is optional and only relevant once a creator is listed, so
- * it is dropped from the onboarding funnel entirely and shown only after the
- * profile is listed (live & approved), where it becomes the final step.
+ * Steps that only matter once a creator is listed, so they are dropped from the
+ * onboarding funnel entirely and shown only after the profile is listed (live &
+ * approved), where they become the final steps: the optional intro video, and
+ * the payout details we send their earnings to.
  */
-const LISTED_ONLY_STEPS = new Set<WizardStepId>(["intro-video"]);
+const LISTED_ONLY_STEPS = new Set<WizardStepId>(["intro-video", "payouts"]);
+
+/**
+ * Payout details are written through a dedicated, self-scoped endpoint
+ * (`PATCH /creators/profile/me/payout-details`), which an admin cannot call on
+ * a creator's behalf — doing so would write the admin's own payout row. Admins
+ * read them from the creator detail page instead, so the step is hidden here.
+ */
+const CREATOR_ONLY_STEPS = new Set<WizardStepId>(["payouts"]);
 
 // Package price rule mirrored from the long form (>= ₹500, steps of ₹500).
 function validatePackagePrice(value: string): string | undefined {
@@ -252,7 +263,14 @@ export function CreatorProfileWizard({
     profileId,
     initialProfile,
   });
+  // Payout details live on their own endpoint and are only reachable by the
+  // signed-in creator, so the query stays disabled in admin mode.
+  const payout = useCreatorPayoutForm({
+    enabled: !adminMode && Boolean(user) && Boolean(initialProfile.isListed),
+  });
   const location = useCreatorLocationForm({ initialProfile, adminMode });
+  // Stable reference so the step validator does not depend on the whole form.
+  const payoutValidate = payout.validate;
   const facets = useCreatorFacetsForm({ initialProfile, enabled });
   const packages = useCreatorPackagesForm({ initialProfile });
   const addOns = useCreatorAddOnsForm({
@@ -645,9 +663,13 @@ export function CreatorProfileWizard({
   const steps = useMemo(
     () =>
       initialProfile.isListed
-        ? WIZARD_STEPS.filter((step) => !LISTED_HIDDEN_STEPS.has(step.id))
+        ? WIZARD_STEPS.filter(
+            (step) =>
+              !LISTED_HIDDEN_STEPS.has(step.id) &&
+              !(adminMode && CREATOR_ONLY_STEPS.has(step.id)),
+          )
         : WIZARD_STEPS.filter((step) => !LISTED_ONLY_STEPS.has(step.id)),
-    [initialProfile.isListed],
+    [initialProfile.isListed, adminMode],
   );
   /**
    * Steps shown in the stepper. Go Live is a destination, not a step the
@@ -789,10 +811,19 @@ export function CreatorProfileWizard({
   const strength = useMemo(
     () =>
       computeProfileStrength(goLiveSnapshot, {
-        includeIntroVideo: initialProfile.isListed,
+        listed: Boolean(initialProfile.isListed),
         hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
+        // Admins can't read a creator's payout details, so don't dock them for
+        // it in the admin view — only a creator sees this part of the score.
+        hasPayoutDetails: adminMode ? true : payout.configured,
       }),
-    [goLiveSnapshot, initialProfile.isListed, introVideo.introVideoPreviewUrl],
+    [
+      goLiveSnapshot,
+      initialProfile.isListed,
+      introVideo.introVideoPreviewUrl,
+      adminMode,
+      payout.configured,
+    ],
   );
 
   // Whether a step's requirements are already met by the current data. Drives
@@ -830,6 +861,8 @@ export function CreatorProfileWizard({
           );
         case "intro-video":
           return Boolean(introVideo.introVideoPreviewUrl);
+        case "payouts":
+          return payout.configured;
         case "review":
           return goLiveMissing.length === 0;
         case "go-live":
@@ -854,6 +887,7 @@ export function CreatorProfileWizard({
       portfolioConfirmed,
       bio,
       introVideo.introVideoPreviewUrl,
+      payout.configured,
       goLiveMissing,
       submitted,
       initialProfile.completeProfile,
@@ -989,6 +1023,10 @@ export function CreatorProfileWizard({
         // one. Only ask for the confirmation once a video has been added.
         if (introVideo.introVideoPreviewUrl && !introConfirmed)
           missing.push("the intro video confirmation");
+      } else if (id === "payouts") {
+        // Required once listed: a creator with no bank/UPI on file cannot be
+        // paid. Already-saved details satisfy it without retyping anything.
+        missing.push(...payoutValidate());
       } else if (id === "pricing") {
         const priceErr = validatePackagePrice(
           packages.packageDraft.priceAmount,
@@ -1022,6 +1060,7 @@ export function CreatorProfileWizard({
       portfolioConfirmed,
       introVideo.introVideoPreviewUrl,
       introConfirmed,
+      payoutValidate,
       packageDefaultsConfirmed,
       packages.packageDraft.priceAmount,
       addOns.mandatoryAddOnsPriced,
@@ -1130,6 +1169,7 @@ export function CreatorProfileWizard({
                 : undefined,
           }
         : {},
+      payouts: tried.payouts ? payout.fieldErrors : {},
       pricing: tried.pricing
         ? {
             deliveryDays: (() => {
@@ -1174,6 +1214,7 @@ export function CreatorProfileWizard({
     portfolioConfirmed,
     introVideo.introVideoPreviewUrl,
     introConfirmed,
+    payout.fieldErrors,
     packages.packageDraft.deliveryDays,
     packageDefaultsConfirmed,
     addOns.mandatoryAddOnsPriced,
@@ -1223,6 +1264,35 @@ export function CreatorProfileWizard({
       submitMutation,
     ],
   );
+
+  /**
+   * The Payouts step does not go through `persist`: payout details are written
+   * by their own endpoint (bank/UPI never touch the profile payload), so this
+   * saves them and then advances exactly like a persisted step would. When
+   * nothing was retyped and details are already on file there is nothing to
+   * send, so it just moves on.
+   */
+  const savePayoutStep = useCallback(() => {
+    const missing = validateStep("payouts");
+    if (missing.length > 0) {
+      setTriedContinue((prev) => ({ ...prev, payouts: true }));
+      toast.error(`Almost there — add ${missing.join(", ")}.`);
+      return;
+    }
+    const advance = () => {
+      setCompleted((prev) => new Set(prev).add("payouts"));
+      setDirty(false);
+      setActiveIndex((idx) => Math.min(idx + 1, steps.length - 1));
+      if (typeof window !== "undefined")
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    const payload = payout.buildPayload();
+    if (!payload) {
+      advance();
+      return;
+    }
+    payout.save(payload, advance);
+  }, [validateStep, payout, steps.length]);
 
   const handleContinue = useCallback(() => {
     const id = activeStep.id;
@@ -1322,6 +1392,11 @@ export function CreatorProfileWizard({
   // review/go-live keep their submit/exit behavior, and onboarding keeps its
   // save-and-advance flow.
   const onPrimaryAction = useCallback(() => {
+    // Payouts save through their own endpoint, never the profile payload.
+    if (activeStep.id === "payouts") {
+      savePayoutStep();
+      return;
+    }
     // A withdrawn profile submits from wherever the creator is. The header
     // Submit button is hidden below 960px — the mobile stepper replaces that
     // whole bar — so the footer is the only action a phone can reach, and
@@ -1346,6 +1421,7 @@ export function CreatorProfileWizard({
     submitForReview,
     canEditFreely,
     activeStep.id,
+    savePayoutStep,
     saveCurrentStep,
     handleContinue,
   ]);
@@ -1545,13 +1621,15 @@ export function CreatorProfileWizard({
   const isLastStep = activeIndex >= steps.length - 1;
   const uploadingMedia =
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
+  /** Any save in flight — the profile payload one, or the payout one. */
+  const savingAnything = pending || payout.saving;
 
   return (
     <CwRoot>
       <CwMobileStepper>
         <CwMobileStepperRow>
           <CwMobileNav
-            disabled={pending}
+            disabled={savingAnything}
             onClick={handleBack}
             aria-label={activeIndex === 0 ? "Exit" : "Previous step"}
           >
@@ -1567,7 +1645,7 @@ export function CreatorProfileWizard({
           </CwMobileStepperCopy>
           <CwMobileNav
             disabled={
-              pending || uploadingMedia || activeIndex >= steps.length - 1
+              savingAnything || uploadingMedia || activeIndex >= steps.length - 1
             }
             onClick={handleMobileNext}
             aria-label="Next step"
@@ -1916,6 +1994,47 @@ export function CreatorProfileWizard({
                   onConfirmedChange={setIntroConfirmed}
                   errors={stepErrors["intro-video"]}
                 />
+              ) : activeStep.id === "payouts" ? (
+                <PayoutDetailsStep
+                  disabled={fieldsDisabled || payout.saving}
+                  loading={payout.query.isLoading}
+                  error={payout.query.isError}
+                  onRetry={() => void payout.query.refetch()}
+                  details={payout.details}
+                  method={payout.method}
+                  onMethodChange={(next) => {
+                    markDirty();
+                    payout.setMethod(next);
+                  }}
+                  accountHolderName={payout.accountHolderName}
+                  onAccountHolderNameChange={(v) => {
+                    markDirty();
+                    payout.setAccountHolderName(v);
+                  }}
+                  accountNumber={payout.accountNumber}
+                  onAccountNumberChange={(v) => {
+                    markDirty();
+                    payout.setAccountNumber(v);
+                  }}
+                  confirmAccountNumber={payout.confirmAccountNumber}
+                  onConfirmAccountNumberChange={(v) => {
+                    markDirty();
+                    payout.setConfirmAccountNumber(v);
+                  }}
+                  ifsc={payout.ifsc}
+                  onIfscChange={(v) => {
+                    markDirty();
+                    payout.setIfsc(v);
+                  }}
+                  upiId={payout.upiId}
+                  onUpiIdChange={(v) => {
+                    markDirty();
+                    payout.setUpiId(v);
+                  }}
+                  confirmed={payout.confirmed}
+                  onConfirmedChange={payout.setConfirmed}
+                  errors={stepErrors.payouts}
+                />
               ) : activeStep.id === "portfolio" ? (
                 <PortfolioStep
                   loading={portfolioQuery.isLoading}
@@ -2024,7 +2143,7 @@ export function CreatorProfileWizard({
               <CwFootActions>
                 <CwBtn
                   variant="ghost"
-                  disabled={pending || withdrawing}
+                  disabled={savingAnything || withdrawing}
                   onClick={handleBack}
                 >
                   <ArrowLeft size={16} />
@@ -2035,7 +2154,7 @@ export function CreatorProfileWizard({
                   onClick={onPrimaryAction}
                   disabled={
                     awaitingReview ||
-                    pending ||
+                    savingAnything ||
                     withdrawing ||
                     profileImage.uploadingProfileImage ||
                     introVideo.uploadingIntroVideo
@@ -2043,7 +2162,7 @@ export function CreatorProfileWizard({
                 >
                   {awaitingReview ? (
                     "Submitted — under review"
-                  ) : pending ? (
+                  ) : savingAnything ? (
                     <>
                       <Spinner className="size-4" aria-hidden />
                       {activeStep.id === "review" ? "Submitting…" : "Saving…"}

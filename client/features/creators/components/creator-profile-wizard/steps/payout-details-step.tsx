@@ -4,6 +4,7 @@ import { AlertTriangle, Building2, Check, Eye, EyeOff, QrCode, ShieldCheck } fro
 import { useState } from "react";
 
 import { CLARITY_MASK } from "@/lib/clarity";
+import { CreatorBankingDetailsCard } from "@/features/admin/components/creator-banking-details-card";
 import { cn } from "@/lib/utils";
 import type { CreatorPayoutDetailsMaskedApi } from "@/features/creators/api/types";
 import type { PayoutMethod } from "@/features/creators/lib/payout-details";
@@ -445,6 +446,31 @@ export function PayoutDetailsStep({
           ))}
         </div>
       </div>
+    </CwCard>
+  );
+}
+
+/**
+ * The admin view of the same step: read-only, and behind the same reveal as
+ * the order page's banking card — an admin sees full account numbers only when
+ * they ask for them, and hiding drops the data from the cache again.
+ *
+ * There is no admin write endpoint for payout details (the creator's own is
+ * self-scoped), so an admin can read these but not change them.
+ */
+export function AdminPayoutDetailsStep({ creatorId }: { creatorId: string }) {
+  return (
+    <CwCard>
+      <CwFacet>
+        <CwFacetLabel>
+          <span>Payout details on file</span>
+        </CwFacetLabel>
+        <p className="m-0 text-[13px] leading-relaxed text-muted-foreground">
+          Only the creator can add or change these — this view is read-only.
+          Account numbers and UPI IDs stay hidden until you ask for them.
+        </p>
+        <CreatorBankingDetailsCard creatorId={creatorId} />
+      </CwFacet>
     </CwCard>
   );
 }

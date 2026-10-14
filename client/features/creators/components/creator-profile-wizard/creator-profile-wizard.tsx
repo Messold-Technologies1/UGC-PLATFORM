@@ -127,7 +127,10 @@ import { AboutYouStep } from "./steps/about-you-step";
 import { YourBaseStep } from "./steps/your-base-step";
 import { IdentityStep } from "./steps/identity-step";
 import { IntroVideoStep } from "./steps/intro-video-step";
-import { PayoutDetailsStep } from "./steps/payout-details-step";
+import {
+  AdminPayoutDetailsStep,
+  PayoutDetailsStep,
+} from "./steps/payout-details-step";
 import { PortfolioStep } from "./steps/portfolio-step";
 import { PricingStep } from "./steps/pricing-step";
 import { ReviewStep, type ReviewRow } from "./steps/review-step";
@@ -153,25 +156,13 @@ const LISTED_HIDDEN_STEPS = new Set<WizardStepId>(["review", "go-live"]);
 const LISTED_ONLY_STEPS = new Set<WizardStepId>(["payouts", "intro-video"]);
 
 /**
- * Payout details are written through a dedicated, self-scoped endpoint
- * (`PATCH /creators/profile/me/payout-details`), which an admin cannot call on
- * a creator's behalf — doing so would write the admin's own payout row. Admins
- * read them from the creator detail page instead, so the step is hidden here.
- */
-const CREATOR_ONLY_STEPS = new Set<WizardStepId>(["payouts"]);
-
-/**
  * The steps this profile actually walks through. Once a profile is listed
  * (live & approved) there is nothing to re-submit — the wizard is just an
  * editor — so Review and Go Live drop out and the listed-only steps appear.
  */
-function visibleWizardSteps(isListed: boolean, adminMode: boolean) {
+function visibleWizardSteps(isListed: boolean) {
   return isListed
-    ? WIZARD_STEPS.filter(
-        (step) =>
-          !LISTED_HIDDEN_STEPS.has(step.id) &&
-          !(adminMode && CREATOR_ONLY_STEPS.has(step.id)),
-      )
+    ? WIZARD_STEPS.filter((step) => !LISTED_HIDDEN_STEPS.has(step.id))
     : WIZARD_STEPS.filter((step) => !LISTED_ONLY_STEPS.has(step.id));
 }
 
@@ -185,12 +176,11 @@ function visibleWizardSteps(isListed: boolean, adminMode: boolean) {
 function initialStepIndex(params: {
   requestedStepId: string | null;
   isListed: boolean;
-  adminMode: boolean;
   canEditFreely: boolean;
 }): number {
-  const { requestedStepId, isListed, adminMode, canEditFreely } = params;
+  const { requestedStepId, isListed, canEditFreely } = params;
   if (!requestedStepId || !canEditFreely) return 0;
-  const index = visibleWizardSteps(isListed, adminMode).findIndex(
+  const index = visibleWizardSteps(isListed).findIndex(
     (step) => step.id === requestedStepId,
   );
   return index >= 0 ? index : 0;
@@ -223,7 +213,6 @@ export function CreatorProfileWizard({
     initialStepIndex({
       requestedStepId: searchParams.get("step"),
       isListed: Boolean(initialProfile.isListed),
-      adminMode,
       // `canEditFreely` is derived below from the same three facts; inlined
       // here because state initializers run before it exists.
       canEditFreely:
@@ -707,8 +696,8 @@ export function CreatorProfileWizard({
   ]);
 
   const steps = useMemo(
-    () => visibleWizardSteps(Boolean(initialProfile.isListed), adminMode),
-    [initialProfile.isListed, adminMode],
+    () => visibleWizardSteps(Boolean(initialProfile.isListed)),
+    [initialProfile.isListed],
   );
   /**
    * Steps shown in the stepper. Go Live is a destination, not a step the
@@ -901,7 +890,10 @@ export function CreatorProfileWizard({
         case "intro-video":
           return Boolean(introVideo.introVideoPreviewUrl);
         case "payouts":
-          return payout.configured;
+          // Admin mode never loads the creator's payout details up front (they
+          // sit behind a reveal), so there is nothing to tick off against —
+          // showing the step as unfinished would read as "creator has none".
+          return adminMode || payout.configured;
         case "review":
           return goLiveMissing.length === 0;
         case "go-live":
@@ -927,6 +919,7 @@ export function CreatorProfileWizard({
       bio,
       introVideo.introVideoPreviewUrl,
       payout.configured,
+      adminMode,
       goLiveMissing,
       submitted,
       initialProfile.completeProfile,
@@ -1065,7 +1058,8 @@ export function CreatorProfileWizard({
       } else if (id === "payouts") {
         // Required once listed: a creator with no bank/UPI on file cannot be
         // paid. Already-saved details satisfy it without retyping anything.
-        missing.push(...payoutValidate());
+        // Admins only read this step, so there is nothing to ask them for.
+        if (!adminMode) missing.push(...payoutValidate());
       } else if (id === "pricing") {
         const priceErr = validatePackagePrice(
           packages.packageDraft.priceAmount,
@@ -1312,6 +1306,10 @@ export function CreatorProfileWizard({
    * send, so it just moves on.
    */
   const savePayoutStep = useCallback(() => {
+    if (adminMode) {
+      setActiveIndex((idx) => Math.min(idx + 1, steps.length - 1));
+      return;
+    }
     const missing = validateStep("payouts");
     if (missing.length > 0) {
       setTriedContinue((prev) => ({ ...prev, payouts: true }));
@@ -1331,7 +1329,7 @@ export function CreatorProfileWizard({
       return;
     }
     payout.save(payload, advance);
-  }, [validateStep, payout, steps.length]);
+  }, [adminMode, validateStep, payout, steps.length]);
 
   const handleContinue = useCallback(() => {
     const id = activeStep.id;
@@ -1635,6 +1633,8 @@ export function CreatorProfileWizard({
   ]);
 
   const continueLabel = useMemo(() => {
+    // Read-only for admins — there is nothing to save here.
+    if (adminMode && activeStep.id === "payouts") return "Continue";
     // Same words the reopened-for-editing banner tells them to look for.
     if (showResubmit) return "Submit for review";
     if (activeStep.id === "review") return "Submit my profile";
@@ -1648,7 +1648,7 @@ export function CreatorProfileWizard({
       portfolio: "Save & Review Profile",
     };
     return labelMap[activeStep.id] ?? "Continue";
-  }, [activeStep.id, canEditFreely, showResubmit]);
+  }, [activeStep.id, canEditFreely, showResubmit, adminMode]);
 
   // In editor mode, editable steps get a "save this step" reminder + a Save
   // button in the header (in addition to the footer one).
@@ -1656,7 +1656,9 @@ export function CreatorProfileWizard({
     canEditFreely &&
     !awaitingReview &&
     activeStep.id !== "review" &&
-    activeStep.id !== "go-live";
+    activeStep.id !== "go-live" &&
+    // The admin payout view saves nothing, so don't tell them to save it.
+    !(adminMode && activeStep.id === "payouts");
   const isLastStep = activeIndex >= steps.length - 1;
   const uploadingMedia =
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
@@ -2034,46 +2036,53 @@ export function CreatorProfileWizard({
                   errors={stepErrors["intro-video"]}
                 />
               ) : activeStep.id === "payouts" ? (
-                <PayoutDetailsStep
-                  disabled={fieldsDisabled || payout.saving}
-                  loading={payout.query.isLoading}
-                  error={payout.query.isError}
-                  onRetry={() => void payout.query.refetch()}
-                  details={payout.details}
-                  method={payout.method}
-                  onMethodChange={(next) => {
-                    markDirty();
-                    payout.setMethod(next);
-                  }}
-                  accountHolderName={payout.accountHolderName}
-                  onAccountHolderNameChange={(v) => {
-                    markDirty();
-                    payout.setAccountHolderName(v);
-                  }}
-                  accountNumber={payout.accountNumber}
-                  onAccountNumberChange={(v) => {
-                    markDirty();
-                    payout.setAccountNumber(v);
-                  }}
-                  confirmAccountNumber={payout.confirmAccountNumber}
-                  onConfirmAccountNumberChange={(v) => {
-                    markDirty();
-                    payout.setConfirmAccountNumber(v);
-                  }}
-                  ifsc={payout.ifsc}
-                  onIfscChange={(v) => {
-                    markDirty();
-                    payout.setIfsc(v);
-                  }}
-                  upiId={payout.upiId}
-                  onUpiIdChange={(v) => {
-                    markDirty();
-                    payout.setUpiId(v);
-                  }}
-                  confirmed={payout.confirmed}
-                  onConfirmedChange={payout.setConfirmed}
-                  errors={stepErrors.payouts}
-                />
+                // Payout details are written through a self-scoped endpoint an
+                // admin cannot call for a creator (it would write the admin's
+                // own payout row), so admin mode reads them instead.
+                adminMode ? (
+                  <AdminPayoutDetailsStep creatorId={profileId} />
+                ) : (
+                  <PayoutDetailsStep
+                    disabled={fieldsDisabled || payout.saving}
+                    loading={payout.query.isLoading}
+                    error={payout.query.isError}
+                    onRetry={() => void payout.query.refetch()}
+                    details={payout.details}
+                    method={payout.method}
+                    onMethodChange={(next) => {
+                      markDirty();
+                      payout.setMethod(next);
+                    }}
+                    accountHolderName={payout.accountHolderName}
+                    onAccountHolderNameChange={(v) => {
+                      markDirty();
+                      payout.setAccountHolderName(v);
+                    }}
+                    accountNumber={payout.accountNumber}
+                    onAccountNumberChange={(v) => {
+                      markDirty();
+                      payout.setAccountNumber(v);
+                    }}
+                    confirmAccountNumber={payout.confirmAccountNumber}
+                    onConfirmAccountNumberChange={(v) => {
+                      markDirty();
+                      payout.setConfirmAccountNumber(v);
+                    }}
+                    ifsc={payout.ifsc}
+                    onIfscChange={(v) => {
+                      markDirty();
+                      payout.setIfsc(v);
+                    }}
+                    upiId={payout.upiId}
+                    onUpiIdChange={(v) => {
+                      markDirty();
+                      payout.setUpiId(v);
+                    }}
+                    confirmed={payout.confirmed}
+                    onConfirmedChange={payout.setConfirmed}
+                    errors={stepErrors.payouts}
+                  />
+                )
               ) : activeStep.id === "portfolio" ? (
                 <PortfolioStep
                   loading={portfolioQuery.isLoading}

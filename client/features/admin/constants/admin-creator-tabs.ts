@@ -82,7 +82,7 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "listed_incomplete",
     label: "Listed · incomplete",
     description:
-      "Live on the marketplace but still missing something — most often the intro video, which is only asked for after listing.",
+      "Live on the marketplace but still missing something — e.g. OTP verification or other profile gaps.",
     icon: OctagonAlert,
     countKey: "listedIncomplete",
     badgeClassName: "bg-rose-100 text-rose-700",
@@ -156,7 +156,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "listed_incomplete",
     label: "Listed · incomplete",
     description:
-      "Live on the marketplace but still missing something — most often the intro video, which is only asked for after listing.",
+      "Live on the marketplace but still missing something — e.g. OTP verification or other profile gaps.",
     icon: OctagonAlert,
     countKey: "listedIncomplete",
     badgeClassName: "bg-rose-100 text-rose-700",

@@ -207,20 +207,31 @@ export const INTRO_VIDEO_REQUIREMENT: GoLiveRequirement = {
   label: 'Intro video',
 };
 
-export type ListedProfileCompletenessInput = ProfileCompletenessInput;
+/** Listed-admin only: phone must have completed OTP (`User.phoneOtpLastStatus`). */
+export const OTP_VERIFICATION_REQUIREMENT: GoLiveRequirement = {
+  key: 'otpVerification',
+  label: 'OTP verification',
+};
+
+export interface ListedProfileCompletenessInput extends ProfileCompletenessInput {
+  /**
+   * `User.phoneOtpLastStatus`. Listed · complete requires `'approved'`;
+   * anything else (null, pending, expired, …) counts as still missing OTP.
+   */
+  phoneOtpLastStatus?: string | null;
+}
 
 /**
  * "Is this LISTED creator's profile actually finished?" — the Go-Live checklist
- * re-evaluated live (intro video is optional and does not affect this).
+ * re-evaluated live, plus OTP verification on the linked user
+ * (`phoneOtpLastStatus === 'approved'`). Intro video stays optional.
  *
  * Distinct from `evaluateProfileCompleteness` because
  * `CreatorProfile.completeProfile` is a one-way latch stamped at Go Live and
  * never revisited. A listed creator can therefore be `completeProfile = true`
  * and still be missing things here — videos deleted after listing, an Instagram
- * token that expired or was revoked, or a requirement that did not exist when
- * they went live (the complete-profile backfill deliberately treated Instagram
- * as satisfied so it would not delist creators who went live before it was
- * required).
+ * token that expired or was revoked, phone OTP never completed, or a
+ * requirement that did not exist when they went live.
  *
  * That gap is the point: this is what drives the admin "listed, profile
  * incomplete" segment and the outreach that follows from it.
@@ -228,9 +239,17 @@ export type ListedProfileCompletenessInput = ProfileCompletenessInput;
 export function evaluateListedProfileCompleteness(
   input: ListedProfileCompletenessInput,
 ): ProfileCompletenessResult {
-  return evaluateProfileCompleteness(input);
+  const { missing } = evaluateProfileCompleteness(input);
+
+  if (input.phoneOtpLastStatus !== 'approved') {
+    missing.push(OTP_VERIFICATION_REQUIREMENT.label);
+  }
+
+  return { complete: missing.length === 0, missing };
 }
 
 /** Every requirement a LISTED creator is measured against, in display order. */
-export const LISTED_PROFILE_REQUIREMENTS: readonly GoLiveRequirement[] =
-  GO_LIVE_REQUIREMENTS;
+export const LISTED_PROFILE_REQUIREMENTS: readonly GoLiveRequirement[] = [
+  ...GO_LIVE_REQUIREMENTS,
+  OTP_VERIFICATION_REQUIREMENT,
+];

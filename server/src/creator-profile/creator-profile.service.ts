@@ -2353,6 +2353,7 @@ export class CreatorProfileService {
           gender: true,
           dateOfBirth: true,
           shippingAddress: true,
+          user: { select: { phoneOtpLastStatus: true } },
           facetSelections: {
             select: { rank: true, option: { select: { dimension: true } } },
           },
@@ -2422,6 +2423,7 @@ export class CreatorProfileService {
           profile.addOns.some((addOn) => addOn.name === name),
         ),
         instagramConnected: profile.socialConnections.length > 0,
+        phoneOtpLastStatus: profile.user?.phoneOtpLastStatus ?? null,
       });
       byCreatorId.set(profile.id, missing);
     }

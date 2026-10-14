@@ -5,6 +5,7 @@ import {
   GO_LIVE_REQUIREMENTS,
   INTRO_VIDEO_REQUIREMENT,
   LISTED_PROFILE_REQUIREMENTS,
+  OTP_VERIFICATION_REQUIREMENT,
   isIdentitySectionComplete,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_FACET_DIMENSIONS,
@@ -233,10 +234,11 @@ describe('evaluateListedProfileCompleteness', () => {
     overrides: Partial<ListedProfileCompletenessInput> = {},
   ): ListedProfileCompletenessInput => ({
     ...completeInput(),
+    phoneOtpLastStatus: 'approved',
     ...overrides,
   });
 
-  it('is complete when the go-live checklist is met', () => {
+  it('is complete when the go-live checklist is met and OTP is approved', () => {
     const { complete, missing } =
       evaluateListedProfileCompleteness(listedInput());
     expect(complete).toBe(true);
@@ -251,11 +253,21 @@ describe('evaluateListedProfileCompleteness', () => {
     );
   });
 
-  it('matches the go-live gate for the same checklist', () => {
-    const input = listedInput();
-    expect(evaluateProfileCompleteness(input)).toEqual(
-      evaluateListedProfileCompleteness(input),
-    );
+  it.each([[null], [undefined], [''], ['pending'], ['expired']])(
+    'flags OTP verification when phoneOtpLastStatus is %p',
+    (phoneOtpLastStatus) => {
+      const { complete, missing } = evaluateListedProfileCompleteness(
+        listedInput({ phoneOtpLastStatus }),
+      );
+      expect(complete).toBe(false);
+      expect(missing).toEqual([OTP_VERIFICATION_REQUIREMENT.label]);
+    },
+  );
+
+  it('does not add OTP to the go-live gate', () => {
+    const input = listedInput({ phoneOtpLastStatus: null });
+    expect(evaluateProfileCompleteness(input).complete).toBe(true);
+    expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
   });
 
   it('reports checklist gaps without treating intro as required', () => {
@@ -275,14 +287,17 @@ describe('evaluateListedProfileCompleteness', () => {
     expect(missing).not.toContain(INTRO_VIDEO_REQUIREMENT.label);
   });
 
-  it('uses the go-live catalog for listed requirements', () => {
-    expect(LISTED_PROFILE_REQUIREMENTS).toEqual(GO_LIVE_REQUIREMENTS);
+  it('extends the go-live catalog with OTP verification', () => {
+    expect(LISTED_PROFILE_REQUIREMENTS).toEqual([
+      ...GO_LIVE_REQUIREMENTS,
+      OTP_VERIFICATION_REQUIREMENT,
+    ]);
   });
 
   it('every label it can emit maps back to a catalog entry', () => {
     // Guards the WhatsApp templating: a label with no stable key is unusable.
     const { missing } = evaluateListedProfileCompleteness({
-      ...listedInput(),
+      ...listedInput({ phoneOtpLastStatus: null }),
       profileImageUrl: null,
       displayName: '',
       contactEmail: '',

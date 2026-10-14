@@ -105,6 +105,8 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       language?: boolean;
       primaryNiche?: boolean;
       secondaryNiches?: boolean;
+      /** When true, leave `phoneOtpLastStatus` unset (listed · incomplete). */
+      otpUnverified?: boolean;
       /** `null` seeds a creator with no phone on file. */
       phone?: string | null;
     } = {},
@@ -118,7 +120,9 @@ describe('Listed creators split by profile completeness (e2e)', () => {
           gaps.phone === null
             ? null
             : (gaps.phone ?? `+9199${handleDigits(handle)}`),
-        phoneVerified: gaps.phone !== null,
+        phoneVerified: gaps.phone !== null && !gaps.otpUnverified,
+        phoneOtpLastStatus:
+          gaps.phone === null || gaps.otpUnverified ? null : 'approved',
       },
     });
     const profile = await prisma.creatorProfile.create({
@@ -386,6 +390,17 @@ describe('Listed creators split by profile completeness (e2e)', () => {
       const body = res.body as ListBody;
       expect(names(body)).toEqual(['needs-several']);
       expect(body.total).toBe(1);
+    });
+
+    it('puts listed creators without approved OTP in listed · incomplete', async () => {
+      await seedListedCreator('needs-otp', { otpUnverified: true });
+
+      const res = await listSegment('listed_incomplete', {
+        search: 'needs-otp',
+      }).expect(200);
+      const body = res.body as ListBody;
+      expect(names(body)).toEqual(['needs-otp']);
+      expect(body.items[0]?.missingRequirements).toEqual(['OTP verification']);
     });
   });
 

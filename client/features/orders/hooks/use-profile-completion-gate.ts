@@ -2,7 +2,6 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { isAxiosError } from "axios";
 
 import { useAuth } from "@/providers/auth-provider";
 import { useCreatorProfileCompletenessQuery } from "@/features/creators/hooks/use-creator-profile-completeness-query";
@@ -12,76 +11,45 @@ export function orderCompleteProfileHref(orderId: string): string {
 }
 
 /**
- * Keeps an unfinished profile out of the one step where it actually costs
- * someone: submitting the delivery.
- *
- * Accepting a brief is deliberately not gated — a creator takes the order
- * first and finishes their profile while they shoot — so this only nudges
- * after acceptance (`afterAccepted`) and blocks at submission (`guard`). The
- * API enforces the same rule on submit, and `handleError` catches that refusal
- * for gaps that open mid-order (a revoked Instagram token, a deleted video).
+ * An order the brand has signed off but we have not paid out yet — the window
+ * where an unfinished profile is the only thing between a creator and their
+ * money.
  */
-export function useProfileCompletionGate(orderId: string) {
+export function isAwaitingCreatorPayment(order: {
+  acceptedAt?: string | null;
+  creatorPaidAt?: string | null;
+}): boolean {
+  return Boolean(order.acceptedAt) && !order.creatorPaidAt;
+}
+
+/**
+ * Whether the signed-in creator still has profile gaps, and the way to the
+ * page that lists them.
+ *
+ * Nothing in the order flow is blocked by this: a creator accepts briefs and
+ * submits deliveries with an unfinished profile. It only matters once the
+ * brand has approved the work — payouts are released by hand against a bank
+ * account and a verified number, so a gap there is a payment that cannot go
+ * out. That is when the creator is sent to the completion page.
+ */
+export function useProfileCompletionGate() {
   const router = useRouter();
   const { user } = useAuth();
   const { data, isLoading } = useCreatorProfileCompletenessQuery({
     enabled: Boolean(user),
   });
 
-  const incomplete = Boolean(data && !data.complete);
-
-  const redirect = useCallback(() => {
-    router.push(orderCompleteProfileHref(orderId));
-  }, [router, orderId]);
-
-  /** Where to send a creator who has just accepted the brief. */
-  const afterAccepted = useCallback(
-    (fallback: () => void) => {
-      if (incomplete) {
-        redirect();
-        return;
-      }
-      fallback();
+  const redirectToCompletion = useCallback(
+    (orderId: string) => {
+      router.replace(orderCompleteProfileHref(orderId));
     },
-    [incomplete, redirect],
-  );
-
-  const guard = useCallback(
-    (run: () => void) => {
-      // Unknown (still loading, or the query failed) lets the attempt through:
-      // the API is the real gate, and `handleError` catches its refusal.
-      if (incomplete) {
-        redirect();
-        return;
-      }
-      run();
-    },
-    [incomplete, redirect],
-  );
-
-  const handleError = useCallback(
-    (error: unknown): boolean => {
-      if (
-        isAxiosError(error) &&
-        error.response?.status === 409 &&
-        (error.response.data as { error?: string })?.error ===
-          "PROFILE_INCOMPLETE"
-      ) {
-        redirect();
-        return true;
-      }
-      return false;
-    },
-    [redirect],
+    [router],
   );
 
   return {
-    /** True once we know the profile is not ready. */
-    requiresProfileCompletion: incomplete,
-    redirectToCompletion: redirect,
+    /** True once we know the profile is not ready. Undefined-safe: false while loading. */
+    requiresProfileCompletion: Boolean(data && !data.complete),
     checking: isLoading,
-    afterAccepted,
-    guard,
-    handleError,
+    redirectToCompletion,
   };
 }

@@ -48,28 +48,26 @@ export type OrderProfileCompletionGateViewProps = {
   groups: CompletenessGroup[];
   totalGaps: number;
   isComplete: boolean;
-  /** Where "Continue to the order" goes once nothing is outstanding. */
+  /** The order this payout belongs to. */
   orderHref: string;
-  briefHref: string;
   /** Where each "Fix this" link should return to. */
   returnTo: string;
   order: {
     brandName: string;
     packageName: string | null;
     payoutInr: number;
-    deliveryDays: number | null;
   };
 };
 
 /**
- * Where a creator with an unfinished profile lands right after accepting a
- * brief, and again if they try to submit the delivery before finishing it.
+ * Where a creator with an unfinished profile lands once the brand has
+ * approved their delivery and the payout is pending.
  *
- * Accepting is never blocked — they take the order first and sort this out
- * while they shoot — but the delivery cannot be submitted until the checklist
- * is clear, which is the rule the API enforces too. Everything outstanding is
- * grouped by the profile step that fixes it, and each group deep-links into
- * that step and returns here.
+ * Nothing earlier in the order is gated on this — they accept the brief and
+ * deliver either way. It only bites at payment: payouts go out by hand against
+ * a bank account and a verified number, so a gap here is money that cannot
+ * move. Everything outstanding is grouped by the profile step that fixes it,
+ * and each group deep-links into that step and returns here.
  *
  * Pure presentation: every input is a prop, so it renders the same in the app
  * and in a fixture (which is how its screenshots are taken).
@@ -80,7 +78,6 @@ export function OrderProfileCompletionGateView({
   totalGaps,
   isComplete,
   orderHref,
-  briefHref,
   returnTo,
   order,
 }: OrderProfileCompletionGateViewProps) {
@@ -122,13 +119,13 @@ export function OrderProfileCompletionGateView({
           <div className="min-w-0 flex-1">
             <h1 className="m-0 text-xl font-bold leading-tight text-foreground sm:text-2xl">
               {isComplete
-                ? "You're all set — nothing left to finish"
-                : "Finish your profile before you deliver"}
+                ? "Nothing is holding your payment"
+                : "Your payment is on hold"}
             </h1>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               {isComplete
-                ? "Everything we need is on file. Head back to the order and get shooting."
-                : "The order is yours — go ahead and shoot. These details have to be in before you can submit the delivery, so the brand can reach you and we can pay you for it."}
+                ? "Everything we need is on file. Your payout for this order goes out in the next cycle."
+                : "The brand has approved your work — this order is done. We cannot release your payment until the details below are complete, because that is where the money is sent."}
             </p>
           </div>
         </div>
@@ -154,7 +151,7 @@ export function OrderProfileCompletionGateView({
           <div>
             <p className="m-0 flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <Wallet className="size-3" aria-hidden />
-              Est. payout
+              Your payout
             </p>
             <p className="mt-0.5 text-sm font-semibold text-foreground">
               {order.payoutInr > 0 ? formatCurrency(order.payoutInr) : "—"}
@@ -163,10 +160,10 @@ export function OrderProfileCompletionGateView({
           <div>
             <p className="m-0 flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <Clock className="size-3" aria-hidden />
-              Delivery
+              Status
             </p>
             <p className="mt-0.5 text-sm font-semibold text-foreground">
-              {order.deliveryDays ? `${order.deliveryDays} days` : "—"}
+              {isComplete ? "Payout queued" : "On hold"}
             </p>
           </div>
         </div>
@@ -177,15 +174,14 @@ export function OrderProfileCompletionGateView({
         <section className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
           <CheckCircle2 className="size-5 shrink-0 text-emerald-600" aria-hidden />
           <p className="m-0 text-sm font-medium text-emerald-900">
-            Your profile is complete. You can submit the delivery whenever it
-            is ready.
+            Your profile is complete. Nothing is holding this payout.
           </p>
         </section>
       ) : (
         <section className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="m-0 text-sm font-bold uppercase tracking-[0.05em] text-muted-foreground">
-              Still to do
+              Needed before we can pay you
             </h2>
             <span className="text-xs font-semibold text-muted-foreground">
               {totalGaps} {totalGaps === 1 ? "item" : "items"} across{" "}
@@ -255,17 +251,10 @@ export function OrderProfileCompletionGateView({
       <section className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <p className="m-0 text-xs leading-relaxed text-muted-foreground sm:max-w-sm">
           {isComplete
-            ? "Upload your content from the order page when it is ready."
-            : "You can do this any time before you submit — but the delivery window is already running."}
+            ? "Payouts are released in the next cycle after approval."
+            : "Your payout is held until this is done — it is released in the next cycle once it is."}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button
-            asChild
-            variant="ghost"
-            className="h-10 rounded-full px-4 font-semibold text-muted-foreground"
-          >
-            <Link href={briefHref}>Review the brief again</Link>
-          </Button>
           <Button
             asChild
             className="h-10 rounded-full px-5 font-semibold"

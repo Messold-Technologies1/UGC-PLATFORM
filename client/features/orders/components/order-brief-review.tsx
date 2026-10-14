@@ -42,7 +42,6 @@ import {
 import { useGetCreatorOrderDetailsQuery } from "@/features/orders/hooks/use-get-creator-order-details-query";
 import { useGetOrderBriefQuery } from "@/features/orders/hooks/use-get-order-brief-query";
 import { useAcceptBriefMutation } from "@/features/orders/hooks/use-accept-brief-mutation";
-import { useProfileCompletionGate } from "@/features/orders/hooks/use-profile-completion-gate";
 import { useRejectBriefMutation } from "@/features/orders/hooks/use-reject-brief-mutation";
 import { ReasonPromptDialog } from "@/features/orders/components/reason-prompt-dialog";
 import { getCreatorOrdersPageHref } from "@/features/orders/components/creator-order-detail/creator-orders-tabs";
@@ -507,15 +506,9 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
   const router = useRouter();
   const { data, isLoading, isError, error } = useGetOrderBriefQuery(orderId);
   const { data: orderDetails } = useGetCreatorOrderDetailsQuery(orderId);
-  // Accepting is never blocked. A creator whose profile is unfinished lands on
-  // the completion page right after, because delivery is where it has to be
-  // done — this gives them the whole shoot to sort it out.
-  const profileGate = useProfileCompletionGate(orderId);
   const acceptBriefMutation = useAcceptBriefMutation({
     onSuccess: () => {
-      profileGate.afterAccepted(() =>
-        router.push(getCreatorOrdersPageHref(orderId, "BRIEF_ACCEPTED")),
-      );
+      router.push(getCreatorOrdersPageHref(orderId, "BRIEF_ACCEPTED"));
     },
   });
 

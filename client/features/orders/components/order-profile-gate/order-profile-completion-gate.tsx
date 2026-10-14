@@ -42,7 +42,6 @@ export function OrderProfileCompletionGate({
       totalGaps={missing.length}
       isComplete={Boolean(completeness.data?.complete)}
       orderHref={getCreatorOrdersPageHref(orderId, order?.status)}
-      briefHref={`/creator/orders/${orderId}/brief`}
       returnTo={`/creator/orders/${orderId}/complete-profile`}
       order={{
         brandName: brandDisplayName(
@@ -55,7 +54,6 @@ export function OrderProfileCompletionGate({
             priceAmountSnapshot: order?.priceAmountSnapshot,
           }),
         ).creatorEarnings,
-        deliveryDays: order?.deliveryDaysSnapshot ?? null,
       }}
     />
   );

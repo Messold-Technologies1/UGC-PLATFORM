@@ -1,5 +1,6 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import { getMetaBrowserIds } from "@/lib/meta-pixel";
 
 export type CreateCheckoutPayload = {
   creatorId: string;
@@ -50,6 +51,14 @@ export type CheckoutSession = {
 export async function createCheckout(
   payload: CreateCheckoutPayload,
 ): Promise<CheckoutSession> {
-  const { data } = await api.post<CheckoutSession>(ENDPOINTS.ORDERS.CHECKOUT, payload);
+  // _fbp/_fbc are readable only here, in the buyer's browser. The order stores
+  // them so the Purchase conversion — fired server-side from a webhook, long
+  // after this request — still attributes to the ad that brought them.
+  const { fbp, fbc } = getMetaBrowserIds();
+  const { data } = await api.post<CheckoutSession>(ENDPOINTS.ORDERS.CHECKOUT, {
+    ...payload,
+    ...(fbp ? { metaFbp: fbp } : {}),
+    ...(fbc ? { metaFbc: fbc } : {}),
+  });
   return data;
 }

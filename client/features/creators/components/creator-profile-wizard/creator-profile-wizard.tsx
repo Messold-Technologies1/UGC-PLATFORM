@@ -1,9 +1,7 @@
 "use client";
 
-import "../creator-profile-update/profile-edit.css";
-import "./creator-profile-wizard.css";
-
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -20,6 +18,44 @@ import {
 } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
+import {
+  CwBtn,
+  CwFoot,
+  CwFootActions,
+  CwFootNote,
+  CwLayout,
+  CwMobileNav,
+  CwMobileSegment,
+  CwMobileSegments,
+  CwMobileStepper,
+  CwMobileStepperCopy,
+  CwMobileStepperMeta,
+  CwMobileStepperRow,
+  CwMobileStepperTitle,
+  CwPane,
+  CwPaneHead,
+  CwPaneIcon,
+  CwPaneTag,
+  CwPaneTitle,
+  CwRail,
+  CwRailSub,
+  CwRailTitle,
+  CwReviewBanner,
+  CwReviewBannerCopy,
+  CwReviewBannerText,
+  CwReviewBannerTitle,
+  CwRoot,
+  CwStep,
+  CwStepDot,
+  CwStepLabel,
+  CwSteps,
+  CwStrength,
+  CwStrengthHead,
+  CwStrengthHint,
+  CwStrengthPct,
+  CwStrengthTrack,
+  CwTip,
+} from "./wizard-ui";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
@@ -32,6 +68,7 @@ import type { UpdateCreatorProfilePayload } from "@/features/creators/api/update
 
 import { useCreatorProfileImage } from "@/features/creators/hooks/use-creator-profile-image";
 import { useCreatorIntroVideo } from "@/features/creators/hooks/use-creator-intro-video";
+import { useCreatorPayoutForm } from "@/features/creators/hooks/use-creator-payout-form";
 import { useCreatorLocationForm } from "@/features/creators/hooks/use-creator-location-form";
 import { useCreatorFacetsForm } from "@/features/creators/hooks/use-creator-facets-form";
 import { useCreatorPackagesForm } from "@/features/creators/hooks/use-creator-packages-form";
@@ -90,6 +127,10 @@ import { AboutYouStep } from "./steps/about-you-step";
 import { YourBaseStep } from "./steps/your-base-step";
 import { IdentityStep } from "./steps/identity-step";
 import { IntroVideoStep } from "./steps/intro-video-step";
+import {
+  AdminPayoutDetailsStep,
+  PayoutDetailsStep,
+} from "./steps/payout-details-step";
 import { PortfolioStep } from "./steps/portfolio-step";
 import { PricingStep } from "./steps/pricing-step";
 import { ReviewStep, type ReviewRow } from "./steps/review-step";
@@ -107,11 +148,43 @@ export type CreatorProfileWizardProps = {
 const LISTED_HIDDEN_STEPS = new Set<WizardStepId>(["review", "go-live"]);
 
 /**
- * The intro video is optional and only relevant once a creator is listed, so
- * it is dropped from the onboarding funnel entirely and shown only after the
- * profile is listed (live & approved), where it becomes the final step.
+ * Steps that only matter once a creator is listed, so they are dropped from the
+ * onboarding funnel entirely and shown only after the profile is listed (live &
+ * approved), where they become the last two steps: the payout details we send
+ * their earnings to, then the optional intro video.
  */
-const LISTED_ONLY_STEPS = new Set<WizardStepId>(["intro-video"]);
+const LISTED_ONLY_STEPS = new Set<WizardStepId>(["payouts", "intro-video"]);
+
+/**
+ * The steps this profile actually walks through. Once a profile is listed
+ * (live & approved) there is nothing to re-submit — the wizard is just an
+ * editor — so Review and Go Live drop out and the listed-only steps appear.
+ */
+function visibleWizardSteps(isListed: boolean) {
+  return isListed
+    ? WIZARD_STEPS.filter((step) => !LISTED_HIDDEN_STEPS.has(step.id))
+    : WIZARD_STEPS.filter((step) => !LISTED_ONLY_STEPS.has(step.id));
+}
+
+/**
+ * `?step=<id>` deep-links into one step — the payout banner's "Configure
+ * payouts" uses it. Only honoured on a profile whose steps are all reachable
+ * anyway (listed, admin or withdrawn); during first-time onboarding the funnel
+ * order is the point, so an unknown or out-of-reach step just starts at the
+ * beginning.
+ */
+function initialStepIndex(params: {
+  requestedStepId: string | null;
+  isListed: boolean;
+  canEditFreely: boolean;
+}): number {
+  const { requestedStepId, isListed, canEditFreely } = params;
+  if (!requestedStepId || !canEditFreely) return 0;
+  const index = visibleWizardSteps(isListed).findIndex(
+    (step) => step.id === requestedStepId,
+  );
+  return index >= 0 ? index : 0;
+}
 
 // Package price rule mirrored from the long form (>= ₹500, steps of ₹500).
 function validatePackagePrice(value: string): string | undefined {
@@ -135,7 +208,19 @@ export function CreatorProfileWizard({
       (adminMode ? "" : (user?.email ?? "")),
   );
 
-  const [activeIndex, setActiveIndex] = useState(0);
+  const searchParams = useSearchParams();
+  const [activeIndex, setActiveIndex] = useState(() =>
+    initialStepIndex({
+      requestedStepId: searchParams.get("step"),
+      isListed: Boolean(initialProfile.isListed),
+      // `canEditFreely` is derived below from the same three facts; inlined
+      // here because state initializers run before it exists.
+      canEditFreely:
+        adminMode ||
+        Boolean(initialProfile.completeProfile) ||
+        initialProfile.approvalStatus === "WITHDRAWN",
+    }),
+  );
   const [triedContinue, setTriedContinue] = useState<
     Partial<Record<WizardStepId, boolean>>
   >({});
@@ -192,13 +277,18 @@ export function CreatorProfileWizard({
   const [shippingAddress, setShippingAddress] = useState(
     () => initialProfile.shippingAddress?.trim() ?? "",
   );
-  const [phone, setPhone] = useState(
-    () => initialProfile.phone?.replace("+91", "") ?? "",
-  );
-  // Phone OTP verification (creators must verify before leaving the About step).
-  // Already true for accounts that verified at signup; Google creators verify here.
-  const [phoneVerified, setPhoneVerified] = useState(() =>
-    Boolean(initialProfile.phoneVerified),
+  // Full E.164 (e.g. +9198…). Legacy national-only values are treated as +91.
+  const [phone, setPhone] = useState(() => {
+    const raw = initialProfile.phone?.trim() ?? "";
+    if (!raw) return "";
+    if (raw.startsWith("+")) return raw;
+    return `+91${raw.replace(/\D/g, "")}`;
+  });
+  // Phone OTP: verified only when both flags are set (matches admin listed completeness).
+  const [phoneVerified, setPhoneVerified] = useState(
+    () =>
+      Boolean(initialProfile.phoneVerified) &&
+      initialProfile.phoneOtpLastStatus === "approved",
   );
 
   const enabled = adminMode || Boolean(user);
@@ -212,7 +302,14 @@ export function CreatorProfileWizard({
     profileId,
     initialProfile,
   });
+  // Payout details live on their own endpoint and are only reachable by the
+  // signed-in creator, so the query stays disabled in admin mode.
+  const payout = useCreatorPayoutForm({
+    enabled: !adminMode && Boolean(user) && Boolean(initialProfile.isListed),
+  });
   const location = useCreatorLocationForm({ initialProfile, adminMode });
+  // Stable reference so the step validator does not depend on the whole form.
+  const payoutValidate = payout.validate;
   const facets = useCreatorFacetsForm({ initialProfile, enabled });
   const packages = useCreatorPackagesForm({ initialProfile });
   const addOns = useCreatorAddOnsForm({
@@ -598,15 +695,8 @@ export function CreatorProfileWizard({
     markDirty,
   ]);
 
-  // Once a profile is listed (live & approved) there's nothing to re-submit —
-  // the wizard is just an editor, so drop the Review and Go Live steps and add
-  // the (optional) intro-video step. Before listing the intro video is not part
-  // of the funnel at all.
   const steps = useMemo(
-    () =>
-      initialProfile.isListed
-        ? WIZARD_STEPS.filter((step) => !LISTED_HIDDEN_STEPS.has(step.id))
-        : WIZARD_STEPS.filter((step) => !LISTED_ONLY_STEPS.has(step.id)),
+    () => visibleWizardSteps(Boolean(initialProfile.isListed)),
     [initialProfile.isListed],
   );
   /**
@@ -743,16 +833,25 @@ export function CreatorProfileWizard({
 
   // Profile Strength is derived from the same go-live snapshot as the checklist,
   // so a pre-listing profile reads 100% only when there are zero go-live items
-  // left. The intro video is the one item beyond go-live: it counts toward the
-  // final few percent once the creator is listed (a listed profile without one
-  // reads 96%), and is excluded before listing.
+  // left. Payout details and the intro video are the two items beyond go-live:
+  // they split the final few percent once the creator is listed (a listed
+  // profile with neither reads 96%), and are excluded before listing.
   const strength = useMemo(
     () =>
       computeProfileStrength(goLiveSnapshot, {
-        includeIntroVideo: initialProfile.isListed,
+        listed: Boolean(initialProfile.isListed),
         hasIntroVideo: Boolean(introVideo.introVideoPreviewUrl),
+        // Admins can't read a creator's payout details, so don't dock them for
+        // it in the admin view — only a creator sees this part of the score.
+        hasPayoutDetails: adminMode ? true : payout.configured,
       }),
-    [goLiveSnapshot, initialProfile.isListed, introVideo.introVideoPreviewUrl],
+    [
+      goLiveSnapshot,
+      initialProfile.isListed,
+      introVideo.introVideoPreviewUrl,
+      adminMode,
+      payout.configured,
+    ],
   );
 
   // Whether a step's requirements are already met by the current data. Drives
@@ -790,6 +889,11 @@ export function CreatorProfileWizard({
           );
         case "intro-video":
           return Boolean(introVideo.introVideoPreviewUrl);
+        case "payouts":
+          // Admin mode never loads the creator's payout details up front (they
+          // sit behind a reveal), so there is nothing to tick off against —
+          // showing the step as unfinished would read as "creator has none".
+          return adminMode || payout.configured;
         case "review":
           return goLiveMissing.length === 0;
         case "go-live":
@@ -814,6 +918,8 @@ export function CreatorProfileWizard({
       portfolioConfirmed,
       bio,
       introVideo.introVideoPreviewUrl,
+      payout.configured,
+      adminMode,
       goLiveMissing,
       submitted,
       initialProfile.completeProfile,
@@ -855,7 +961,13 @@ export function CreatorProfileWizard({
         facetSelections,
         profileLanguages,
         restrictions: selectedRestrictions,
-        ...(phone ? { phone: "+91" + phone } : {}),
+        ...(phone
+          ? {
+              phone: phone.startsWith("+")
+                ? phone
+                : `+91${phone.replace(/\D/g, "")}`,
+            }
+          : {}),
         ...(profileImage.profileImageRemoved
           ? { profileImageKey: "" }
           : profileImage.pendingProfileImageKey
@@ -943,6 +1055,11 @@ export function CreatorProfileWizard({
         // one. Only ask for the confirmation once a video has been added.
         if (introVideo.introVideoPreviewUrl && !introConfirmed)
           missing.push("the intro video confirmation");
+      } else if (id === "payouts") {
+        // Required once listed: a creator with no bank/UPI on file cannot be
+        // paid. Already-saved details satisfy it without retyping anything.
+        // Admins only read this step, so there is nothing to ask them for.
+        if (!adminMode) missing.push(...payoutValidate());
       } else if (id === "pricing") {
         const priceErr = validatePackagePrice(
           packages.packageDraft.priceAmount,
@@ -976,6 +1093,7 @@ export function CreatorProfileWizard({
       portfolioConfirmed,
       introVideo.introVideoPreviewUrl,
       introConfirmed,
+      payoutValidate,
       packageDefaultsConfirmed,
       packages.packageDraft.priceAmount,
       addOns.mandatoryAddOnsPriced,
@@ -1010,6 +1128,10 @@ export function CreatorProfileWizard({
                 ? "Creators must be at least 18 years old."
                 : undefined,
             gender: !gender ? "Please select your gender." : undefined,
+            phone:
+              !adminMode && !phoneVerified
+                ? "Verify your mobile number with OTP to continue."
+                : undefined,
             instagram: !instagramConnected
               ? "Connect your Instagram account to continue."
               : undefined,
@@ -1080,6 +1202,7 @@ export function CreatorProfileWizard({
                 : undefined,
           }
         : {},
+      payouts: tried.payouts ? payout.fieldErrors : {},
       pricing: tried.pricing
         ? {
             deliveryDays: (() => {
@@ -1109,6 +1232,8 @@ export function CreatorProfileWizard({
     dateOfBirth,
     isEighteenPlus,
     gender,
+    adminMode,
+    phoneVerified,
     location.city,
     shippingAddress,
     selectedLanguageCount,
@@ -1122,6 +1247,7 @@ export function CreatorProfileWizard({
     portfolioConfirmed,
     introVideo.introVideoPreviewUrl,
     introConfirmed,
+    payout.fieldErrors,
     packages.packageDraft.deliveryDays,
     packageDefaultsConfirmed,
     addOns.mandatoryAddOnsPriced,
@@ -1171,6 +1297,39 @@ export function CreatorProfileWizard({
       submitMutation,
     ],
   );
+
+  /**
+   * The Payouts step does not go through `persist`: payout details are written
+   * by their own endpoint (bank/UPI never touch the profile payload), so this
+   * saves them and then advances exactly like a persisted step would. When
+   * nothing was retyped and details are already on file there is nothing to
+   * send, so it just moves on.
+   */
+  const savePayoutStep = useCallback(() => {
+    if (adminMode) {
+      setActiveIndex((idx) => Math.min(idx + 1, steps.length - 1));
+      return;
+    }
+    const missing = validateStep("payouts");
+    if (missing.length > 0) {
+      setTriedContinue((prev) => ({ ...prev, payouts: true }));
+      toast.error(`Almost there — add ${missing.join(", ")}.`);
+      return;
+    }
+    const advance = () => {
+      setCompleted((prev) => new Set(prev).add("payouts"));
+      setDirty(false);
+      setActiveIndex((idx) => Math.min(idx + 1, steps.length - 1));
+      if (typeof window !== "undefined")
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    const payload = payout.buildPayload();
+    if (!payload) {
+      advance();
+      return;
+    }
+    payout.save(payload, advance);
+  }, [adminMode, validateStep, payout, steps.length]);
 
   const handleContinue = useCallback(() => {
     const id = activeStep.id;
@@ -1270,6 +1429,11 @@ export function CreatorProfileWizard({
   // review/go-live keep their submit/exit behavior, and onboarding keeps its
   // save-and-advance flow.
   const onPrimaryAction = useCallback(() => {
+    // Payouts save through their own endpoint, never the profile payload.
+    if (activeStep.id === "payouts") {
+      savePayoutStep();
+      return;
+    }
     // A withdrawn profile submits from wherever the creator is. The header
     // Submit button is hidden below 960px — the mobile stepper replaces that
     // whole bar — so the footer is the only action a phone can reach, and
@@ -1294,6 +1458,7 @@ export function CreatorProfileWizard({
     submitForReview,
     canEditFreely,
     activeStep.id,
+    savePayoutStep,
     saveCurrentStep,
     handleContinue,
   ]);
@@ -1468,6 +1633,8 @@ export function CreatorProfileWizard({
   ]);
 
   const continueLabel = useMemo(() => {
+    // Read-only for admins — there is nothing to save here.
+    if (adminMode && activeStep.id === "payouts") return "Continue";
     // Same words the reopened-for-editing banner tells them to look for.
     if (showResubmit) return "Submit for review";
     if (activeStep.id === "review") return "Submit my profile";
@@ -1481,7 +1648,7 @@ export function CreatorProfileWizard({
       portfolio: "Save & Review Profile",
     };
     return labelMap[activeStep.id] ?? "Continue";
-  }, [activeStep.id, canEditFreely, showResubmit]);
+  }, [activeStep.id, canEditFreely, showResubmit, adminMode]);
 
   // In editor mode, editable steps get a "save this step" reminder + a Save
   // button in the header (in addition to the footer one).
@@ -1489,53 +1656,49 @@ export function CreatorProfileWizard({
     canEditFreely &&
     !awaitingReview &&
     activeStep.id !== "review" &&
-    activeStep.id !== "go-live";
+    activeStep.id !== "go-live" &&
+    // The admin payout view saves nothing, so don't tell them to save it.
+    !(adminMode && activeStep.id === "payouts");
   const isLastStep = activeIndex >= steps.length - 1;
   const uploadingMedia =
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
+  /** Any save in flight — the profile payload one, or the payout one. */
+  const savingAnything = pending || payout.saving;
 
   return (
-    <div className="pe-scope cw-root">
-      <div className="cw-mobile-stepper">
-        <div className="cw-mobile-stepper-row">
-          <button
-            type="button"
-            className="cw-mobile-nav"
-            disabled={pending}
+    <CwRoot>
+      <CwMobileStepper>
+        <CwMobileStepperRow>
+          <CwMobileNav
+            disabled={savingAnything}
             onClick={handleBack}
             aria-label={activeIndex === 0 ? "Exit" : "Previous step"}
           >
             <ChevronLeft size={20} strokeWidth={2.25} />
-          </button>
-          <div className="cw-mobile-stepper-copy">
-            <p className="cw-mobile-stepper-meta">
+          </CwMobileNav>
+          <CwMobileStepperCopy>
+            <CwMobileStepperMeta>
               {activeStep.id === "go-live"
                 ? `${strength.pct}% complete`
                 : `Step ${activeIndex + 1} of ${navSteps.length} · ${strength.pct}% complete`}
-            </p>
-            <h1 className="cw-mobile-stepper-title">{activeStep.title}</h1>
-          </div>
-          <button
-            type="button"
-            className="cw-mobile-nav"
+            </CwMobileStepperMeta>
+            <CwMobileStepperTitle>{activeStep.title}</CwMobileStepperTitle>
+          </CwMobileStepperCopy>
+          <CwMobileNav
             disabled={
-              pending || uploadingMedia || activeIndex >= steps.length - 1
+              savingAnything || uploadingMedia || activeIndex >= steps.length - 1
             }
             onClick={handleMobileNext}
             aria-label="Next step"
           >
             <ChevronRight size={20} strokeWidth={2.25} />
-          </button>
-        </div>
-        <div className="cw-mobile-segments" aria-hidden>
+          </CwMobileNav>
+        </CwMobileStepperRow>
+        <CwMobileSegments>
           {navSteps.map((step, index) => (
-            <span
-              key={step.id}
-              className="cw-mobile-segment"
-              data-filled={index <= activeIndex}
-            />
+            <CwMobileSegment key={step.id} filled={index <= activeIndex} />
           ))}
-        </div>
+        </CwMobileSegments>
 
         {/* Resubmit lives here on a phone, under the stepper and above the
             form, because the desktop header that normally carries it is
@@ -1544,9 +1707,9 @@ export function CreatorProfileWizard({
             click one. Reachable from any step without scrolling to the end of
             a long form, which is the point: Submit persists every edit. */}
         {showResubmit ? (
-          <button
-            type="button"
-            className="cw-btn cw-btn-primary cw-mobile-submit"
+          <CwBtn
+            variant="primary"
+            className="mt-3 w-full"
             onClick={submitForReview}
             disabled={pending || uploadingMedia}
           >
@@ -1561,18 +1724,18 @@ export function CreatorProfileWizard({
                 Submit for review
               </>
             )}
-          </button>
+          </CwBtn>
         ) : null}
-      </div>
+      </CwMobileStepper>
 
-      <div className="cw-layout">
+      <CwLayout>
         {/* ---- Left rail ---- */}
-        <aside className="cw-rail">
-          <div className="cw-rail-intro">
-            <h2 className="cw-rail-title">Complete Your Creator Profile</h2>
-            <p className="cw-rail-sub">
+        <CwRail>
+          <div>
+            <CwRailTitle>Complete Your Creator Profile</CwRailTitle>
+            <CwRailSub>
               Build a profile that helps brands discover and trust you.
-            </p>
+            </CwRailSub>
           </div>
 
           {/* Labelled "Profile Complete" while the value behind it is still
@@ -1580,83 +1743,80 @@ export function CreatorProfileWizard({
               only what creators are told it means. Renaming the whole chain
               would touch the go-live step, the CSS and the snapshot types for
               no behaviour difference. */}
-          <div className="cw-strength">
-            <div className="cw-strength-head">
+          <CwStrength>
+            <CwStrengthHead>
               <Flame size={16} aria-hidden />
               <span>Profile Complete</span>
-            </div>
-            <div className="cw-strength-pct">{strength.pct}%</div>
-            <div className="cw-strength-track">
+            </CwStrengthHead>
+            <CwStrengthPct>{strength.pct}%</CwStrengthPct>
+            <CwStrengthTrack>
               <motion.div
-                className="cw-strength-fill"
+                className="h-full rounded-full bg-primary"
                 initial={false}
                 animate={{ width: `${strength.pct}%` }}
                 transition={{ type: "spring", stiffness: 160, damping: 26 }}
               />
-            </div>
-            <p className="cw-strength-hint">{strength.hint}</p>
-          </div>
+            </CwStrengthTrack>
+            <CwStrengthHint>{strength.hint}</CwStrengthHint>
+          </CwStrength>
 
-          <nav className="cw-steps" aria-label="Onboarding steps">
+          <CwSteps aria-label="Onboarding steps">
             {navSteps.map((step, index) => {
               const isActive = index === activeIndex;
               const isDone = completed.has(step.id) || stepFilled(step.id);
               const isReachable =
                 canEditFreely || step.ready || isDone || index <= activeIndex;
               return (
-                <button
+                <CwStep
                   key={step.id}
-                  type="button"
-                  className="cw-step"
-                  data-active={isActive}
-                  data-done={isDone}
+                  active={isActive}
+                  done={isDone}
+                  showConnector={index < navSteps.length - 1}
                   disabled={!isReachable}
                   aria-current={isActive ? "step" : undefined}
                   onClick={() => goToStep(index)}
                 >
-                  <span className="cw-step-dot">
+                  <CwStepDot active={isActive} done={isDone}>
                     {isDone ? <Check size={12} strokeWidth={3} /> : index + 1}
-                  </span>
-                  <span className="cw-step-label">{step.label}</span>
-                </button>
+                  </CwStepDot>
+                  <CwStepLabel active={isActive} done={isDone}>
+                    {step.label}
+                  </CwStepLabel>
+                </CwStep>
               );
             })}
-          </nav>
+          </CwSteps>
 
-          <div className="cw-tip">
+          <CwTip>
             <Lightbulb size={14} aria-hidden />
             <p>Creators with 10+ portfolio pieces get 3× more orders.</p>
-          </div>
-        </aside>
+          </CwTip>
+        </CwRail>
 
         {/* ---- Content pane ---- */}
-        <div className="cw-pane">
-          <div className="cw-pane-head">
-            <span className="cw-pane-icon">
+        <CwPane>
+          <CwPaneHead>
+            <CwPaneIcon>
               <ActiveIcon size={22} />
-            </span>
+            </CwPaneIcon>
             <div>
-              <h1 className="cw-pane-title">{activeStep.title}</h1>
+              <CwPaneTitle>{activeStep.title}</CwPaneTitle>
               {showResubmit ? (
-                <p className="cw-pane-tag">{activeStep.tagline}</p>
+                <CwPaneTag>{activeStep.tagline}</CwPaneTag>
               ) : showStepSave ? (
-                <p
-                  className="cw-pane-tag"
-                  style={{ color: "#b45309", fontWeight: 600 }}
-                >
+                <CwPaneTag className="font-semibold text-[#b45309]">
                   Please save your changes at each step before moving on.
-                </p>
+                </CwPaneTag>
               ) : (
-                <p className="cw-pane-tag">{activeStep.tagline}</p>
+                <CwPaneTag>{activeStep.tagline}</CwPaneTag>
               )}
             </div>
             {showResubmit ? (
               // Withdrawn profile: a single Submit action. No per-step Save —
               // Submit persists every edit, so a separate Save is misleading.
-              <button
-                type="button"
-                className="cw-btn cw-btn-primary"
-                style={{ marginLeft: "auto", alignSelf: "center" }}
+              <CwBtn
+                variant="primary"
+                className="ml-auto self-center"
                 onClick={submitForReview}
                 disabled={pending || uploadingMedia}
               >
@@ -1671,12 +1831,11 @@ export function CreatorProfileWizard({
                     Submit for review
                   </>
                 )}
-              </button>
+              </CwBtn>
             ) : showStepSave ? (
-              <button
-                type="button"
-                className="cw-btn cw-btn-primary"
-                style={{ marginLeft: "auto", alignSelf: "center" }}
+              <CwBtn
+                variant="primary"
+                className="ml-auto self-center"
                 onClick={onPrimaryAction}
                 disabled={pending || uploadingMedia}
               >
@@ -1691,30 +1850,25 @@ export function CreatorProfileWizard({
                     {isLastStep ? null : <ArrowRight size={16} />}
                   </>
                 )}
-              </button>
+              </CwBtn>
             ) : null}
-          </div>
+          </CwPaneHead>
 
           {awaitingReview ? (
-            <div className="cw-review-banner" role="status">
-              <div className="cw-review-banner-copy">
-                <Clock
-                  size={18}
-                  aria-hidden
-                  className="cw-review-banner-icon"
-                />
+            <CwReviewBanner>
+              <CwReviewBannerCopy>
+                <Clock size={18} aria-hidden className="mt-0.5 shrink-0 text-primary" />
                 <div>
-                  <p className="cw-review-banner-title">
+                  <CwReviewBannerTitle>
                     Your profile is submitted and under review.
-                  </p>
-                  <p className="cw-review-banner-text">
+                  </CwReviewBannerTitle>
+                  <CwReviewBannerText>
                     Withdraw it to make changes, then resubmit.
-                  </p>
+                  </CwReviewBannerText>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="cw-btn cw-btn-ghost"
+              </CwReviewBannerCopy>
+              <CwBtn
+                variant="ghost"
                 onClick={handleWithdraw}
                 disabled={withdrawing}
               >
@@ -1729,31 +1883,31 @@ export function CreatorProfileWizard({
                     Withdraw to edit
                   </>
                 )}
-              </button>
-            </div>
+              </CwBtn>
+            </CwReviewBanner>
           ) : null}
 
           {showResubmit ? (
-            <div className="cw-review-banner" role="status">
-              <div className="cw-review-banner-copy">
+            <CwReviewBanner>
+              <CwReviewBannerCopy>
                 <RotateCcw
                   size={18}
                   aria-hidden
-                  className="cw-review-banner-icon"
+                  className="mt-0.5 shrink-0 text-primary"
                 />
                 <div>
-                  <p className="cw-review-banner-title">
+                  <CwReviewBannerTitle>
                     You&apos;ve reopened your profile for editing.
-                  </p>
-                  <p className="cw-review-banner-text">
+                  </CwReviewBannerTitle>
+                  <CwReviewBannerText>
                     Make your changes across the steps, then click{" "}
                     <strong>Submit for review</strong> — it saves everything and
                     sends your profile back. Your edits aren&apos;t live until
                     you submit.
-                  </p>
+                  </CwReviewBannerText>
                 </div>
-              </div>
-            </div>
+              </CwReviewBannerCopy>
+            </CwReviewBanner>
           ) : null}
 
           <AnimatePresence mode="wait">
@@ -1881,6 +2035,54 @@ export function CreatorProfileWizard({
                   onConfirmedChange={setIntroConfirmed}
                   errors={stepErrors["intro-video"]}
                 />
+              ) : activeStep.id === "payouts" ? (
+                // Payout details are written through a self-scoped endpoint an
+                // admin cannot call for a creator (it would write the admin's
+                // own payout row), so admin mode reads them instead.
+                adminMode ? (
+                  <AdminPayoutDetailsStep creatorId={profileId} />
+                ) : (
+                  <PayoutDetailsStep
+                    disabled={fieldsDisabled || payout.saving}
+                    loading={payout.query.isLoading}
+                    error={payout.query.isError}
+                    onRetry={() => void payout.query.refetch()}
+                    details={payout.details}
+                    method={payout.method}
+                    onMethodChange={(next) => {
+                      markDirty();
+                      payout.setMethod(next);
+                    }}
+                    accountHolderName={payout.accountHolderName}
+                    onAccountHolderNameChange={(v) => {
+                      markDirty();
+                      payout.setAccountHolderName(v);
+                    }}
+                    accountNumber={payout.accountNumber}
+                    onAccountNumberChange={(v) => {
+                      markDirty();
+                      payout.setAccountNumber(v);
+                    }}
+                    confirmAccountNumber={payout.confirmAccountNumber}
+                    onConfirmAccountNumberChange={(v) => {
+                      markDirty();
+                      payout.setConfirmAccountNumber(v);
+                    }}
+                    ifsc={payout.ifsc}
+                    onIfscChange={(v) => {
+                      markDirty();
+                      payout.setIfsc(v);
+                    }}
+                    upiId={payout.upiId}
+                    onUpiIdChange={(v) => {
+                      markDirty();
+                      payout.setUpiId(v);
+                    }}
+                    confirmed={payout.confirmed}
+                    onConfirmedChange={payout.setConfirmed}
+                    errors={stepErrors.payouts}
+                  />
+                )
               ) : activeStep.id === "portfolio" ? (
                 <PortfolioStep
                   loading={portfolioQuery.isLoading}
@@ -1982,29 +2184,25 @@ export function CreatorProfileWizard({
 
           {/* Footer */}
           {activeStep.id !== "go-live" ? (
-            <div className="cw-foot">
+            <CwFoot>
               {canEditFreely && !awaitingReview && !showResubmit ? (
-                <span className="cw-foot-note">
-                  Save each step after you edit it.
-                </span>
+                <CwFootNote>Save each step after you edit it.</CwFootNote>
               ) : null}
-              <div className="cw-foot-actions">
-                <button
-                  type="button"
-                  className="cw-btn cw-btn-ghost"
-                  disabled={pending || withdrawing}
+              <CwFootActions>
+                <CwBtn
+                  variant="ghost"
+                  disabled={savingAnything || withdrawing}
                   onClick={handleBack}
                 >
                   <ArrowLeft size={16} />
                   {activeIndex === 0 ? "Exit" : "Back"}
-                </button>
-                <button
-                  type="button"
-                  className="cw-btn cw-btn-primary"
+                </CwBtn>
+                <CwBtn
+                  variant="primary"
                   onClick={onPrimaryAction}
                   disabled={
                     awaitingReview ||
-                    pending ||
+                    savingAnything ||
                     withdrawing ||
                     profileImage.uploadingProfileImage ||
                     introVideo.uploadingIntroVideo
@@ -2012,7 +2210,7 @@ export function CreatorProfileWizard({
                 >
                   {awaitingReview ? (
                     "Submitted — under review"
-                  ) : pending ? (
+                  ) : savingAnything ? (
                     <>
                       <Spinner className="size-4" aria-hidden />
                       {activeStep.id === "review" ? "Submitting…" : "Saving…"}
@@ -2023,12 +2221,12 @@ export function CreatorProfileWizard({
                       {isLastStep ? null : <ArrowRight size={16} />}
                     </>
                   )}
-                </button>
-              </div>
-            </div>
+                </CwBtn>
+              </CwFootActions>
+            </CwFoot>
           ) : null}
-        </div>
-      </div>
+        </CwPane>
+      </CwLayout>
 
       <AddReelSourceSheet
         open={pfSourceOpen}
@@ -2108,6 +2306,6 @@ export function CreatorProfileWizard({
           replacePortfolioMutation.isPending
         }
       />
-    </div>
+    </CwRoot>
   );
 }

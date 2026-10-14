@@ -41,6 +41,8 @@ type AgencyRow = {
   brandNames: string[];
   createdAt: Date;
   updatedAt: Date;
+  /** From owner User when loaded; null when not selected. */
+  phoneOtpLastStatus?: string | null;
 };
 
 @Injectable()
@@ -102,9 +104,67 @@ export class AgencyService {
       contactEmail: agency.contactEmail,
       contactPhone: agency.contactPhone,
       contactPhoneVerified: agency.contactPhoneVerified,
+      phoneOtpLastStatus: agency.phoneOtpLastStatus ?? null,
       brandNames: agency.brandNames,
       createdAt: agency.createdAt,
       updatedAt: agency.updatedAt,
+    };
+  }
+
+  private readonly agencyProfileSelect = {
+    id: true,
+    ownerUserId: true,
+    name: true,
+    logoKey: true,
+    logoUrl: true,
+    website: true,
+    contactFullName: true,
+    contactEmail: true,
+    contactPhone: true,
+    contactPhoneVerified: true,
+    brandNames: true,
+    createdAt: true,
+    updatedAt: true,
+    owner: { select: { phoneOtpLastStatus: true } },
+  } as const;
+
+  private toAgencyRow(
+    agency: {
+      id: string;
+      ownerUserId: string;
+      name: string;
+      logoKey: string | null;
+      logoUrl: string | null;
+      website: string | null;
+      contactFullName: string;
+      contactEmail: string;
+      contactPhone: string | null;
+      contactPhoneVerified: boolean;
+      brandNames: string[];
+      createdAt: Date;
+      updatedAt: Date;
+      owner?: { phoneOtpLastStatus: string | null } | null;
+    },
+  ): AgencyRow {
+    const phoneOtpLastStatus = agency.owner?.phoneOtpLastStatus ?? null;
+    return {
+      id: agency.id,
+      ownerUserId: agency.ownerUserId,
+      name: agency.name,
+      logoKey: agency.logoKey,
+      logoUrl: agency.logoUrl,
+      website: agency.website,
+      contactFullName: agency.contactFullName,
+      contactEmail: agency.contactEmail,
+      contactPhone: agency.contactPhone,
+      // Same gate as brand/creator: stored flag + Twilio OTP approved.
+      contactPhoneVerified:
+        Boolean(agency.contactPhoneVerified) &&
+        phoneOtpLastStatus === 'approved',
+      brandNames: agency.brandNames,
+      createdAt: agency.createdAt,
+      updatedAt: agency.updatedAt,
+      phoneOtpLastStatus,
     };
   }
 
@@ -259,6 +319,7 @@ export class AgencyService {
         name: true,
         phone: true,
         phoneVerified: true,
+        phoneOtpLastStatus: true,
       },
     });
     if (!user) {
@@ -270,7 +331,7 @@ export class AgencyService {
       await this.assertContactPhoneAvailable(contactPhone);
     }
 
-    const profile = await this.prisma.$transaction(
+    await this.prisma.$transaction(
       async (tx) => {
         const created = await this.runCreateAgencyInTransaction(
           tx,
@@ -282,7 +343,9 @@ export class AgencyService {
             contactEmail: user.email,
             contactPhone,
             contactPhoneVerified:
-              Boolean(user.phoneVerified) && contactPhone === user.phone,
+              Boolean(user.phoneVerified) &&
+              user.phoneOtpLastStatus === 'approved' &&
+              contactPhone === user.phone,
             website: dto.website?.trim() || null,
           },
         );
@@ -330,7 +393,7 @@ export class AgencyService {
       { timeout: 30_000, maxWait: 10_000 },
     );
 
-    return this.mapAgency(profile);
+    return this.getAgencyProfileForOwner(ownerUserId);
   }
 
   async getAgencyProfileForOwner(
@@ -338,26 +401,12 @@ export class AgencyService {
   ): Promise<AgencyProfileResponseDto> {
     const agency = await this.prisma.agency.findUnique({
       where: { ownerUserId },
-      select: {
-        id: true,
-        ownerUserId: true,
-        name: true,
-        logoKey: true,
-        logoUrl: true,
-        website: true,
-        contactFullName: true,
-        contactEmail: true,
-        contactPhone: true,
-        contactPhoneVerified: true,
-        brandNames: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: this.agencyProfileSelect,
     });
     if (!agency) {
       throw new NotFoundException('Agency profile not found');
     }
-    return this.mapAgency(agency);
+    return this.mapAgency(this.toAgencyRow(agency));
   }
 
   async updateAgencyProfileForOwner(
@@ -366,21 +415,7 @@ export class AgencyService {
   ): Promise<AgencyProfileResponseDto> {
     const existing = await this.prisma.agency.findUnique({
       where: { ownerUserId },
-      select: {
-        id: true,
-        ownerUserId: true,
-        name: true,
-        logoKey: true,
-        logoUrl: true,
-        website: true,
-        contactFullName: true,
-        contactEmail: true,
-        contactPhone: true,
-        contactPhoneVerified: true,
-        brandNames: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: this.agencyProfileSelect,
     });
     if (!existing) {
       throw new NotFoundException('Agency profile not found');
@@ -423,7 +458,11 @@ export class AgencyService {
 
       const owner = await this.prisma.user.findUnique({
         where: { id: ownerUserId },
-        select: { phone: true, phoneVerified: true },
+        select: {
+          phone: true,
+          phoneVerified: true,
+          phoneOtpLastStatus: true,
+        },
       });
 
       data.contactPhone = contactPhone;
@@ -433,9 +472,11 @@ export class AgencyService {
         data.contactPhoneVerified = existing.contactPhoneVerified;
       } else {
         // Phone OTP updates User.phone first; only accept a changed number when
-        // it matches the owner's currently verified account phone.
+        // it matches the owner's currently OTP-approved account phone.
         const ownerPhone = owner?.phone?.trim() || null;
-        const ownerVerified = Boolean(owner?.phoneVerified);
+        const ownerVerified =
+          Boolean(owner?.phoneVerified) &&
+          owner?.phoneOtpLastStatus === 'approved';
         if (!ownerVerified || ownerPhone !== contactPhone) {
           throw new BadRequestException(
             'Verify your new mobile number with OTP before saving.',
@@ -468,30 +509,16 @@ export class AgencyService {
     }
 
     if (Object.keys(data).length === 0) {
-      return this.mapAgency(existing);
+      return this.mapAgency(this.toAgencyRow(existing));
     }
 
     const updated = await this.prisma.agency.update({
       where: { id: existing.id },
       data,
-      select: {
-        id: true,
-        ownerUserId: true,
-        name: true,
-        logoKey: true,
-        logoUrl: true,
-        website: true,
-        contactFullName: true,
-        contactEmail: true,
-        contactPhone: true,
-        contactPhoneVerified: true,
-        brandNames: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: this.agencyProfileSelect,
     });
 
-    return this.mapAgency(updated);
+    return this.mapAgency(this.toAgencyRow(updated));
   }
 
   async listAgencies(

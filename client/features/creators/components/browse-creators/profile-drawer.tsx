@@ -16,6 +16,11 @@ import React, {
 import { OrderModal } from "./order-modal";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import {
+  trackBeginCheckout,
+  trackViewProfile,
+} from "@/features/analytics/lib/buyer-pixel-events";
+import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
+import {
   X,
   MapPin,
   Globe,
@@ -746,6 +751,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   const router = useRouter();
   const workspaceBase = useBuyerWorkspaceBase();
   const { data: meUser } = usePublicAuthUser({ enabled: landingPage });
+  // Resolved on click: the drawer also renders on the public shared-shortlist
+  // page, where the viewer is nobody and the resolver returns null.
+  const resolveBuyerIdentity = useBuyerIdentityResolver();
   const isBrand =
     (meUser?.roles?.includes("BRAND") || meUser?.roles?.includes("AGENCY")) ??
     false;
@@ -934,6 +942,27 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
     displayName: profileApi?.displayName ?? c.name,
   });
 
+  /**
+   * Step 3 of the buyer funnel. The profile opens in a new tab, so this page
+   * stays alive and the pixel's beacon leaves on its own — no flush needed.
+   */
+  async function reportViewProfile(creatorId: string, startingPrice: number) {
+    const identity = await resolveBuyerIdentity();
+    if (!identity) return;
+    trackViewProfile(identity, { creatorId, startingPrice });
+  }
+
+  /**
+   * Step 4 of the buyer funnel, reported only once the order modal is actually
+   * opening — not when the click bounced off an unavailable creator, a failed
+   * profile load, or the landing page's redirect to sign up.
+   */
+  async function reportBeginCheckout(creatorId: string, startingPrice: number) {
+    const identity = await resolveBuyerIdentity();
+    if (!identity) return;
+    trackBeginCheckout(identity, { creatorId, startingPrice });
+  }
+
   const showIntro = !!c.introVideoUrl && !introFailed;
   const introPoster = c.previewVideoThumbnail || c.thumbnail;
 
@@ -1059,6 +1088,11 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="dr-tabs-profile-link"
+                onClick={() => {
+                  if (activeId) {
+                    void reportViewProfile(activeId, c.startingPrice);
+                  }
+                }}
               >
                 View profile
                 <ExternalLink size={13} />
@@ -1144,6 +1178,9 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               if (isProfileError) {
                 toast.error("Could not load creator packages. Try again.");
                 return;
+              }
+              if (activeId) {
+                void reportBeginCheckout(activeId, c.startingPrice);
               }
               setOrderOpen(true);
             }}

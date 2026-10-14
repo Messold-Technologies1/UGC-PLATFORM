@@ -92,6 +92,7 @@ describe('OrdersService bulk checkout', () => {
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
       { get: () => undefined } as never, // config
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests
     );
     return { service, prisma, razorpay, created, coupons, orderRealtime };
   }
@@ -403,6 +404,7 @@ describe('OrdersService bulk checkout', () => {
         {} as never, // wallet
         { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
         { get: () => undefined } as never, // config
+        { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests
       );
       return { service, prisma, orderUpdates };
     }

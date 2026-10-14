@@ -6,6 +6,20 @@ import { Spinner } from "@/components/ui/spinner";
 import { PeSelectField } from "@/features/creators/components/creator-profile-update/shared-components";
 import { LanguageMultiSelect } from "@/features/creators/components/creator-profile-update/language-multi-select";
 import type { CreatorFacetOption } from "@/features/creators/api/get-creator-facet-options";
+import { cn } from "@/lib/utils";
+
+import {
+  CwCard,
+  CwFacetHelp,
+  CwField,
+  CwFieldLabel,
+  CwFieldWarn,
+  CwGrid2,
+  CwHr,
+  CwReq,
+  CwSelectField,
+  CwTextarea,
+} from "../wizard-ui";
 
 export type YourBaseStepProps = {
   disabled: boolean;
@@ -62,47 +76,51 @@ export function YourBaseStep({
   errors = {},
 }: YourBaseStepProps) {
   const selectedLanguageCount = selectedLanguages.length;
+  const confirmDisabled = disabled || selectedLanguageCount === 0;
 
   return (
-    <div className="cw-card">
-      <div className="cw-grid2">
-        <div className="cw-field cw-select-field">
-          <label htmlFor="cw-country" className="cw-fieldlabel">
-            Country <span className="cw-req">*</span>
-          </label>
+    <CwCard>
+      <CwGrid2>
+        <CwSelectField>
+          <CwFieldLabel htmlFor="cw-country">
+            Country <CwReq />
+          </CwFieldLabel>
           <PeSelectField
             id="cw-country"
             label="Country"
+            hideLabel
             value={countryCode}
             placeholder="Select country"
             disabled={disabled || adminMode}
             options={countries.map((c) => ({ value: c.isoCode, label: c.name }))}
             onChange={onCountryChange}
           />
-        </div>
+        </CwSelectField>
 
-        <div className="cw-field cw-select-field">
-          <label htmlFor="cw-state" className="cw-fieldlabel">
-            State <span className="cw-req">*</span>
-          </label>
+        <CwSelectField>
+          <CwFieldLabel htmlFor="cw-state">
+            State <CwReq />
+          </CwFieldLabel>
           <PeSelectField
             id="cw-state"
             label="State"
+            hideLabel
             value={stateCode}
             placeholder={countryCode ? "Select state" : "Pick country first"}
             disabled={disabled || !countryCode || states.length === 0}
             options={states.map((s) => ({ value: s.isoCode, label: s.name }))}
             onChange={onStateChange}
           />
-        </div>
+        </CwSelectField>
 
-        <div className="cw-col-2 cw-field cw-select-field">
-          <label htmlFor="cw-city" className="cw-fieldlabel">
-            City <span className="cw-req">*</span>
-          </label>
+        <CwSelectField className="col-span-2 max-[560px]:col-span-1">
+          <CwFieldLabel htmlFor="cw-city">
+            City <CwReq />
+          </CwFieldLabel>
           <PeSelectField
             id="cw-city"
             label="City"
+            hideLabel
             value={city}
             placeholder={stateCode ? "Select city" : "Pick state first"}
             disabled={disabled || !stateCode || cities.length === 0}
@@ -110,25 +128,25 @@ export function YourBaseStep({
             onChange={onCityChange}
           />
           {errors.city ? (
-            <p className="cw-field-warn">
+            <CwFieldWarn>
               <AlertTriangle size={13} aria-hidden />
               {errors.city}
-            </p>
+            </CwFieldWarn>
           ) : null}
-        </div>
+        </CwSelectField>
 
-        <div className="cw-col-2 cw-field">
-          <label htmlFor="cw-shipping" className="cw-fieldlabel">
-            Shipping Address <span className="cw-req">*</span>
-          </label>
-          <span className="cw-facet-help cw-shipping-hint">
+        <CwField span2>
+          <CwFieldLabel htmlFor="cw-shipping">
+            Shipping Address <CwReq />
+          </CwFieldLabel>
+          <CwFacetHelp className="mb-1.5 block">
             Brands send products to your home for unboxing &amp; review videos.
             This is only shared with a brand when they place an order with you
             — never shown publicly.
-          </span>
-          <textarea
+          </CwFacetHelp>
+          <CwTextarea
             id="cw-shipping"
-            className="cw-input cw-shipping-textarea"
+            className="leading-normal"
             rows={3}
             value={shippingAddress}
             disabled={disabled}
@@ -137,25 +155,25 @@ export function YourBaseStep({
             onChange={(e) => onShippingAddressChange(e.target.value)}
           />
           {errors.shippingAddress ? (
-            <p className="cw-field-warn">
+            <CwFieldWarn>
               <AlertTriangle size={13} aria-hidden />
               {errors.shippingAddress}
-            </p>
+            </CwFieldWarn>
           ) : null}
-        </div>
-      </div>
+        </CwField>
+      </CwGrid2>
 
-      <div className="cw-hr" />
+      <CwHr />
 
-      <div className="cw-field cw-lang-block">
-        <div className="cw-fieldlabel">
-          Languages you can create in <span className="cw-req">*</span>
-        </div>
-        <span className="cw-facet-help">
+      <CwField>
+        <CwFieldLabel>
+          Languages you can create in <CwReq />
+        </CwFieldLabel>
+        <CwFacetHelp>
           Pick every language you can confidently create videos in.
-        </span>
+        </CwFacetHelp>
         {languagesLoading ? (
-          <div className="cw-lang-loading">
+          <div className="flex items-center gap-2 py-1.5 text-[13px] text-muted-foreground">
             <Spinner className="size-4" aria-hidden /> Loading languages…
           </div>
         ) : (
@@ -167,44 +185,55 @@ export function YourBaseStep({
           />
         )}
         {errors.language ? (
-          <p className="cw-field-warn">
+          <CwFieldWarn>
             <AlertTriangle size={13} aria-hidden />
             {errors.language}
-          </p>
+          </CwFieldWarn>
         ) : null}
-      </div>
+      </CwField>
 
       <label
-        className="cw-confirm"
+        className={cn(
+          "flex cursor-pointer items-center gap-3.5 rounded-xl border-2 border-zinc-400 bg-white px-4.5 py-4 transition-[background,border-color]",
+          languageConfirmed && "border-primary bg-primary/5",
+          confirmDisabled && "cursor-not-allowed opacity-60",
+        )}
         data-checked={languageConfirmed}
-        data-disabled={disabled || selectedLanguageCount === 0}
+        data-disabled={confirmDisabled}
       >
         <input
           type="checkbox"
-          className="cw-confirm-box"
+          className="pointer-events-none absolute opacity-0"
           checked={languageConfirmed}
-          disabled={disabled || selectedLanguageCount === 0}
+          disabled={confirmDisabled}
           onChange={(e) => onLanguageConfirmedChange(e.target.checked)}
         />
-        <span className="cw-confirm-tick" aria-hidden>
+        <span
+          className={cn(
+            "flex size-5.5 shrink-0 items-center justify-center rounded-md border-2 border-zinc-500 bg-white text-transparent transition-[background,border-color,color]",
+            languageConfirmed &&
+              "border-primary bg-primary text-primary-foreground",
+          )}
+          aria-hidden
+        >
           <Check size={13} strokeWidth={3} />
         </span>
-        <span className="cw-confirm-copy">
-          <span className="cw-confirm-title">
+        <span className="flex min-w-0 flex-col gap-0.75">
+          <span className="text-sm font-bold leading-snug text-foreground">
             I can confidently create in these languages
           </span>
-          <span className="cw-confirm-desc">
+          <span className="max-w-160 text-[13px] leading-snug text-muted-foreground">
             Incorrect information may lead to cancellations, refunds and a
             lower creator score.
           </span>
         </span>
       </label>
       {errors.languageConfirmed ? (
-        <p className="cw-field-warn">
+        <CwFieldWarn>
           <AlertTriangle size={13} aria-hidden />
           {errors.languageConfirmed}
-        </p>
+        </CwFieldWarn>
       ) : null}
-    </div>
+    </CwCard>
   );
 }

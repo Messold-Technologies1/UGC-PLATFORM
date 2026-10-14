@@ -10,8 +10,18 @@ import type {
 
 import { Switch } from "@/components/ui/switch";
 import { REQUIRED_SECONDARY_NICHES } from "@/features/creators/hooks/creator-profile-form-utils";
+import { cn } from "@/lib/utils";
 
 import { OPEN_TO_OPTIONS } from "../wizard-config";
+import {
+  CwCard,
+  CwFacet,
+  CwFacetCount,
+  CwFacetHelp,
+  CwFacetLabel,
+  CwFieldWarn,
+  CwReq,
+} from "../wizard-ui";
 import { WizardAccordionSection } from "./wizard-parts";
 
 type NonLanguageDimension = Exclude<CreatorFacetDimension, "LANGUAGE">;
@@ -19,6 +29,10 @@ type SelectedFacets = Partial<Record<NonLanguageDimension, string[]>>;
 type CustomLabels = Partial<Record<NonLanguageDimension, string>>;
 
 const OTHER_SLUG = "other";
+/** How many chips to show before collapsing behind "+N more". */
+const CHIP_PREVIEW_COUNT = 8;
+
+type ChipOption = { slug: string; label: string };
 
 export type OtherNotice = { type: "info" | "warning"; message: string };
 export type OtherNotices = Partial<Record<NonLanguageDimension, OtherNotice>>;
@@ -97,6 +111,12 @@ const FACET_SECTION_ID: Record<
   APPEARANCE: "appearance",
 };
 
+const chipBaseClass =
+  "inline-flex h-8 max-sm:h-10 items-center gap-1.5 rounded-full border-[1.4px] px-3 max-sm:px-3.5 text-[12.5px] max-sm:text-[13.5px] font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+
+const selectAllClass =
+  "ml-1 inline-flex cursor-pointer select-none items-center gap-2 text-xs font-semibold text-muted-foreground";
+
 function Chip({
   label,
   selected,
@@ -111,18 +131,135 @@ function Chip({
   return (
     <button
       type="button"
-      className="pe-chip"
-      data-selected={selected}
+      className={[
+        chipBaseClass,
+        selected
+          ? "border-primary bg-primary text-white"
+          : "border-border bg-card text-foreground hover:border-primary/45",
+      ].join(" ")}
       disabled={disabled}
       onClick={onClick}
     >
       {selected ? (
-        <span className="pe-chip-tick">
+        <span className="grid place-items-center">
           <Check size={13} strokeWidth={3} />
         </span>
       ) : null}
       {label}
     </button>
+  );
+}
+
+function ChipToggle({
+  label,
+  disabled,
+  onClick,
+  ariaLabel,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={[
+        chipBaseClass,
+        "border-dashed border-border bg-muted/55 font-bold text-muted-foreground",
+        "hover:border-primary/40 hover:bg-muted/35 hover:text-foreground",
+      ].join(" ")}
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={ariaLabel}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * Chip grid: first 8 regular options, then "Other" (always visible), then
+ * "+N more" / "Show less" to reveal the rest. Toggle chips use a distinct style.
+ */
+function CollapsibleChips({
+  options,
+  selectedSlugs,
+  disabled,
+  onSelect,
+}: {
+  options: ChipOption[];
+  /** Current selection(s) — used to auto-expand when a pick is behind "+N more". */
+  selectedSlugs: string[];
+  disabled: boolean;
+  onSelect: (slug: string) => void;
+}) {
+  const { regular, other } = useMemo(() => {
+    const rest: ChipOption[] = [];
+    let otherOpt: ChipOption | undefined;
+    for (const opt of options) {
+      if (opt.slug === OTHER_SLUG) otherOpt = opt;
+      else rest.push(opt);
+    }
+    return { regular: rest, other: otherOpt };
+  }, [options]);
+
+  const [expanded, setExpanded] = useState(false);
+  const hiddenCount = Math.max(0, regular.length - CHIP_PREVIEW_COUNT);
+
+  useEffect(() => {
+    if (expanded || hiddenCount === 0) return;
+    const preview = new Set(
+      regular.slice(0, CHIP_PREVIEW_COUNT).map((opt) => opt.slug),
+    );
+    if (other) preview.add(other.slug);
+    if (selectedSlugs.some((slug) => slug && !preview.has(slug))) {
+      setExpanded(true);
+    }
+  }, [selectedSlugs, regular, other, expanded, hiddenCount]);
+
+  const visibleRegular =
+    expanded || hiddenCount === 0
+      ? regular
+      : regular.slice(0, CHIP_PREVIEW_COUNT);
+
+  return (
+    <div className="flex flex-wrap gap-[7px] max-sm:gap-2">
+      {visibleRegular.map((opt) => (
+        <Chip
+          key={opt.slug}
+          label={opt.label}
+          selected={selectedSlugs.includes(opt.slug)}
+          disabled={disabled}
+          onClick={() => onSelect(opt.slug)}
+        />
+      ))}
+      {other ? (
+        <Chip
+          key={other.slug}
+          label={other.label}
+          selected={selectedSlugs.includes(other.slug)}
+          disabled={disabled}
+          onClick={() => onSelect(other.slug)}
+        />
+      ) : null}
+      {hiddenCount > 0 && !expanded ? (
+        <ChipToggle
+          label={`+${hiddenCount} more`}
+          disabled={disabled}
+          onClick={() => setExpanded(true)}
+          ariaLabel={`Show ${hiddenCount} more options`}
+        />
+      ) : null}
+      {hiddenCount > 0 && expanded ? (
+        <ChipToggle
+          label="Show less"
+          disabled={disabled}
+          onClick={() => setExpanded(false)}
+          ariaLabel="Show fewer options"
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -142,10 +279,14 @@ function OtherField({
   onCommit: (dimension: NonLanguageDimension) => void;
 }) {
   return (
-    <div className="cw-other-row">
+    <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
       <input
         type="text"
-        className="cw-other-input"
+        className={cn(
+          "w-full max-w-[360px] max-sm:max-w-full rounded-[10px] border border-border bg-card px-3 py-2.5 text-[13.5px] text-foreground outline-none",
+          "focus:border-[color-mix(in_oklab,var(--primary)_55%,var(--border))] focus:shadow-[0_0_0_4px_var(--p10)]",
+          "disabled:opacity-60",
+        )}
         value={value}
         maxLength={40}
         disabled={disabled || resolving}
@@ -160,8 +301,8 @@ function OtherField({
         }}
       />
       {resolving ? (
-        <span className="cw-other-checking">
-          <Loader2 size={13} className="cw-ai-spin" aria-hidden />
+        <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary">
+          <Loader2 size={13} className="animate-spin" aria-hidden />
           Checking…
         </span>
       ) : null}
@@ -185,16 +326,25 @@ function FacetOtherNotice({
 }) {
   if (!notice) return null;
   return (
-    <div className="cw-other-notice" data-type={notice.type} role="status">
+    <div
+      className={cn(
+        "mt-2.5 flex max-w-[480px] items-start gap-2 rounded-[10px] border px-[11px] py-2.5 text-[12.5px] leading-snug",
+        notice.type === "info" &&
+          "border-[color-mix(in_oklab,var(--primary)_22%,var(--border))] bg-[color-mix(in_oklab,var(--primary)_7%,var(--background))] text-foreground [&_svg]:text-primary",
+        notice.type === "warning" &&
+          "border-[color-mix(in_oklab,var(--destructive)_30%,var(--border))] bg-[color-mix(in_oklab,var(--destructive)_8%,var(--background))] text-foreground [&_svg]:text-destructive",
+      )}
+      role="status"
+    >
       {notice.type === "warning" ? (
-        <AlertTriangle size={14} aria-hidden />
+        <AlertTriangle size={14} className="mt-px shrink-0" aria-hidden />
       ) : (
-        <Sparkles size={14} aria-hidden />
+        <Sparkles size={14} className="mt-px shrink-0" aria-hidden />
       )}
       <span>{notice.message}</span>
       <button
         type="button"
-        className="cw-other-notice-x"
+        className="ml-auto inline-flex shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0.5 text-muted-foreground hover:text-foreground"
         onClick={() => onDismiss(dimension)}
         aria-label="Dismiss"
       >
@@ -275,8 +425,8 @@ export function IdentityStep({
   }, [firstError]);
 
   return (
-    <div className="cw-card">
-      <div className="cw-facet-groups-stack cw-acc-stack">
+    <CwCard className="max-[960px]:gap-3 max-[960px]:border-0 max-[960px]:bg-transparent max-[960px]:p-0 max-[960px]:shadow-none">
+      <div className="flex flex-col gap-[26px] max-[960px]:gap-2.5">
         <WizardAccordionSection
           id="primary"
           title="Primary niche"
@@ -290,42 +440,42 @@ export function IdentityStep({
           open={open === "primary"}
           onOpen={toggleSection}
         >
-        {/* ---- Niche: primary + secondary from the same list ---- */}
-        <div className="cw-facet">
-          <div className="cw-facet-label">
-            <span>
-              Your primary niche
-              <span className="cw-req"> *</span>
-            </span>
-          </div>
-          <span className="cw-facet-help">
-            The one thing you&apos;re best known for. Brands see this first.
-          </span>
-          <div className="pe-chips">
-            {nicheOptions.map((opt) => (
-              <Chip
-                key={opt.slug}
-                label={opt.label}
-                selected={primaryNiche === opt.slug}
-                disabled={disabled}
-                onClick={() => onSetPrimaryNiche(opt.slug)}
-              />
-            ))}
-          </div>
-          {errors.primaryNiche ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.primaryNiche}</p>
-          ) : null}
-          {primaryOtherSelected ? (
-            <OtherField
-              dimension="CONTENT_CATEGORY"
-              value={customFacetLabels.CONTENT_CATEGORY ?? ""}
+          <CwFacet>
+            <CwFacetLabel className="max-[960px]:hidden">
+              <span className="inline-flex min-w-0 items-center gap-1">
+                Your primary niche <CwReq />
+              </span>
+            </CwFacetLabel>
+            <CwFacetHelp className="-mt-1 max-[960px]:text-xs">
+              The one thing you&apos;re best known for. Brands see this first.
+            </CwFacetHelp>
+            <CollapsibleChips
+              options={nicheOptions}
+              selectedSlugs={primaryNiche ? [primaryNiche] : []}
               disabled={disabled}
-              resolving={resolvingOtherDim === "CONTENT_CATEGORY"}
-              onChange={onCustomFacetLabelChange}
-              onCommit={onCommitOther}
+              onSelect={onSetPrimaryNiche}
             />
-          ) : null}
-        </div>
+            {errors.primaryNiche ? (
+              <CwFieldWarn>
+                <AlertTriangle
+                  size={13}
+                  className="mt-px shrink-0 text-amber-600"
+                  aria-hidden
+                />
+                {errors.primaryNiche}
+              </CwFieldWarn>
+            ) : null}
+            {primaryOtherSelected ? (
+              <OtherField
+                dimension="CONTENT_CATEGORY"
+                value={customFacetLabels.CONTENT_CATEGORY ?? ""}
+                disabled={disabled}
+                resolving={resolvingOtherDim === "CONTENT_CATEGORY"}
+                onChange={onCustomFacetLabelChange}
+                onCommit={onCommitOther}
+              />
+            ) : null}
+          </CwFacet>
         </WizardAccordionSection>
 
         <WizardAccordionSection
@@ -343,56 +493,52 @@ export function IdentityStep({
           open={open === "secondary"}
           onOpen={toggleSection}
         >
-        <div className="cw-facet">
-          <div className="cw-facet-label">
-            <span>
-              Your secondary niches
-              <span className="cw-req"> *</span>
-            </span>
-            <span className="cw-facet-count">
-              {secondaryNiches.length}/{REQUIRED_SECONDARY_NICHES}
-            </span>
-          </div>
-          <span className="cw-facet-help">
-            {primaryNiche
-              ? `Pick ${REQUIRED_SECONDARY_NICHES} more areas you also create in.`
-              : "Choose your primary niche first."}
-          </span>
-          <div className="pe-chips">
-            {nicheOptions
-              .filter((opt) => opt.slug !== primaryNiche)
-              .map((opt) => {
-                const isOn = secondaryNiches.includes(opt.slug);
-                return (
-                  <Chip
-                    key={opt.slug}
-                    label={opt.label}
-                    selected={isOn}
-                    disabled={disabled || !primaryNiche}
-                    onClick={() => onToggleSecondaryNiche(opt.slug)}
-                  />
-                );
-              })}
-          </div>
-          {errors.secondaryNiches ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.secondaryNiches}</p>
-          ) : null}
-          {secondaryOtherSelected ? (
-            <OtherField
-              dimension="CONTENT_CATEGORY"
-              value={customFacetLabels.CONTENT_CATEGORY ?? ""}
-              disabled={disabled}
-              resolving={resolvingOtherDim === "CONTENT_CATEGORY"}
-              onChange={onCustomFacetLabelChange}
-              onCommit={onCommitOther}
+          <CwFacet>
+            <CwFacetLabel className="max-[960px]:hidden">
+              <span className="inline-flex min-w-0 items-center gap-1">
+                Your secondary niches <CwReq />
+              </span>
+              <CwFacetCount className="ml-auto">
+                {secondaryNiches.length}/{REQUIRED_SECONDARY_NICHES}
+              </CwFacetCount>
+            </CwFacetLabel>
+            <CwFacetHelp className="-mt-1 max-[960px]:text-xs">
+              {primaryNiche
+                ? `Pick ${REQUIRED_SECONDARY_NICHES} more areas you also create in.`
+                : "Choose your primary niche first."}
+            </CwFacetHelp>
+            <CollapsibleChips
+              options={nicheOptions.filter((opt) => opt.slug !== primaryNiche)}
+              selectedSlugs={secondaryNiches}
+              disabled={disabled || !primaryNiche}
+              onSelect={onToggleSecondaryNiche}
             />
-          ) : null}
-          <FacetOtherNotice
-            dimension="CONTENT_CATEGORY"
-            notice={otherNotices.CONTENT_CATEGORY}
-            onDismiss={onDismissOtherNotice}
-          />
-        </div>
+            {errors.secondaryNiches ? (
+              <CwFieldWarn>
+                <AlertTriangle
+                  size={13}
+                  className="mt-px shrink-0 text-amber-600"
+                  aria-hidden
+                />
+                {errors.secondaryNiches}
+              </CwFieldWarn>
+            ) : null}
+            {secondaryOtherSelected ? (
+              <OtherField
+                dimension="CONTENT_CATEGORY"
+                value={customFacetLabels.CONTENT_CATEGORY ?? ""}
+                disabled={disabled}
+                resolving={resolvingOtherDim === "CONTENT_CATEGORY"}
+                onChange={onCustomFacetLabelChange}
+                onCommit={onCommitOther}
+              />
+            ) : null}
+            <FacetOtherNotice
+              dimension="CONTENT_CATEGORY"
+              notice={otherNotices.CONTENT_CATEGORY}
+              onDismiss={onDismissOtherNotice}
+            />
+          </CwFacet>
         </WizardAccordionSection>
 
         {/* ---- Single-select identity facets ---- */}
@@ -420,44 +566,47 @@ export function IdentityStep({
               open={open === sectionId}
               onOpen={toggleSection}
             >
-            <div className="cw-facet">
-              <div className="cw-facet-label">
-                <span>
-                  {label}
-                  <span className="cw-req"> *</span>
-                </span>
-              </div>
-              <span className="cw-facet-help">{help}</span>
-              <div className="pe-chips">
-                {options.map((opt) => (
-                  <Chip
-                    key={opt.slug}
-                    label={opt.label}
-                    selected={selected === opt.slug}
-                    disabled={disabled}
-                    onClick={() => onSelectSingleFacet(dimension, opt.slug)}
-                  />
-                ))}
-              </div>
-              {dimErr ? (
-                <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{dimErr}</p>
-              ) : null}
-              {selected === OTHER_SLUG ? (
-                <OtherField
-                  dimension={dimension}
-                  value={customFacetLabels[dimension] ?? ""}
+              <CwFacet>
+                <CwFacetLabel className="max-[960px]:hidden">
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    {label} <CwReq />
+                  </span>
+                </CwFacetLabel>
+                <CwFacetHelp className="-mt-1 max-[960px]:text-xs">
+                  {help}
+                </CwFacetHelp>
+                <CollapsibleChips
+                  options={options}
+                  selectedSlugs={selected ? [selected] : []}
                   disabled={disabled}
-                  resolving={resolvingOtherDim === dimension}
-                  onChange={onCustomFacetLabelChange}
-                  onCommit={onCommitOther}
+                  onSelect={(slug) => onSelectSingleFacet(dimension, slug)}
                 />
-              ) : null}
-              <FacetOtherNotice
-                dimension={dimension}
-                notice={otherNotices[dimension]}
-                onDismiss={onDismissOtherNotice}
-              />
-            </div>
+                {dimErr ? (
+                  <CwFieldWarn>
+                    <AlertTriangle
+                      size={13}
+                      className="mt-px shrink-0 text-amber-600"
+                      aria-hidden
+                    />
+                    {dimErr}
+                  </CwFieldWarn>
+                ) : null}
+                {selected === OTHER_SLUG ? (
+                  <OtherField
+                    dimension={dimension}
+                    value={customFacetLabels[dimension] ?? ""}
+                    disabled={disabled}
+                    resolving={resolvingOtherDim === dimension}
+                    onChange={onCustomFacetLabelChange}
+                    onCommit={onCommitOther}
+                  />
+                ) : null}
+                <FacetOtherNotice
+                  dimension={dimension}
+                  notice={otherNotices[dimension]}
+                  onDismiss={onDismissOtherNotice}
+                />
+              </CwFacet>
             </WizardAccordionSection>
           );
         })}
@@ -474,7 +623,7 @@ export function IdentityStep({
           open={open === "comfortable"}
           onOpen={toggleSection}
           extra={
-            <label className="cw-facet-select-all">
+            <label className={cn(selectAllClass, "ml-0 text-[11px]")}>
               <span>All</span>
               <Switch
                 checked={allRestrictionsSelected}
@@ -485,55 +634,42 @@ export function IdentityStep({
             </label>
           }
         >
-        <div className="cw-facet">
-          <div className="cw-facet-label">
-            <span>
-              Comfortable with
-            </span>
-            <label className="cw-facet-select-all">
-              <span>Select all</span>
-              <Switch
-                checked={allRestrictionsSelected}
-                disabled={disabled}
-                onCheckedChange={onSetAllRestrictions}
-                aria-label="Select all Comfortable with options"
-              />
-            </label>
-            {selectedRestrictions.length > 0 ? (
-              <span className="cw-facet-count">
-                {selectedRestrictions.length}
+          <CwFacet>
+            <CwFacetLabel className="max-[960px]:hidden">
+              <span className="inline-flex min-w-0 items-center gap-1">
+                Comfortable with
               </span>
-            ) : null}
-          </div>
-          <span className="cw-facet-help">
-            Optional — skip if none apply. Pick the categories you&apos;re open
-            to creating for so brands can match you to the right briefs.
-          </span>
-          <div className="pe-chips">
-            {OPEN_TO_OPTIONS.map((name) => {
-              const isOn = selectedRestrictions.includes(name);
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  className="pe-chip"
-                  data-selected={isOn}
+              <label className={selectAllClass}>
+                <span>Select all</span>
+                <Switch
+                  checked={allRestrictionsSelected}
                   disabled={disabled}
-                  onClick={() => onToggleRestriction(name)}
-                >
-                  {isOn ? (
-                    <span className="pe-chip-tick">
-                      <Check size={13} strokeWidth={3} />
-                    </span>
-                  ) : null}
-                  {name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  onCheckedChange={onSetAllRestrictions}
+                  aria-label="Select all Comfortable with options"
+                />
+              </label>
+              {selectedRestrictions.length > 0 ? (
+                <CwFacetCount className="ml-auto">
+                  {selectedRestrictions.length}
+                </CwFacetCount>
+              ) : null}
+            </CwFacetLabel>
+            <CwFacetHelp className="-mt-1 max-[960px]:text-xs">
+              Optional — skip if none apply. Pick the categories you&apos;re open
+              to creating for so brands can match you to the right briefs.
+            </CwFacetHelp>
+            <CollapsibleChips
+              options={OPEN_TO_OPTIONS.map((name) => ({
+                slug: name,
+                label: name,
+              }))}
+              selectedSlugs={selectedRestrictions}
+              disabled={disabled}
+              onSelect={onToggleRestriction}
+            />
+          </CwFacet>
         </WizardAccordionSection>
       </div>
-    </div>
+    </CwCard>
   );
 }

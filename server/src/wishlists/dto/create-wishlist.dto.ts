@@ -17,4 +17,20 @@ export class CreateWishlistDto {
   @ArrayUnique()
   @IsUUID('4', { each: true })
   creatorIds?: string[];
+
+  /**
+   * Meta attribution cookies read in the user's own browser. Used only to match
+   * the AddToWishlist conversion sent via the Conversions API; never stored.
+   */
+  @ApiPropertyOptional({ description: 'Meta _fbp browser cookie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  metaFbp?: string;
+
+  @ApiPropertyOptional({ description: 'Meta _fbc ad-click cookie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  metaFbc?: string;
 }

@@ -7,6 +7,9 @@ export type BrandProfileItemApi = {
   contactFullName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  /** True when contact phone is OTP-approved on the owner User. */
+  contactPhoneVerified?: boolean;
+  phoneOtpLastStatus?: string | null;
   brandName: string | null;
   brandPronunciationAudioKey: string | null;
   brandPronunciationAudioUrl: string | null;

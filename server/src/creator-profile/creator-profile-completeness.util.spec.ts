@@ -5,6 +5,8 @@ import {
   GO_LIVE_REQUIREMENTS,
   INTRO_VIDEO_REQUIREMENT,
   LISTED_PROFILE_REQUIREMENTS,
+  OTP_VERIFICATION_REQUIREMENT,
+  PAYOUT_DETAILS_REQUIREMENT,
   isIdentitySectionComplete,
   MIN_PORTFOLIO_VIDEOS,
   REQUIRED_FACET_DIMENSIONS,
@@ -233,40 +235,61 @@ describe('evaluateListedProfileCompleteness', () => {
     overrides: Partial<ListedProfileCompletenessInput> = {},
   ): ListedProfileCompletenessInput => ({
     ...completeInput(),
-    introVideoUrl: 'https://cdn/intro.mp4',
+    phoneOtpLastStatus: 'approved',
+    hasPayoutDetails: true,
     ...overrides,
   });
 
-  it('is complete when the go-live checklist is met and an intro video exists', () => {
+  it('is complete when the go-live checklist is met, OTP is approved and payouts are set', () => {
     const { complete, missing } =
       evaluateListedProfileCompleteness(listedInput());
     expect(complete).toBe(true);
     expect(missing).toEqual([]);
   });
 
-  it.each([[null], [undefined], [''], ['   ']])(
-    'flags a missing intro video (%p)',
-    (introVideoUrl) => {
+  it('does not require an intro video for listed · complete', () => {
+    // Intro video still affects wizard Profile Strength, not the admin segment.
+    expect(INTRO_VIDEO_REQUIREMENT.label).toBe('Intro video');
+    expect(evaluateListedProfileCompleteness(listedInput()).complete).toBe(
+      true,
+    );
+  });
+
+  it.each([[null], [undefined], [''], ['pending'], ['expired']])(
+    'flags OTP verification when phoneOtpLastStatus is %p',
+    (phoneOtpLastStatus) => {
       const { complete, missing } = evaluateListedProfileCompleteness(
-        listedInput({ introVideoUrl }),
+        listedInput({ phoneOtpLastStatus }),
       );
       expect(complete).toBe(false);
-      expect(missing).toEqual([INTRO_VIDEO_REQUIREMENT.label]);
+      expect(missing).toEqual([OTP_VERIFICATION_REQUIREMENT.label]);
     },
   );
 
-  it('does NOT change the go-live gate — the same profile can still go live', () => {
-    // The intro video is not asked for at registration, so requiring it here
-    // must never leak into the Go-Live checklist.
-    const input = listedInput({ introVideoUrl: null });
+  it('does not add OTP to the go-live gate', () => {
+    const input = listedInput({ phoneOtpLastStatus: null });
     expect(evaluateProfileCompleteness(input).complete).toBe(true);
     expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
   });
 
-  it('reports checklist gaps alongside the intro video', () => {
+  it('flags payout details when neither a bank account nor a UPI ID is on file', () => {
+    const { complete, missing } = evaluateListedProfileCompleteness(
+      listedInput({ hasPayoutDetails: false }),
+    );
+    expect(complete).toBe(false);
+    expect(missing).toEqual([PAYOUT_DETAILS_REQUIREMENT.label]);
+  });
+
+  it('does not add payout details to the go-live gate', () => {
+    // A creator gets listed first and sorts out their bank details after.
+    const input = listedInput({ hasPayoutDetails: false });
+    expect(evaluateProfileCompleteness(input).complete).toBe(true);
+    expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
+  });
+
+  it('reports checklist gaps without treating intro as required', () => {
     const { complete, missing } = evaluateListedProfileCompleteness(
       listedInput({
-        introVideoUrl: null,
         instagramConnected: false,
         publicVideoCount: 0,
       }),
@@ -276,22 +299,23 @@ describe('evaluateListedProfileCompleteness', () => {
       expect.arrayContaining([
         `At least ${MIN_PORTFOLIO_VIDEOS} portfolio videos`,
         'Instagram connected',
-        INTRO_VIDEO_REQUIREMENT.label,
       ]),
     );
+    expect(missing).not.toContain(INTRO_VIDEO_REQUIREMENT.label);
   });
 
-  it('keeps every go-live requirement, plus the intro video, in the catalog', () => {
+  it('extends the go-live catalog with OTP verification and payout details', () => {
     expect(LISTED_PROFILE_REQUIREMENTS).toEqual([
       ...GO_LIVE_REQUIREMENTS,
-      INTRO_VIDEO_REQUIREMENT,
+      OTP_VERIFICATION_REQUIREMENT,
+      PAYOUT_DETAILS_REQUIREMENT,
     ]);
   });
 
   it('every label it can emit maps back to a catalog entry', () => {
     // Guards the WhatsApp templating: a label with no stable key is unusable.
     const { missing } = evaluateListedProfileCompleteness({
-      ...listedInput({ introVideoUrl: null }),
+      ...listedInput({ phoneOtpLastStatus: null, hasPayoutDetails: false }),
       profileImageUrl: null,
       displayName: '',
       contactEmail: '',

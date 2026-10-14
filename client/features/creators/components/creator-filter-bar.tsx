@@ -59,7 +59,6 @@ const PRICE_STEP = 250;
 const GENDER_OPTIONS = [
   { value: "MALE", label: "Male" },
   { value: "FEMALE", label: "Female" },
-  { value: "NON_BINARY", label: "Non-Binary" },
   { value: "OTHER", label: "Other" },
 ] as const;
 
@@ -1120,7 +1119,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                             Location
                           </h5>
                           <Input
-                            placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                            placeholder="City, state or country — e.g. Mumbai, Karnataka"
                             value={localCity}
                             onChange={(e) => {
                               setLocalCity(e.target.value);
@@ -1403,7 +1402,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                           Location
                         </h5>
                         <Input
-                          placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                          placeholder="City, state or country — e.g. Mumbai, Karnataka"
                           value={localCity}
                           onChange={(e) => {
                             setLocalCity(e.target.value);

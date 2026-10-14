@@ -6,6 +6,14 @@ import { AlertTriangle, Check } from "lucide-react";
 import { CreatorProfileIntroVideoField } from "@/features/creators/components/creator-profile-update/creator-profile-intro-video-field";
 import { INTRO_VIDEO_ACCEPT } from "@/features/creators/hooks/creator-profile-form-utils";
 
+import {
+  CwCard,
+  CwConfirm,
+  CwFacet,
+  CwFacetLabel,
+  CwFieldWarn,
+  CwHr,
+} from "../wizard-ui";
 import { DemoVideoGallery } from "./demo-video-gallery";
 
 const REQUIREMENTS = [
@@ -48,9 +56,9 @@ export function IntroVideoStep({
   errors = {},
 }: IntroVideoStepProps) {
   return (
-    <div className="cw-card">
-      <div className="cw-video-split">
-        <div className="cw-video-preview">
+    <CwCard>
+      <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-7">
+        <div>
           <CreatorProfileIntroVideoField
             videoPreviewUrl={videoPreviewUrl}
             accept={INTRO_VIDEO_ACCEPT}
@@ -61,74 +69,76 @@ export function IntroVideoStep({
           />
         </div>
 
-        <div className="cw-video-side">
+        <div className="flex flex-col gap-4">
           {errors.video ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.video}</p>
+            <CwFieldWarn>
+              <AlertTriangle size={13} aria-hidden />
+              {errors.video}
+            </CwFieldWarn>
           ) : null}
-          <div className="cw-req-card">
-            <div className="cw-req-title">Video requirements</div>
-            <div className="cw-req-grid">
+          <div className="rounded-xl border border-border px-4 py-3.5">
+            <div className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
+              Video requirements
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-[400px]:grid-cols-1">
               {REQUIREMENTS.map((req) => (
-                <span key={req} className="cw-req-item">
-                  <Check size={13} strokeWidth={3} aria-hidden />
+                <span
+                  key={req}
+                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-foreground"
+                >
+                  <Check
+                    size={13}
+                    strokeWidth={3}
+                    aria-hidden
+                    className="shrink-0 text-primary"
+                  />
                   {req}
                 </span>
               ))}
             </div>
           </div>
 
-          <label
-            className="cw-confirm"
-            data-checked={confirmed}
-            data-disabled={disabled || !videoPreviewUrl}
-          >
-            <input
-              type="checkbox"
-              className="cw-confirm-box"
-              checked={confirmed}
-              disabled={disabled || !videoPreviewUrl}
-              onChange={(e) => onConfirmedChange(e.target.checked)}
-            />
-            <span className="cw-confirm-tick" aria-hidden>
-              <Check size={13} strokeWidth={3} />
-            </span>
-            <span className="cw-confirm-copy">
-              <span className="cw-confirm-title">
-                My intro video meets the requirements
-              </span>
-              <span className="cw-confirm-desc">
-                It follows the checklist above and does not include any brand
-                watermark.
-              </span>
-            </span>
-          </label>
+          <CwConfirm
+            checked={confirmed}
+            disabled={disabled || !videoPreviewUrl}
+            onToggle={() => onConfirmedChange(!confirmed)}
+            title="My intro video meets the requirements"
+            description="It follows the checklist above and does not include any brand watermark."
+          />
 
           {errors.confirmed ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.confirmed}</p>
+            <CwFieldWarn>
+              <AlertTriangle size={13} aria-hidden />
+              {errors.confirmed}
+            </CwFieldWarn>
           ) : null}
-          <div className="cw-script">
-            <div className="cw-script-title">Sample script</div>
-            <p>{SAMPLE_SCRIPT}</p>
+          <div className="rounded-xl border border-border px-4 py-3.5">
+            <div className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
+              Sample script
+            </div>
+            <p className="m-0 text-[13px] leading-relaxed text-muted-foreground">
+              {SAMPLE_SCRIPT}
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="cw-hr" />
+      <CwHr />
 
       <DemoVideoGallery />
 
-      <div className="cw-hr" />
+      <CwHr />
 
-      <div className="cw-facet">
-        <div className="cw-facet-label">
+      <CwFacet>
+        <CwFacetLabel>
           <span>Recording tips</span>
-        </div>
-        <ul className="cw-tips-list">
+        </CwFacetLabel>
+        <ul className="m-0 flex list-disc flex-col gap-1.5 pl-[18px] text-[13px] leading-normal text-muted-foreground">
           {TIPS.map((tip) => (
             <li key={tip}>{tip}</li>
           ))}
         </ul>
-      </div>
-    </div>
+      </CwFacet>
+    </CwCard>
   );
 }

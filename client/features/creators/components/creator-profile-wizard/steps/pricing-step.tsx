@@ -10,8 +10,11 @@ import {
 import { PackageEarningsBanner } from "@/features/creators/components/creator-profile-update/package-earnings-banner";
 import type { PackageDraft, AddOnDraft } from "@/features/creators/hooks/creator-profile-form-utils";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
-import { WizardAccordionSection } from "./wizard-parts";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
+
+import { CwCard, CwFieldWarn } from "../wizard-ui";
+import { WizardAccordionSection } from "./wizard-parts";
 
 export type PricingStepProps = {
   disabled: boolean;
@@ -84,11 +87,16 @@ function StartLowGrowFastTip() {
   }
 
   return (
-    <div className="cw-price-tip" role="note">
-      <Lightbulb size={18} aria-hidden className="cw-price-tip-icon" />
-      <div className="cw-price-tip-copy">
-        <p className="cw-price-tip-title">Tip: Start low, grow fast 🚀</p>
-        <p className="cw-price-tip-text">
+    <div
+      className="mb-3 flex items-start gap-3 rounded-xl border border-[color-mix(in_oklab,#0d9488_26%,transparent)] bg-[color-mix(in_oklab,#14b8a6_11%,var(--card))] px-3.5 py-3"
+      role="note"
+    >
+      <Lightbulb size={18} aria-hidden className="mt-0.5 shrink-0 text-[#0f766e]" />
+      <div className="min-w-0 flex-1">
+        <p className="m-0 text-sm font-bold leading-snug text-[#134e4a]">
+          Tip: Start low, grow fast 🚀
+        </p>
+        <p className="mt-1 text-[13px] leading-snug text-[#3f6561]">
           Want to get your first few orders faster? Keep your starting price as
           low as possible. Once you start getting regular orders, you can
           increase your price anytime.
@@ -96,7 +104,7 @@ function StartLowGrowFastTip() {
       </div>
       <button
         type="button"
-        className="cw-price-tip-close"
+        className="-mr-1.5 -mt-1 inline-flex size-8 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent text-[#3f6561] hover:bg-[color-mix(in_oklab,#0f766e_12%,transparent)] hover:text-[#134e4a]"
         aria-label="Dismiss pricing tip"
         onClick={dismiss}
       >
@@ -192,14 +200,18 @@ export function PricingStep({
   }, [firstError, onAddonsReviewed]);
 
   return (
-    <div className="cw-card">
+    <CwCard
+      className={cn(
+        "max-[960px]:gap-3 max-[960px]:border-0 max-[960px]:bg-transparent max-[960px]:p-0 max-[960px]:shadow-none",
+      )}
+    >
       <PackageEarningsBanner
         packagePriceAmount={packageDraft.priceAmount}
         selectedAddOnSlugs={selectedAddOnSlugs}
         addOnDrafts={addOnDrafts}
       />
 
-      <div className="cw-acc-stack">
+      <div className="flex flex-col gap-[26px] max-[960px]:gap-2.5">
         <WizardAccordionSection
           id="package"
           title="Your package"
@@ -221,16 +233,18 @@ export function PricingStep({
             <StartLowGrowFastTip />
           </PackageEditor>
           {extraCount > 0 && !addonsReviewed ? (
-            <div className="cw-addon-nudge">
-              <p className="cw-addon-nudge-title">Review your add-ons</p>
-              <p className="cw-addon-nudge-copy">
+            <div className="mt-3.5 hidden rounded-xl border-[1.4px] border-[color-mix(in_oklab,var(--primary)_40%,var(--border))] bg-[color-mix(in_oklab,var(--primary)_7%,var(--background))] p-3.5 max-[960px]:block">
+              <p className="m-0 text-sm font-bold text-foreground">
+                Review your add-ons
+              </p>
+              <p className="mt-1.5 text-[12.5px] leading-normal text-muted-foreground">
                 {mandatoryCount} add-on{mandatoryCount === 1 ? " is" : "s are"}{" "}
                 already on for every order. Open Add-ons to check prices
                 {extrasLabel ? ` — and extras like ${extrasLabel}` : ""}.
               </p>
               <button
                 type="button"
-                className="cw-addon-nudge-btn"
+                className="mt-3 inline-flex rounded-full border-[1.4px] border-[color-mix(in_oklab,var(--primary)_40%,var(--border))] bg-white px-3.5 py-2 text-[13px] font-bold text-primary"
                 onClick={() => {
                   setOpenId("addons");
                   onAddonsReviewed?.();
@@ -263,10 +277,10 @@ export function PricingStep({
           />
 
           {errors.addOnPrices ? (
-            <p className="cw-field-warn">
+            <CwFieldWarn>
               <AlertTriangle size={13} aria-hidden />
               {errors.addOnPrices}
-            </p>
+            </CwFieldWarn>
           ) : null}
 
           {!addOnsLoading && !addOnsError ? (
@@ -282,6 +296,6 @@ export function PricingStep({
           ) : null}
         </WizardAccordionSection>
       </div>
-    </div>
+    </CwCard>
   );
 }

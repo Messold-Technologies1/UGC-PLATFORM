@@ -50,6 +50,8 @@
     "prisma:cleanup:face-creator-type": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/remove-face-creator-type.ts",
     "data:gen:aliases": "ts-node prisma/scripts/generate-india-location-aliases.ts",
     "notifications:import-templates": "node dist/scripts/import-notification-templates.js",
+    "cleanup:facet-options": "node dist/scripts/cleanup-facet-options.js",
+    "cleanup:creator-restrictions": "node dist/scripts/cleanup-creator-restrictions.js",
     "notifications:import-templates:dev": "node -r ts-node/register/transpile-only src/scripts/import-notification-templates.ts",
     "prisma:seed:notification-templates": "npm run notifications:import-templates",
     "notifications:backfill-drip-log": "node dist/scripts/backfill-notification-drip-log.js",

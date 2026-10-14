@@ -198,38 +198,60 @@ export function evaluateProfileCompleteness(
 }
 
 /**
- * The one requirement that applies only AFTER a creator is listed.
- *
- * The intro video is deliberately outside the Go-Live checklist — creators are
- * not asked for it at registration and must be able to go live without one — so
- * it must never leak into `evaluateProfileCompleteness`, which gates Go Live.
- * The creator wizard treats it the same way: Profile Strength folds the intro
- * video in only once `isListed` is true (`includeIntroVideo`), which is why a
- * freshly listed profile drops from 100% to 96%.
+ * Intro video label kept for the creator wizard's Profile Strength score
+ * (`includeIntroVideo`). It is intentionally NOT part of listed-admin
+ * completeness — missing intro videos still count as listed · complete.
  */
 export const INTRO_VIDEO_REQUIREMENT: GoLiveRequirement = {
   key: 'introVideo',
   label: 'Intro video',
 };
 
+/** Listed-admin only: phone must have completed OTP (`User.phoneOtpLastStatus`). */
+export const OTP_VERIFICATION_REQUIREMENT: GoLiveRequirement = {
+  key: 'otpVerification',
+  label: 'OTP verification',
+};
+
+/**
+ * Listed-admin only: a bank account or UPI ID to pay the creator with.
+ *
+ * Deliberately not a Go-Live requirement — a creator should be able to get
+ * listed and start receiving orders before sorting out their bank details.
+ * It only becomes a gap once they are live and could actually be owed money.
+ */
+export const PAYOUT_DETAILS_REQUIREMENT: GoLiveRequirement = {
+  key: 'payoutDetails',
+  label: 'Payout details',
+};
+
 export interface ListedProfileCompletenessInput extends ProfileCompletenessInput {
-  /** Stored `CreatorProfile.introVideoUrl`. */
-  introVideoUrl?: string | null;
+  /**
+   * `User.phoneOtpLastStatus`. Listed · complete requires `'approved'`;
+   * anything else (null, pending, expired, …) counts as still missing OTP.
+   */
+  phoneOtpLastStatus?: string | null;
+  /**
+   * Whether `CreatorPayoutDetails` holds a payable method: a full bank account
+   * (number + IFSC) or a UPI ID. Mirrors what the creator's own masked
+   * endpoint reports as configured. Required, so a caller cannot forget it and
+   * silently mark everyone as missing payouts.
+   */
+  hasPayoutDetails: boolean;
 }
 
 /**
- * "Is this LISTED creator's profile actually finished?" — the full Go-Live
- * checklist plus the intro video.
+ * "Is this LISTED creator's profile actually finished?" — the Go-Live checklist
+ * re-evaluated live, plus the two things only a live creator needs: OTP
+ * verification on the linked user (`phoneOtpLastStatus === 'approved'`) and a
+ * payout method we can send their earnings to. Intro video stays optional.
  *
- * Distinct from `evaluateProfileCompleteness` in both directions:
- *  - it adds the intro video, which Go Live does not require;
- *  - it is evaluated live, whereas `CreatorProfile.completeProfile` is a
- *    one-way latch stamped at Go Live and never revisited. A listed creator can
- *    therefore be `completeProfile = true` and still be missing things here —
- *    videos deleted after listing, an Instagram token that expired or was
- *    revoked, or a requirement that did not exist when they went live (the
- *    complete-profile backfill deliberately treated Instagram as satisfied so
- *    it would not delist creators who went live before it was required).
+ * Distinct from `evaluateProfileCompleteness` because
+ * `CreatorProfile.completeProfile` is a one-way latch stamped at Go Live and
+ * never revisited. A listed creator can therefore be `completeProfile = true`
+ * and still be missing things here — videos deleted after listing, an Instagram
+ * token that expired or was revoked, phone OTP never completed, or a
+ * requirement that did not exist when they went live.
  *
  * That gap is the point: this is what drives the admin "listed, profile
  * incomplete" segment and the outreach that follows from it.
@@ -239,11 +261,12 @@ export function evaluateListedProfileCompleteness(
 ): ProfileCompletenessResult {
   const { missing } = evaluateProfileCompleteness(input);
 
-  // Matches the creator wizard's own test (`getInitialCreatorIntroVideoPreviewUrl`):
-  // a stored, absolute URL. Normalization state is ignored on purpose — a video
-  // still transcoding has been uploaded, and nagging that creator would be wrong.
-  if (!hasText(input.introVideoUrl)) {
-    missing.push(INTRO_VIDEO_REQUIREMENT.label);
+  if (input.phoneOtpLastStatus !== 'approved') {
+    missing.push(OTP_VERIFICATION_REQUIREMENT.label);
+  }
+
+  if (!input.hasPayoutDetails) {
+    missing.push(PAYOUT_DETAILS_REQUIREMENT.label);
   }
 
   return { complete: missing.length === 0, missing };
@@ -252,5 +275,6 @@ export function evaluateListedProfileCompleteness(
 /** Every requirement a LISTED creator is measured against, in display order. */
 export const LISTED_PROFILE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   ...GO_LIVE_REQUIREMENTS,
-  INTRO_VIDEO_REQUIREMENT,
-] as const;
+  OTP_VERIFICATION_REQUIREMENT,
+  PAYOUT_DETAILS_REQUIREMENT,
+];

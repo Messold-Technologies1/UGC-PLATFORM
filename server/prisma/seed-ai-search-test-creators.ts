@@ -1008,7 +1008,7 @@ function buildExtraPersonas(targetTotal: number): Persona[] {
         ? CreatorGender.FEMALE
         : i % 3 === 1
           ? CreatorGender.MALE
-          : CreatorGender.NON_BINARY;
+          : CreatorGender.OTHER;
 
     const optionalFacets: Persona['optionalFacets'] = {};
     if (i % 4 === 0) optionalFacets.canCreateWith = ['pets'];

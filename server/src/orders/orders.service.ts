@@ -35,6 +35,11 @@ import {
   PLATFORM_FEE_RATE,
 } from './order-pricing-ledger.util';
 import { resolveOrderCompletionCreditPaise } from './order-completion-credit.util';
+import {
+  MetaCapiService,
+  purchaseEventId,
+  splitFullName,
+} from '../meta-capi/meta-capi.service';
 import type { PresignDeliveryUploadDto } from './dto/presign-delivery-upload.dto';
 import type {
   AbortDeliveryMultipartUploadDto,
@@ -77,6 +82,21 @@ import { OrderPortfolioSyncService } from '../creator-portfolio/order-portfolio-
 import { withOrderInboxActivityOnUpdate } from '../order-chat/order-chat-order-snapshot';
 import { CouponsService } from '../coupons/coupons.service';
 import { WalletService } from '../wallet/wallet.service';
+
+/**
+ * Normalize the Meta attribution cookies a checkout carries into order write
+ * data. Blank or absent becomes null — an ad-blocked browser has no cookies to
+ * send, and a null is honest about that where an empty string is not.
+ */
+function metaAttributionWriteData(source: {
+  metaFbp?: string | null;
+  metaFbc?: string | null;
+}): { metaFbp: string | null; metaFbc: string | null } {
+  return {
+    metaFbp: source.metaFbp?.trim() || null,
+    metaFbc: source.metaFbc?.trim() || null,
+  };
+}
 
 /**
  * Nested `BrandProfile` fields for order API brand snapshots.
@@ -545,7 +565,120 @@ export class OrdersService {
     private readonly wallet: WalletService,
     private readonly events: NotificationEventsService,
     private readonly config: ConfigService,
+    private readonly metaCapi: MetaCapiService,
   ) {}
+
+  /**
+   * Send the Meta "Purchase" conversion via the Conversions API, once an order
+   * has actually been paid for — the moment it reaches
+   * `BRIEF_SUBMISSION_PENDING` with a `paidAt`.
+   *
+   * Server-side only: an order is marked paid by a Razorpay webhook, or placed
+   * outright when a coupon or store credit covers it, so there is no browser
+   * moment to fire from and nothing to deduplicate against. The event id is
+   * derived from the order instead, so webhook redelivery, a retried call or
+   * two paid paths meeting on the same order are all counted once by Meta.
+   *
+   * Re-reads the order rather than trusting the caller, so the status guard is
+   * checked against committed state. Best-effort and fire-and-forget: never
+   * blocks or fails a payment. No-op when the brand dataset is not configured.
+   */
+  private async firePurchaseMetaEvent(orderId: string): Promise<void> {
+    if (!this.metaCapi.enabledFor('brand')) return;
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          status: true,
+          paidAt: true,
+          creatorId: true,
+          currency: true,
+          expectedAmountPaise: true,
+          creditsAppliedPaise: true,
+          discountAmountPaise: true,
+          grossAmountPaise: true,
+          couponCodeSnapshot: true,
+          packageNameSnapshot: true,
+          isFreeOrder: true,
+          metaFbp: true,
+          metaFbc: true,
+          brand: {
+            select: {
+              brandName: true,
+              contactFullName: true,
+              contactEmail: true,
+              contactPhone: true,
+              user: { select: { email: true } },
+            },
+          },
+          agency: {
+            select: {
+              name: true,
+              contactFullName: true,
+              contactEmail: true,
+              contactPhone: true,
+            },
+          },
+        },
+      });
+      // The caller fires on the paid transition; this guard keeps the event
+      // honest if it is ever reached from somewhere the order isn't paid.
+      if (!order || !order.paidAt) return;
+      if (order.status !== 'BRIEF_SUBMISSION_PENDING') return;
+
+      const { agency, brand } = order;
+      const accountName = agency ? agency.name : brand?.brandName;
+      const contactFullName = agency
+        ? agency.contactFullName
+        : brand?.contactFullName;
+      const email = agency
+        ? agency.contactEmail
+        : brand?.contactEmail || brand?.user?.email;
+      const phone = agency ? agency.contactPhone : brand?.contactPhone;
+
+      await this.metaCapi.sendEvent({
+        audience: 'brand',
+        eventName: 'Purchase',
+        eventId: purchaseEventId(orderId),
+        // The purchase happened on the website even though a webhook reports it.
+        actionSource: 'website',
+        eventTime: Math.floor(order.paidAt.getTime() / 1000),
+        userData: {
+          email,
+          phone,
+          ...splitFullName(contactFullName),
+          // Captured in the buyer's browser at checkout: this event fires from
+          // a webhook, so they are the only ad-click signal it can carry.
+          fbp: order.metaFbp,
+          fbc: order.metaFbc,
+        },
+        customData: {
+          account_type: agency ? 'agency' : 'brand',
+          ...(accountName ? { brand_name: accountName } : {}),
+          content_ids: [order.creatorId],
+          content_type: 'product',
+          num_items: 1,
+          // What the brand pays for this order in total. Store credit is a
+          // payment method, not a discount, so it stays inside `value`; the
+          // breakdown rides along for reconciliation.
+          value: order.expectedAmountPaise / 100,
+          currency: order.currency || 'INR',
+          gross_value: order.grossAmountPaise / 100,
+          credits_applied: order.creditsAppliedPaise / 100,
+          discount: order.discountAmountPaise / 100,
+          free_order: order.isFreeOrder,
+          package_label: order.packageNameSnapshot,
+          ...(order.couponCodeSnapshot
+            ? { coupon_code: order.couponCodeSnapshot }
+            : {}),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send Purchase Meta event for order ${orderId}: ${(error as Error).message}`,
+      );
+    }
+  }
 
   private async resolveBrandActor(params: {
     actorUserId: string;
@@ -637,6 +770,7 @@ export class OrdersService {
       audience: 'brand_and_creator',
       meta: { zeroRupee: true },
     });
+    void this.firePurchaseMetaEvent(params.orderId);
     this.logger.log(
       `[checkout] zero-rupee order placed order=${params.orderId} (no Razorpay)`,
     );
@@ -917,6 +1051,13 @@ export class OrdersService {
      * predates it keeps the previous behaviour, matching only keyless drafts.
      */
     checkoutSessionKey?: string | null;
+    /**
+     * Meta attribution cookies from the buyer's browser, stored on the order so
+     * the server-side Purchase conversion can replay them (see
+     * {@link firePurchaseMetaEvent}).
+     */
+    metaFbp?: string | null;
+    metaFbc?: string | null;
   }): Promise<CheckoutSessionResult> {
     const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -924,6 +1065,9 @@ export class OrdersService {
     });
     const owner = this.ownerCreateData(actor);
     const checkoutSessionKey = params.checkoutSessionKey ?? null;
+    // Written on every order this checkout creates, and refreshed when it
+    // reuses a draft, so the newest click an order is attributed to wins.
+    const metaWriteData = metaAttributionWriteData(params);
 
     const {
       pkg,
@@ -1006,6 +1150,7 @@ export class OrdersService {
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: 0,
           checkoutSessionKey,
+          ...metaWriteData,
           ...zeroWriteData,
         },
         select: { id: true, currency: true },
@@ -1078,6 +1223,7 @@ export class OrdersService {
             expectedAmountPaise: netAmountPaise,
             creditsAppliedPaise: creditsToApply,
             checkoutSessionKey,
+            ...metaWriteData,
             ...couponWriteData,
           },
           select: { id: true, currency: true },
@@ -1122,6 +1268,7 @@ export class OrdersService {
           audience: 'brand_and_creator',
           meta: { creditPaid: true },
         });
+        void this.firePurchaseMetaEvent(created.id);
         this.logger.log(
           `[checkout] credit-paid order placed order=${created.id} credits=${creditsToApply} (no Razorpay)`,
         );
@@ -1287,6 +1434,7 @@ export class OrdersService {
           addOnsTotalSnapshot: addOnsTotalDecimal,
           expectedAmountPaise: netAmountPaise,
           creditsAppliedPaise: 0,
+          ...metaWriteData,
           ...couponWriteData,
           razorpayOrderId,
         },
@@ -1332,6 +1480,7 @@ export class OrdersService {
         addOnsTotalSnapshot: addOnsTotalDecimal,
         expectedAmountPaise: netAmountPaise,
         checkoutSessionKey,
+        ...metaWriteData,
         ...couponWriteData,
       },
       select: { id: true, currency: true },
@@ -1387,6 +1536,9 @@ export class OrdersService {
       addOnIds?: string[];
     }>;
     couponCode?: string | null;
+    /** See {@link createCheckout} — replayed on each child order's Purchase. */
+    metaFbp?: string | null;
+    metaFbc?: string | null;
   }): Promise<BulkCheckoutSessionResult> {
     const actor = await this.resolveBrandActor({
       actorUserId: params.actorUserId,
@@ -1511,6 +1663,9 @@ export class OrdersService {
         : (resolvedCoupon?.discountType ?? null),
       discountAmountPaise: p.childDiscount,
       grossAmountPaise: p.free ? 0 : p.childGross,
+      // One payment, many orders: every child carries the buyer's attribution,
+      // so each one's Purchase can be matched on its own.
+      ...metaAttributionWriteData(params),
     });
 
     // Zero-rupee cart: a full-value (e.g. 100%) coupon covers the whole cart, so
@@ -1567,6 +1722,7 @@ export class OrdersService {
           audience: 'brand_and_creator',
           meta: { zeroRupee: true },
         });
+        void this.firePurchaseMetaEvent(orderId);
       }
       this.logger.log(
         `bulk zero-rupee batch=${batchId} orders=${orderIds.length} grossPaise=${couponGrossTotalPaise} free=${consumedFree.size} (no Razorpay)`,
@@ -1804,6 +1960,8 @@ export class OrdersService {
       });
     }
 
+    void this.firePurchaseMetaEvent(order.id);
+
     this.logger.log(
       `[payment] captured order marked PAID order=${order.id} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
     );
@@ -1896,6 +2054,10 @@ export class OrdersService {
         );
       }
     });
+
+    for (const o of orders) {
+      void this.firePurchaseMetaEvent(o.id);
+    }
 
     this.logger.log(
       `[payment] captured bulk batch marked PAID batch=${batch.id} orders=${orders.length} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,

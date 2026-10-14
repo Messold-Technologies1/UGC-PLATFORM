@@ -75,35 +75,46 @@ export function GoLivePolicyAcceptance({
           </span>
         ) : null}
       </p>
-      <ul className="cw-policy-list">
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
         {GO_LIVE_POLICY_LINKS.map((policy) => {
           const checkboxId = `go-live-policy-${policy.id}`;
+          const checked = Boolean(value[policy.id]);
           return (
-            <li key={policy.id} className="cw-policy-item">
+            <li key={policy.id} className="m-0">
               <label
                 htmlFor={checkboxId}
-                className="cw-confirm"
-                data-checked={value[policy.id]}
-                data-disabled={disabled}
+                data-checked={checked}
+                data-disabled={disabled || undefined}
+                className={cn(
+                  "flex w-full cursor-pointer items-center gap-3.5 rounded-xl border-2 border-zinc-400 bg-white p-4 text-left transition-[background,border-color]",
+                  checked && "border-primary bg-primary/[0.06]",
+                  disabled && "cursor-not-allowed opacity-60",
+                )}
               >
                 <input
                   type="checkbox"
                   id={checkboxId}
-                  className="cw-confirm-box"
-                  checked={Boolean(value[policy.id])}
+                  className="absolute opacity-0 pointer-events-none"
+                  checked={checked}
                   disabled={disabled}
                   onChange={(e) =>
                     onChange({ ...value, [policy.id]: e.target.checked })
                   }
                 />
-                <span className="cw-confirm-tick" aria-hidden>
-                  <Check size={13} strokeWidth={3} />
+                <span
+                  className={cn(
+                    "grid size-5 shrink-0 place-items-center rounded-md border-2 border-zinc-400 bg-white",
+                    checked && "border-primary bg-primary text-white",
+                  )}
+                  aria-hidden
+                >
+                  {checked ? <Check size={13} strokeWidth={3} /> : null}
                 </span>
-                <span className="cw-confirm-copy">
-                  <span className="cw-confirm-title">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-bold text-foreground">
                     I agree to the {policy.label}
                   </span>
-                  <span className="cw-confirm-desc">
+                  <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">
                     I have read and agree to the{" "}
                     <Link
                       href={policy.href}

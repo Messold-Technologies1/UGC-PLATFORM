@@ -6,8 +6,12 @@ import { ArrowRight, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/auth-provider";
 import { useCreatorPayoutDetailsQuery } from "@/features/creators/hooks/use-creator-payout-details-query";
+import { useCreatorProfileMeQuery } from "@/features/creators/hooks/use-creator-profile-me-query";
 
-const PAYOUT_SETUP_HREF = "/creator/account#payment-details";
+/** The Payouts step of the profile wizard — listed creators only. */
+const PAYOUT_STEP_HREF = "/creator/settings/profile?step=payouts";
+/** The payout card on the account page — the only place before listing. */
+const PAYOUT_CARD_HREF = "/creator/account#payment-details";
 
 export function CreatorPayoutDetailsBanner() {
   const pathname = usePathname();
@@ -15,9 +19,15 @@ export function CreatorPayoutDetailsBanner() {
   const { data: payoutDetails, isLoading: isPayoutLoading } = useCreatorPayoutDetailsQuery({
     enabled: !!user,
   });
+  // The wizard only carries a Payouts step once the profile is listed; before
+  // that the account card is the one place to set them up. Shares its cache
+  // entry with the page's own profile query, so this costs no extra request.
+  const { data: profile } = useCreatorProfileMeQuery({ enabled: !!user });
+  const href = profile?.isListed ? PAYOUT_STEP_HREF : PAYOUT_CARD_HREF;
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (pathname === "/creator/account") {
+    // Already on the account page: scroll to the card instead of re-navigating.
+    if (href === PAYOUT_CARD_HREF && pathname === "/creator/account") {
       e.preventDefault();
       document.getElementById("payment-details")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -46,7 +56,7 @@ export function CreatorPayoutDetailsBanner() {
           </div>
         </div>
         <Button asChild size="sm" className="w-full shrink-0 sm:w-auto bg-background text-foreground hover:bg-background/90 h-9">
-          <Link href={PAYOUT_SETUP_HREF} onClick={handleScroll} prefetch className="gap-2">
+          <Link href={href} onClick={handleScroll} prefetch className="gap-2">
             Configure Payouts
             <ArrowRight className="size-3.5" aria-hidden />
           </Link>

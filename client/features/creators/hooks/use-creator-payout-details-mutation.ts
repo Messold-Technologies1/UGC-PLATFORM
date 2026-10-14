@@ -12,8 +12,11 @@ export function useCreatorPayoutDetailsMutation(options?: {
   return useMutation({
     mutationFn: (payload: UpsertCreatorPayoutDetailsApi) =>
       updateCreatorPayoutDetailsMe(payload),
-    onSuccess: () => {
+    onSuccess: (masked) => {
       toast.success("Payout details updated successfully.");
+      // The PATCH returns the fresh masked summary, so seed the cache with it
+      // before refetching — the UI never shows the pre-save values.
+      queryClient.setQueryData(creatorPayoutDetailsQueryKey, masked);
       queryClient.invalidateQueries({
         queryKey: creatorPayoutDetailsQueryKey,
       });

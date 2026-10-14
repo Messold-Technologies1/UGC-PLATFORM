@@ -12,6 +12,22 @@ import { genderOptions } from "@/features/creators/hooks/creator-profile-form-ut
 import type { CreatorGender } from "@/features/creators/api/create-creator-profile";
 import { PROFILE_IMAGE_ACCEPT } from "@/features/creators/hooks/use-creator-profile-image";
 import { PhoneVerificationField } from "@/features/auth/components/phone-verification-field";
+import { cn } from "@/lib/utils";
+
+import {
+  CwCard,
+  CwFacet,
+  CwFacetHelp,
+  CwFacetLabel,
+  CwField,
+  CwFieldLabel,
+  CwFieldWarn,
+  CwGrid2,
+  CwHr,
+  CwInput,
+  CwReq,
+  CwSelectField,
+} from "../wizard-ui";
 
 export type AboutYouStepProps = {
   disabled: boolean;
@@ -23,7 +39,10 @@ export type AboutYouStepProps = {
   adminMode?: boolean;
   phone?: string;
   onPhoneChange?: (value: string) => void;
-  /** Whether the creator's phone is already OTP-verified. */
+  /**
+   * Whether the creator's phone is fully OTP-verified
+   * (`phoneVerified` and `phoneOtpLastStatus === 'approved'`).
+   */
   phoneVerified?: boolean;
   /** Fires when the phone becomes verified via the OTP widget. */
   onPhoneVerifiedChange?: (verified: boolean) => void;
@@ -51,6 +70,7 @@ export type AboutYouStepProps = {
     contactEmail?: string;
     dateOfBirth?: string;
     gender?: string;
+    phone?: string;
     instagram?: string;
   };
 };
@@ -97,13 +117,20 @@ export function AboutYouStep(props: AboutYouStepProps) {
   }
 
   return (
-    <div className="cw-card">
+    <CwCard>
       {/* Photo row */}
-      <div className="cw-photo-row">
-        <div className="cw-photo-wrap">
+      <div className="flex items-center gap-5">
+        <div className="relative shrink-0">
           <button
             type="button"
-            className="cw-photo-circle"
+            className={cn(
+              "relative grid size-22 place-items-center overflow-hidden rounded-full border-2 border-dashed p-0 text-primary transition-[transform,box-shadow] duration-150",
+              "border-primary/20 bg-primary/5",
+              "hover:enabled:-translate-y-px hover:enabled:shadow-[0_8px_20px_-10px_color-mix(in_oklab,var(--primary)_50%,transparent)]",
+              "disabled:cursor-not-allowed disabled:opacity-75",
+              hasPhoto && "cursor-pointer border-solid border-border",
+              !hasPhoto && "cursor-pointer",
+            )}
             data-empty={!hasPhoto}
             disabled={disabled || uploadingProfileImage}
             onClick={handlePhotoTrigger}
@@ -128,11 +155,11 @@ export function AboutYouStep(props: AboutYouStepProps) {
             {photoMenuOpen && hasPhoto ? (
               <>
                 <div
-                  className="cw-photo-backdrop"
+                  className="fixed inset-0 z-40"
                   onClick={() => setPhotoMenuOpen(false)}
                 />
                 <motion.div
-                  className="cw-photo-menu"
+                  className="absolute top-[calc(100%+10px)] left-0 z-41 flex min-w-43 flex-col gap-0.5 rounded-[14px] border border-border bg-card p-1.5 shadow-[0_18px_40px_-18px_rgb(24_19_19/0.4)]"
                   initial={{ opacity: 0, y: -6, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.96 }}
@@ -140,6 +167,7 @@ export function AboutYouStep(props: AboutYouStepProps) {
                 >
                   <button
                     type="button"
+                    className="flex w-full cursor-pointer items-center gap-2.25 rounded-[9px] border-0 bg-transparent px-2.75 py-2.25 text-left text-[13px] font-semibold text-foreground transition-colors hover:bg-muted [&_svg]:text-muted-foreground"
                     onClick={() => {
                       setPhotoMenuOpen(false);
                       setViewerOpen(true);
@@ -149,6 +177,7 @@ export function AboutYouStep(props: AboutYouStepProps) {
                   </button>
                   <button
                     type="button"
+                    className="flex w-full cursor-pointer items-center gap-2.25 rounded-[9px] border-0 bg-transparent px-2.75 py-2.25 text-left text-[13px] font-semibold text-foreground transition-colors hover:bg-muted [&_svg]:text-muted-foreground"
                     onClick={() => {
                       setPhotoMenuOpen(false);
                       openFilePicker();
@@ -165,22 +194,26 @@ export function AboutYouStep(props: AboutYouStepProps) {
             type="file"
             ref={profileImageInputRef}
             accept={PROFILE_IMAGE_ACCEPT}
-            style={{ display: "none" }}
+            className="hidden"
             onChange={(e) => onSelectProfileImage(e.target.files?.[0] ?? null)}
           />
         </div>
 
-        <div className="cw-photo-info">
-          <span className="cw-photo-title">
+        <div className="flex flex-col gap-2">
+          <span className="text-base font-semibold tracking-[-0.01em] text-foreground">
             Choose your best creator photo{" "}
-            <span className="cw-req" aria-label="required">*</span>
+            <CwReq />
           </span>
-          <span className="cw-photo-hint">
+          <span className="text-[13px] text-muted-foreground">
             Smile, use good lighting and avoid group photos.
           </span>
           <button
             type="button"
-            className="cw-photo-upload"
+            className={cn(
+              "mt-0.5 inline-flex h-8 cursor-pointer items-center gap-1.5 self-start rounded-[10px] border border-primary/20 bg-background px-3 text-[13.5px] font-medium text-primary transition-colors",
+              "hover:enabled:bg-primary/5",
+              "disabled:cursor-not-allowed disabled:opacity-60",
+            )}
             disabled={disabled || uploadingProfileImage}
             onClick={handlePhotoTrigger}
           >
@@ -194,20 +227,22 @@ export function AboutYouStep(props: AboutYouStepProps) {
         </div>
       </div>
       {errors.photo ? (
-        <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.photo}</p>
+        <CwFieldWarn>
+          <AlertTriangle size={13} aria-hidden />
+          {errors.photo}
+        </CwFieldWarn>
       ) : null}
 
-      <div className="cw-hr" />
+      <CwHr />
 
       {/* Identity grid */}
-      <div className="cw-grid2">
-        <div className="cw-col-2 cw-field">
-          <label htmlFor="cw-fullName" className="cw-fieldlabel">
-            Full Name <span className="cw-req">*</span>
-          </label>
-          <input
+      <CwGrid2>
+        <CwField span2>
+          <CwFieldLabel htmlFor="cw-fullName">
+            Full Name <CwReq />
+          </CwFieldLabel>
+          <CwInput
             id="cw-fullName"
-            className="cw-input"
             value={displayName}
             disabled={disabled}
             placeholder="Your name as you'd like brands to see it"
@@ -215,18 +250,20 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onChange={(e) => onDisplayNameChange(e.target.value)}
           />
           {errors.displayName ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.displayName}</p>
+            <CwFieldWarn>
+              <AlertTriangle size={13} aria-hidden />
+              {errors.displayName}
+            </CwFieldWarn>
           ) : null}
-        </div>
+        </CwField>
 
-        <div className="cw-col-2 cw-field">
-          <label htmlFor="cw-email" className="cw-fieldlabel">
-            Contact email <span className="cw-req">*</span>
-          </label>
-          <input
+        <CwField span2>
+          <CwFieldLabel htmlFor="cw-email">
+            Contact email <CwReq />
+          </CwFieldLabel>
+          <CwInput
             id="cw-email"
             type="email"
-            className="cw-input"
             value={contactEmail}
             disabled={disabled}
             placeholder="Where brands and we can reach you"
@@ -234,18 +271,21 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onChange={(e) => onContactEmailChange(e.target.value)}
           />
           {errors.contactEmail ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.contactEmail}</p>
+            <CwFieldWarn>
+              <AlertTriangle size={13} aria-hidden />
+              {errors.contactEmail}
+            </CwFieldWarn>
           ) : null}
-        </div>
+        </CwField>
 
-        <div className="cw-field">
-          <label htmlFor="cw-dob" className="cw-fieldlabel">
-            Date of Birth <span className="cw-req">*</span>
-          </label>
-          <input
+        <CwField>
+          <CwFieldLabel htmlFor="cw-dob">
+            Date of Birth <CwReq />
+          </CwFieldLabel>
+          <CwInput
             id="cw-dob"
             type="date"
-            className="cw-input cw-input-date"
+            className="text-foreground"
             value={dateOfBirth}
             max={today}
             disabled={disabled}
@@ -261,17 +301,21 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onChange={(e) => onDateOfBirthChange(e.target.value)}
           />
           {errors.dateOfBirth ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.dateOfBirth}</p>
+            <CwFieldWarn>
+              <AlertTriangle size={13} aria-hidden />
+              {errors.dateOfBirth}
+            </CwFieldWarn>
           ) : null}
-        </div>
+        </CwField>
 
-        <div className="cw-field cw-select-field">
-          <label className="cw-fieldlabel">
-            Gender <span className="cw-req">*</span>
-          </label>
+        <CwSelectField>
+          <CwFieldLabel>
+            Gender <CwReq />
+          </CwFieldLabel>
           <PeSelectField
             id="cw-gender"
             label="Gender"
+            hideLabel
             value={gender}
             placeholder="Select"
             disabled={disabled}
@@ -280,28 +324,34 @@ export function AboutYouStep(props: AboutYouStepProps) {
             onChange={(value) => onGenderChange(value as CreatorGender | "")}
           />
           {errors.gender ? (
-            <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.gender}</p>
+            <CwFieldWarn>
+              <AlertTriangle size={13} aria-hidden />
+              {errors.gender}
+            </CwFieldWarn>
           ) : null}
-        </div>
+        </CwSelectField>
 
-        <div className="cw-col-2 cw-field">
-          <label htmlFor="cw-phone" className="cw-fieldlabel">
-            Phone number{!adminMode ? <span className="cw-req"> *</span> : null}
-          </label>
+        <CwField span2>
+          <CwFieldLabel htmlFor="cw-phone">
+            Phone number{!adminMode ? <> <CwReq /></> : null}
+          </CwFieldLabel>
           {adminMode ? (
-            <div className="cw-phone">
-              <span className="cw-phone-prefix">+91</span>
-              <input
+            <div className="flex items-stretch">
+              <span className="inline-flex items-center rounded-l-[10px] border border-r-0 border-border bg-muted px-3 text-sm font-semibold text-foreground">
+                +
+              </span>
+              <CwInput
                 id="cw-phone"
-                className="cw-input cw-phone-input"
-                value={phone ?? ""}
+                className="rounded-l-none rounded-r-[10px]"
+                value={(phone ?? "").replace(/^\+/, "")}
                 disabled={disabled}
-                inputMode="numeric"
+                inputMode="tel"
                 autoComplete="tel"
-                placeholder="Creator's phone number"
-                onChange={(e) =>
-                  onPhoneChange?.(e.target.value.replace(/\D/g, ""))
-                }
+                placeholder="919876543210"
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "");
+                  onPhoneChange?.(digits ? `+${digits}` : "");
+                }}
               />
             </div>
           ) : (
@@ -316,54 +366,61 @@ export function AboutYouStep(props: AboutYouStepProps) {
               <PhoneVerificationField
                 idPrefix="cw"
                 disabled={disabled}
-                initialPhone={phone ? `+91${phone}` : undefined}
+                initialPhone={phone || undefined}
                 initialVerified={phoneVerified}
                 onVerifiedChange={(v) => onPhoneVerifiedChange?.(v)}
-                onVerifiedPhone={(p) =>
-                  onPhoneChange?.(p.replace(/^\+91/, ""))
-                }
+                onVerifiedPhone={(p) => onPhoneChange?.(p)}
               />
-              <span className="cw-facet-help">
+              <CwFacetHelp>
                 {phoneVerified
                   ? "Your mobile number is verified. Edit it to change — you'll verify the new number."
                   : "Verify your mobile number to continue."}
-              </span>
+              </CwFacetHelp>
             </>
           )}
-        </div>
-      </div>
+        </CwField>
+      </CwGrid2>
 
-      <div className="cw-hr" />
+      <CwHr />
 
       {/* Connected accounts */}
-      <div className="cw-facet">
-        <div className="cw-facet-label">
-          <span>
-            <Instagram size={15} aria-hidden style={{ marginRight: 6 }} />
+      <CwFacet>
+        <CwFacetLabel>
+          <span className="inline-flex items-center">
+            <Instagram size={15} aria-hidden className="mr-1.5" />
             Connect your Accounts
-            <span className="cw-req"> *</span>
+            <CwReq className="ml-1" />
           </span>
-        </div>
-        <span className="cw-facet-help">
+        </CwFacetLabel>
+        <CwFacetHelp>
           Required to go live — brands use your connected Instagram to verify
           your reach and audience.
-        </span>
+        </CwFacetHelp>
         <div>
           <CreatorSocialAccounts
             profileId={profileId}
             adminMode={adminMode}
           />
         </div>
-        {errors.instagram ? (
-          <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.instagram}</p>
+        {errors.phone ? (
+          <CwFieldWarn>
+            <AlertTriangle size={13} aria-hidden />
+            {errors.phone}
+          </CwFieldWarn>
         ) : null}
-      </div>
+        {errors.instagram ? (
+          <CwFieldWarn>
+            <AlertTriangle size={13} aria-hidden />
+            {errors.instagram}
+          </CwFieldWarn>
+        ) : null}
+      </CwFacet>
 
       {/* Full-size photo viewer */}
       <AnimatePresence>
         {viewerOpen && hasPhoto ? (
           <motion.div
-            className="cw-viewer"
+            className="fixed inset-0 z-90 grid place-items-center bg-[rgba(15,12,12,0.82)] p-6 backdrop-blur-xs"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -372,14 +429,14 @@ export function AboutYouStep(props: AboutYouStepProps) {
           >
             <button
               type="button"
-              className="cw-viewer-close"
+              className="absolute top-5 right-5 grid size-10.5 cursor-pointer place-items-center rounded-full border border-white/25 bg-white/12 text-white transition-colors hover:bg-white/22"
               onClick={() => setViewerOpen(false)}
               aria-label="Close photo"
             >
               <X size={20} />
             </button>
             <motion.div
-              className="cw-viewer-frame"
+              className="relative aspect-square w-[min(480px,90vw)] overflow-hidden rounded-[20px] bg-black shadow-[0_30px_80px_-30px_rgb(0_0_0/0.7)]"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.92, opacity: 0 }}
@@ -398,6 +455,6 @@ export function AboutYouStep(props: AboutYouStepProps) {
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </div>
+    </CwCard>
   );
 }

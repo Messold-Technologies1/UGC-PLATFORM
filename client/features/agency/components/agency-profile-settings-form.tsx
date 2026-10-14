@@ -479,7 +479,10 @@ export function AgencyProfileSettingsForm({
                     disabled={pending}
                     invalid={Boolean(form.formState.errors.contactPhone)}
                     initialPhone={profile.contactPhone ?? undefined}
-                    initialVerified={Boolean(profile.contactPhone?.trim())}
+                    initialVerified={
+                      Boolean(profile.contactPhoneVerified) &&
+                      profile.phoneOtpLastStatus === "approved"
+                    }
                     onVerifiedChange={setPhoneVerified}
                     onVerified={() => void refreshUser()}
                     onVerifiedPhone={(phone) =>

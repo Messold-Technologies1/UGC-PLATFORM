@@ -25,6 +25,7 @@ import { RequiredWorkspace } from '../auth/decorators/required-workspace.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { brandActorParams } from '../brand-access/brand-actor-params.util';
+import type { MetaBrowserAttribution } from '../meta-capi/meta-capi.service';
 import { WishlistsService } from './wishlists.service';
 import { CreateWishlistDto } from './dto/create-wishlist.dto';
 import { UpdateWishlistDto } from './dto/update-wishlist.dto';
@@ -36,6 +37,24 @@ import { ImportSharedWishlistDto } from './dto/import-shared-wishlist.dto';
 import { ImportSharedWishlistResponseDto } from './dto/import-shared-wishlist-response.dto';
 import { CreateWishlistResponseDto } from './dto/create-wishlist-response.dto';
 import { ListWishlistsResponseDto } from './dto/list-wishlists-response.dto';
+
+/**
+ * Meta attribution for the server-side AddToWishlist copy: the `_fbp` / `_fbc`
+ * cookies the browser posts with the save, plus what the request itself
+ * carries. Mirrors how brand signup passes them (see brand-profile.controller).
+ */
+function metaAttribution(
+  dto: { metaFbp?: string; metaFbc?: string },
+  req: Request,
+): MetaBrowserAttribution {
+  return {
+    fbp: dto.metaFbp,
+    fbc: dto.metaFbc,
+    ipAddress: req.ip,
+    userAgent: req.headers?.['user-agent'],
+    sourceUrl: req.headers?.referer,
+  };
+}
 
 @ApiTags('Wishlists')
 @ApiBearerAuth()
@@ -65,7 +84,11 @@ export class WishlistsController {
     @Body() dto: CreateWishlistDto,
     @Req() req: Request & { user: { id: string } },
   ): Promise<CreateWishlistResponseDto> {
-    return this.wishlistsService.createWishlist({ ...brandActorParams(req), dto });
+    return this.wishlistsService.createWishlist({
+      ...brandActorParams(req),
+      dto,
+      meta: metaAttribution(dto, req),
+    });
   }
 
   // IMPORTANT: public route must be before /:id to avoid route conflict
@@ -160,6 +183,7 @@ export class WishlistsController {
       wishlistId: id,
       creatorId: dto.creatorId,
       addOnIds: dto.addOnIds,
+      meta: metaAttribution(dto, req),
     });
   }
 

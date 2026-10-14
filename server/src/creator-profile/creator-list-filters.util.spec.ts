@@ -29,6 +29,100 @@ describe('creator-list-filters.util', () => {
       );
     });
 
+    it('matches city names by substring when the term is neither country nor state', () => {
+      expect(buildListCreatorsWhere({ city: 'Mumbai' })).toEqual({
+        AND: [
+          { isListed: true },
+          { city: { contains: 'Mumbai', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('does not read a half-typed term as a state', () => {
+      // "Pun" resolves to no country and no state, so it stays a city
+      // substring and finds Pune instead of all of Punjab.
+      expect(buildListCreatorsWhere({ city: 'Pun' })).toEqual({
+        AND: [
+          { isListed: true },
+          { city: { contains: 'Pun', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('filters the whole state when the term resolved to a state', () => {
+      // "Delhi" is both a state and a city; the state wins, so a brand gets
+      // everyone in Delhi rather than only the creators stored as that city.
+      expect(
+        buildListCreatorsWhere(
+          { city: 'Delhi' },
+          { locationStateName: 'Delhi' },
+        ),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { stateName: { equals: 'Delhi', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('uses the resolved state name, not what was typed', () => {
+      expect(
+        buildListCreatorsWhere(
+          { city: 'orissa' },
+          { locationStateName: 'Odisha' },
+        ),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { stateName: { equals: 'Odisha', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('filters the whole country when the term resolved to a country', () => {
+      expect(
+        buildListCreatorsWhere(
+          { city: 'India' },
+          { locationCountryName: 'India' },
+        ),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { countryName: { equals: 'India', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('prefers the country when a term names both a country and a state', () => {
+      // Widest wins, so a resolved country is used even if a state of the
+      // same name also exists.
+      expect(
+        buildListCreatorsWhere(
+          { city: 'Singapore' },
+          { locationCountryName: 'Singapore', locationStateName: 'Singapore' },
+        ),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { countryName: { equals: 'Singapore', mode: 'insensitive' } },
+        ],
+      });
+    });
+
+    it('falls back to the city match when the resolved names are blank', () => {
+      expect(
+        buildListCreatorsWhere(
+          { city: 'Pune' },
+          { locationCountryName: '  ', locationStateName: '  ' },
+        ),
+      ).toEqual({
+        AND: [
+          { isListed: true },
+          { city: { contains: 'Pune', mode: 'insensitive' } },
+        ],
+      });
+    });
+
     it('matches any selected category across primary or secondary niche (no rank restriction)', () => {
       const q: ListCreatorsQueryDto = {
         contentCategory: ['fashion', 'beauty_skincare'],

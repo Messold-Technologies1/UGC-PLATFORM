@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,14 @@ import {
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
+import {
+  buildE164Phone,
+  findPhoneCountryByIso,
+  getPhoneCountryOptions,
+  maxNationalDigits,
+  PHONE_E164_REGEX,
+} from "@/features/auth/lib/phone-country-codes";
+import { PhoneCountryCodeSelect } from "@/features/auth/components/phone-country-code-select";
 import { GoogleMark } from "./google-mark";
 import { FieldWarn } from "@/features/auth/components/field-warn";
 import {
@@ -31,15 +39,11 @@ import {
   AuthDivider,
 } from "./unified-auth-controls";
 
-// Five minutes. Long enough that a slow WhatsApp delivery has clearly failed
-// before the user burns a rung of the channel ladder on a resend.
-const PHONE_OTP_RESEND_MS = 5 * 60_000;
+/** Client-side resend lock; must stay ≤ server `RESEND_COOLDOWN_MS` (30s). */
+const PHONE_OTP_RESEND_MS = 30_000;
 
-/** `m:ss`, so a 5-minute wait reads sensibly on the button. */
 function formatResendCountdown(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${totalSeconds}s`;
 }
 
 const signupSchema = z.object({
@@ -48,7 +52,7 @@ const signupSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   phone: z
     .string()
-    .regex(/^\+91[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
+    .regex(PHONE_E164_REGEX, "Enter a valid phone number with country code"),
   // Only demanded while the OTP step is switched on; with it off the field is
   // never rendered, so a required schema would deadlock the form.
   phoneOtpCode: env.phoneOtpEnabled
@@ -83,6 +87,13 @@ export function UnifiedSignupForm() {
     ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/login";
 
+  const phoneCountries = useMemo(() => getPhoneCountryOptions(), []);
+  const [countryIso, setCountryIso] = useState("IN");
+  const [nationalDigits, setNationalDigits] = useState("");
+  const selectedCountry =
+    findPhoneCountryByIso(countryIso, phoneCountries) ?? phoneCountries[0];
+  const dialCode = selectedCountry?.dialCode ?? "91";
+
   const form = useForm<SignupData>({
     resolver: zodResolver(signupSchema),
     mode: "onChange",
@@ -95,10 +106,7 @@ export function UnifiedSignupForm() {
     },
   });
   const phoneValue = form.watch("phone");
-  const phoneDigits = phoneValue?.startsWith("+91")
-    ? phoneValue.slice(3)
-    : phoneValue ?? "";
-  const phoneComplete = /^\+91[6-9]\d{9}$/.test(phoneValue ?? "");
+  const phoneComplete = PHONE_E164_REGEX.test(phoneValue ?? "");
 
   /**
    * With the OTP step switched off the code box never appears and no code is
@@ -116,6 +124,22 @@ export function UnifiedSignupForm() {
   const resendSeconds = otpResendAt
     ? Math.max(0, Math.ceil((otpResendAt - Date.now()) / 1000))
     : 0;
+
+  const syncPhoneField = useCallback(
+    (nextDial: string, nextNational: string) => {
+      const capped = nextNational
+        .replace(/\D/g, "")
+        .slice(0, maxNationalDigits(nextDial));
+      setNationalDigits(capped);
+      form.setValue("phone", buildE164Phone(nextDial, capped), {
+        shouldValidate: true,
+      });
+      form.clearErrors("phoneOtpCode");
+      setOtpSent(false);
+      setOtpResendAt(null);
+    },
+    [form],
+  );
 
   useEffect(() => {
     if (!otpResendAt) return;
@@ -151,7 +175,7 @@ export function UnifiedSignupForm() {
   const handleSendOtp = useCallback(() => {
     if (!phoneComplete) {
       form.setError("phone", {
-        message: "Enter a valid 10-digit mobile number",
+        message: "Enter a valid phone number with country code",
       });
       return;
     }
@@ -307,29 +331,32 @@ export function UnifiedSignupForm() {
                   : "border-[#e7e1e4]",
               )}
             >
-              <span className="flex items-center bg-[#faf4f6] px-2.5 text-[13px] font-semibold text-[#8B8489]">
-                +91
-              </span>
+              <PhoneCountryCodeSelect
+                value={countryIso}
+                disabled={pending}
+                triggerClassName="h-[42px] border-r border-[#e7e1e4]"
+                onValueChange={(iso) => {
+                  const next =
+                    findPhoneCountryByIso(iso, phoneCountries) ??
+                    selectedCountry;
+                  setCountryIso(iso);
+                  syncPhoneField(next?.dialCode ?? dialCode, nationalDigits);
+                }}
+              />
               <input
                 id="signup-phone"
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel-national"
-                placeholder="9876543210"
+                placeholder="Phone number"
                 disabled={pending}
                 aria-invalid={
                   Boolean(form.formState.errors.phone) || needsOtpWarning
                 }
                 className="h-[42px] flex-1 bg-transparent px-3 text-[14px] text-[#181313] outline-none placeholder:text-[#B0AAAE]"
-                value={phoneDigits}
+                value={nationalDigits}
                 onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                  form.setValue("phone", digits ? `+91${digits}` : "", {
-                    shouldValidate: true,
-                  });
-                  form.clearErrors("phoneOtpCode");
-                  setOtpSent(false);
-                  setOtpResendAt(null);
+                  syncPhoneField(dialCode, e.target.value);
                 }}
               />
             </div>
@@ -339,8 +366,12 @@ export function UnifiedSignupForm() {
               onClick={handleSendOtp}
               disabled={pending || !phoneComplete || resendSeconds > 0}
               className={cn(
-                "h-[42px] shrink-0 rounded-[11px] border-[1.5px] bg-white px-3.5 text-[13px] font-semibold text-[#181313] hover:bg-[#faf4f6] disabled:opacity-60",
-                needsOtpWarning ? "border-amber-500" : "border-[#e7e1e4]",
+                "h-[42px] min-w-[5.75rem] shrink-0 rounded-[11px] px-3.5 text-[13px] font-bold disabled:opacity-70",
+                needsOtpWarning && resendSeconds === 0
+                  ? "border-[1.5px] border-amber-500 bg-deep-pink text-deep-pink-foreground"
+                  : resendSeconds > 0
+                    ? "border-[1.5px] border-[#e7e1e4] bg-[#faf4f6] text-[#8B8489]"
+                    : "border-[1.5px] border-deep-pink bg-deep-pink text-deep-pink-foreground hover:bg-deep-pink/90",
               )}
             >
               {sendOtpMutation.isPending
@@ -392,7 +423,7 @@ export function UnifiedSignupForm() {
               {otpChannel === "whatsapp"
                 ? "Code sent on WhatsApp"
                 : "Code sent by SMS"}{" "}
-              to +91 {phoneDigits}
+              to {phoneValue}
             </p>
             <p className="mt-1 text-[11.5px] text-[#a89ea3]">
               It’s verified when you create your account.

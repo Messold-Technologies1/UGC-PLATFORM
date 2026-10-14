@@ -6,7 +6,10 @@ import {
   GoLivePolicyAcceptance,
   type GoLivePolicyAcceptanceState,
 } from "@/features/creators/components/creator-profile-update/go-live-policy-acceptance";
+import { cn } from "@/lib/utils";
+
 import type { WizardStepId } from "../wizard-config";
+import { CwCard, CwFieldWarn } from "../wizard-ui";
 
 export type ReviewRow = {
   stepId: WizardStepId;
@@ -42,14 +45,35 @@ export function ReviewStep({
   missingItems = [],
 }: ReviewStepProps) {
   return (
-    <div className="cw-card">
-      <div className="cw-review-list">
+    <CwCard>
+      <div className="flex flex-col gap-3">
         {rows.map((row) => (
-          <div key={row.stepId} className="cw-review-row" data-status={row.status}>
-            <div className="cw-review-main">
-              <div className="cw-review-head">
-                <span className="cw-review-title">{row.title}</span>
-                <span className="cw-review-badge" data-status={row.status}>
+          <div
+            key={row.stepId}
+            className={cn(
+              "flex items-start justify-between gap-4 rounded-xl border border-border p-4",
+              row.status === "improve" &&
+                "border-[color-mix(in_oklab,#f59e0b_40%,var(--border))] bg-[color-mix(in_oklab,#f59e0b_5%,transparent)]",
+            )}
+            data-status={row.status}
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="text-[14.5px] font-bold text-foreground">
+                  {row.title}
+                </span>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[11px] font-bold",
+                    row.status === "complete" &&
+                      "bg-[color-mix(in_oklab,#16a34a_12%,transparent)] text-[#15803d]",
+                    row.status === "improve" &&
+                      "bg-[color-mix(in_oklab,#f59e0b_15%,transparent)] text-[#b45309]",
+                    row.status === "incomplete" &&
+                      "bg-muted text-muted-foreground",
+                  )}
+                  data-status={row.status}
+                >
                   {row.status === "complete" ? (
                     <Check size={12} strokeWidth={3} aria-hidden />
                   ) : (
@@ -59,22 +83,26 @@ export function ReviewStep({
                 </span>
               </div>
               {row.details ? (
-                <dl className="cw-review-details">
+                <dl className="mt-3 flex flex-col gap-1.5">
                   {row.details.map((d) => (
-                    <div key={d.label}>
-                      <dt>{d.label}</dt>
-                      <dd>{d.value}</dd>
+                    <div key={d.label} className="flex gap-2.5 text-[13px]">
+                      <dt className="m-0 w-[92px] shrink-0 text-muted-foreground">
+                        {d.label}
+                      </dt>
+                      <dd className="m-0 font-medium text-foreground">{d.value}</dd>
                     </div>
                   ))}
                 </dl>
               ) : null}
               {row.summary ? (
-                <p className="cw-review-summary">{row.summary}</p>
+                <p className="mt-2.5 text-[13px] leading-normal text-muted-foreground">
+                  {row.summary}
+                </p>
               ) : null}
             </div>
             <button
               type="button"
-              className="cw-review-edit"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted"
               onClick={() => onEditStep(row.stepId)}
             >
               <Pencil size={13} aria-hidden />
@@ -92,14 +120,14 @@ export function ReviewStep({
       />
 
       {missingItems.length > 0 ? (
-        <div className="cw-field-warn">
-          <TriangleAlert size={14} aria-hidden style={{ flexShrink: 0, marginTop: 1 }} />
+        <CwFieldWarn>
+          <TriangleAlert size={14} aria-hidden className="mt-px shrink-0" />
           <div>
             <strong>Still needed to go live:</strong>{" "}
             {missingItems.join(", ")}.
           </div>
-        </div>
+        </CwFieldWarn>
       ) : null}
-    </div>
+    </CwCard>
   );
 }

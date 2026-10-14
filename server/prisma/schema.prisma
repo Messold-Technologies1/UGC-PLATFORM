@@ -177,7 +177,6 @@ enum CreatorFacetDimension {
 enum CreatorGender {
   FEMALE
   MALE
-  NON_BINARY
   PREFER_NOT_TO_SAY
   OTHER
 }
@@ -741,6 +740,17 @@ model Order {
   /// promo: brand paid ₹0, no Razorpay, and the creator is paid ₹0. Shown as a
   /// "Free order" line in the admin pricing ledger.
   isFreeOrder          Boolean       @default(false)
+
+  /// Meta attribution cookies (_fbp / _fbc) read in the buyer's own browser
+  /// when this checkout was created. The Purchase conversion fires server-side
+  /// — from a Razorpay webhook, or when a coupon or store credit places the
+  /// order outright — so it has no browser request of its own to read them
+  /// from. Replaying them here is what attributes the sale to the ad the buyer
+  /// originally clicked. Refreshed when a draft order is reused for a later
+  /// checkout attempt. Both optional: tracking is best-effort, and an
+  /// ad-blocked browser simply has no cookies to send.
+  metaFbp              String?
+  metaFbc              String?
 
   /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
   lastChatActivityAt          DateTime              @default(now())

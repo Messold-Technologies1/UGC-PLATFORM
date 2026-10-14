@@ -21,6 +21,7 @@ import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { countByAssetState } from "@/features/creator-portfolio/lib/asset-state";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
+import { cn } from "@/lib/utils";
 
 export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -31,6 +32,9 @@ export type CreatorProfileUpdateFormProps = {
   onSuccess: () => void | Promise<void>;
   onPendingChange?: (pending: boolean) => void;
 };
+
+const editBtnClass =
+  "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border-0 bg-white px-3.5 text-[12.5px] font-bold text-[#111]";
 
 /**
  * Status strip above the grid, while any Instagram import is still being copied
@@ -66,7 +70,7 @@ export function PortfolioProcessingBanner({
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-3">
           <Loader2
             size={15}
-            className="pe-pf-spin mt-px shrink-0 text-amber-600"
+            className="mt-px size-[15px] shrink-0 animate-spin text-amber-600 motion-reduce:animate-none"
             aria-hidden
           />
           <div className="min-w-0 text-[12.5px] leading-relaxed">
@@ -105,12 +109,16 @@ export function PortfolioProcessingBanner({
           {onRetryFailed ? (
             <button
               type="button"
-              className="pe-pf-edit-btn shrink-0"
+              className={cn(editBtnClass, "shrink-0")}
               onClick={() => onRetryFailed(failedIds)}
               disabled={retrying}
             >
               {retrying ? (
-                <Loader2 size={13} className="pe-pf-spin" aria-hidden />
+                <Loader2
+                  size={13}
+                  className="animate-spin motion-reduce:animate-none"
+                  aria-hidden
+                />
               ) : (
                 <RefreshCw size={13} aria-hidden />
               )}
@@ -145,10 +153,13 @@ export function PortfolioGrid({
   ];
 
   return (
-    <div className="pe-pf-grid">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3.5">
       {videos.map((video, idx) => (
-        <div className="pe-pf-card" key={video.id}>
-          <div className="pe-pf-reel">
+        <div
+          className="group overflow-hidden rounded-[14px] border-[1.4px] border-border bg-card transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-[3px] hover:shadow-[0_6px_18px_-8px_rgb(24_19_19/0.12)]"
+          key={video.id}
+        >
+          <div className="relative grid aspect-[9/16] place-items-center">
             {video.assetState === "PROCESSING" ||
             video.assetState === "FAILED" ? null : video.videoUrl ? (
               <video
@@ -156,57 +167,53 @@ export function PortfolioGrid({
                 poster={video.thumbnailUrl ?? undefined}
                 controls
                 preload="metadata"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  position: "absolute",
-                  inset: 0,
-                }}
+                className="absolute inset-0 size-full object-cover"
               />
             ) : video.thumbnailUrl ? (
               <img
                 src={video.thumbnailUrl}
                 alt=""
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  position: "absolute",
-                  inset: 0,
-                }}
+                className="absolute inset-0 size-full object-cover"
               />
             ) : (
               <div
+                className="absolute inset-0 grid place-items-center"
                 style={{
-                  position: "absolute",
-                  inset: 0,
                   background: BG_GRADIENTS[idx % BG_GRADIENTS.length],
-                  display: "grid",
-                  placeItems: "center",
                 }}
               >
-                <span className="pe-pf-mono">V</span>
+                <span className="text-[30px] font-extrabold text-white/92">
+                  V
+                </span>
               </div>
             )}
-            <div className="pe-pf-scrim" style={{ pointerEvents: "none" }} />
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 to-transparent to-45%"
+            />
 
             {video.assetState === "PROCESSING" ? (
-              <span className="pe-pf-state" data-state="processing">
-                <Loader2 size={10} className="pe-pf-spin" aria-hidden />
+              <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-blue-800/85 px-[7px] py-[3px] text-[10px] font-bold text-white backdrop-blur-[4px]">
+                <Loader2
+                  size={10}
+                  className="animate-spin motion-reduce:animate-none"
+                  aria-hidden
+                />
                 Processing
               </span>
             ) : video.assetState === "FAILED" ? (
-              <span className="pe-pf-state" data-state="failed">
+              <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-red-700/88 px-[7px] py-[3px] text-[10px] font-bold text-white backdrop-blur-[4px]">
                 <AlertTriangle size={10} aria-hidden />
                 Failed
               </span>
             ) : null}
 
             <span
-              className="pe-pf-vis"
-              data-visibility={video.visibilityStatus}
-              style={{ pointerEvents: "none" }}
+              className={cn(
+                "pointer-events-none absolute top-2 left-2 inline-flex items-center gap-1 rounded-full px-[7px] py-[3px] text-[10px] font-bold text-white backdrop-blur-[4px]",
+                video.visibilityStatus === "public"
+                  ? "bg-green-700/85"
+                  : "bg-black/60",
+              )}
             >
               {video.visibilityStatus === "public" ? (
                 <CheckCircle size={10} />
@@ -216,37 +223,24 @@ export function PortfolioGrid({
               {video.visibilityStatus}
             </span>
 
-            <div
-              className="pe-pf-edit-overlay"
-              style={{
-                pointerEvents: "none",
-                display: "flex",
-                gap: "8px",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-black/28 opacity-0 transition-opacity duration-[180ms] group-hover:opacity-100">
               <button
                 type="button"
-                className="pe-pf-edit-btn"
+                className={cn(editBtnClass, "pointer-events-auto")}
                 onClick={() => onReplace(video)}
-                style={{ pointerEvents: "auto" }}
               >
                 <RefreshCw size={13} /> Replace
               </button>
               {onDelete && (
                 <button
                   type="button"
-                  className="pe-pf-edit-btn"
+                  className={cn(
+                    editBtnClass,
+                    "pointer-events-auto w-8 justify-center px-0",
+                  )}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(video);
-                  }}
-                  style={{
-                    pointerEvents: "auto",
-                    width: "32px",
-                    padding: 0,
-                    justifyContent: "center",
                   }}
                 >
                   <Trash2 size={13} className="text-destructive" />
@@ -257,8 +251,12 @@ export function PortfolioGrid({
         </div>
       ))}
 
-      <button type="button" className="pe-pf-add" onClick={onAdd}>
-        <span className="pe-pf-plusbox">
+      <button
+        type="button"
+        className="flex min-h-[230px] cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border-[1.6px] border-dashed border-border bg-[color-mix(in_oklab,var(--muted)_50%,transparent)] text-[13px] font-bold text-muted-foreground hover:border-primary hover:bg-[color-mix(in_oklab,var(--primary)_5%,transparent)] hover:text-primary"
+        onClick={onAdd}
+      >
+        <span className="grid size-10 place-items-center rounded-xl border-[1.4px] border-border bg-card">
           <Plus size={18} />
         </span>
         Add reel
@@ -310,16 +308,34 @@ export function PortfolioFileDrawer({
 
   const BG_GRAD = "linear-gradient(135deg,#6366f1,#a78bfa)";
 
+  const filePickBtnClass =
+    "inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] border-[1.4px] border-border bg-card px-3.5 text-[13.5px] font-bold text-foreground hover:bg-muted";
+
   return (
     <>
-      <div className="pe-dr-scrim" data-open={open} onClick={onClose} />
+      <div
+        className={cn(
+          "fixed inset-0 z-[70] bg-[rgba(18,14,14,0.45)] backdrop-blur-[2px] transition-opacity duration-[260ms]",
+          open
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0",
+        )}
+        data-open={open}
+        onClick={onClose}
+      />
 
-      <div className="pe-dr" data-open={open}>
-        <div className="pe-dr-head">
-          <h3>{isCreate ? "Add reel" : "Replace reel"}</h3>
+      <div
+        className={cn(
+          "fixed top-0 right-0 z-[72] flex h-screen w-[min(480px,96vw)] flex-col bg-card shadow-[0_24px_50px_-22px_rgb(24_19_19/0.3)] transition-transform duration-[320ms] ease-[cubic-bezier(0.22,0.61,0.27,1)]",
+          open ? "translate-x-0" : "translate-x-full",
+        )}
+        data-open={open}
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h3 className="m-0 text-base">{isCreate ? "Add reel" : "Replace reel"}</h3>
           <button
             type="button"
-            className="pe-dr-close"
+            className="grid size-9 cursor-pointer place-items-center rounded-full border border-border bg-card text-foreground hover:bg-muted"
             onClick={onClose}
             aria-label="Close drawer"
           >
@@ -327,9 +343,12 @@ export function PortfolioFileDrawer({
           </button>
         </div>
 
-        <div className="pe-dr-body">
-          <div className="pe-dr-preview">
-            <div className="pe-dr-thumb" style={{ background: BG_GRAD }}>
+        <div className="flex flex-1 flex-col gap-[18px] overflow-y-auto p-5">
+          <div className="flex items-start gap-3.5">
+            <div
+              className="relative grid aspect-[9/16] w-[92px] shrink-0 place-items-center overflow-hidden rounded-xl"
+              style={{ background: BG_GRAD }}
+            >
               {video?.videoUrl ? (
                 <video
                   src={video.videoUrl}
@@ -338,25 +357,13 @@ export function PortfolioFileDrawer({
                   controlsList="nodownload noplaybackrate"
                   disablePictureInPicture
                   preload="metadata"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    position: "absolute",
-                    inset: 0,
-                  }}
+                  className="absolute inset-0 size-full object-cover"
                 />
               ) : video?.thumbnailUrl ? (
                 <img
                   src={video.thumbnailUrl}
                   alt=""
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    position: "absolute",
-                    inset: 0,
-                  }}
+                  className="absolute inset-0 size-full object-cover"
                 />
               ) : localVideoUrl ? (
                 <video
@@ -365,76 +372,30 @@ export function PortfolioFileDrawer({
                   controlsList="nodownload noplaybackrate"
                   disablePictureInPicture
                   preload="metadata"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    position: "absolute",
-                    inset: 0,
-                  }}
+                  className="absolute inset-0 size-full object-cover"
                 />
               ) : (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "grid",
-                    placeItems: "center",
-                  }}
-                >
-                  <Play size={28} style={{ color: "rgba(255,255,255,.92)" }} />
+                <div className="absolute inset-0 grid place-items-center">
+                  <Play size={28} className="text-white/92" />
                 </div>
               )}
             </div>
 
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
-            >
+            <div className="flex min-w-0 flex-1 flex-col gap-3.5">
               <div>
                 <input
                   ref={videoInputRef}
                   type="file"
                   accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
-                  style={{
-                    position: "absolute",
-                    width: 1,
-                    height: 1,
-                    overflow: "hidden",
-                    clip: "rect(0,0,0,0)",
-                  }}
+                  className="absolute size-px overflow-hidden [clip:rect(0,0,0,0)]"
                   onChange={(e) =>
                     onSelectVideoFile(e.target.files?.[0] ?? null)
                   }
                 />
                 <button
                   type="button"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    height: 36,
-                    padding: "0 14px",
-                    borderRadius: 10,
-                    border: "1.4px solid var(--border)",
-                    background: "var(--card)",
-                    fontSize: 13.5,
-                    fontWeight: 700,
-                    color: "var(--foreground)",
-                    cursor: "pointer",
-                  }}
+                  className={filePickBtnClass}
                   onClick={() => videoInputRef.current?.click()}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--muted)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "var(--card)")
-                  }
                 >
                   <Film size={16} />
                   {videoFile
@@ -445,7 +406,7 @@ export function PortfolioFileDrawer({
                 </button>
               </div>
 
-              <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+              <div className="text-[13px] text-muted-foreground">
                 MP4 / MOV / WebM &middot; up to 200MB &middot; 9:16 preferred
               </div>
 
@@ -454,40 +415,15 @@ export function PortfolioFileDrawer({
                   ref={thumbInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                  style={{
-                    position: "absolute",
-                    width: 1,
-                    height: 1,
-                    overflow: "hidden",
-                    clip: "rect(0,0,0,0)",
-                  }}
+                  className="absolute size-px overflow-hidden [clip:rect(0,0,0,0)]"
                   onChange={(e) =>
                     onSelectThumbFile(e.target.files?.[0] ?? null)
                   }
                 />
                 <button
                   type="button"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    height: 36,
-                    padding: "0 14px",
-                    borderRadius: 10,
-                    border: "1.4px solid var(--border)",
-                    background: "var(--card)",
-                    fontSize: 13.5,
-                    fontWeight: 700,
-                    color: "var(--foreground)",
-                    cursor: "pointer",
-                  }}
+                  className={filePickBtnClass}
                   onClick={() => thumbInputRef.current?.click()}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--muted)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "var(--card)")
-                  }
                 >
                   <Camera size={16} />
                   {thumbFile
@@ -501,18 +437,11 @@ export function PortfolioFileDrawer({
           </div>
         </div>
 
-        <div className="pe-dr-foot">
+        <div className="flex items-center gap-2.5 border-t border-border px-5 py-3.5">
           {!isCreate ? (
             <button
               type="button"
-              className="pe-btn pe-btn-ghost"
-              style={{
-                color: "var(--destructive)",
-                borderColor:
-                  "color-mix(in oklab, var(--destructive) 30%, var(--border))",
-                fontSize: 12.5,
-                height: 38,
-              }}
+              className="inline-flex h-[38px] cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-[color-mix(in_oklab,var(--destructive)_30%,var(--border))] bg-card px-[18px] text-[12.5px] font-bold text-destructive transition-[background,filter] duration-150 hover:bg-muted"
               onClick={() => video && onDelete(video)}
             >
               <X size={14} />
@@ -520,17 +449,17 @@ export function PortfolioFileDrawer({
             </button>
           ) : null}
 
-          <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+          <div className="ml-auto flex gap-2.5">
             <button
               type="button"
-              className="pe-btn pe-btn-ghost"
+              className="inline-flex h-[42px] cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-border bg-card px-[18px] text-[13.5px] font-bold text-foreground transition-[background,filter] duration-150 hover:bg-muted"
               onClick={onClose}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="pe-btn pe-btn-primary"
+              className="inline-flex h-[42px] cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-transparent bg-primary px-[18px] text-[13.5px] font-bold text-white shadow-[0_1px_2px_0_rgb(24_19_19/0.05)] transition-[background,filter] duration-150 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100"
               onClick={onSave}
               disabled={isSaving || !videoFile}
             >

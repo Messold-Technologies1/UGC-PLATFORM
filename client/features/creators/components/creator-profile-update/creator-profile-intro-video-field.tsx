@@ -20,30 +20,30 @@ export function CreatorProfileIntroVideoField({
   onSelectFile: (file: File | null) => void;
 }) {
   return (
-    <div className="pe-media-field">
-      <div className="pe-media-field-preview pe-media-field-preview--video">
+    <div className="flex w-full max-w-[200px] flex-col items-center gap-3">
+      <div className="relative grid aspect-[9/16] w-40 place-items-center overflow-hidden rounded-[14px] bg-[var(--brand-gradient)]">
         {videoPreviewUrl ? (
           <video
             src={videoPreviewUrl}
             controls
             preload="metadata"
-            className="pe-media-field-video"
+            className="absolute inset-0 size-full object-cover"
           />
         ) : (
           <Video
             size={32}
-            style={{ color: "white", opacity: 0.9 }}
+            className="text-white opacity-90"
             aria-hidden
           />
         )}
       </div>
 
-      <div className="pe-media-field-actions">
+      <div className="flex w-full flex-wrap justify-center gap-2">
         <input
           type="file"
           ref={fileInputRef}
           accept={accept}
-          style={{ display: "none" }}
+          className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
             onSelectFile(file ?? null);
@@ -52,7 +52,7 @@ export function CreatorProfileIntroVideoField({
 
         <button
           type="button"
-          className="pe-media-field-btn"
+          className="inline-flex h-9 cursor-pointer items-center gap-[7px] rounded-[10px] border-[1.4px] border-border bg-card px-[13px] text-[12.5px] font-bold text-foreground transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={disabled}
           onClick={() => {
             fileInputRef.current?.click();

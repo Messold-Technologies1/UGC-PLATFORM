@@ -50,6 +50,7 @@ describe('OrdersService.acceptDelivery → completion reward credit', () => {
       wallet as never,
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
       { get: (key: string) => env[key] } as never, // config
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests
     );
     return { service, wallet, orderClient, transaction };
   }

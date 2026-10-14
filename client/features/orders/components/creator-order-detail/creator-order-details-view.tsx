@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -29,6 +29,10 @@ import { brandDisplayName } from "@/features/brands/lib/brand-display";
 import { useGetCreatorOrderDetailsQuery } from "../../hooks/use-get-creator-order-details-query";
 import { useGetOrderBriefQuery } from "../../hooks/use-get-order-brief-query";
 import { useAcceptBriefMutation } from "../../hooks/use-accept-brief-mutation";
+import {
+  isAwaitingCreatorPayment,
+  useProfileCompletionGate,
+} from "../../hooks/use-profile-completion-gate";
 import { useRejectBriefMutation } from "../../hooks/use-reject-brief-mutation";
 import { useMarkProductReceivedMutation } from "../../hooks/use-mark-product-received-mutation";
 import { useWithdrawCreatorDisputeMutation } from "../../hooks/use-withdraw-creator-dispute-mutation";
@@ -779,6 +783,19 @@ export function CreatorOrderDetailsView({
   const { data, isLoading, isError, error } =
     useGetCreatorOrderDetailsQuery(orderId);
   const { data: briefData } = useGetOrderBriefQuery(orderId);
+
+  // The brand has signed the work off and the payout is pending: an unfinished
+  // profile is now the only thing holding the money, so the creator is taken
+  // to the page that spells out what is missing. Nothing earlier in the order
+  // is gated on it — they accept the brief and deliver either way.
+  const profileGate = useProfileCompletionGate();
+  const awaitingPayment = data ? isAwaitingCreatorPayment(data.order) : false;
+  const redirectToCompletion = profileGate.redirectToCompletion;
+  const needsCompletion =
+    awaitingPayment && profileGate.requiresProfileCompletion;
+  useEffect(() => {
+    if (needsCompletion) redirectToCompletion(orderId);
+  }, [needsCompletion, redirectToCompletion, orderId]);
 
   if (isLoading) {
     return <CreatorOrderDetailsSkeleton />;

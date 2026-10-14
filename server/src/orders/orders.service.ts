@@ -2985,7 +2985,8 @@ export class OrdersService {
     creatorUserId: string;
     dto: SubmitDeliveryDto;
   }): Promise<SubmitDeliveryResponseDto> {
-    const creator: any = await this.prisma.creatorProfile.findUnique({
+    // Typed (not `any`) because the completeness gate below reads `creator.id`.
+    const creator = await this.prisma.creatorProfile.findUnique({
       where: { userId: params.creatorUserId },
       select: { id: true },
     });

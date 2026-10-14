@@ -22,6 +22,7 @@ export const ENDPOINTS = {
     FIRST_ORDER_FREE_ELIGIBLE: "/api/creators/first-order-free-eligible",
     PROFILE: "/api/creators/profile",
     PROFILE_ME: "/api/creators/profile/me",
+    PROFILE_COMPLETENESS: "/api/creators/profile/me/completeness",
     PROFILE_PAYOUT_DETAILS: "/api/creators/profile/me/payout-details",
     PROFILE_UNAVAILABILITY: "/api/creators/profile/me/unavailability",
     PROFILE_IMAGE_PRESIGN:

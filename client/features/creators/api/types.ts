@@ -207,6 +207,18 @@ export type CreatorsListResponse = {
   limit: number;
 };
 
+/** One outstanding profile requirement, with the key that routes it to a fix. */
+export type CreatorProfileRequirementApi = {
+  key: string;
+  label: string;
+};
+
+export type CreatorProfileCompletenessApi = {
+  complete: boolean;
+  isListed: boolean;
+  missing: CreatorProfileRequirementApi[];
+};
+
 export type CreatorPayoutDetailsMaskedApi = {
   configured: boolean;
   hasBankDetails?: boolean;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, Sparkles, Loader2, X } from "lucide-react";
+import { AlertTriangle, Sparkles, Loader2, X } from "lucide-react";
 
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
 import {
@@ -10,8 +10,20 @@ import {
 } from "@/features/creators/components/creator-profile-update/portfolio-components";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 import { InstagramConnectPitch } from "@/features/instagram-import/components/instagram-connect-pitch";
+import { cn } from "@/lib/utils";
 
 import { BIO_MIN_CHARS, BIO_MAX_CHARS } from "../wizard-config";
+import {
+  CwCard,
+  CwConfirm,
+  CwFacetHelp,
+  CwField,
+  CwFieldLabel,
+  CwFieldWarn,
+  CwHr,
+  CwReq,
+  CwTextarea,
+} from "../wizard-ui";
 
 const BIO_EXAMPLE =
   "I'm a Mumbai-based beauty and skincare creator shooting in Hindi and English. I make honest first-impression reviews, GRWM routines and product demos, mostly at home with natural light. Brands book me when they want a warm, unscripted voice rather than a polished ad read.";
@@ -82,16 +94,21 @@ export function PortfolioStep({
   const bioLen = bio.trim().length;
   const [exampleOpen, setExampleOpen] = useState(false);
   return (
-    <div className="cw-card">
+    <CwCard>
       {/* Creator story */}
-      <div className="cw-field">
-        <div className="cw-bio-head">
-          <label htmlFor="cw-bio" className="cw-fieldlabel">
-            Tell your creator story <span className="cw-req">*</span>
-          </label>
+      <CwField>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CwFieldLabel htmlFor="cw-bio">
+            Tell your creator story <CwReq />
+          </CwFieldLabel>
           <button
             type="button"
-            className="cw-ai-btn"
+            className={cn(
+              "ml-auto inline-flex items-center gap-1.5 rounded-full border px-[13px] py-[7px] text-[12.5px] font-[650] transition-[background,border-color,opacity]",
+              "border-[color-mix(in_oklab,var(--primary)_35%,var(--border))] bg-[color-mix(in_oklab,var(--primary)_8%,var(--background))] text-primary",
+              "hover:enabled:border-[color-mix(in_oklab,var(--primary)_55%,var(--border))] hover:enabled:bg-[color-mix(in_oklab,var(--primary)_15%,var(--background))]",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+            )}
             onClick={onGenerateBio}
             disabled={disabled || generatingBio || !canGenerateBio}
             title={
@@ -102,7 +119,7 @@ export function PortfolioStep({
           >
             {generatingBio ? (
               <>
-                <Loader2 size={14} className="cw-ai-spin" aria-hidden />
+                <Loader2 size={14} className="animate-spin" aria-hidden />
                 Writing…
               </>
             ) : (
@@ -113,13 +130,13 @@ export function PortfolioStep({
             )}
           </button>
         </div>
-        <span className="cw-facet-help">
+        <CwFacetHelp>
           Share what you create, the languages you speak and why brands will
           enjoy working with you.
-        </span>
-        <textarea
+        </CwFacetHelp>
+        <CwTextarea
           id="cw-bio"
-          className="cw-textarea"
+          className="min-h-32"
           value={bio}
           disabled={disabled || generatingBio}
           rows={5}
@@ -128,8 +145,15 @@ export function PortfolioStep({
           onChange={(e) => onBioChange(e.target.value)}
         />
         {showAiNotice ? (
-          <div className="cw-ai-notice" role="status">
-            <Sparkles size={15} aria-hidden className="cw-ai-notice-icon" />
+          <div
+            className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 text-[11.5px] font-medium leading-snug text-[color-mix(in_oklab,#b45309_82%,var(--foreground))]"
+            role="status"
+          >
+            <Sparkles
+              size={15}
+              aria-hidden
+              className="mt-px shrink-0 text-[color-mix(in_oklab,#b45309_82%,var(--foreground))]"
+            />
             <span>
               Fresh from AI, this is a solid first draft, but it doesn&apos;t
               know your vibe yet. Tweak a line or two so it sounds unmistakably{" "}
@@ -137,7 +161,7 @@ export function PortfolioStep({
             </span>
             <button
               type="button"
-              className="cw-ai-notice-x"
+              className="ml-auto inline-flex shrink-0 rounded-md border-0 bg-transparent p-0.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
               onClick={onDismissAiNotice}
               aria-label="Dismiss"
             >
@@ -146,53 +170,63 @@ export function PortfolioStep({
           </div>
         ) : null}
         {errors.bio ? (
-          <p className="cw-field-warn">
+          <CwFieldWarn>
             <AlertTriangle size={13} aria-hidden />
             {errors.bio}
-          </p>
+          </CwFieldWarn>
         ) : null}
-        <div className="cw-bio-foot">
+        <div className="mt-0.5 flex flex-wrap items-center justify-between gap-3">
           <span
-            className="cw-bio-count"
+            className={cn(
+              "text-[11.5px] font-semibold text-muted-foreground",
+              bioLen > 0 && bioLen < BIO_MIN_CHARS && "text-destructive",
+            )}
             data-short={bioLen > 0 && bioLen < BIO_MIN_CHARS}
           >
             {bioLen} / {BIO_MAX_CHARS} · minimum {BIO_MIN_CHARS} characters
           </span>
-          <span className="cw-bio-rule">
+          <span className="text-[11.5px] text-muted-foreground">
             No links, phone numbers, emails, social handles or pricing.
           </span>
         </div>
         <button
           type="button"
-          className="cw-bio-example-btn"
+          className={cn(
+            "mt-0.5 inline-flex items-center self-start rounded-full border-[1.4px] border-border bg-background px-3 py-1.5 text-[12.5px] font-[650] text-foreground",
+            "hover:border-[color-mix(in_oklab,var(--primary)_45%,var(--border))] hover:text-primary",
+            exampleOpen &&
+              "border-[color-mix(in_oklab,var(--primary)_40%,var(--border))] bg-[color-mix(in_oklab,var(--primary)_8%,var(--background))] text-primary",
+          )}
           aria-expanded={exampleOpen}
           onClick={() => setExampleOpen((open) => !open)}
         >
           {exampleOpen ? "Hide example" : "View example"}
         </button>
         {exampleOpen ? (
-          <div className="cw-bio-example">
-            <span className="cw-bio-example-tag">Example</span>
+          <div className="mt-1 rounded-xl bg-muted px-3.5 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
+            <span className="mr-2 inline-block text-[10.5px] font-bold uppercase tracking-[0.05em] text-primary">
+              Example
+            </span>
             {BIO_EXAMPLE}
           </div>
         ) : null}
-      </div>
+      </CwField>
 
-      <div className="cw-hr" />
+      <CwHr />
 
       {/* Portfolio gallery */}
-      <div className="cw-field">
-        <label className="cw-fieldlabel">
-          Your portfolio videos <span className="cw-req">*</span>
-        </label>
-        <span className="cw-facet-help">
+      <CwField>
+        <CwFieldLabel>
+          Your portfolio videos <CwReq />
+        </CwFieldLabel>
+        <CwFacetHelp>
           Upload your best work (minimum 3 videos). This is what brands browse
           before they book you.
-        </span>
-      </div>
+        </CwFacetHelp>
+      </CwField>
 
       {videos.length < 3 ? (
-        <div className="cw-portfolio-note">
+        <div className="rounded-xl border border-[color-mix(in_oklab,var(--primary)_20%,transparent)] bg-[color-mix(in_oklab,var(--primary)_5%,transparent)] px-3.5 py-3 text-[12.5px] leading-normal text-foreground">
           Upload at least 3 videos to go live. {videos.length} of 10 uploaded so
           far — creators with 10+ pieces get 3× more orders.
         </div>
@@ -237,43 +271,35 @@ export function PortfolioStep({
         </>
       )}
 
-      <label
-        className="cw-confirm cw-confirm--standalone cw-confirm--top"
-        data-checked={confirmed}
-        data-disabled={disabled}
+      <CwConfirm
+        checked={confirmed}
+        disabled={disabled}
+        onToggle={() => onConfirmedChange(!confirmed)}
+        title="I confirm these portfolio videos:"
+        className="mt-4 items-start"
       >
-        <input
-          type="checkbox"
-          className="cw-confirm-box"
-          checked={confirmed}
-          disabled={disabled}
-          onChange={(e) => onConfirmedChange(e.target.checked)}
-        />
-        <span className="cw-confirm-tick" aria-hidden>
-          <Check size={13} strokeWidth={3} />
+        <ul className="mt-2.5 flex list-none flex-col gap-2 p-0">
+          {PORTFOLIO_CONFIRM_ITEMS.map((item) => (
+            <li
+              key={item}
+              className="relative pl-4 text-[13px] leading-normal text-muted-foreground before:absolute before:left-0 before:top-[0.55em] before:size-1.5 before:rounded-full before:bg-foreground"
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
+        <span className="mt-3 block border-t border-border pt-3 text-[12.5px] leading-normal text-[#b45309]">
+          If the quality of your deliveries is significantly lower than your
+          portfolio, it may result in order cancellations, disputes, lower
+          ratings, reduced visibility, or account review.
         </span>
-        <span className="cw-confirm-copy">
-          <span className="cw-confirm-title">
-            I confirm these portfolio videos:
-          </span>
-          <ul className="cw-confirm-list">
-            {PORTFOLIO_CONFIRM_ITEMS.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <span className="cw-confirm-warn">
-            If the quality of your deliveries is significantly lower than your
-            portfolio, it may result in order cancellations, disputes, lower
-            ratings, reduced visibility, or account review.
-          </span>
-        </span>
-      </label>
+      </CwConfirm>
       {errors.confirmed ? (
-        <p className="cw-field-warn">
+        <CwFieldWarn>
           <AlertTriangle size={13} aria-hidden />
           {errors.confirmed}
-        </p>
+        </CwFieldWarn>
       ) : null}
-    </div>
+    </CwCard>
   );
 }

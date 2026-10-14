@@ -5,6 +5,7 @@ import { AlertTriangle, Check } from "lucide-react";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add-on-options";
+import { cn } from "@/lib/utils";
 
 import {
   PACKAGE_DEFAULT_MAX_REVISIONS,
@@ -15,6 +16,12 @@ import {
   type PackageDraft,
   type AddOnDraft,
 } from "@/features/creators/hooks/creator-profile-form-utils";
+
+import {
+  CwConfirm,
+  CwFieldWarn,
+  CwReq,
+} from "@/features/creators/components/creator-profile-wizard/wizard-ui";
 
 export type CreatorProfileUpdateFormProps = {
   variant: "onboarding" | "settings";
@@ -65,6 +72,23 @@ const ADDON_WARNINGS: Record<string, string> = {
     "Only keep this on if you can genuinely travel to the brand's shoot location. Accepting an on-location order you can't reach leads to cancellations, refunds and a lower creator score.",
 };
 
+const fieldClass = "flex min-w-0 flex-col gap-[7px]";
+const fieldLabelClass =
+  "flex items-center gap-1.5 text-[12.5px] font-bold text-foreground";
+const inputClass = cn(
+  "h-[42px] w-full rounded-[10px] border-[1.4px] border-border bg-card px-[13px] text-[13.5px] text-foreground outline-none transition-[border-color,box-shadow]",
+  "placeholder:text-muted-foreground",
+  "focus:border-[color-mix(in_oklab,var(--primary)_55%,var(--border))] focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--primary)_12%,transparent)]",
+  "disabled:cursor-not-allowed disabled:opacity-60",
+);
+const helpClass = "text-[11.5px] text-muted-foreground";
+const deliveryWarnClass = cn(
+  "mt-2.5 mb-0 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5",
+  "text-[11.5px] font-medium leading-[1.45]",
+  "text-[color-mix(in_oklab,#b45309_82%,var(--foreground))]",
+);
+const pkgClass = "rounded-xl border-[1.4px] border-border p-3.5";
+
 export function PackageEditor({
   draft,
   disabled,
@@ -89,31 +113,26 @@ export function PackageEditor({
   children?: ReactNode;
 }) {
   return (
-    <div className="pe-pkg">
+    <div className={pkgClass}>
       {children}
-      <div className="pe-grid pe-grid-2">
-        <div className="pe-field">
-          <label htmlFor="packagePriceAmount">
-            Price (₹) <span className="pe-req" aria-label="Required">*</span>
+      <div className="grid grid-cols-1 gap-4 min-[769px]:grid-cols-2">
+        <div className={fieldClass}>
+          <label htmlFor="packagePriceAmount" className={fieldLabelClass}>
+            Price (₹){" "}
+            <span className="font-bold text-destructive" aria-label="Required">
+              *
+            </span>
           </label>
-          <div style={{ position: "relative" }}>
+          <div className="relative">
             <span
-              style={{
-                position: "absolute",
-                left: 13,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--muted-foreground)",
-                fontSize: 13.5,
-                pointerEvents: "none",
-              }}
+              className="pointer-events-none absolute top-1/2 left-[13px] -translate-y-1/2 text-[13.5px] text-muted-foreground"
+              aria-hidden
             >
               ₹
             </span>
             <input
               id="packagePriceAmount"
-              className="pe-input"
-              style={{ paddingLeft: 30 }}
+              className={cn(inputClass, "pl-[30px]")}
               disabled={disabled}
               value={draft.priceAmount}
               inputMode="numeric"
@@ -128,22 +147,22 @@ export function PackageEditor({
             />
           </div>
           {errors?.priceAmount ? (
-            <p
-              className="pe-help text-destructive"
-              style={{ color: "var(--destructive)" }}
-            >
+            <p className={cn(helpClass, "text-destructive")}>
               {errors.priceAmount}
             </p>
           ) : null}
         </div>
 
-        <div className="pe-field">
-          <label htmlFor="packageDeliveryDays">
-            Delivery (days) <span className="pe-req" aria-label="Required">*</span>
+        <div className={fieldClass}>
+          <label htmlFor="packageDeliveryDays" className={fieldLabelClass}>
+            Delivery (days){" "}
+            <span className="font-bold text-destructive" aria-label="Required">
+              *
+            </span>
           </label>
           <input
             id="packageDeliveryDays"
-            className="pe-input"
+            className={inputClass}
             disabled={disabled}
             value={draft.deliveryDays}
             inputMode="numeric"
@@ -161,42 +180,50 @@ export function PackageEditor({
             }}
             aria-invalid={!!errors?.deliveryDays}
           />
-          {errors?.deliveryDays && (
-            <p
-              className="pe-help text-destructive"
-              style={{ color: "var(--destructive)" }}
-            >
+          {errors?.deliveryDays ? (
+            <p className={cn(helpClass, "text-destructive")}>
               {errors.deliveryDays}
             </p>
-          )}
+          ) : null}
         </div>
       </div>
 
-      <p className="pe-delivery-warn" role="note">
+      <p className={deliveryWarnClass} role="note">
         Set a deadline you can actually meet. If you miss it, your creator score
         can drop and the brand may be refunded.
       </p>
 
-      <div className="pe-defaults">
-        <div className="pe-defaults-head">
-          <p className="pe-defaults-label">What&apos;s included</p>
-          <span className="pe-help">
+      <div className="mt-[18px] flex flex-col gap-3 rounded-xl border border-border bg-muted p-4">
+        <div className="flex flex-col gap-1">
+          <p className="m-0 text-sm font-bold text-foreground">
+            What&apos;s included
+          </p>
+          <span className={helpClass}>
             Fixed for every Standard order. Brands see these on your package —
             confirm you can deliver them.
           </span>
         </div>
-        <ul className="pe-defaults-list">
+        <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {PACKAGE_DEFAULTS.map((item) => (
-            <li key={item.label} className="pe-defaults-item">
-              <span className="pe-defaults-check" aria-hidden>
+            <li key={item.label} className="flex items-start gap-2.5">
+              <span
+                className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--p10,color-mix(in_oklab,var(--primary)_12%,transparent))] text-primary"
+                aria-hidden
+              >
                 <Check size={12} strokeWidth={3} />
               </span>
-              <div className="pe-defaults-copy">
-                <div className="pe-defaults-row">
-                  <span className="pe-defaults-k">{item.label}</span>
-                  <span className="pe-defaults-v">{item.value}</span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[13px] font-semibold text-muted-foreground">
+                    {item.label}
+                  </span>
+                  <span className="text-right text-[13px] font-bold text-foreground">
+                    {item.value}
+                  </span>
                 </div>
-                <p className="pe-defaults-note">{item.note}</p>
+                <p className="m-0 text-xs leading-[1.45] text-muted-foreground">
+                  {item.note}
+                </p>
               </div>
             </li>
           ))}
@@ -205,36 +232,25 @@ export function PackageEditor({
 
       {onDefaultsConfirmedChange ? (
         <>
-          <label
-            className="cw-confirm cw-confirm--standalone"
-            data-checked={Boolean(defaultsConfirmed)}
-            data-disabled={disabled}
-          >
-            <input
-              type="checkbox"
-              className="cw-confirm-box"
-              checked={Boolean(defaultsConfirmed)}
-              disabled={disabled}
-              onChange={(e) => onDefaultsConfirmedChange(e.target.checked)}
-            />
-            <span className="cw-confirm-tick" aria-hidden>
-              <Check size={13} strokeWidth={3} />
-            </span>
-            <span className="cw-confirm-copy">
-              <span className="cw-confirm-title">
-                I can deliver all of the above on every order
-                <span className="cw-req"> *</span>
-              </span>
-              <span className="cw-confirm-desc">
-                These defaults apply to every package order you accept.
-              </span>
-            </span>
-          </label>
+          <CwConfirm
+            checked={Boolean(defaultsConfirmed)}
+            disabled={disabled}
+            onToggle={() =>
+              onDefaultsConfirmedChange(!Boolean(defaultsConfirmed))
+            }
+            className="mt-4"
+            title={
+              <>
+                I can deliver all of the above on every order <CwReq />
+              </>
+            }
+            description="These defaults apply to every package order you accept."
+          />
           {defaultsConfirmedError ? (
-            <p className="cw-field-warn">
+            <CwFieldWarn>
               <AlertTriangle size={13} aria-hidden />
               {defaultsConfirmedError}
-            </p>
+            </CwFieldWarn>
           ) : null}
         </>
       ) : null}
@@ -261,9 +277,12 @@ export function AddOnCatalogEditor({
 }) {
   return (
     <div>
-      <div className="pe-field cw-acc-heading-block" style={{ marginBottom: 14 }}>
-        <label style={{ fontSize: 14, fontWeight: 700 }}>Add-ons</label>
-        <span className="pe-help">
+      {/* Title lives in the accordion header on small screens. */}
+      <div
+        className={cn(fieldClass, "mb-3.5 max-[960px]:hidden")}
+      >
+        <label className="text-sm font-bold text-foreground">Add-ons</label>
+        <span className={helpClass}>
           Extras brands can add to your package. Required add-ons (marked *)
           are always offered and must be priced before you go live.
         </span>
@@ -271,15 +290,7 @@ export function AddOnCatalogEditor({
 
       {unmatchedNames.length ? (
         <div
-          style={{
-            borderRadius: 10,
-            border: "1px solid rgba(245, 158, 11, 0.3)",
-            background: "rgba(245, 158, 11, 0.08)",
-            padding: "10px 14px",
-            fontSize: 12,
-            color: "var(--foreground)",
-            marginBottom: 14,
-          }}
+          className="mb-3.5 rounded-[10px] border border-amber-500/30 bg-amber-500/[0.08] px-3.5 py-2.5 text-xs text-foreground"
         >
           These saved add-ons are no longer in the catalog and will not be
           resubmitted: {unmatchedNames.join(", ")}.
@@ -287,7 +298,7 @@ export function AddOnCatalogEditor({
       ) : null}
 
       {options.length ? (
-        <div className="pe-addon-grid">
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
           {options.map((option) => {
             const selected = selectedSlugs.includes(option.slug);
             const draft = drafts[option.slug] ?? {
@@ -312,68 +323,83 @@ export function AddOnCatalogEditor({
             return (
               <div
                 key={option.slug}
-                className="pe-pkg pe-addon-card"
+                className={cn(
+                  pkgClass,
+                  "h-full p-3 transition-[background,border-color] duration-150",
+                  "md:[&:nth-child(3):last-child]:col-span-full",
+                  selected &&
+                    "border-primary bg-[color-mix(in_oklab,var(--primary)_5%,transparent)]",
+                )}
                 data-selected={selected}
               >
-                <div className="pe-addon-card-top">
-                  <label className="pe-addon-card-label">
+                <div className="flex items-start justify-between gap-2.5">
+                  <label className="flex cursor-pointer items-center gap-2.5 text-sm font-bold text-foreground">
                     <input
                       type="checkbox"
-                      className="cw-confirm-box"
+                      className="absolute opacity-0 pointer-events-none"
                       disabled={disabled || option.mandatory}
                       checked={selected}
                       onChange={() => onToggle(option)}
                     />
-                    <span className="cw-confirm-tick" aria-hidden>
+                    <span
+                      className={cn(
+                        "flex size-[22px] shrink-0 items-center justify-center rounded-md border-2 border-zinc-500 bg-white text-transparent transition-[background,border-color,color]",
+                        selected &&
+                          "border-primary bg-primary text-primary-foreground",
+                      )}
+                      aria-hidden
+                    >
                       <Check size={13} strokeWidth={3} />
                     </span>
                     {option.name}
                     {option.mandatory ? (
-                      <span className="pe-req" aria-label="Required">
+                      <span
+                        className="font-bold text-destructive"
+                        aria-label="Required"
+                      >
                         {" "}
                         *
                       </span>
                     ) : null}
                   </label>
-                  <span className="pe-addon-card-price">
+                  <span className="whitespace-nowrap text-[11px] font-semibold text-muted-foreground">
                     {option.fixedPrice != null
                       ? `Fixed ₹${option.fixedPrice}`
                       : `Min ₹${option.minPrice ?? 0}`}
                   </span>
                 </div>
 
-                {hint ? <p className="pe-addon-hint">{hint}</p> : null}
+                {hint ? (
+                  <p className="mt-2 mb-0 text-[11.5px] font-normal leading-[1.45] text-[color-mix(in_oklab,var(--muted-foreground)_88%,transparent)]">
+                    {hint}
+                  </p>
+                ) : null}
 
                 {warning ? (
-                  <p className="pe-delivery-warn" role="note">
+                  <p className={deliveryWarnClass} role="note">
                     {warning}
                   </p>
                 ) : null}
 
                 {selected ? (
-                  <div className="pe-addon-fields">
-                    <div className="pe-field">
-                      <label htmlFor={`addon-price-${option.slug}`}>
+                  <div className="mt-2.5">
+                    <div className={fieldClass}>
+                      <label
+                        htmlFor={`addon-price-${option.slug}`}
+                        className={fieldLabelClass}
+                      >
                         Price
                       </label>
-                      <div style={{ position: "relative" }}>
+                      <div className="relative">
                         <span
-                          style={{
-                            position: "absolute",
-                            left: 13,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            color: "var(--muted-foreground)",
-                            fontSize: 13.5,
-                            pointerEvents: "none",
-                          }}
+                          className="pointer-events-none absolute top-1/2 left-[13px] -translate-y-1/2 text-[13.5px] text-muted-foreground"
+                          aria-hidden
                         >
                           ₹
                         </span>
                         <input
                           id={`addon-price-${option.slug}`}
-                          className="pe-input"
-                          style={{ paddingLeft: 30 }}
+                          className={cn(inputClass, "pl-[30px]")}
                           disabled={disabled || option.fixedPrice != null}
                           inputMode="numeric"
                           aria-invalid={!!priceError}
@@ -389,20 +415,17 @@ export function AddOnCatalogEditor({
                       </div>
                       {priceError ? (
                         <p
-                          className="pe-help text-destructive"
+                          className={cn(
+                            helpClass,
+                            "flex items-center gap-[5px] text-destructive",
+                          )}
                           role="alert"
-                          style={{
-                            color: "var(--destructive)",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 5,
-                          }}
                         >
                           <AlertTriangle size={12} aria-hidden />
                           {priceError}
                         </p>
                       ) : priceRule ? (
-                        <p className="pe-help">{priceRule}</p>
+                        <p className={helpClass}>{priceRule}</p>
                       ) : null}
                     </div>
                   </div>
@@ -412,16 +435,7 @@ export function AddOnCatalogEditor({
           })}
         </div>
       ) : (
-        <div
-          style={{
-            border: "1.4px dashed var(--border)",
-            borderRadius: 12,
-            padding: "18px 14px",
-            textAlign: "center",
-            fontSize: 13,
-            color: "var(--muted-foreground)",
-          }}
-        >
+        <div className="rounded-xl border-[1.4px] border-dashed border-border px-3.5 py-[18px] text-center text-[13px] text-muted-foreground">
           No add-ons configured.
         </div>
       )}

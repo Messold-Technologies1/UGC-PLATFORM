@@ -33,7 +33,7 @@ export function PackageEarningsBanner({
   if (!preview) {
     return (
       <div
-        className="cw-earn rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+        className="rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
         role="status"
       >
         GoCollab takes {platformFeePercent}% of the complete order value (base
@@ -46,15 +46,18 @@ export function PackageEarningsBanner({
 
   return (
     <div
-      className="cw-earn rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground"
+      className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground"
       data-breakdown={breakdownOpen}
       role="status"
       aria-live="polite"
     >
-      <p className="cw-earn-title font-medium">
+      <p className="font-medium">
         Estimated payout when a brand books this package
       </p>
-      <div className="cw-earn-lines mt-2 space-y-1 text-muted-foreground">
+      <div
+        className="mt-2 space-y-1 text-muted-foreground max-[960px]:hidden max-[960px]:data-[breakdown=true]:block"
+        data-breakdown={breakdownOpen}
+      >
         <p>
           Total order value:{" "}
           <span className="font-medium text-foreground">
@@ -75,8 +78,8 @@ export function PackageEarningsBanner({
           </span>
         </p>
       </div>
-      <div className="cw-earn-foot">
-        <p className="cw-earn-receive mt-0 text-foreground">
+      <div className="mt-2 flex items-baseline justify-between gap-2.5 max-[960px]:flex-wrap max-[960px]:items-end">
+        <p className="min-w-0 text-foreground">
           You receive:{" "}
           <strong className="text-base">
             {formatINR(preview.creatorEarnings)}
@@ -84,7 +87,7 @@ export function PackageEarningsBanner({
         </p>
         <button
           type="button"
-          className="cw-earn-breakdown-btn"
+          className="ml-auto inline-flex cursor-pointer items-center whitespace-nowrap border-0 bg-transparent p-0 text-right text-xs font-semibold leading-tight text-primary underline underline-offset-[3px]"
           aria-expanded={breakdownOpen}
           onClick={() => setBreakdownOpen((open) => !open)}
         >

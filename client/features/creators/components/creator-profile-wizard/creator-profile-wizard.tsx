@@ -1,8 +1,5 @@
 "use client";
 
-import "../creator-profile-update/profile-edit.css";
-import "./creator-profile-wizard.css";
-
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
@@ -20,6 +17,44 @@ import {
 } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
+import {
+  CwBtn,
+  CwFoot,
+  CwFootActions,
+  CwFootNote,
+  CwLayout,
+  CwMobileNav,
+  CwMobileSegment,
+  CwMobileSegments,
+  CwMobileStepper,
+  CwMobileStepperCopy,
+  CwMobileStepperMeta,
+  CwMobileStepperRow,
+  CwMobileStepperTitle,
+  CwPane,
+  CwPaneHead,
+  CwPaneIcon,
+  CwPaneTag,
+  CwPaneTitle,
+  CwRail,
+  CwRailSub,
+  CwRailTitle,
+  CwReviewBanner,
+  CwReviewBannerCopy,
+  CwReviewBannerText,
+  CwReviewBannerTitle,
+  CwRoot,
+  CwStep,
+  CwStepDot,
+  CwStepLabel,
+  CwSteps,
+  CwStrength,
+  CwStrengthHead,
+  CwStrengthHint,
+  CwStrengthPct,
+  CwStrengthTrack,
+  CwTip,
+} from "./wizard-ui";
 
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
@@ -1512,29 +1547,25 @@ export function CreatorProfileWizard({
     profileImage.uploadingProfileImage || introVideo.uploadingIntroVideo;
 
   return (
-    <div className="pe-scope cw-root">
-      <div className="cw-mobile-stepper">
-        <div className="cw-mobile-stepper-row">
-          <button
-            type="button"
-            className="cw-mobile-nav"
+    <CwRoot>
+      <CwMobileStepper>
+        <CwMobileStepperRow>
+          <CwMobileNav
             disabled={pending}
             onClick={handleBack}
             aria-label={activeIndex === 0 ? "Exit" : "Previous step"}
           >
             <ChevronLeft size={20} strokeWidth={2.25} />
-          </button>
-          <div className="cw-mobile-stepper-copy">
-            <p className="cw-mobile-stepper-meta">
+          </CwMobileNav>
+          <CwMobileStepperCopy>
+            <CwMobileStepperMeta>
               {activeStep.id === "go-live"
                 ? `${strength.pct}% complete`
                 : `Step ${activeIndex + 1} of ${navSteps.length} · ${strength.pct}% complete`}
-            </p>
-            <h1 className="cw-mobile-stepper-title">{activeStep.title}</h1>
-          </div>
-          <button
-            type="button"
-            className="cw-mobile-nav"
+            </CwMobileStepperMeta>
+            <CwMobileStepperTitle>{activeStep.title}</CwMobileStepperTitle>
+          </CwMobileStepperCopy>
+          <CwMobileNav
             disabled={
               pending || uploadingMedia || activeIndex >= steps.length - 1
             }
@@ -1542,17 +1573,13 @@ export function CreatorProfileWizard({
             aria-label="Next step"
           >
             <ChevronRight size={20} strokeWidth={2.25} />
-          </button>
-        </div>
-        <div className="cw-mobile-segments" aria-hidden>
+          </CwMobileNav>
+        </CwMobileStepperRow>
+        <CwMobileSegments>
           {navSteps.map((step, index) => (
-            <span
-              key={step.id}
-              className="cw-mobile-segment"
-              data-filled={index <= activeIndex}
-            />
+            <CwMobileSegment key={step.id} filled={index <= activeIndex} />
           ))}
-        </div>
+        </CwMobileSegments>
 
         {/* Resubmit lives here on a phone, under the stepper and above the
             form, because the desktop header that normally carries it is
@@ -1561,9 +1588,9 @@ export function CreatorProfileWizard({
             click one. Reachable from any step without scrolling to the end of
             a long form, which is the point: Submit persists every edit. */}
         {showResubmit ? (
-          <button
-            type="button"
-            className="cw-btn cw-btn-primary cw-mobile-submit"
+          <CwBtn
+            variant="primary"
+            className="mt-3 w-full"
             onClick={submitForReview}
             disabled={pending || uploadingMedia}
           >
@@ -1578,18 +1605,18 @@ export function CreatorProfileWizard({
                 Submit for review
               </>
             )}
-          </button>
+          </CwBtn>
         ) : null}
-      </div>
+      </CwMobileStepper>
 
-      <div className="cw-layout">
+      <CwLayout>
         {/* ---- Left rail ---- */}
-        <aside className="cw-rail">
-          <div className="cw-rail-intro">
-            <h2 className="cw-rail-title">Complete Your Creator Profile</h2>
-            <p className="cw-rail-sub">
+        <CwRail>
+          <div>
+            <CwRailTitle>Complete Your Creator Profile</CwRailTitle>
+            <CwRailSub>
               Build a profile that helps brands discover and trust you.
-            </p>
+            </CwRailSub>
           </div>
 
           {/* Labelled "Profile Complete" while the value behind it is still
@@ -1597,83 +1624,80 @@ export function CreatorProfileWizard({
               only what creators are told it means. Renaming the whole chain
               would touch the go-live step, the CSS and the snapshot types for
               no behaviour difference. */}
-          <div className="cw-strength">
-            <div className="cw-strength-head">
+          <CwStrength>
+            <CwStrengthHead>
               <Flame size={16} aria-hidden />
               <span>Profile Complete</span>
-            </div>
-            <div className="cw-strength-pct">{strength.pct}%</div>
-            <div className="cw-strength-track">
+            </CwStrengthHead>
+            <CwStrengthPct>{strength.pct}%</CwStrengthPct>
+            <CwStrengthTrack>
               <motion.div
-                className="cw-strength-fill"
+                className="h-full rounded-full bg-primary"
                 initial={false}
                 animate={{ width: `${strength.pct}%` }}
                 transition={{ type: "spring", stiffness: 160, damping: 26 }}
               />
-            </div>
-            <p className="cw-strength-hint">{strength.hint}</p>
-          </div>
+            </CwStrengthTrack>
+            <CwStrengthHint>{strength.hint}</CwStrengthHint>
+          </CwStrength>
 
-          <nav className="cw-steps" aria-label="Onboarding steps">
+          <CwSteps aria-label="Onboarding steps">
             {navSteps.map((step, index) => {
               const isActive = index === activeIndex;
               const isDone = completed.has(step.id) || stepFilled(step.id);
               const isReachable =
                 canEditFreely || step.ready || isDone || index <= activeIndex;
               return (
-                <button
+                <CwStep
                   key={step.id}
-                  type="button"
-                  className="cw-step"
-                  data-active={isActive}
-                  data-done={isDone}
+                  active={isActive}
+                  done={isDone}
+                  showConnector={index < navSteps.length - 1}
                   disabled={!isReachable}
                   aria-current={isActive ? "step" : undefined}
                   onClick={() => goToStep(index)}
                 >
-                  <span className="cw-step-dot">
+                  <CwStepDot active={isActive} done={isDone}>
                     {isDone ? <Check size={12} strokeWidth={3} /> : index + 1}
-                  </span>
-                  <span className="cw-step-label">{step.label}</span>
-                </button>
+                  </CwStepDot>
+                  <CwStepLabel active={isActive} done={isDone}>
+                    {step.label}
+                  </CwStepLabel>
+                </CwStep>
               );
             })}
-          </nav>
+          </CwSteps>
 
-          <div className="cw-tip">
+          <CwTip>
             <Lightbulb size={14} aria-hidden />
             <p>Creators with 10+ portfolio pieces get 3× more orders.</p>
-          </div>
-        </aside>
+          </CwTip>
+        </CwRail>
 
         {/* ---- Content pane ---- */}
-        <div className="cw-pane">
-          <div className="cw-pane-head">
-            <span className="cw-pane-icon">
+        <CwPane>
+          <CwPaneHead>
+            <CwPaneIcon>
               <ActiveIcon size={22} />
-            </span>
+            </CwPaneIcon>
             <div>
-              <h1 className="cw-pane-title">{activeStep.title}</h1>
+              <CwPaneTitle>{activeStep.title}</CwPaneTitle>
               {showResubmit ? (
-                <p className="cw-pane-tag">{activeStep.tagline}</p>
+                <CwPaneTag>{activeStep.tagline}</CwPaneTag>
               ) : showStepSave ? (
-                <p
-                  className="cw-pane-tag"
-                  style={{ color: "#b45309", fontWeight: 600 }}
-                >
+                <CwPaneTag className="font-semibold text-[#b45309]">
                   Please save your changes at each step before moving on.
-                </p>
+                </CwPaneTag>
               ) : (
-                <p className="cw-pane-tag">{activeStep.tagline}</p>
+                <CwPaneTag>{activeStep.tagline}</CwPaneTag>
               )}
             </div>
             {showResubmit ? (
               // Withdrawn profile: a single Submit action. No per-step Save —
               // Submit persists every edit, so a separate Save is misleading.
-              <button
-                type="button"
-                className="cw-btn cw-btn-primary"
-                style={{ marginLeft: "auto", alignSelf: "center" }}
+              <CwBtn
+                variant="primary"
+                className="ml-auto self-center"
                 onClick={submitForReview}
                 disabled={pending || uploadingMedia}
               >
@@ -1688,12 +1712,11 @@ export function CreatorProfileWizard({
                     Submit for review
                   </>
                 )}
-              </button>
+              </CwBtn>
             ) : showStepSave ? (
-              <button
-                type="button"
-                className="cw-btn cw-btn-primary"
-                style={{ marginLeft: "auto", alignSelf: "center" }}
+              <CwBtn
+                variant="primary"
+                className="ml-auto self-center"
                 onClick={onPrimaryAction}
                 disabled={pending || uploadingMedia}
               >
@@ -1708,30 +1731,25 @@ export function CreatorProfileWizard({
                     {isLastStep ? null : <ArrowRight size={16} />}
                   </>
                 )}
-              </button>
+              </CwBtn>
             ) : null}
-          </div>
+          </CwPaneHead>
 
           {awaitingReview ? (
-            <div className="cw-review-banner" role="status">
-              <div className="cw-review-banner-copy">
-                <Clock
-                  size={18}
-                  aria-hidden
-                  className="cw-review-banner-icon"
-                />
+            <CwReviewBanner>
+              <CwReviewBannerCopy>
+                <Clock size={18} aria-hidden className="mt-0.5 shrink-0 text-primary" />
                 <div>
-                  <p className="cw-review-banner-title">
+                  <CwReviewBannerTitle>
                     Your profile is submitted and under review.
-                  </p>
-                  <p className="cw-review-banner-text">
+                  </CwReviewBannerTitle>
+                  <CwReviewBannerText>
                     Withdraw it to make changes, then resubmit.
-                  </p>
+                  </CwReviewBannerText>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="cw-btn cw-btn-ghost"
+              </CwReviewBannerCopy>
+              <CwBtn
+                variant="ghost"
                 onClick={handleWithdraw}
                 disabled={withdrawing}
               >
@@ -1746,31 +1764,31 @@ export function CreatorProfileWizard({
                     Withdraw to edit
                   </>
                 )}
-              </button>
-            </div>
+              </CwBtn>
+            </CwReviewBanner>
           ) : null}
 
           {showResubmit ? (
-            <div className="cw-review-banner" role="status">
-              <div className="cw-review-banner-copy">
+            <CwReviewBanner>
+              <CwReviewBannerCopy>
                 <RotateCcw
                   size={18}
                   aria-hidden
-                  className="cw-review-banner-icon"
+                  className="mt-0.5 shrink-0 text-primary"
                 />
                 <div>
-                  <p className="cw-review-banner-title">
+                  <CwReviewBannerTitle>
                     You&apos;ve reopened your profile for editing.
-                  </p>
-                  <p className="cw-review-banner-text">
+                  </CwReviewBannerTitle>
+                  <CwReviewBannerText>
                     Make your changes across the steps, then click{" "}
                     <strong>Submit for review</strong> — it saves everything and
                     sends your profile back. Your edits aren&apos;t live until
                     you submit.
-                  </p>
+                  </CwReviewBannerText>
                 </div>
-              </div>
-            </div>
+              </CwReviewBannerCopy>
+            </CwReviewBanner>
           ) : null}
 
           <AnimatePresence mode="wait">
@@ -1999,25 +2017,21 @@ export function CreatorProfileWizard({
 
           {/* Footer */}
           {activeStep.id !== "go-live" ? (
-            <div className="cw-foot">
+            <CwFoot>
               {canEditFreely && !awaitingReview && !showResubmit ? (
-                <span className="cw-foot-note">
-                  Save each step after you edit it.
-                </span>
+                <CwFootNote>Save each step after you edit it.</CwFootNote>
               ) : null}
-              <div className="cw-foot-actions">
-                <button
-                  type="button"
-                  className="cw-btn cw-btn-ghost"
+              <CwFootActions>
+                <CwBtn
+                  variant="ghost"
                   disabled={pending || withdrawing}
                   onClick={handleBack}
                 >
                   <ArrowLeft size={16} />
                   {activeIndex === 0 ? "Exit" : "Back"}
-                </button>
-                <button
-                  type="button"
-                  className="cw-btn cw-btn-primary"
+                </CwBtn>
+                <CwBtn
+                  variant="primary"
                   onClick={onPrimaryAction}
                   disabled={
                     awaitingReview ||
@@ -2040,12 +2054,12 @@ export function CreatorProfileWizard({
                       {isLastStep ? null : <ArrowRight size={16} />}
                     </>
                   )}
-                </button>
-              </div>
-            </div>
+                </CwBtn>
+              </CwFootActions>
+            </CwFoot>
           ) : null}
-        </div>
-      </div>
+        </CwPane>
+      </CwLayout>
 
       <AddReelSourceSheet
         open={pfSourceOpen}
@@ -2125,6 +2139,6 @@ export function CreatorProfileWizard({
           replacePortfolioMutation.isPending
         }
       />
-    </div>
+    </CwRoot>
   );
 }

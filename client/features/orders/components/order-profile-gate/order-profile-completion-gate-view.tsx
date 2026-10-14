@@ -119,13 +119,13 @@ export function OrderProfileCompletionGateView({
           <div className="min-w-0 flex-1">
             <h1 className="m-0 text-xl font-bold leading-tight text-foreground sm:text-2xl">
               {isComplete
-                ? "Nothing is holding your payment"
-                : "Your payment is on hold"}
+                ? "Your payment is on its way"
+                : "Complete your profile to release your payment"}
             </h1>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               {isComplete
                 ? "Everything we need is on file. Your payout for this order goes out in the next cycle."
-                : "The brand has approved your work — this order is done. We cannot release your payment until the details below are complete, because that is where the money is sent."}
+                : "The brand has approved your work — this order is done. Finish the steps below and your payment is released. Your intro video is not one of them: it stays optional and never holds a payout."}
             </p>
           </div>
         </div>
@@ -181,7 +181,7 @@ export function OrderProfileCompletionGateView({
         <section className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="m-0 text-sm font-bold uppercase tracking-[0.05em] text-muted-foreground">
-              Needed before we can pay you
+              Complete these to release your payment
             </h2>
             <span className="text-xs font-semibold text-muted-foreground">
               {totalGaps} {totalGaps === 1 ? "item" : "items"} across{" "}
@@ -252,7 +252,7 @@ export function OrderProfileCompletionGateView({
         <p className="m-0 text-xs leading-relaxed text-muted-foreground sm:max-w-sm">
           {isComplete
             ? "Payouts are released in the next cycle after approval."
-            : "Your payout is held until this is done — it is released in the next cycle once it is."}
+            : "This is everything — anything not listed here, the intro video included, is optional and does not affect your payment."}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button

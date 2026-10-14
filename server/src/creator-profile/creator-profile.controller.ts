@@ -54,6 +54,7 @@ import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { CreatorUnavailabilityService } from './creator-unavailability.service';
 import { UpsertCreatorPayoutDetailsDto } from './dto/upsert-creator-payout-details.dto';
 import { CreatorPayoutDetailsMaskedDto } from './dto/creator-payout-details-masked.dto';
+import { CreatorProfileCompletenessDto } from './dto/creator-profile-completeness.dto';
 import {
   CreatorUnavailabilityDto,
   UpsertCreatorUnavailabilityDto,
@@ -263,6 +264,22 @@ export class CreatorProfileController {
     req: Request & { user: { id: string } },
   ): Promise<CreatorProfileResponseDto> {
     return this.creatorProfileService.getCreatorProfileForCurrentUser(
+      req.user.id,
+    );
+  }
+
+  @Get('profile/me/completeness')
+  @RequiredWorkspace('CREATOR')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @ApiOperation({
+    summary:
+      "What the signed-in creator's profile is still missing, re-evaluated live (Go-Live checklist + OTP verification + payout details)",
+  })
+  @ApiOkResponse({ type: CreatorProfileCompletenessDto })
+  async getMyProfileCompleteness(
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CreatorProfileCompletenessDto> {
+    return this.creatorProfileService.getCompletenessForCurrentCreator(
       req.user.id,
     );
   }

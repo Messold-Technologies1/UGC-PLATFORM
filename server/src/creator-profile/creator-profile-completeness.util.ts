@@ -213,18 +213,38 @@ export const OTP_VERIFICATION_REQUIREMENT: GoLiveRequirement = {
   label: 'OTP verification',
 };
 
+/**
+ * Listed-admin only: a bank account or UPI ID to pay the creator with.
+ *
+ * Deliberately not a Go-Live requirement — a creator should be able to get
+ * listed and start receiving orders before sorting out their bank details.
+ * It only becomes a gap once they are live and could actually be owed money.
+ */
+export const PAYOUT_DETAILS_REQUIREMENT: GoLiveRequirement = {
+  key: 'payoutDetails',
+  label: 'Payout details',
+};
+
 export interface ListedProfileCompletenessInput extends ProfileCompletenessInput {
   /**
    * `User.phoneOtpLastStatus`. Listed · complete requires `'approved'`;
    * anything else (null, pending, expired, …) counts as still missing OTP.
    */
   phoneOtpLastStatus?: string | null;
+  /**
+   * Whether `CreatorPayoutDetails` holds a payable method: a full bank account
+   * (number + IFSC) or a UPI ID. Mirrors what the creator's own masked
+   * endpoint reports as configured. Required, so a caller cannot forget it and
+   * silently mark everyone as missing payouts.
+   */
+  hasPayoutDetails: boolean;
 }
 
 /**
  * "Is this LISTED creator's profile actually finished?" — the Go-Live checklist
- * re-evaluated live, plus OTP verification on the linked user
- * (`phoneOtpLastStatus === 'approved'`). Intro video stays optional.
+ * re-evaluated live, plus the two things only a live creator needs: OTP
+ * verification on the linked user (`phoneOtpLastStatus === 'approved'`) and a
+ * payout method we can send their earnings to. Intro video stays optional.
  *
  * Distinct from `evaluateProfileCompleteness` because
  * `CreatorProfile.completeProfile` is a one-way latch stamped at Go Live and
@@ -245,6 +265,10 @@ export function evaluateListedProfileCompleteness(
     missing.push(OTP_VERIFICATION_REQUIREMENT.label);
   }
 
+  if (!input.hasPayoutDetails) {
+    missing.push(PAYOUT_DETAILS_REQUIREMENT.label);
+  }
+
   return { complete: missing.length === 0, missing };
 }
 
@@ -252,4 +276,5 @@ export function evaluateListedProfileCompleteness(
 export const LISTED_PROFILE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   ...GO_LIVE_REQUIREMENTS,
   OTP_VERIFICATION_REQUIREMENT,
+  PAYOUT_DETAILS_REQUIREMENT,
 ];

@@ -73,7 +73,7 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "listed_complete",
     label: "Listed · complete",
     description:
-      "Listed and nothing left to do — every go-live requirement met, intro video included.",
+      "Listed and nothing left to do — every go-live requirement met, plus OTP verification and payout details. The intro video stays optional.",
     icon: BadgeCheck,
     countKey: "listedComplete",
     badgeClassName: "bg-emerald-100 text-emerald-700",
@@ -82,7 +82,7 @@ const APPROVAL_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "listed_incomplete",
     label: "Listed · incomplete",
     description:
-      "Live on the marketplace but still missing something — e.g. OTP verification or other profile gaps.",
+      "Live on the marketplace but still missing something — e.g. OTP verification, payout details or other profile gaps.",
     icon: OctagonAlert,
     countKey: "listedIncomplete",
     badgeClassName: "bg-rose-100 text-rose-700",
@@ -147,7 +147,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "listed_complete",
     label: "Listed · complete",
     description:
-      "Listed and nothing left to do — every go-live requirement met, intro video included.",
+      "Listed and nothing left to do — every go-live requirement met, plus OTP verification and payout details. The intro video stays optional.",
     icon: BadgeCheck,
     countKey: "listedComplete",
     badgeClassName: "bg-emerald-100 text-emerald-700",
@@ -156,7 +156,7 @@ const PROFILE_FIRST_TABS: AdminCreatorTabConfig[] = [
     value: "listed_incomplete",
     label: "Listed · incomplete",
     description:
-      "Live on the marketplace but still missing something — e.g. OTP verification or other profile gaps.",
+      "Live on the marketplace but still missing something — e.g. OTP verification, payout details or other profile gaps.",
     icon: OctagonAlert,
     countKey: "listedIncomplete",
     badgeClassName: "bg-rose-100 text-rose-700",

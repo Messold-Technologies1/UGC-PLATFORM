@@ -54,6 +54,7 @@ export type AboutYouStepProps = {
     contactEmail?: string;
     dateOfBirth?: string;
     gender?: string;
+    phone?: string;
     instagram?: string;
   };
 };
@@ -356,6 +357,12 @@ export function AboutYouStep(props: AboutYouStepProps) {
             adminMode={adminMode}
           />
         </div>
+        {errors.phone ? (
+          <p className="cw-field-warn">
+            <AlertTriangle size={13} aria-hidden />
+            {errors.phone}
+          </p>
+        ) : null}
         {errors.instagram ? (
           <p className="cw-field-warn"><AlertTriangle size={13} aria-hidden />{errors.instagram}</p>
         ) : null}

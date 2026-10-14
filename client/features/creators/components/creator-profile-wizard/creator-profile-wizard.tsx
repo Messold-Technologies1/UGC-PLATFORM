@@ -1021,6 +1021,10 @@ export function CreatorProfileWizard({
                 ? "Creators must be at least 18 years old."
                 : undefined,
             gender: !gender ? "Please select your gender." : undefined,
+            phone:
+              !adminMode && !phoneVerified
+                ? "Verify your mobile number with OTP to continue."
+                : undefined,
             instagram: !instagramConnected
               ? "Connect your Instagram account to continue."
               : undefined,
@@ -1120,6 +1124,8 @@ export function CreatorProfileWizard({
     dateOfBirth,
     isEighteenPlus,
     gender,
+    adminMode,
+    phoneVerified,
     location.city,
     shippingAddress,
     selectedLanguageCount,

@@ -50,11 +50,29 @@ export const ENDPOINTS = {
       "/api/brands/profile/uploads/presign-pronunciation",
     PROFILE_BRAND_CATEGORY_OPTIONS:
       "/api/brands/profile/brand-category-options",
+    // Agencies this brand has connected, or been asked by.
+    AGENCY_LINKS: "/api/brands/profile/agency-links",
+    AGENCY_LINK_CANCEL: (id: string) =>
+      `/api/brands/profile/agency-links/${encodeURIComponent(id)}/cancel`,
+    AGENCY_LINK_REVOKE: (id: string) =>
+      `/api/brands/profile/agency-links/${encodeURIComponent(id)}/revoke`,
   },
   AGENCY: {
     PROFILE: "/api/agency/profile",
     PROFILE_ME: "/api/agency/profile/me",
     PROFILE_LOGO_PRESIGN: "/api/agency/profile/uploads/presign",
+    // Partner links. The agency owns the code; brands redeem it.
+    PARTNER_ID: "/api/agency/partner-id",
+    PARTNER_ID_ROTATE: "/api/agency/partner-id/rotate",
+    BRAND_LINKS: "/api/agency/brand-links",
+    BRAND_LINK_ACCEPT: (id: string) =>
+      `/api/agency/brand-links/${encodeURIComponent(id)}/accept`,
+    BRAND_LINK_REJECT: (id: string) =>
+      `/api/agency/brand-links/${encodeURIComponent(id)}/reject`,
+    BRAND_LINK_LEAVE: (id: string) =>
+      `/api/agency/brand-links/${encodeURIComponent(id)}`,
+    BRAND_LINK_SPEND_REPORT: (brandId: string) =>
+      `/api/agency/brand-links/${encodeURIComponent(brandId)}/spend-report`,
   },
   NOTIFICATION_PREFERENCES: {
     ME: "/api/notification-preferences/me",

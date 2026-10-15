@@ -34,6 +34,7 @@ export enum EmailTemplateKey {
   AGENCY_LINK_ACCEPTED = 'agency-link-accepted',
   AGENCY_LINK_REJECTED = 'agency-link-rejected',
   AGENCY_LINK_ENDED = 'agency-link-ended',
+  ORDER_PLACED_BY_AGENCY_FOR_BRAND = 'order-placed-by-agency-for-brand',
   PASSWORD_RESET = 'password-reset',
 }
 

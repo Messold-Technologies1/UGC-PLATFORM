@@ -48,7 +48,10 @@ const agency = {
 };
 
 /** Every column `orderSelect` asks for, so any event's resolve() can run. */
-function makeOrder(buyer: 'brand' | 'agency' | 'none'): OrderRow {
+function makeOrder(
+  buyer: 'brand' | 'agency' | 'none',
+  opts: { placedByAgency?: boolean } = {},
+): OrderRow {
   return {
     id: 'ord_8f21c4',
     status: OrderStatus.ACCEPTED,
@@ -70,6 +73,9 @@ function makeOrder(buyer: 'brand' | 'agency' | 'none'): OrderRow {
     refundedAt: new Date('2026-10-03T05:00:00Z'),
     brand: buyer === 'brand' ? brand : null,
     agency: buyer === 'agency' ? agency : null,
+    placedByAgency: opts.placedByAgency
+      ? { id: 'agency-1', name: 'Northstar Media' }
+      : null,
     creator,
   } as unknown as OrderRow;
 }
@@ -228,8 +234,20 @@ describe('order-context buyer resolution', () => {
    * reintroducing it.
    */
   describe('every buyer event', () => {
+    /**
+     * `order-placed-by-agency-for-brand` fires only when an agency placed the
+     * order, so it resolves to null on these fixtures by design. Including it
+     * would mean a fixture that is both agency-OWNED and agency-PLACED — a row
+     * that cannot exist — so it is covered by its own tests below instead.
+     */
+    const CONDITIONAL_BUYER_EVENTS = new Set([
+      'order-placed-by-agency-for-brand',
+    ]);
+
     const buyerEvents = Object.entries(orderEvents).filter(
-      ([, def]) => def.recipient === NotificationRecipientRole.BRAND,
+      ([key, def]) =>
+        def.recipient === NotificationRecipientRole.BRAND &&
+        !CONDITIONAL_BUYER_EVENTS.has(key),
     );
 
     it('covers all of them', () => {
@@ -261,5 +279,35 @@ describe('order-context buyer resolution', () => {
         expect(recipient?.profileType).toBe('brand');
       },
     );
+  });
+
+  describe('order-placed-by-agency-for-brand', () => {
+    const def = orderEvents['order-placed-by-agency-for-brand'];
+
+    it('addresses the brand and links to their own order page', async () => {
+      const order = makeOrder('brand', { placedByAgency: true });
+      const recipient = await def.resolve(makeContext(order), order.id);
+
+      expect(recipient?.vars.actionUrl).toBe(
+        `${FRONTEND}/brand/orders/ord_8f21c4`,
+      );
+      expect(recipient?.profileType).toBe('brand');
+      expect(recipient?.vars.agencyName).toBe('Northstar Media');
+    });
+
+    it('sends nothing when the brand placed its own order', async () => {
+      const order = makeOrder('brand');
+      await expect(
+        def.resolve(makeContext(order), order.id),
+      ).resolves.toBeNull();
+    });
+
+    it('sends nothing for a legacy agency-direct order', async () => {
+      // There the agency IS the buyer, so there is no account owner to warn.
+      const order = makeOrder('agency');
+      await expect(
+        def.resolve(makeContext(order), order.id),
+      ).resolves.toBeNull();
+    });
   });
 });

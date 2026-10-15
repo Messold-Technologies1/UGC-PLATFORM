@@ -720,6 +720,38 @@ export class OrdersService {
     return this.brandAccess.actorAttributionCreateData(actor);
   }
 
+  /**
+   * Tell the brand owner that their agency just spent their money.
+   *
+   * Fired from every path where an order becomes paid, because that — not
+   * order creation — is the moment money actually moves; an unpaid order the
+   * buyer abandons should never produce this mail. Emitting more than once for
+   * one order is harmless: the occurrence key is the order id, so the dispatch
+   * layer treats a repeat as a duplicate and drops it.
+   *
+   * The event itself resolves to null unless `placedByAgencyId` is set, so a
+   * brand's own order and a legacy agency-direct order both send nothing. The
+   * cheap check here just avoids queueing work that would be discarded.
+   */
+  async notifyBrandOfAgencyPlacedOrder(orderId: string): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { placedByAgencyId: true },
+      });
+      if (!order?.placedByAgencyId) return;
+
+      void this.events.emit('order-placed-by-agency-for-brand', {
+        entityId: orderId,
+      });
+    } catch (err) {
+      // Never let an alert break a payment that already succeeded.
+      this.logger.warn(
+        `[agency-link] could not queue agency-purchase notice order=${orderId}: ${String(err)}`,
+      );
+    }
+  }
+
   private ownerWhere(
     actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>,
   ) {
@@ -794,6 +826,7 @@ export class OrdersService {
       audience: 'brand_and_creator',
       meta: { zeroRupee: true },
     });
+    void this.notifyBrandOfAgencyPlacedOrder(params.orderId);
     void this.firePurchaseMetaEvent(params.orderId);
     this.logger.log(
       `[checkout] zero-rupee order placed order=${params.orderId} (no Razorpay)`,
@@ -1288,6 +1321,7 @@ export class OrdersService {
       );
 
       if (razorpayChargePaise === 0) {
+        void this.notifyBrandOfAgencyPlacedOrder(created.id);
         await this.orderRealtime.emitOrderPayment({
           orderId: created.id,
           kind: 'captured',
@@ -1745,6 +1779,7 @@ export class OrdersService {
         },
       );
       for (const orderId of orderIds) {
+        void this.notifyBrandOfAgencyPlacedOrder(orderId);
         await this.orderRealtime.emitOrderPayment({
           orderId,
           kind: 'captured',

@@ -148,6 +148,14 @@ type OrderBrandSnapshotDto = {
   agencyLogoUrl?: string | null;
   /** Client brand name from the attached brief (agency orders). */
   clientBrandName?: string | null;
+  /**
+   * The agency running this brand's account, when one placed the order.
+   *
+   * Deliberately separate from `agencyName`, which means the agency IS the
+   * buyer. Here the brand owns the order and the agency merely acted, so
+   * merging the two would make a brand-owned order read as agency-owned.
+   */
+  placedByAgencyName?: string | null;
 };
 
 function toOrderBrandSnapshotDto(
@@ -156,6 +164,7 @@ function toOrderBrandSnapshotDto(
     agencyName?: string | null;
     agencyLogoUrl?: string | null;
     clientBrandName?: string | null;
+    placedByAgencyName?: string | null;
   },
 ): OrderBrandSnapshotDto {
   const b = (brand ?? {}) as OrderBrandSnapshotDto;
@@ -170,6 +179,7 @@ function toOrderBrandSnapshotDto(
     agencyName,
     agencyLogoUrl: extras?.agencyLogoUrl ?? null,
     clientBrandName,
+    placedByAgencyName: extras?.placedByAgencyName?.trim() || null,
   };
 }
 
@@ -4368,6 +4378,13 @@ export class OrdersService {
             logoUrl: true,
           },
         },
+        // Attribution for the "Managed by" tag: set when a
+        // partner-linked agency placed this on the brand's behalf.
+        // Distinct from `agency` above, which means the agency is
+        // the buyer.
+        placedByAgency: {
+          select: { id: true, name: true },
+        },
         briefRef: {
           select: { brandName: true },
         },
@@ -4388,12 +4405,19 @@ export class OrdersService {
     const dispute = await this.loadLatestDispute(order.id);
     if (dispute) mappedOrder.dispute = dispute;
 
+    // `order` is loosely typed here, so narrow the one field we read rather
+    // than reaching into an `any`.
+    const placedByAgency = (
+      order as { placedByAgency?: { name: string } | null }
+    ).placedByAgency;
     const buyerSnapshot = agency
       ? toAgencyOrderSnapshotDto({
           agency,
           clientBrandName: briefRef?.brandName ?? null,
         })
-      : toOrderBrandSnapshotDto(brand);
+      : toOrderBrandSnapshotDto(brand, {
+          placedByAgencyName: placedByAgency?.name ?? null,
+        });
 
     return {
       order: mappedOrder,
@@ -5029,6 +5053,13 @@ export class OrdersService {
               logoUrl: true,
             },
           },
+          // Attribution for the "Managed by" tag: set when a
+          // partner-linked agency placed this on the brand's behalf.
+          // Distinct from `agency` above, which means the agency is
+          // the buyer.
+          placedByAgency: {
+            select: { id: true, name: true },
+          },
           briefRef: {
             select: { brandName: true },
           },
@@ -5037,13 +5068,15 @@ export class OrdersService {
     ]);
 
     const items: CreatorOrderListItemDto[] = rows.map((r) => {
-      const { brand, agency, briefRef, ...orderFields } = r;
+      const { brand, agency, briefRef, placedByAgency, ...orderFields } = r;
       const buyerSnapshot = agency
         ? toAgencyOrderSnapshotDto({
             agency,
             clientBrandName: briefRef?.brandName ?? null,
           })
-        : toOrderBrandSnapshotDto(brand);
+        : toOrderBrandSnapshotDto(brand, {
+            placedByAgencyName: placedByAgency?.name ?? null,
+          });
       return {
         order: this.mapOrderListSummary(orderFields),
         brand: buyerSnapshot,

@@ -273,22 +273,25 @@ export class AgencyService {
     });
   }
 
-  async assertContactPhoneAvailable(
-    phone: string,
-    excludeAgencyId?: string,
-  ): Promise<void> {
-    const existing = await this.prisma.agency.findFirst({
-      where: {
-        contactPhone: phone,
-        contactPhoneVerified: true,
-        ...(excludeAgencyId ? { NOT: { id: excludeAgencyId } } : {}),
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new BadRequestException('This phone number is already in use.');
-    }
-  }
+  /*
+   * A contact phone used to have to be unique across agencies: a number any
+   * other agency had verified was refused with "This phone number is already
+   * in use."
+   *
+   * Removed, because nothing else in the product worked that way. Brands and
+   * creators never had the check, and `User.phone` carries no unique
+   * constraint — the schema has always allowed two people to verify the same
+   * number. Agencies were the lone exception, added wholesale with the agency
+   * feature and with no stated reason, so it read as an oversight rather than
+   * a policy.
+   *
+   * What it actually did was block a real person from registering an agency
+   * with their own verified number because some other account had reached it
+   * first, and tell them the number was "in use" without saying by whom or
+   * what to do about it. Someone wanting several agencies on one number could
+   * do it with brands regardless, so the rule cost legitimate users more than
+   * it prevented.
+   */
 
   async presignAgencyLogoUpload(
     userId: string,
@@ -362,10 +365,6 @@ export class AgencyService {
         ...(dto.website !== undefined ? { website: dto.website } : {}),
         ...(dto.logoKey !== undefined ? { logoKey: dto.logoKey } : {}),
       });
-    }
-
-    if (contactPhone) {
-      await this.assertContactPhoneAvailable(contactPhone);
     }
 
     await this.prisma.$transaction(
@@ -489,9 +488,6 @@ export class AgencyService {
 
     if (dto.contactPhone !== undefined) {
       const contactPhone = dto.contactPhone?.trim() || null;
-      if (contactPhone) {
-        await this.assertContactPhoneAvailable(contactPhone, existing.id);
-      }
 
       const owner = await this.prisma.user.findUnique({
         where: { id: ownerUserId },

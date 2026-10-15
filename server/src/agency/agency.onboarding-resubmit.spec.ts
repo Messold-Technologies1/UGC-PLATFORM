@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { AgencyService } from './agency.service';
 
 /**
@@ -108,24 +107,14 @@ describe('AgencyService.createOwnedAgencyProfile — submitted twice', () => {
     expect(createAgency).not.toHaveBeenCalled();
   });
 
-  it('never checks the phone without excluding the agency being updated', async () => {
-    // The root cause: an unscoped check always matches the owner's own row.
+  it('does not look up other agencies by phone at all', async () => {
+    // The cross-agency uniqueness rule is gone, so nothing should be scanning
+    // for another agency holding this number.
     const { service, prisma } = makeService({ hasAgency: true });
-    const assertAvailable = jest.spyOn(service, 'assertContactPhoneAvailable');
 
     await submit(service);
 
-    // Guard against a vacuous pass: the check must actually run.
-    expect(assertAvailable).toHaveBeenCalled();
-    for (const call of assertAvailable.mock.calls) {
-      expect(call[1]).toBe(AGENCY_ID);
-    }
-    // And the raw query, however it was reached, is scoped.
-    const findFirstCalls = prisma.agency.findFirst.mock
-      .calls as unknown as Array<[{ where?: unknown }]>;
-    for (const [args] of findFirstCalls) {
-      expect(args).toMatchObject({ where: { NOT: { id: AGENCY_ID } } });
-    }
+    expect(prisma.agency.findFirst).not.toHaveBeenCalled();
   });
 
   it('does not grant the welcome credit a second time', async () => {
@@ -187,14 +176,13 @@ describe('AgencyService.createOwnedAgencyProfile — submitted twice', () => {
     expect(prisma.agency.update).not.toHaveBeenCalled();
   });
 
-  it('still refuses a number another agency has verified', async () => {
-    // The check keeps its meaning for the case it was written for.
+  it('accepts a number another agency has already verified', async () => {
+    // Brands and creators never blocked this and User.phone is not unique, so
+    // agencies no longer refuse it either. Two accounts may share a number.
     const { service, prisma, createAgency } = makeService({ hasAgency: false });
-    prisma.agency.findFirst.mockResolvedValueOnce({
-      id: 'someone-elses-agency',
-    });
+    prisma.agency.findFirst.mockResolvedValue({ id: 'someone-elses-agency' });
 
-    await expect(submit(service)).rejects.toBeInstanceOf(BadRequestException);
-    expect(createAgency).not.toHaveBeenCalled();
+    await expect(submit(service)).resolves.toBeDefined();
+    expect(createAgency).toHaveBeenCalled();
   });
 });

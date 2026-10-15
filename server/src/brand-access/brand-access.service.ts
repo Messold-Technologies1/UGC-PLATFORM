@@ -234,6 +234,36 @@ export class BrandAccessService {
   }
 
   /**
+   * Does this user run an agency that currently manages this brand?
+   *
+   * Used where access cannot go through `resolveOrderActor` because the record
+   * itself names the brand — order chat being the case that matters. Reads the
+   * link live on every call rather than caching, which is what makes revocation
+   * take effect immediately: the moment a link stops being ACTIVE the agency
+   * drops out of the conversation.
+   */
+  async isLinkedAgencyUserForBrand(
+    userId: string,
+    brandId: string | null,
+  ): Promise<boolean> {
+    if (!brandId) return false;
+    if (!this.partnerLinksEnabled()) return false;
+
+    const agency = await this.prisma.agency.findUnique({
+      where: { ownerUserId: userId },
+      select: { id: true },
+    });
+    if (!agency) return false;
+
+    const link = await this.prisma.agencyBrandLink.findUnique({
+      where: { agencyId_brandId: { agencyId: agency.id, brandId } },
+      select: { status: true },
+    });
+
+    return link?.status === AgencyBrandLinkStatus.ACTIVE;
+  }
+
+  /**
    * Refuse an action an agency must never take inside a brand's workspace.
    *
    * Covers taking money out (wallet withdrawals), changing the brand's identity

@@ -103,6 +103,12 @@ export function createBrandAccessMock(options?: {
       createdByAgencyId: a.actingAgencyId,
       createdByUserId: a.actorUserId,
     })),
+    /**
+     * Defaults to false so existing suites keep asserting that a
+     * non-participant is refused. Suites exercising the agency path override
+     * it, or use the dedicated order-chat.agency-access spec.
+     */
+    isLinkedAgencyUserForBrand: jest.fn(() => Promise.resolve(false)),
     assertNotActingAsAgency: jest.fn(
       (ctx: { actingAgencyId: string | null }, action = 'This action') => {
         if (ctx?.actingAgencyId) {

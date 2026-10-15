@@ -361,6 +361,7 @@ export class WishlistsService {
       const wishlist = await this.prisma.brandWishlist.create({
         data: {
           ...owner,
+          ...this.brandAccess.wishlistAttributionCreateData(actor),
           name: params.dto.name,
           ...(params.dto.creatorIds?.length
             ? {
@@ -770,6 +771,7 @@ export class WishlistsService {
         const created = await this.prisma.brandWishlist.create({
           data: {
             ...owner,
+            ...this.brandAccess.wishlistAttributionCreateData(actor),
             name,
             creators: {
               create: creatorIds.map((creatorId, idx) => ({

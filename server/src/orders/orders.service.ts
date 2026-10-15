@@ -696,6 +696,20 @@ export class OrdersService {
     return this.brandAccess.orderOwnerCreateData(actor);
   }
 
+  /**
+   * Who acted, for the attribution columns.
+   *
+   * Kept separate from `ownerCreateData()` on purpose: that result is spread
+   * into WHERE clauses as well as creates, and a `placedByAgencyId` leaking
+   * into a filter would silently hide every brand-placed order. This one is
+   * only ever spread into a create.
+   */
+  private attributionCreateData(
+    actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>,
+  ) {
+    return this.brandAccess.actorAttributionCreateData(actor);
+  }
+
   private ownerWhere(
     actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>,
   ) {
@@ -1135,6 +1149,7 @@ export class OrdersService {
       const created = await this.prisma.order.create({
         data: {
           ...owner,
+          ...this.attributionCreateData(actor),
           creatorId: pkg.creatorId,
           creatorPackageId: pkg.id,
           status: 'BRIEF_SUBMISSION_PENDING',
@@ -1204,6 +1219,7 @@ export class OrdersService {
         const order = await tx.order.create({
           data: {
             ...owner,
+            ...this.attributionCreateData(actor),
             creatorId: pkg.creatorId,
             creatorPackageId: pkg.id,
             status:
@@ -1466,6 +1482,7 @@ export class OrdersService {
     const created = await this.prisma.order.create({
       data: {
         ...owner,
+        ...this.attributionCreateData(actor),
         creatorId: pkg.creatorId,
         creatorPackageId: pkg.id,
         status: 'PENDING_PAYMENT',
@@ -1642,6 +1659,7 @@ export class OrdersService {
     // Per-child order fields (status/paidAt/checkoutBatchId are added per branch).
     const buildChildData = (p: PlanItem) => ({
       ...owner,
+      ...this.attributionCreateData(actor),
       creatorId: p.draft.pkg.creatorId,
       creatorPackageId: p.draft.pkg.id,
       packageNameSnapshot: p.draft.pkg.name,
@@ -1676,6 +1694,7 @@ export class OrdersService {
           const batch = await tx.orderCheckoutBatch.create({
             data: {
               ...owner,
+              ...this.attributionCreateData(actor),
               currency,
               expectedAmountPaise: 0,
               status: 'PAID',
@@ -1747,6 +1766,7 @@ export class OrdersService {
       const batch = await tx.orderCheckoutBatch.create({
         data: {
           ...owner,
+          ...this.attributionCreateData(actor),
           currency,
           expectedAmountPaise: netTotalPaise,
           status: 'PENDING_PAYMENT',

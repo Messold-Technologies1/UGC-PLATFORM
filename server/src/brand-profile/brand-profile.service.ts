@@ -919,6 +919,11 @@ export class BrandProfileService {
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId ?? null,
     });
+    // A managing agency runs the brand's campaigns, not its identity. Letting
+    // one rewrite the brand name, logo or contact details would let it change
+    // who the creator thinks they are dealing with, and would undermine the
+    // completeness gate the brand had to pass to connect the agency at all.
+    this.brandAccess.assertNotActingAsAgency(ctx, 'Editing the brand profile');
     const brandProfileId = ctx.brandProfileId;
     if (!brandProfileId) {
       throw new NotFoundException('Brand profile not found');

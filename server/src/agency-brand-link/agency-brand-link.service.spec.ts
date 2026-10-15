@@ -22,7 +22,19 @@ const AGENCY_ID = 'agency-1';
 const AGENCY_USER = 'agency-user-1';
 const PARTNER_ID = 'GC-7F3K-92QX';
 
-const completeBrand = {
+type BrandFixture = {
+  id: string;
+  brandName: string | null;
+  contactFullName: string | null;
+  contactPhone: string | null;
+  user: {
+    phone: string | null;
+    phoneVerified: boolean;
+    phoneOtpLastStatus: string | null;
+  } | null;
+};
+
+const completeBrand: BrandFixture = {
   id: BRAND_ID,
   brandName: 'Acme',
   contactFullName: 'Jane Doe',
@@ -37,7 +49,7 @@ const completeBrand = {
 type Options = {
   flagEnabled?: boolean;
   otpEnabled?: boolean;
-  brand?: typeof completeBrand | null;
+  brand?: BrandFixture | null;
   agencyByPartnerId?: {
     id: string;
     name: string;
@@ -251,21 +263,21 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it.each([
-    [AgencyBrandLinkStatus.ACTIVE, 'already manages'],
-    [AgencyBrandLinkStatus.PENDING, 'awaiting'],
-  ])('rejects a duplicate request when one is %s', async (status) => {
-    const { service } = build({
-      existingLink: { id: 'link-1', status },
-    });
+  it.each([AgencyBrandLinkStatus.ACTIVE, AgencyBrandLinkStatus.PENDING])(
+    'rejects a duplicate request when one is %s',
+    async (status) => {
+      const { service } = build({
+        existingLink: { id: 'link-1', status },
+      });
 
-    await expect(
-      service.requestLink({
-        brandUserId: BRAND_USER,
-        rawPartnerId: PARTNER_ID,
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
-  });
+      await expect(
+        service.requestLink({
+          brandUserId: BRAND_USER,
+          rawPartnerId: PARTNER_ID,
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    },
+  );
 
   it.each([AgencyBrandLinkStatus.REJECTED, AgencyBrandLinkStatus.REVOKED])(
     'reopens a %s relationship by reusing the same row',

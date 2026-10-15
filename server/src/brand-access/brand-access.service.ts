@@ -15,6 +15,16 @@ import {
   type ResolvedBrandContext,
 } from './brand-access.types';
 
+/**
+ * The minimum needed to attribute a write. Both `ResolvedOrderActor` and
+ * `ResolvedBrandContext` satisfy it, so callers holding either can attribute
+ * without a cast.
+ */
+export type ActorAttributionSource = {
+  actingAgencyId: string | null;
+  actorUserId: string;
+};
+
 export type ResolvedOrderActor = {
   brand: BrandAccessProfile | null;
   agency:
@@ -199,13 +209,27 @@ export class BrandAccessService {
    * null in legacy agency-direct mode, where `orderOwnerCreateData()` already
    * records the agency as the owner and there is no "on behalf of" to capture.
    */
-  actorAttributionCreateData(actor: ResolvedOrderActor): {
+  actorAttributionCreateData(actor: ActorAttributionSource): {
     placedByAgencyId: string | null;
     placedByUserId: string;
   } {
     return {
       placedByAgencyId: actor.actingAgencyId,
       placedByUserId: actor.actorUserId,
+    };
+  }
+
+  /**
+   * Same attribution for wishlists, which name the columns `createdBy*`
+   * because a wishlist is curated rather than placed.
+   */
+  wishlistAttributionCreateData(actor: ActorAttributionSource): {
+    createdByAgencyId: string | null;
+    createdByUserId: string;
+  } {
+    return {
+      createdByAgencyId: actor.actingAgencyId,
+      createdByUserId: actor.actorUserId,
     };
   }
 

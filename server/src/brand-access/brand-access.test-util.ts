@@ -99,6 +99,10 @@ export function createBrandAccessMock(options?: {
       placedByAgencyId: a.actingAgencyId,
       placedByUserId: a.actorUserId,
     })),
+    wishlistAttributionCreateData: jest.fn((a: typeof actor) => ({
+      createdByAgencyId: a.actingAgencyId,
+      createdByUserId: a.actorUserId,
+    })),
     assertNotActingAsAgency: jest.fn(
       (ctx: { actingAgencyId: string | null }, action = 'This action') => {
         if (ctx?.actingAgencyId) {

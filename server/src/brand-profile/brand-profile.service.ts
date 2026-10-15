@@ -20,6 +20,10 @@ import {
 } from '../meta-capi/meta-capi.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import {
+  ownerPhoneVerified,
+  phonesMatch,
+} from './brand-profile-completeness.util';
 import { CreateBrandProfileDto } from './dto/create-brand-profile.dto';
 import { UpdateBrandProfileDto } from './dto/update-brand-profile.dto';
 import {
@@ -295,15 +299,17 @@ export class BrandProfileService {
     const contactPhone = profile.contactPhone ?? null;
     const ownerPhone = profile.user?.phone ?? null;
     const phoneOtpLastStatus = profile.user?.phoneOtpLastStatus ?? null;
-    const phoneMatches =
-      Boolean(contactPhone) &&
-      Boolean(ownerPhone) &&
-      String(contactPhone).replace(/\s/g, '') ===
-        String(ownerPhone).replace(/\s/g, '');
+    // Display semantics are stricter than the partner-link gate: this flag says
+    // "the number shown here is itself verified", which requires it to BE the
+    // owner's verified number. The gate only asks whether a verified human owns
+    // the account. Both compose the same primitives so the shared notion of
+    // "OTP approved" cannot drift between them.
     const contactPhoneVerified =
-      phoneMatches &&
-      Boolean(profile.user?.phoneVerified) &&
-      phoneOtpLastStatus === 'approved';
+      phonesMatch(contactPhone, ownerPhone) &&
+      ownerPhoneVerified({
+        phoneVerified: profile.user?.phoneVerified,
+        phoneOtpLastStatus,
+      });
 
     return {
       id: profile.id,

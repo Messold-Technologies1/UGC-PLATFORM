@@ -12,6 +12,7 @@ import {
   randomInt,
   timingSafeEqual,
 } from 'node:crypto';
+import { phoneOtpRequired } from '../config/feature-flags.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppCloudTransport } from '../whatsapp/whatsapp-cloud.transport';
 import { TwilioOtpTransport } from './twilio-otp.transport';
@@ -159,7 +160,7 @@ export class PhoneVerificationService implements OnModuleInit {
    * numbers. (Admin review surfaces that flag, so it has to stay honest.)
    */
   otpRequired(): boolean {
-    return this.config.get<string>('PHONE_OTP_ENABLED') !== 'false';
+    return phoneOtpRequired(this.config.get<string>('PHONE_OTP_ENABLED'));
   }
 
   private whatsAppAvailable(): boolean {

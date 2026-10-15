@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { RoleName } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { AgencyBrandLinkStatus, RoleName } from '@prisma/client';
+import { agencyBrandPartnerLinksEnabled } from '../config/feature-flags.util';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   brandAccessSelect,
@@ -15,23 +17,44 @@ import {
 
 export type ResolvedOrderActor = {
   brand: BrandAccessProfile | null;
-  agency: (ResolvedAgencyContext & {
-    name: string;
-    logoUrl: string | null;
-    contactFullName: string;
-    contactEmail: string;
-    contactPhone: string | null;
-  }) | null;
+  agency:
+    | (ResolvedAgencyContext & {
+        name: string;
+        logoUrl: string | null;
+        contactFullName: string;
+        contactEmail: string;
+        contactPhone: string | null;
+      })
+    | null;
   brandId: string | null;
   agencyId: string | null;
   actorUserId: string;
   brandActorUserId: string;
   isAgencyWorkspace: boolean;
+  /**
+   * The agency acting inside a brand's workspace via an ACTIVE partner link.
+   *
+   * Deliberately NOT surfaced through `agency`, which means "the agency owns
+   * this". Callers branching on `actor.agency` must keep treating a linked
+   * agency as the brand, or ownership would silently move. Only attribution
+   * writes and the blocked-action checks read this field.
+   */
+  actingAgencyId: string | null;
 };
 
 @Injectable()
 export class BrandAccessService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  /** Whether agencies may act inside linked brands' workspaces at all. */
+  private partnerLinksEnabled(): boolean {
+    return agencyBrandPartnerLinksEnabled(
+      this.config.get<string>('AGENCY_BRAND_PARTNER_LINKS_ENABLED'),
+    );
+  }
 
   async isAdmin(userId: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
@@ -76,6 +99,7 @@ export class BrandAccessService {
       actorUserId: actor.actorUserId,
       brandActorUserId: actor.brandActorUserId,
       isAgencyWorkspace: actor.isAgencyWorkspace,
+      actingAgencyId: actor.actingAgencyId,
     };
   }
 
@@ -87,16 +111,23 @@ export class BrandAccessService {
 
     if (explicitId) {
       const brand = await this.loadBrandById(explicitId);
-      await this.assertActorCanAccessBrand(params.actorUserId, brand);
+      const { actingAgencyId } = await this.resolveBrandAccess(
+        params.actorUserId,
+        brand,
+      );
       const brandActorUserId = this.brandActorUserId(brand);
       return {
         brand,
+        // agencyId stays null even for a linked agency: the BRAND owns this
+        // workspace and everything created in it. That is what keeps the
+        // brandId-XOR-agencyId invariant — and every query built on it — intact.
         agency: null,
         brandId: brand.id,
         agencyId: null,
         actorUserId: params.actorUserId,
         brandActorUserId,
         isAgencyWorkspace: false,
+        actingAgencyId,
       };
     }
 
@@ -114,6 +145,7 @@ export class BrandAccessService {
         actorUserId: params.actorUserId,
         brandActorUserId,
         isAgencyWorkspace: false,
+        actingAgencyId: null,
       };
     }
 
@@ -141,6 +173,9 @@ export class BrandAccessService {
       actorUserId: params.actorUserId,
       brandActorUserId: agency.ownerUserId,
       isAgencyWorkspace: true,
+      // Legacy agency-direct mode: the agency is the OWNER here, not an actor
+      // inside someone else's workspace, so there is nothing to attribute.
+      actingAgencyId: null,
     };
   }
 
@@ -155,6 +190,45 @@ export class BrandAccessService {
       return { brandId: actor.brandId, agencyId: null };
     }
     throw new BadRequestException('Order owner is required');
+  }
+
+  /**
+   * Who acted, for the attribution columns — never who owns.
+   *
+   * Spread alongside `orderOwnerCreateData()` on create. Both agency fields are
+   * null in legacy agency-direct mode, where `orderOwnerCreateData()` already
+   * records the agency as the owner and there is no "on behalf of" to capture.
+   */
+  actorAttributionCreateData(actor: ResolvedOrderActor): {
+    placedByAgencyId: string | null;
+    placedByUserId: string;
+  } {
+    return {
+      placedByAgencyId: actor.actingAgencyId,
+      placedByUserId: actor.actorUserId,
+    };
+  }
+
+  /**
+   * Refuse an action an agency must never take inside a brand's workspace.
+   *
+   * Covers taking money out (wallet withdrawals), changing the brand's identity
+   * (profile, logo, contact details), and managing the brand's agency links —
+   * that last one matters because brands may link several agencies, and without
+   * it one agency could connect, cancel or revoke a rival.
+   *
+   * The brand's own user and an admin pass straight through: they have no
+   * acting agency.
+   */
+  assertNotActingAsAgency(
+    ctx: { actingAgencyId: string | null },
+    action = 'This action',
+  ): void {
+    if (ctx.actingAgencyId) {
+      throw new ForbiddenException(
+        `${action} can only be done by the brand itself, not by a managing agency.`,
+      );
+    }
   }
 
   orderOwnerWhere(actor: ResolvedOrderActor): {
@@ -175,14 +249,48 @@ export class BrandAccessService {
     throw new ForbiddenException('Not your order');
   }
 
-  private async assertActorCanAccessBrand(
+  /**
+   * Decide whether this actor may operate inside this brand, and on what basis.
+   *
+   * Three ways in, checked cheapest first:
+   *  1. the brand's own user — settled from the already-loaded row, no query;
+   *  2. an agency holding an ACTIVE partner link — the new path;
+   *  3. an admin.
+   *
+   * Returns the acting agency id when (and only when) access came via a link,
+   * so the caller can attribute what follows without re-deriving it.
+   */
+  private async resolveBrandAccess(
     actorUserId: string,
-    brand: {
-      userId: string | null;
-    },
-  ): Promise<void> {
-    if (await this.isAdmin(actorUserId)) return;
-    if (brand.userId === actorUserId) return;
+    brand: { id: string; userId: string | null },
+  ): Promise<{ actingAgencyId: string | null }> {
+    if (brand.userId === actorUserId) return { actingAgencyId: null };
+
+    if (this.partnerLinksEnabled()) {
+      const agency = await this.prisma.agency.findUnique({
+        where: { ownerUserId: actorUserId },
+        select: { id: true },
+      });
+
+      if (agency) {
+        const link = await this.prisma.agencyBrandLink.findUnique({
+          where: {
+            agencyId_brandId: { agencyId: agency.id, brandId: brand.id },
+          },
+          select: { status: true },
+        });
+
+        // Only ACTIVE grants anything. A PENDING request the brand has not
+        // accepted, a REJECTED one, and a REVOKED one are all equivalent to
+        // having no link at all.
+        if (link?.status === AgencyBrandLinkStatus.ACTIVE) {
+          return { actingAgencyId: agency.id };
+        }
+      }
+    }
+
+    if (await this.isAdmin(actorUserId)) return { actingAgencyId: null };
+
     throw new ForbiddenException('Not allowed to access this brand');
   }
 
@@ -197,10 +305,11 @@ export class BrandAccessService {
     return brand;
   }
 
-  requireBrandProfile(ctx: ResolvedBrandContext | ResolvedOrderActor): BrandAccessProfile {
+  requireBrandProfile(
+    ctx: ResolvedBrandContext | ResolvedOrderActor,
+  ): BrandAccessProfile {
     const brand = ctx.brand;
-    const brandId =
-      'brandProfileId' in ctx ? ctx.brandProfileId : ctx.brandId;
+    const brandId = 'brandProfileId' in ctx ? ctx.brandProfileId : ctx.brandId;
     if (!brand || !brandId) {
       throw new BadRequestException(
         'This action requires a standalone brand profile.',

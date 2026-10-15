@@ -45,7 +45,8 @@ We are introducing a real relationship:
 | 10 | Audit & alerts | **Full audit trail**; brand owner notified on **money-spending actions only** (order placed, credits spent). |
 | 11 | Agency seats | **Out of scope.** Single agency owner login retained; audit stores `actorUserId` so seats can be added later without migrating data. |
 | 12 | Partner ID | **Short readable code on the Agency, rotatable.** Issued unconditionally at agency creation (`Agency.name`/`contactFullName`/`contactEmail` are non-nullable, so an agency is always complete). Backfilled for all existing agencies. Rotation does not break accepted links. |
-| 13 | Profile gate | **The brand profile must be complete** (`brandName` + contact present) **before the brand can submit a link request.** |
+| 13 | Profile gate | **The brand profile must be complete before the brand can submit a link request** — `brandName`, `contactFullName`, `contactEmail`, `contactPhone`, **and phone OTP verification**. See §5.3. |
+| 16 | OTP in the gate | **Verified owner phone is what counts**, regardless of whether `contactPhone` differs from the login phone. The check is **skipped entirely when `PHONE_OTP_ENABLED=false`**, matching how the rest of the codebase treats the flag. |
 | 14 | Admin | **View links + force-unlink** for support cases. |
 | 15 | Delivery | **One PR, backend + frontend, behind a feature flag.** |
 
@@ -229,9 +230,94 @@ per request.
 
 Submission (`POST /brand-profile/agency-links`) is rate limited per brand to
 blunt code guessing, and rejects when the brand profile is incomplete
-(decision 13).
+(decision 13, specified next).
 
-### 5.3 Blocked for an acting agency
+### 5.3 Brand profile completeness gate (incl. OTP)
+
+A brand may only submit a link request once its profile is genuinely complete.
+Handing an agency control of a workspace is exactly the moment to demand this,
+since the creator will see this brand's name and contact details on every
+order and brief the agency places.
+
+**Reuse, don't reinvent.** `brand-profile.service.ts:295-307` already derives
+brand phone verification inside `mapBrandProfile()`:
+
+```ts
+contactPhoneVerified =
+  contactPhone set && ownerPhone set &&
+  normalize(contactPhone) === normalize(user.phone) &&
+  user.phoneVerified &&
+  user.phoneOtpLastStatus === 'approved';
+```
+
+That logic is **inline in a mapper**, so a hand-rolled second copy in the guard
+would drift. The two are not identical though — the mapper also demands that the
+contact phone *equal* the login phone, which the gate deliberately does not
+(rule 3). So extract the shared primitives into
+`brand-profile/brand-profile-completeness.util.ts`:
+
+- `normalizePhone(v)` — the `replace(/\s/g, '')` currently duplicated inline;
+- `ownerPhoneVerified(user)` — `phoneVerified && phoneOtpLastStatus === 'approved'`.
+
+`mapBrandProfile()` then composes `ownerPhoneVerified(user) && phonesMatch(...)`
+for its display flag, and the gate calls `ownerPhoneVerified(user)` alone. One
+definition of "OTP approved", two intentionally different policies on top of it.
+
+```ts
+export type BrandCompletenessGap =
+  | 'BRAND_NAME_MISSING'
+  | 'CONTACT_NAME_MISSING'
+  | 'CONTACT_PHONE_MISSING'
+  | 'PHONE_NOT_VERIFIED';
+
+export function brandProfileCompleteness(params: {
+  profile: Pick<BrandProfile,
+    'brandName' | 'contactFullName' | 'contactPhone'>;
+  user: Pick<User, 'phoneVerified' | 'phoneOtpLastStatus'>;
+  otpRequired: boolean;   // PhoneVerificationService.otpRequired()
+}): { complete: boolean; gaps: BrandCompletenessGap[] };
+```
+
+**Note: "complete" does not exist on the server today.** `create-brand-profile.dto.ts`
+marks only `contactFullName` as required — even `brandName` is optional — and
+`update-brand-profile.dto.ts` is optional throughout. This change therefore has
+to *define* completeness. The definition below is deliberately minimal: it
+demands what a creator actually needs to see on an order, and nothing else, so
+it blocks as few existing brands as possible.
+
+Rules:
+
+1. **Required:** `brandName`, `contactFullName`, `contactPhone` — all non-empty
+   after trimming.
+
+   **Not required**, and deliberately so:
+   - `logoKey` / `logoUrl` — optional by decision.
+   - `contactEmail` — `update-brand-profile.dto.ts` documents that outbound mail
+     falls back to the account email when this is empty, and `User.email` is
+     non-nullable, so a contactable address always exists. Requiring it would add
+     friction without adding a guarantee.
+   - `website`, `instagramUrl`, `productType`, `categories`,
+     `brandPronunciationAudio` — descriptive/matching metadata, not identity.
+2. **OTP** — only when `otpRequired` is true: `user.phoneVerified === true`
+   **and** `user.phoneOtpLastStatus === 'approved'`.
+3. `contactPhone` does **not** have to equal the login phone (decision 16). The
+   existing mapper predicate demands equality, which would permanently block any
+   brand using a separate business line — there is no flow today to OTP a number
+   other than the login phone. The gate therefore checks that a verified human
+   owns the account, which is the real security goal. `mapBrandProfile()` keeps
+   its stricter display semantics unchanged; only the gate relaxes the match.
+4. When `PHONE_OTP_ENABLED=false`, rule 2 is skipped entirely. Otherwise, since
+   signup writes `phoneVerified: otpRequired`, a disabled-OTP environment would
+   block **every** brand, staging included.
+
+The guard runs on **submit** and is re-checked on **accept** — cheap, and it
+closes the window where a profile is emptied between the two.
+
+On failure the endpoint returns `422` with the structured `gaps[]` so the client
+can deep-link to the exact field or to the OTP step rather than show a generic
+validation error.
+
+### 5.4 Blocked for an acting agency
 
 Reject with `403` when `actingAgencyId` is set:
 
@@ -242,7 +328,7 @@ Reject with `403` when `actingAgencyId` is set:
   request, or revoke a rival's link
 - Brand account deactivation
 
-### 5.4 Chat, realtime, notifications
+### 5.5 Chat, realtime, notifications
 
 - **Chat access** is currently keyed on `brandActorUserId` (a single user).
   `chats.service.ts`, `order-chat.service.ts`, and
@@ -260,7 +346,7 @@ Reject with `403` when `actingAgencyId` is set:
   Plus brand-owner alerts for *order placed by agency* and *credits spent by
   agency* only (decision 10).
 
-### 5.5 Briefs — agency-direct change
+### 5.6 Briefs — agency-direct change
 
 In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
 `appendAgencyBrandName()` is retired from the brief path (the util and
@@ -280,7 +366,10 @@ In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
 4. **Brand dashboard** (`settings/profile`): *"Connect an agency"* input where
    the brand pastes the agency's Partner ID, a preview of the matched agency
    before submitting, pending requests with cancel, and active agencies with
-   revoke.
+   revoke. The connect action is **disabled while the profile is incomplete**,
+   showing exactly what's missing from the `gaps[]` response and deep-linking to
+   the field — or to the OTP step for `PHONE_NOT_VERIFIED`, reusing the existing
+   phone-verification component rather than building a second one.
 5. **Agency dashboard**: Partner ID card with copy + rotate, an **incoming
    requests** inbox with accept/reject, the linked-brands page, and the
    per-brand spend report.
@@ -306,8 +395,22 @@ In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
   keeps accepted links intact, an old code stops resolving after rotation.
 - Link flow direction: a brand submitting a valid code creates `PENDING` and
   emails the agency; the brand gets **no access to anything** until the agency
-  accepts; a rejected request grants nothing; a brand with an incomplete
-  profile cannot submit.
+  accepts; a rejected request grants nothing.
+- Completeness gate (§5.3), one case per gap:
+  - missing `brandName` / `contactFullName` / `contactPhone` → `422` naming
+    that gap, no link row created;
+  - `otpRequired` true and `phoneVerified` false → `PHONE_NOT_VERIFIED`;
+  - `otpRequired` true, `phoneVerified` true, but `phoneOtpLastStatus !==
+    'approved'` → still blocked;
+  - **`PHONE_OTP_ENABLED=false` → OTP gap never reported**, field checks still
+    enforced (the regression that would otherwise block every brand in staging);
+  - `contactPhone` different from the login phone with a verified owner →
+    **allowed** (decision 16), guarding against a re-tightening to the mapper's
+    equality rule;
+  - a complete profile that is emptied between submit and accept → the
+    re-check at accept rejects it;
+  - logo, website, `contactEmail`, `productType` and categories all absent →
+    **still allowed**.
 - Multi-agency: two agencies on one brand, revoking one leaves the other intact.
 - Legacy: existing agency-direct orders/wishlists/wallets unaffected; brief
   brandName auto-fills to the agency name.
@@ -332,8 +435,11 @@ agency-placed orders are ordinary brand-owned orders.
 
 - PR target branch — no `development` branch exists on the remote today
   (`main` + the working branch only).
-- A brand with an incomplete profile that tries to connect an agency should be
-  sent to the profile form with a clear reason, rather than shown a bare
-  validation error.
+- Confirm the required set in §5.3 (`brandName`, `contactFullName`,
+  `contactPhone`, verified phone). Adding `productType`/categories would block
+  more existing brands; logo and `contactEmail` are settled as optional.
+- Whether an existing brand that is already linked should be forced to complete
+  its profile retroactively — assumed **no**; the gate applies at request time
+  only.
 - Whether an agency may hold its Partner ID *before* it has any brands —
   assumed yes; the code is issued at agency creation.

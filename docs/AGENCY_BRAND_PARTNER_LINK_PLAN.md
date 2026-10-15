@@ -472,8 +472,14 @@ agency-placed orders are ordinary brand-owned orders.
   retired.
 - **Notifications** for all four lifecycle moments, with twelve templates.
 - **Client**: active-brand store + header injection, navbar switcher, agency
-  Brands page (partner ID, requests inbox, managed brands), brand
-  connect-an-agency panel, and the creator-facing "Managed by X" tag.
+  Brands page (partner ID, requests inbox, managed brands, inline spend
+  report), brand connect-an-agency panel, the creator-facing "Managed by X"
+  tag, the brand-facing "Placed by X" tag on their own order list, and the
+  admin oversight page with force-unlink.
+- **Brand-owner alert** when a managing agency places an order, fired from
+  every paid path (zero-rupee, both in-process checkouts, and both Razorpay
+  webhook branches) rather than at order creation — creation is not when money
+  moves, and an abandoned order should send nothing.
 
 ### Deliberately different from the plan above
 
@@ -482,19 +488,19 @@ agency-placed orders are ordinary brand-owned orders.
   through `Order.placedByAgencyId` instead. Same answer, without adding a
   column to the most sensitive table in the schema.
 
-### Not built — follow-up work
+### Known gaps
 
-- **Brand-owner alerts when an agency spends** (decision 10's notification
-  half). The audit trail itself is complete — every agency action is attributed
-  and queryable — but no email fires to the brand owner on order placement or
-  credit spend. Needs one order-event definition plus its templates.
-- **"Placed by Agency X" in the brand's own order list.** The data is stored and
-  exposed on the creator-facing surfaces; the brand-facing list does not render
-  it yet.
-- **Admin UI for links.** `GET /admin/agency-brand-links` and force-unlink both
-  exist and are tested; no admin page calls them.
-- **Agency spend-report page.** The endpoint and client hook exist; no screen
-  renders them.
+Nothing from the agreed scope is outstanding. Worth knowing for later:
+
+- **Credit spend outside order placement** (a revision or usage-rights
+  purchase an agency makes) is attributed but does not send its own alert; the
+  order-placed notice is the only one.
+- **Agency seats** remain out of scope by decision 11. The audit columns
+  already record `placedByUserId`, so adding them later needs no backfill.
+- **A wallet top-up route does not exist** anywhere in the product, so an
+  agency cannot fund a brand's wallet directly — it pays the Razorpay
+  remainder at checkout and reconciles through the spend report. If agencies
+  start funding brands at scale, that route is the natural follow-up.
 
 ### Verification
 

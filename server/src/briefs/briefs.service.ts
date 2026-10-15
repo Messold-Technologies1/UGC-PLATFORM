@@ -233,10 +233,24 @@ export class BriefsService {
     let shouldPersistBrandNameOnProfile = false;
 
     if (ctx.isAgencyWorkspace) {
-      if (!providedBrandName) {
-        throw new BadRequestException('Brand name is required on agency briefs.');
+      // Agency-direct mode now carries the AGENCY's own name, and the field is
+      // not the agency's to type. Client brands are no longer free text on a
+      // brief: a real brand registers, completes its profile and connects the
+      // agency by partner ID, after which the agency works inside that brand's
+      // workspace and this branch is not taken at all.
+      //
+      // Anything the caller sent is ignored rather than rejected, so an older
+      // client that still posts a brand name keeps working.
+      const agencyRow = ctx.agency
+        ? await this.prisma.agency.findUnique({
+            where: { id: ctx.agency.id },
+            select: { name: true },
+          })
+        : null;
+      if (!agencyRow) {
+        throw new BadRequestException('Agency profile not found');
       }
-      briefBrandName = providedBrandName;
+      briefBrandName = agencyRow.name;
     } else if (!brand) {
       throw new BadRequestException('Brand profile not found');
     } else {
@@ -261,18 +275,16 @@ export class BriefsService {
         });
       }
 
-      if (ctx.isAgencyWorkspace && ctx.agency) {
-        await this.agencyService.recordBrandNameFromBrief(
-          ctx.agency.id,
-          briefBrandName,
-          tx,
-        );
-      }
+      // Agency.brandNames harvesting is retired: the name on an agency-direct
+      // brief is now just the agency's own, so collecting it told us nothing,
+      // and real client brands arrive as AgencyBrandLink rows instead. The
+      // column and its helper stay for the rows already collected.
 
       return tx.brief.create({
         data: {
           brandId: brand?.id ?? null,
           agencyId: ctx.agency?.id ?? null,
+          ...this.brandAccess.actorAttributionCreateData(ctx),
           brandName: briefBrandName,
           brandPronunciationAudioKey: params.dto.brandPronunciationAudioKey,
           brandPronunciationAudioUrl: params.dto.brandPronunciationAudioUrl,

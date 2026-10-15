@@ -148,6 +148,14 @@ type OrderBrandSnapshotDto = {
   agencyLogoUrl?: string | null;
   /** Client brand name from the attached brief (agency orders). */
   clientBrandName?: string | null;
+  /**
+   * The agency running this brand's account, when one placed the order.
+   *
+   * Deliberately separate from `agencyName`, which means the agency IS the
+   * buyer. Here the brand owns the order and the agency merely acted, so
+   * merging the two would make a brand-owned order read as agency-owned.
+   */
+  placedByAgencyName?: string | null;
 };
 
 function toOrderBrandSnapshotDto(
@@ -156,6 +164,7 @@ function toOrderBrandSnapshotDto(
     agencyName?: string | null;
     agencyLogoUrl?: string | null;
     clientBrandName?: string | null;
+    placedByAgencyName?: string | null;
   },
 ): OrderBrandSnapshotDto {
   const b = (brand ?? {}) as OrderBrandSnapshotDto;
@@ -170,6 +179,7 @@ function toOrderBrandSnapshotDto(
     agencyName,
     agencyLogoUrl: extras?.agencyLogoUrl ?? null,
     clientBrandName,
+    placedByAgencyName: extras?.placedByAgencyName?.trim() || null,
   };
 }
 
@@ -696,6 +706,52 @@ export class OrdersService {
     return this.brandAccess.orderOwnerCreateData(actor);
   }
 
+  /**
+   * Who acted, for the attribution columns.
+   *
+   * Kept separate from `ownerCreateData()` on purpose: that result is spread
+   * into WHERE clauses as well as creates, and a `placedByAgencyId` leaking
+   * into a filter would silently hide every brand-placed order. This one is
+   * only ever spread into a create.
+   */
+  private attributionCreateData(
+    actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>,
+  ) {
+    return this.brandAccess.actorAttributionCreateData(actor);
+  }
+
+  /**
+   * Tell the brand owner that their agency just spent their money.
+   *
+   * Fired from every path where an order becomes paid, because that — not
+   * order creation — is the moment money actually moves; an unpaid order the
+   * buyer abandons should never produce this mail. Emitting more than once for
+   * one order is harmless: the occurrence key is the order id, so the dispatch
+   * layer treats a repeat as a duplicate and drops it.
+   *
+   * The event itself resolves to null unless `placedByAgencyId` is set, so a
+   * brand's own order and a legacy agency-direct order both send nothing. The
+   * cheap check here just avoids queueing work that would be discarded.
+   */
+  async notifyBrandOfAgencyPlacedOrder(orderId: string): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { placedByAgencyId: true },
+      });
+      if (!order?.placedByAgencyId) return;
+
+      void this.events.emit('order-placed-by-agency-for-brand', {
+        entityId: orderId,
+      });
+    } catch (err) {
+      // Never let an alert break a payment that already succeeded.
+      this.logger.warn(
+        `[agency-link] could not queue agency-purchase notice order=${orderId}: ${String(err)}`,
+      );
+    }
+  }
+
   private ownerWhere(
     actor: Awaited<ReturnType<BrandAccessService['resolveOrderActor']>>,
   ) {
@@ -770,6 +826,7 @@ export class OrdersService {
       audience: 'brand_and_creator',
       meta: { zeroRupee: true },
     });
+    void this.notifyBrandOfAgencyPlacedOrder(params.orderId);
     void this.firePurchaseMetaEvent(params.orderId);
     this.logger.log(
       `[checkout] zero-rupee order placed order=${params.orderId} (no Razorpay)`,
@@ -1135,6 +1192,7 @@ export class OrdersService {
       const created = await this.prisma.order.create({
         data: {
           ...owner,
+          ...this.attributionCreateData(actor),
           creatorId: pkg.creatorId,
           creatorPackageId: pkg.id,
           status: 'BRIEF_SUBMISSION_PENDING',
@@ -1204,6 +1262,7 @@ export class OrdersService {
         const order = await tx.order.create({
           data: {
             ...owner,
+            ...this.attributionCreateData(actor),
             creatorId: pkg.creatorId,
             creatorPackageId: pkg.id,
             status:
@@ -1262,6 +1321,7 @@ export class OrdersService {
       );
 
       if (razorpayChargePaise === 0) {
+        void this.notifyBrandOfAgencyPlacedOrder(created.id);
         await this.orderRealtime.emitOrderPayment({
           orderId: created.id,
           kind: 'captured',
@@ -1466,6 +1526,7 @@ export class OrdersService {
     const created = await this.prisma.order.create({
       data: {
         ...owner,
+        ...this.attributionCreateData(actor),
         creatorId: pkg.creatorId,
         creatorPackageId: pkg.id,
         status: 'PENDING_PAYMENT',
@@ -1642,6 +1703,7 @@ export class OrdersService {
     // Per-child order fields (status/paidAt/checkoutBatchId are added per branch).
     const buildChildData = (p: PlanItem) => ({
       ...owner,
+      ...this.attributionCreateData(actor),
       creatorId: p.draft.pkg.creatorId,
       creatorPackageId: p.draft.pkg.id,
       packageNameSnapshot: p.draft.pkg.name,
@@ -1676,6 +1738,7 @@ export class OrdersService {
           const batch = await tx.orderCheckoutBatch.create({
             data: {
               ...owner,
+              ...this.attributionCreateData(actor),
               currency,
               expectedAmountPaise: 0,
               status: 'PAID',
@@ -1716,6 +1779,7 @@ export class OrdersService {
         },
       );
       for (const orderId of orderIds) {
+        void this.notifyBrandOfAgencyPlacedOrder(orderId);
         await this.orderRealtime.emitOrderPayment({
           orderId,
           kind: 'captured',
@@ -1747,6 +1811,7 @@ export class OrdersService {
       const batch = await tx.orderCheckoutBatch.create({
         data: {
           ...owner,
+          ...this.attributionCreateData(actor),
           currency,
           expectedAmountPaise: netTotalPaise,
           status: 'PENDING_PAYMENT',
@@ -4348,6 +4413,13 @@ export class OrdersService {
             logoUrl: true,
           },
         },
+        // Attribution for the "Managed by" tag: set when a
+        // partner-linked agency placed this on the brand's behalf.
+        // Distinct from `agency` above, which means the agency is
+        // the buyer.
+        placedByAgency: {
+          select: { id: true, name: true },
+        },
         briefRef: {
           select: { brandName: true },
         },
@@ -4368,12 +4440,19 @@ export class OrdersService {
     const dispute = await this.loadLatestDispute(order.id);
     if (dispute) mappedOrder.dispute = dispute;
 
+    // `order` is loosely typed here, so narrow the one field we read rather
+    // than reaching into an `any`.
+    const placedByAgency = (
+      order as { placedByAgency?: { name: string } | null }
+    ).placedByAgency;
     const buyerSnapshot = agency
       ? toAgencyOrderSnapshotDto({
           agency,
           clientBrandName: briefRef?.brandName ?? null,
         })
-      : toOrderBrandSnapshotDto(brand);
+      : toOrderBrandSnapshotDto(brand, {
+          placedByAgencyName: placedByAgency?.name ?? null,
+        });
 
     return {
       order: mappedOrder,
@@ -4912,12 +4991,14 @@ export class OrdersService {
               city: true,
             },
           },
+          // So the brand can see which of its agencies placed each order.
+          placedByAgency: { select: { name: true } },
         },
       }),
     ]);
 
     const items: BrandOrderListItemDto[] = rows.map((r) => {
-      const { creator, ...orderFields } = r;
+      const { creator, placedByAgency, ...orderFields } = r;
       return {
         order: this.mapOrderListSummary(orderFields),
         creator: {
@@ -4928,6 +5009,8 @@ export class OrdersService {
           profileImageUrl: creator.profileImageUrl ?? null,
           city: creator.city ?? null,
         },
+        // Null for the brand's own orders, which is most of them.
+        placedByAgencyName: placedByAgency?.name ?? null,
       };
     });
 
@@ -5009,6 +5092,13 @@ export class OrdersService {
               logoUrl: true,
             },
           },
+          // Attribution for the "Managed by" tag: set when a
+          // partner-linked agency placed this on the brand's behalf.
+          // Distinct from `agency` above, which means the agency is
+          // the buyer.
+          placedByAgency: {
+            select: { id: true, name: true },
+          },
           briefRef: {
             select: { brandName: true },
           },
@@ -5017,13 +5107,15 @@ export class OrdersService {
     ]);
 
     const items: CreatorOrderListItemDto[] = rows.map((r) => {
-      const { brand, agency, briefRef, ...orderFields } = r;
+      const { brand, agency, briefRef, placedByAgency, ...orderFields } = r;
       const buyerSnapshot = agency
         ? toAgencyOrderSnapshotDto({
             agency,
             clientBrandName: briefRef?.brandName ?? null,
           })
-        : toOrderBrandSnapshotDto(brand);
+        : toOrderBrandSnapshotDto(brand, {
+            placedByAgencyName: placedByAgency?.name ?? null,
+          });
       return {
         order: this.mapOrderListSummary(orderFields),
         brand: buyerSnapshot,

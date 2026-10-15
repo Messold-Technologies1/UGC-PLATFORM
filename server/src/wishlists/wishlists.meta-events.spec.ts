@@ -46,9 +46,14 @@ describe('WishlistsService AddToWishlist Meta event', () => {
           actorUserId: 'u1',
           brandActorUserId: 'u1',
           isAgencyWorkspace: false,
+          actingAgencyId: null,
         }),
       ),
       orderOwnerCreateData: jest.fn(() => ({ brandId: 'brand-1' })),
+      wishlistAttributionCreateData: jest.fn(() => ({
+        createdByAgencyId: null,
+        createdByUserId: 'u1',
+      })),
     };
     const sendEvent = (options?.sendEvent ?? jest.fn()) as SendEventMock;
     const metaCapi = {

@@ -2,6 +2,11 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
+import {
+  ACTIVE_BRAND_PROFILE_ID_HEADER,
+  getActiveBrandProfileId,
+  initActiveBrandProfileId,
+} from "@/lib/active-brand-context";
 import { env } from "@/lib/env";
 import { ENDPOINTS } from "@/lib/endpoints";
 
@@ -88,6 +93,26 @@ function refreshSession() {
 }
 
 if (typeof window !== "undefined") {
+  // Restore the agency's last chosen brand before the first request goes out,
+  // so a page load lands in the same workspace the user left.
+  initActiveBrandProfileId();
+
+  /**
+   * Carry the active brand on every request.
+   *
+   * Sent only while an agency has actually switched into a brand; a brand's own
+   * session has nothing to send, so its requests are byte-for-byte unchanged.
+   * The server still checks the partner link on each call — this header asks
+   * for a workspace, it does not grant one.
+   */
+  api.interceptors.request.use((config) => {
+    const brandProfileId = getActiveBrandProfileId();
+    if (brandProfileId) {
+      config.headers.set(ACTIVE_BRAND_PROFILE_ID_HEADER, brandProfileId);
+    }
+    return config;
+  });
+
   api.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {

@@ -1,0 +1,13 @@
+{{!-- context: recipientName, brandName, platformName, actionUrl --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">You no longer manage {{brandName}}</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your access to <strong>{{brandName}}</strong> on {{platformName}} has ended. You can no longer see their orders, briefs, wishlists or creator conversations.
+</p>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#374151;">
+  Work you did for them stays with the brand — their orders continue exactly as before.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View my brands →"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

@@ -498,6 +498,37 @@ export const orderEvents = defineEvents({
     stillRelevant: ALWAYS_RELEVANT,
   },
 
+  // ---- agency acting for a brand ----
+
+  'order-placed-by-agency-for-brand': {
+    label: 'Order placed by your agency — to brand',
+    recipient: BRAND,
+    vars: {
+      ...commonVars,
+      ...creatorNameVar,
+      agencyName: { type: 'string', example: 'Northstar Media' },
+    },
+    /**
+     * Only fires for an order a partner-linked agency placed on the brand's
+     * behalf — the one case where money moved without the account owner doing
+     * it. A brand placing its own order, or a legacy agency-direct order where
+     * the agency IS the buyer, resolves to null and never sends.
+     */
+    resolve: async (ctx, id) => {
+      const order = await loadOrder(ctx, id);
+      if (!order?.placedByAgency) return null;
+      return toBrand(ctx, order, {
+        agencyName: order.placedByAgency.name,
+        creatorName: creatorDisplayName(order),
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        actionUrl: brandOrderUrl(ctx, order),
+      });
+    },
+    // A record of something that happened, so a delayed copy is still true.
+    stillRelevant: ALWAYS_RELEVANT,
+  },
+
   // ---- rejection, cancellation, refund ----
 
   'order-rejected-for-brand': {

@@ -40,4 +40,14 @@ export type ResolvedBrandContext = {
   /** User id used for order chat / realtime (standalone owner or agency owner). */
   brandActorUserId: string;
   isAgencyWorkspace: boolean;
+  /**
+   * Set when a partner-linked agency is acting INSIDE a brand's workspace.
+   *
+   * Distinct from `agencyId`, which means the agency is the owner (legacy
+   * agency-direct mode). Here the brand owns everything and this only records
+   * who acted — so it drives attribution columns and the blocked-action checks,
+   * never ownership queries. `isAgencyWorkspace` stays false, because this IS
+   * the brand's workspace.
+   */
+  actingAgencyId: string | null;
 };

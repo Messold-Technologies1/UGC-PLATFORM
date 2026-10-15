@@ -1,6 +1,6 @@
 # Agency ↔ Brand Partner Link — Implementation Plan
 
-Status: **Plan — awaiting approval**
+Status: **Implemented** (see §10 for what shipped and what did not)
 Branch: `claude/friendly-dijkstra-187emz`
 Flag: `AGENCY_BRAND_PARTNER_LINKS_ENABLED`
 
@@ -443,3 +443,72 @@ agency-placed orders are ordinary brand-owned orders.
   only.
 - Whether an agency may hold its Partner ID *before* it has any brands —
   assumed yes; the code is issued at agency creation.
+
+
+---
+
+## 10. Implementation status
+
+### Shipped
+
+- **Schema + migration.** `Agency.partnerId` (+ issued/rotated timestamps),
+  `AgencyBrandLink` with its status enum, and attribution columns on `Order`,
+  `OrderCheckoutBatch`, `Brief`, `BrandWishlist` and `CreatorRatingReview`.
+  Partner IDs backfilled for every existing agency.
+- **Access resolution.** `resolveBrandAccess()` admits brand owner, ACTIVE-linked
+  agency, or admin, and reports which. Ownership never moves: a linked agency
+  resolves with `brandId` set and `agencyId` null.
+- **The link module.** Partner ID reveal/rotate, brand request/list/cancel/revoke,
+  agency list/accept/reject/leave, per-brand spend report, admin list and
+  force-unlink.
+- **The completeness gate**, on submit and re-checked on accept, returning 422
+  with `gaps[]`.
+- **Blocked actions**: wallet withdrawals, brand profile edits, and brand-side
+  link management.
+- **Attribution writes** on orders, checkout batches, briefs, wishlists, reviews.
+- **Chat access** broadened to ACTIVE-linked agencies, read live so revocation
+  is immediate.
+- **Agency-direct briefs** carry the agency's own name; `brandNames` harvesting
+  retired.
+- **Notifications** for all four lifecycle moments, with twelve templates.
+- **Client**: active-brand store + header injection, navbar switcher, agency
+  Brands page (partner ID, requests inbox, managed brands), brand
+  connect-an-agency panel, and the creator-facing "Managed by X" tag.
+
+### Deliberately different from the plan above
+
+- **`WalletTransaction` has no attribution column.** The ledger is append-only
+  and each movement already points at its order, so the spend report joins
+  through `Order.placedByAgencyId` instead. Same answer, without adding a
+  column to the most sensitive table in the schema.
+
+### Not built — follow-up work
+
+- **Brand-owner alerts when an agency spends** (decision 10's notification
+  half). The audit trail itself is complete — every agency action is attributed
+  and queryable — but no email fires to the brand owner on order placement or
+  credit spend. Needs one order-event definition plus its templates.
+- **"Placed by Agency X" in the brand's own order list.** The data is stored and
+  exposed on the creator-facing surfaces; the brand-facing list does not render
+  it yet.
+- **Admin UI for links.** `GET /admin/agency-brand-links` and force-unlink both
+  exist and are tested; no admin page calls them.
+- **Agency spend-report page.** The endpoint and client hook exist; no screen
+  renders them.
+
+### Verification
+
+- Full migration history replays on a clean Postgres 16; `prisma migrate diff`
+  reports no drift from this change.
+- Backfill exercised over 500 seeded agencies: 500 distinct, well-formed codes,
+  no ambiguous characters.
+- A 17-assertion integration check against a real database proves the core
+  properties: an agency-placed order is owned by the brand and returned by the
+  brand's own queries but not by agency-owned ones, legacy agency-direct rows
+  are untouched, revocation leaves the order whole, and deleting an agency
+  nulls attribution rather than cascading into the brand's work.
+- Server: 1119 tests passing. The single failing suite
+  (`agency-signup-welcome-credit.spec.ts`, 5 tests) fails identically on the
+  base commit. Type errors and per-file lint findings are at exact parity with
+  the base.
+- Client: typecheck clean, lint clean on changed files, `next build` succeeds.

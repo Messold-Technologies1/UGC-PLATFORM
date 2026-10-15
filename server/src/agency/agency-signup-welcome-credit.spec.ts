@@ -9,10 +9,30 @@ describe('AgencyService → signup welcome credit', () => {
   const AGENCY_ID = 'agency-1';
 
   function makeService(env: Record<string, string | undefined>) {
+    // Set to a row to make the "already registered?" guard find one.
+    const prismaState: { existingAgency?: { id: string } | null } = {};
     const tx = {
       agency: { update: jest.fn().mockResolvedValue({ id: AGENCY_ID }) },
       marker: 'the-registration-transaction',
     };
+    // The profile row `createOwnedAgencyProfile` reads back on its way out.
+    const agencyRow = {
+      id: AGENCY_ID,
+      ownerUserId: 'user-1',
+      name: 'Northstar',
+      logoKey: null,
+      logoUrl: null,
+      website: null,
+      contactFullName: 'Owner',
+      contactEmail: 'owner@agency.test',
+      contactPhone: null,
+      contactPhoneVerified: false,
+      brandNames: [],
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+      owner: { phoneOtpLastStatus: null },
+    };
+
     const prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue({
@@ -22,6 +42,27 @@ describe('AgencyService → signup welcome credit', () => {
           phone: null,
           phoneVerified: false,
         }),
+      },
+      agency: {
+        /**
+         * Two different reads hit this, told apart by what they select: the
+         * "do they already have one" guard asks for the id alone, while the
+         * profile read at the end asks for the whole row. Keying on that
+         * rather than call order keeps the mock honest if the service ever
+         * reads again in between.
+         *
+         * The guard answers null by default — this suite registers a NEW
+         * agency. `existingAgency` flips it to exercise the re-submit path.
+         */
+        findUnique: jest.fn((args: { select?: Record<string, unknown> }) => {
+          const keys = Object.keys(args?.select ?? {});
+          const isExistenceGuard = keys.length === 1 && keys[0] === 'id';
+          if (isExistenceGuard) {
+            return Promise.resolve(prismaState.existingAgency ?? null);
+          }
+          return Promise.resolve(agencyRow);
+        }),
+        update: jest.fn().mockResolvedValue(agencyRow),
       },
       $transaction: jest.fn(
         async (fn: (t: unknown) => Promise<unknown>) => await fn(tx),
@@ -46,7 +87,7 @@ describe('AgencyService → signup welcome credit', () => {
       .spyOn(service, 'runCreateAgencyInTransaction')
       .mockResolvedValue({ id: AGENCY_ID, name: 'Northstar' } as never);
 
-    return { service, wallet, prisma, tx };
+    return { service, wallet, prisma, tx, prismaState };
   }
 
   const register = (service: AgencyService) =>

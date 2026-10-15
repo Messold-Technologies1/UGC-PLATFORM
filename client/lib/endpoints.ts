@@ -266,6 +266,11 @@ export const ENDPOINTS = {
       WISHLISTS: (agencyId: string) =>
         `/api/admin/agencies/${encodeURIComponent(agencyId)}/wishlists`,
     },
+    AGENCY_BRAND_LINKS: {
+      LIST: "/api/admin/agency-brand-links",
+      FORCE_UNLINK: (id: string) =>
+        `/api/admin/agency-brand-links/${encodeURIComponent(id)}/force-unlink`,
+    },
     ORDERS: {
       LIST: "/api/admin/orders",
       DETAIL: (id: string) => `/api/admin/orders/${encodeURIComponent(id)}`,

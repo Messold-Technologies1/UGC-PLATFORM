@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { AgencyBrandSpendReport } from "@/features/agency/components/agency-brand-spend-report";
 import {
   useAcceptBrandLinkMutation,
   useAgencyBrandLinksQuery,
@@ -32,6 +33,11 @@ export function AgencyBrandsPanel() {
   const rotate = useRotatePartnerIdMutation();
 
   const [copied, setCopied] = useState(false);
+  // Which managed brand has its spend report open, if any. One at a time —
+  // each is its own fetch, and an agency reconciles one brand at a time.
+  const [openReportBrandId, setOpenReportBrandId] = useState<string | null>(
+    null,
+  );
 
   const pending = (links.data ?? []).filter((l) => l.status === "PENDING");
   const active = (links.data ?? []).filter((l) => l.status === "ACTIVE");
@@ -184,22 +190,45 @@ export function AgencyBrandsPanel() {
                     <Badge variant="secondary">Managing</Badge>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={leave.isPending}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        `Stop managing ${link.brandName ?? "this brand"}? You'll lose access to their orders, briefs and creator chats. Their work is unaffected.`,
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setOpenReportBrandId((current) =>
+                        current === link.brandId ? null : link.brandId,
                       )
-                    ) {
-                      leave.mutate(link.id);
                     }
-                  }}
-                >
-                  Stop managing
-                </Button>
+                  >
+                    {openReportBrandId === link.brandId
+                      ? "Hide spend"
+                      : "Spend report"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={leave.isPending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Stop managing ${link.brandName ?? "this brand"}? You'll lose access to their orders, briefs and creator chats. Their work is unaffected.`,
+                        )
+                      ) {
+                        leave.mutate(link.id);
+                      }
+                    }}
+                  >
+                    Stop managing
+                  </Button>
+                </div>
+                {openReportBrandId === link.brandId ? (
+                  <div className="w-full">
+                    <AgencyBrandSpendReport
+                      brandId={link.brandId}
+                      brandName={link.brandName}
+                    />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

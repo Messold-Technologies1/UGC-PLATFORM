@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
   Info,
+  Link2,
   Users,
   ShoppingCart,
   Briefcase,
@@ -164,6 +165,7 @@ const roleConfigs: Record<string, NavItem[]> = {
   admin: [
     { href: "/admin/creators", label: "Creators", icon: Users },
     { href: "/admin/brandManagement", label: "Brand", icon: Building2 },
+    { href: "/admin/agencyBrandLinks", label: "Agency links", icon: Link2 },
     { href: "/admin/orderManagement", label: "Orders", icon: Package },
     { href: "/admin/legal", label: "Legal", icon: FileText },
     { href: "/admin/demo-videos", label: "Demo Videos", icon: Video },

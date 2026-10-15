@@ -4991,12 +4991,14 @@ export class OrdersService {
               city: true,
             },
           },
+          // So the brand can see which of its agencies placed each order.
+          placedByAgency: { select: { name: true } },
         },
       }),
     ]);
 
     const items: BrandOrderListItemDto[] = rows.map((r) => {
-      const { creator, ...orderFields } = r;
+      const { creator, placedByAgency, ...orderFields } = r;
       return {
         order: this.mapOrderListSummary(orderFields),
         creator: {
@@ -5007,6 +5009,8 @@ export class OrdersService {
           profileImageUrl: creator.profileImageUrl ?? null,
           city: creator.city ?? null,
         },
+        // Null for the brand's own orders, which is most of them.
+        placedByAgencyName: placedByAgency?.name ?? null,
       };
     });
 

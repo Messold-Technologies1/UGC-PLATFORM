@@ -22,6 +22,7 @@ import {
   agencyBrandPartnerLinksEnabled,
   phoneOtpRequired,
 } from '../config/feature-flags.util';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -52,6 +53,7 @@ export class AgencyBrandLinkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly notifications: NotificationEventsService,
   ) {}
 
   /**
@@ -262,6 +264,15 @@ export class AgencyBrandLinkService {
           select: { id: true, status: true },
         });
 
+    // The agency has to act on this, so it is the one message in the flow that
+    // must go out. `occurrenceKey` carries the request timestamp because a
+    // relationship can be reopened after a rejection or a revoke, and a second
+    // request on the same row must not be swallowed as a duplicate of the first.
+    await this.notifications.emit('agency-link-requested', {
+      entityId: link.id,
+      occurrenceKey: `${link.id}:${Date.now()}`,
+    });
+
     return { linkId: link.id, agencyName: agency.name, status: link.status };
   }
 
@@ -294,6 +305,11 @@ export class AgencyBrandLinkService {
       },
     });
 
+    await this.notifications.emit('agency-link-accepted', {
+      entityId: link.id,
+      occurrenceKey: `${link.id}:accepted:${Date.now()}`,
+    });
+
     return { linkId: link.id, brandName: brand.brandName };
   }
 
@@ -317,6 +333,11 @@ export class AgencyBrandLinkService {
         respondedByUserId: agency.ownerUserId,
         respondedAt: new Date(),
       },
+    });
+
+    await this.notifications.emit('agency-link-rejected', {
+      entityId: link.id,
+      occurrenceKey: `${link.id}:rejected:${Date.now()}`,
     });
 
     return { linkId: link.id };
@@ -376,6 +397,11 @@ export class AgencyBrandLinkService {
         revokedAt: new Date(),
         revokedReason: params.reason?.trim() || null,
       },
+    });
+
+    await this.notifications.emit('agency-link-ended', {
+      entityId: link.id,
+      occurrenceKey: `${link.id}:ended:${Date.now()}`,
     });
 
     return { linkId: link.id };

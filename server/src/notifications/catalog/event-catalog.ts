@@ -1,3 +1,4 @@
+import { agencyLinkEvents } from './agency-link.events';
 import type { EventDefinition } from './define-events';
 import { orderEvents } from './order.events';
 import { EVENTS_NOT_IN_CATALOG, profileEvents } from './profile.events';
@@ -16,6 +17,7 @@ import { EVENTS_NOT_IN_CATALOG, profileEvents } from './profile.events';
 export const NOTIFICATION_EVENTS = {
   ...orderEvents,
   ...profileEvents,
+  ...agencyLinkEvents,
 } satisfies Record<string, EventDefinition>;
 
 export type NotificationEventKey = keyof typeof NOTIFICATION_EVENTS;

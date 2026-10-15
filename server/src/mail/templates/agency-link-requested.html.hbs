@@ -1,0 +1,21 @@
+{{!-- context: recipientName, brandName, platformName, actionUrl --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">{{brandName}} wants you to manage their brand</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  <strong>{{brandName}}</strong> entered your Partner ID on {{platformName}} and is asking you to manage their brand.
+</p>
+<div style="margin:0 0 20px;padding:14px 16px;background:#eff6ff;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0 0 8px;font-size:14px;line-height:1.55;color:#111827;">
+    <strong>What accepting gives you</strong>
+  </p>
+  <p style="margin:0;font-size:14px;line-height:1.55;color:#374151;">
+    Their workspace — browse creators, build wishlists, write briefs, place orders and talk to creators on their behalf. Orders you place stay owned by {{brandName}} and are paid from their credits.
+  </p>
+</div>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Review the request →"}}
+</div>
+<p style="margin:0 0 12px;font-size:14px;line-height:1.5;color:#6b7280;">
+  If you weren't expecting this, decline it — nothing changes until you accept.
+</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

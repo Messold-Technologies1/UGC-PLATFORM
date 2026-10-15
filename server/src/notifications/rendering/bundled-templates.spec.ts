@@ -15,17 +15,17 @@ import {
 describe('bundled-templates', () => {
   const dir = resolveMailTemplatesDir();
 
-  // 32 keys x 3 parts = the 96 .hbs files the build asserts on.
+  // 36 keys x 3 parts = the 108 .hbs files the build asserts on.
   it('finds every template key on disk', () => {
     const keys = listBundledKeys(dir);
-    expect(keys).toHaveLength(32);
+    expect(keys).toHaveLength(36);
     expect(keys).toContain('creator-profile-completion-reminder');
   });
 
-  // 32 keys, with the 2 drips split into 4 and 3 stages: 30 + 4 + 3 = 37.
+  // 36 keys, with the 2 drips split into 4 and 3 stages: 34 + 4 + 3 = 41.
   it('builds a row for every key without throwing', () => {
     const templates = readBundledTemplates(dir);
-    expect(templates).toHaveLength(37);
+    expect(templates).toHaveLength(41);
     for (const t of templates) {
       expect(t.name).not.toHaveLength(0);
       expect(t.subjectHbs).not.toHaveLength(0);

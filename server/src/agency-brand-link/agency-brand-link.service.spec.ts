@@ -133,9 +133,18 @@ function build(opts: Options = {}) {
     }),
   };
 
+  // Notifications are fire-and-forget and already swallow their own errors;
+  // the assertions here are about the link lifecycle, not delivery.
+  const notifications = { emit: jest.fn(() => Promise.resolve()) };
+
   return {
-    service: new AgencyBrandLinkService(prisma as never, config as never),
+    service: new AgencyBrandLinkService(
+      prisma as never,
+      config as never,
+      notifications as never,
+    ),
     prisma,
+    notifications,
   };
 }
 

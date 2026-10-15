@@ -17,10 +17,11 @@ schema comment *"no BrandProfile linkage"*.
 We are introducing a real relationship:
 
 1. A brand registers on the platform and completes a **brand profile**.
-2. The brand is issued a shareable **Partner ID** (e.g. `GC-7F3K-92QX`).
-3. The brand shares it with an agency. The agency submits it, creating a
-   **pending link request**.
-4. The brand **approves** the request.
+2. Each **agency** is issued a shareable **Partner ID** (e.g. `GC-7F3K-92QX`).
+3. The agency shares it with the brand. The **brand enters it** in their
+   account, creating a **pending link request**, and an **email goes to the
+   agency**.
+4. The **agency accepts** the request.
 5. The agency gets a **brand switcher** and, once switched, operates inside the
    brand's workspace — wishlists, briefs, orders, chat — as if it were the brand.
 6. The brand can keep using its own account independently and sees everything
@@ -33,7 +34,7 @@ We are introducing a real relationship:
 | # | Decision | Choice |
 |---|---|---|
 | 1 | Order ownership & funding | **Brand owns the order; brand's wallet credits pay.** Agency recorded as actor. |
-| 2 | Link establishment | **Agency submits Partner ID → brand must approve.** Partner ID is an identifier, not a secret. |
+| 2 | Link establishment | **Agency owns the Partner ID. Brand submits it → agency must accept.** The agency is emailed on request. Both sides consent: the brand by redeeming the code, the agency by accepting. Partner ID is an identifier, not a secret. |
 | 3 | Agency permissions | **Full brand powers except money-out and identity.** Blocked: wallet withdrawals, editing brand profile, managing links, deleting the brand. |
 | 4 | Legacy agency-direct mode | **Kept, untouched.** Agency switcher gains a "My Agency" option. In that mode `Brief.brandName` is **auto-filled with the agency name, locked**, and `appendAgencyBrandName()` harvesting is **retired**. |
 | 5 | Multi-agency | **A brand may link multiple agencies** simultaneously; each link independently revocable. |
@@ -43,8 +44,8 @@ We are introducing a real relationship:
 | 9 | Switcher UX | **Switcher in the agency shell**, reusing the existing brand route tree via the `x-brand-profile-id` header. |
 | 10 | Audit & alerts | **Full audit trail**; brand owner notified on **money-spending actions only** (order placed, credits spent). |
 | 11 | Agency seats | **Out of scope.** Single agency owner login retained; audit stores `actorUserId` so seats can be added later without migrating data. |
-| 12 | Partner ID | **Short readable code, rotatable.** Backfilled for all existing brands. Rotation does not break approved links. |
-| 13 | Profile gate | **Partner ID is only issued/shareable once the brand profile is complete** (`brandName` + contact present). |
+| 12 | Partner ID | **Short readable code on the Agency, rotatable.** Issued unconditionally at agency creation (`Agency.name`/`contactFullName`/`contactEmail` are non-nullable, so an agency is always complete). Backfilled for all existing agencies. Rotation does not break accepted links. |
+| 13 | Profile gate | **The brand profile must be complete** (`brandName` + contact present) **before the brand can submit a link request.** |
 | 14 | Admin | **View links + force-unlink** for support cases. |
 | 15 | Delivery | **One PR, backend + frontend, behind a feature flag.** |
 
@@ -77,26 +78,36 @@ wishlists.controller.ts    wishlists.service.ts
 
 ## 4. Schema changes
 
-### 4.1 Partner ID on `BrandProfile`
+### 4.1 Partner ID on `Agency`
+
+The code belongs to the **agency**, which hands it to brands.
 
 ```prisma
-model BrandProfile {
+model Agency {
   // ...
-  /// Shareable partner code (e.g. GC-7F3K-92QX). Issued only once the profile
-  /// is complete. Rotatable; rotation does NOT break already-approved links,
-  /// which are keyed on brandId.
+  /// Shareable partner code (e.g. GC-7F3K-92QX) the agency gives to brands.
+  /// Issued at agency creation. Rotatable; rotation does NOT break already-
+  /// accepted links, which are keyed on agencyId, not on the code.
   partnerId          String?   @unique
   partnerIdIssuedAt  DateTime?
   partnerIdRotatedAt DateTime?
 
-  agencyLinks        AgencyBrandLink[]
+  brandLinks         AgencyBrandLink[]
+}
+
+model BrandProfile {
+  // ...
+  agencyLinks AgencyBrandLink[]
 }
 ```
 
 - Format: `GC-XXXX-XXXX`, Crockford base32 (no `I`/`L`/`O`/`U`), stored
   uppercase, **matched case-insensitively** on redemption.
-- Backfill migration issues a code to every existing `BrandProfile` that is
-  already complete.
+- Backfill migration issues a code to **every existing `Agency`** — no
+  completeness check needed, since the identifying columns are non-nullable.
+- A leaked agency code only lets strangers *request* a link; the agency still
+  has to accept, so the blast radius is spam, not access. Submission is rate
+  limited regardless.
 
 ### 4.2 New `AgencyBrandLink`
 
@@ -114,10 +125,12 @@ model AgencyBrandLink {
   brandId           String                @db.Uuid
   status            AgencyBrandLinkStatus @default(PENDING)
 
-  /// Audit: the code actually redeemed, so a rotation leaves a trail.
+  /// Audit: the agency code actually redeemed, so a rotation leaves a trail.
   partnerIdUsed     String
+  /// The BRAND user who redeemed the agency's code.
   requestedByUserId String                @db.Uuid
   requestedAt       DateTime              @default(now())
+  /// The AGENCY owner who accepted or rejected.
   respondedByUserId String?               @db.Uuid
   respondedAt       DateTime?
   revokedByUserId   String?               @db.Uuid
@@ -137,6 +150,10 @@ model AgencyBrandLink {
 
 One row per (agency, brand) pair; re-requesting after a revoke transitions the
 same row back to `PENDING`, keeping the history on the row.
+
+Direction of travel: **brand creates the row** (`PENDING`), **agency moves it**
+to `ACTIVE` or `REJECTED`. Either side can later move an `ACTIVE` row to
+`REVOKED`.
 
 ### 4.3 Actor attribution (the key invariant)
 
@@ -161,7 +178,7 @@ keeps working unchanged, because ownership semantics do not move.
 ### 4.4 Migration
 
 1. Add enum, table, and columns (all nullable — no backfill risk).
-2. Backfill `partnerId` for complete `BrandProfile` rows.
+2. Backfill `partnerId` for **every** `Agency` row (no completeness check).
 3. **No change** to existing agency-direct rows.
 
 ---
@@ -196,20 +213,23 @@ per request.
 
 | Method | Route | Who | Purpose |
 |---|---|---|---|
-| `GET` | `/brand-profile/partner-id` | Brand | Reveal own Partner ID (issues it if profile is complete) |
-| `POST` | `/brand-profile/partner-id/rotate` | Brand | Rotate |
-| `GET` | `/brand-profile/agency-links` | Brand | Pending + active links |
-| `POST` | `/brand-profile/agency-links/:id/approve` | Brand | Approve |
-| `POST` | `/brand-profile/agency-links/:id/reject` | Brand | Reject |
-| `POST` | `/brand-profile/agency-links/:id/revoke` | Brand | Revoke |
-| `POST` | `/agency/brand-links` | Agency | Submit a Partner ID |
-| `GET` | `/agency/brand-links` | Agency | Own links + switcher list |
+| `GET` | `/agency/partner-id` | Agency | Reveal own Partner ID |
+| `POST` | `/agency/partner-id/rotate` | Agency | Rotate |
+| `POST` | `/brand-profile/agency-links` | **Brand** | **Submit an agency's Partner ID** (creates `PENDING`, emails the agency) |
+| `GET` | `/brand-profile/agency-links` | Brand | Own pending + active links |
+| `POST` | `/brand-profile/agency-links/:id/cancel` | Brand | Withdraw a pending request |
+| `POST` | `/brand-profile/agency-links/:id/revoke` | Brand | Revoke an active link |
+| `GET` | `/agency/brand-links` | Agency | Incoming requests + switcher list |
+| `POST` | `/agency/brand-links/:id/accept` | **Agency** | **Accept** |
+| `POST` | `/agency/brand-links/:id/reject` | Agency | Reject |
 | `DELETE` | `/agency/brand-links/:id` | Agency | Leave a brand |
 | `GET` | `/agency/brand-links/:id/spend-report` | Agency | "Spent on behalf" report (decision 8) |
 | `GET` | `/admin/agency-brand-links` | Admin | Oversight |
 | `POST` | `/admin/agency-brand-links/:id/force-unlink` | Admin | Support escape hatch |
 
-Rate-limit Partner ID submission to blunt code guessing.
+Submission (`POST /brand-profile/agency-links`) is rate limited per brand to
+blunt code guessing, and rejects when the brand profile is incomplete
+(decision 13).
 
 ### 5.3 Blocked for an acting agency
 
@@ -217,7 +237,9 @@ Reject with `403` when `actingAgencyId` is set:
 
 - `POST /wallet/withdrawals` and its cancel route — **money-out**
 - `PATCH /brand-profile` and logo/pronunciation presign — **identity**
-- All `agency-links` management routes on the brand side
+- All `agency-links` routes on the brand side — an acting agency must not be
+  able to connect another agency to the brand, cancel a rival's pending
+  request, or revoke a rival's link
 - Brand account deactivation
 
 ### 5.4 Chat, realtime, notifications
@@ -230,8 +252,12 @@ Reject with `403` when `actingAgencyId` is set:
   immediately (decision 6).
 - **Creator-facing** order detail and emails gain a `Managed by {agencyName}`
   tag resolved from `placedByAgencyId` (decision 7).
-- **New notification events**: link requested / approved / rejected / revoked;
-  and brand-owner alerts for *order placed by agency* and *credits spent by
+- **New notification events**, following the inverted flow:
+  - *link requested* → **email to the agency** (the explicit requirement) with
+    the brand's name and an accept/reject link;
+  - *link accepted* / *link rejected* → email to the brand;
+  - *link revoked* / *agency left* → email to the other side.
+  Plus brand-owner alerts for *order placed by agency* and *credits spent by
   agency* only (decision 10).
 
 ### 5.5 Briefs — agency-direct change
@@ -248,13 +274,16 @@ In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
    `localStorage`, cleared on logout and on 403 from a revoked link.
 2. **Header injection** — axios request interceptor in `client/lib/api.ts`;
    matching change in `client/lib/server-auth-fetch.ts` for SSR.
-3. **Switcher** in the agency sidebar: `My Agency` + linked brands + *Add a
-   brand* (Partner ID entry). Switching invalidates the React Query cache so no
-   brand's data leaks into another's view.
-4. **Brand dashboard** (`settings/profile`): Partner ID card with copy +
-   rotate, pending requests with approve/reject, active agencies with revoke.
-5. **Agency dashboard**: linked-brands page, pending/rejected states, per-brand
-   spend report.
+3. **Switcher** in the agency sidebar: `My Agency` + linked brands. Switching
+   invalidates the React Query cache so no brand's data leaks into another's
+   view. (No Partner ID entry here — brands initiate.)
+4. **Brand dashboard** (`settings/profile`): *"Connect an agency"* input where
+   the brand pastes the agency's Partner ID, a preview of the matched agency
+   before submitting, pending requests with cancel, and active agencies with
+   revoke.
+5. **Agency dashboard**: Partner ID card with copy + rotate, an **incoming
+   requests** inbox with accept/reject, the linked-brands page, and the
+   per-brand spend report.
 6. **Tags**: `placed by Agency X` in the brand's order and brief lists;
    `Managed by Agency X` on the creator's order detail.
 7. **Blocked UI**: hide/disable withdrawals and brand profile editing while a
@@ -273,8 +302,12 @@ In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
 - Revocation mid-flight: agency loses order, chat, and realtime access; the
   order continues normally for the brand.
 - Blocked set returns 403 for an acting agency.
-- Partner ID: uniqueness, case-insensitive match, rotation keeps active links,
-  not issued for an incomplete profile.
+- Partner ID: uniqueness across agencies, case-insensitive match, rotation
+  keeps accepted links intact, an old code stops resolving after rotation.
+- Link flow direction: a brand submitting a valid code creates `PENDING` and
+  emails the agency; the brand gets **no access to anything** until the agency
+  accepts; a rejected request grants nothing; a brand with an incomplete
+  profile cannot submit.
 - Multi-agency: two agencies on one brand, revoking one leaves the other intact.
 - Legacy: existing agency-direct orders/wishlists/wallets unaffected; brief
   brandName auto-fills to the agency name.
@@ -287,7 +320,8 @@ In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
 1. Merge with `AGENCY_BRAND_PARTNER_LINKS_ENABLED=false`.
 2. Run the migration (additive; safe with the flag off).
 3. Enable in staging, exercise the full flow end to end.
-4. Enable in production; backfilled Partner IDs become visible to brands.
+4. Enable in production; backfilled Partner IDs become visible to agencies,
+   who can start handing them to their brands.
 
 Kill switch: set the flag false. Data written while enabled stays valid because
 agency-placed orders are ordinary brand-owned orders.
@@ -298,5 +332,8 @@ agency-placed orders are ordinary brand-owned orders.
 
 - PR target branch — no `development` branch exists on the remote today
   (`main` + the working branch only).
-- Whether a brand with **zero** completed profile fields should see a
-  "complete your profile to get a Partner ID" prompt on first login.
+- A brand with an incomplete profile that tries to connect an agency should be
+  sent to the profile form with a clear reason, rather than shown a bare
+  validation error.
+- Whether an agency may hold its Partner ID *before* it has any brands —
+  assumed yes; the code is issued at agency creation.

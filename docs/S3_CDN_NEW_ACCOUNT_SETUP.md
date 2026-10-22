@@ -14,7 +14,7 @@ account and should be done first.
 | Old account | `323668150512` (Messold Parallels) |
 | Old bucket | `ugc-uploads-323668150512-ap-south-1-an` |
 | Region | `ap-south-1` (Mumbai) — the new bucket **must** match |
-| New account | already created |
+| New account | `285870986713` (Anukhya) |
 | Current CDN | a raw `*.cloudfront.net` hostname |
 
 Because the current CDN is a raw CloudFront hostname, cutover **must** rewrite
@@ -25,32 +25,50 @@ makes this the right moment to adopt a custom domain.
 
 ## 0. Prerequisites
 
-### 0a. A CLI profile for the new account
+### 0a. An admin identity, and where to run commands
 
-Every command below uses `--profile ugc-new`. Create an admin access key in the
-new account (IAM → Users → your admin user → Security credentials), then:
+A brand-new account has no IAM users, so your first console session is as
+**root**. Root is for exactly two things — creating the first admin user, and
+closing the account. Everything else uses a named identity.
+
+1. **MFA on root**, while you are still signed in as root: IAM → Root access
+   management → assign MFA device. Non-negotiable on an account with billing.
+2. **Create your admin user**: IAM → Users → Create user. Tick *Provide user
+   access to the AWS Management Console*, set a password, and attach
+   `AdministratorAccess` directly. Sign-in URL:
+   `https://285870986713.signin.aws.amazon.com/console`
+3. **Sign out of root, sign in as the admin user, add MFA to it too.**
+4. **Stop using root.** Nothing in this runbook needs it.
+
+> For more than two or three people, IAM Identity Center is the better long-term
+> answer than per-person IAM users. It is not worth blocking this migration on.
+
+Then run every command below in **CloudShell**, opened from the new account's
+console (the icon in the console footer). Not a local terminal with access keys:
+
+- No long-lived admin credentials on a laptop to leak or forget to rotate.
+- It already holds your console identity, in `ap-south-1`.
+- **It can only reach the account it was opened in.** A local CLI profile is one
+  typo away from firing a setup command at production `323668150512`; CloudShell
+  in the new account makes that impossible.
+
+The only access keys this runbook creates are the application's in §7 — narrow by
+construction, and they go straight into the secret manager.
+
+Confirm where you are before anything else:
 
 ```bash
-aws configure --profile ugc-new
-# AWS Access Key ID:     <new account admin key>
-# AWS Secret Access Key: <new account admin secret>
-# Default region name:   ap-south-1
-# Default output format: json
+aws sts get-caller-identity
 ```
 
-Verify you are in the **new** account before doing anything else:
-
-```bash
-aws sts get-caller-identity --profile ugc-new
-```
-
-The `Account` field must NOT be `323668150512`. If it is, you are pointed at the
-old account and every command below would hit production.
+`Account` must read `285870986713`. If it reads `323668150512`, you are in
+production — stop.
 
 ### 0b. Variables
 
 ```bash
-export P="--profile ugc-new"
+export P=""                     # CloudShell needs no profile; set to
+                                # "--profile ugc-new" only if running locally
 export REGION=ap-south-1
 export NEW_ACCOUNT=$(aws sts get-caller-identity $P --query Account --output text)
 export NEW_BUCKET="ugc-uploads-${NEW_ACCOUNT}-ap-south-1"
@@ -318,7 +336,7 @@ Certificate first. **ACM certs for CloudFront must be in `us-east-1`**,
 regardless of the bucket's region:
 
 ```bash
-aws acm request-certificate --profile ugc-new --region us-east-1 \
+aws acm request-certificate $P --region us-east-1 \
   --domain-name "$CDN_DOMAIN" --validation-method DNS
 ```
 
@@ -468,7 +486,8 @@ curl -I "https://$CDN_DOMAIN/test.txt"
 aws s3 rm $P "s3://$NEW_BUCKET/test.txt"
 ```
 
-- [ ] `sts get-caller-identity` shows the new account, not `323668150512`
+- [ ] `sts get-caller-identity` shows `285870986713`, not `323668150512`
+- [ ] Root has MFA and is no longer used; admin user has MFA
 - [ ] Old account: `Recover*` statements removed (§1)
 - [ ] Bucket region is `ap-south-1`
 - [ ] Block Public Access: all four `true`

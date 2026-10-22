@@ -48,6 +48,29 @@ function contentTypeForKey(key: string): string {
   }
 }
 
+const PREVIEW_ERROR_MAX_CHARS = 1000;
+
+/**
+ * Render a failure into the single line stored on the delivery row.
+ *
+ * ffmpeg's message leads with the diagnosis ("width not divisible by 2", "moov
+ * atom not found") and then drags a 4 KB stderr tail behind it, while this
+ * column exists to be read at a glance in a query result. Keep the head, where
+ * the actual error is, and cap the rest.
+ */
+export function describePreviewError(error: unknown): string {
+  const raw: string | undefined =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : JSON.stringify(error);
+  const text = (raw ?? 'Unknown error').trim() || 'Unknown error';
+  return text.length > PREVIEW_ERROR_MAX_CHARS
+    ? `${text.slice(0, PREVIEW_ERROR_MAX_CHARS)}…`
+    : text;
+}
+
 @Injectable()
 export class WatermarkService {
   private readonly logger = new Logger(WatermarkService.name);
@@ -115,6 +138,7 @@ export class WatermarkService {
             assets: assets as unknown as object,
             previewStatus: 'ready',
             previewUpdatedAt: new Date(),
+            previewError: null,
           },
         });
       } else {
@@ -141,7 +165,7 @@ export class WatermarkService {
           ),
         );
     } catch (err) {
-      await this.markStatus(deliveryId, 'failed').catch(() => undefined);
+      await this.markStatus(deliveryId, 'failed', err).catch(() => undefined);
       this.logger.error(
         `watermark: delivery ${deliveryId} failed: ${(err as Error)?.message}`,
       );
@@ -152,10 +176,17 @@ export class WatermarkService {
   private async markStatus(
     deliveryId: string,
     status: 'pending' | 'processing' | 'ready' | 'failed' | 'dead',
+    error?: unknown,
   ): Promise<void> {
     await this.prisma.orderDelivery.update({
       where: { id: deliveryId },
-      data: { previewStatus: status, previewUpdatedAt: new Date() },
+      data: {
+        previewStatus: status,
+        previewUpdatedAt: new Date(),
+        // A run that got anywhere clears the previous reason, so the column
+        // always describes the LATEST attempt rather than any attempt ever.
+        previewError: error === undefined ? null : describePreviewError(error),
+      },
     });
   }
 
@@ -333,8 +364,33 @@ export class WatermarkService {
         '-i',
         wmPath,
         '-filter_complex',
-        // [1:v]=watermark scaled to match [0:v]=video, then overlaid full-frame.
-        '[1:v][0:v]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto',
+        // [1:v]=watermark, scaled to match the (evened) video, then overlaid
+        // full-frame over it.
+        //
+        // The base is cropped to even dimensions FIRST, and the watermark is
+        // matched to that cropped reference. scale2ref passes the video through
+        // untouched, so without this an odd-sized source (1079x1920 off a crop
+        // or a screen recording) reaches libx264 as-is and it refuses outright:
+        // "width not divisible by 2". That is an instant, every-attempt failure
+        // that burns the retry budget and parks the delivery `dead`, which the
+        // creator reads as "we couldn't process this video".
+        //
+        // The other two ffmpeg pipelines here are immune by accident — both
+        // scale with `-2`, which already forces evenness. This one does no
+        // scaling at all, so it has to say so explicitly. Cropping (at most one
+        // row/column) rather than scaling keeps the preview pixel-exact.
+        //
+        // `shortest=1` on the overlay is what actually ends the graph. The
+        // `-shortest` output flag below is not enough on its own: with a
+        // video-only delivery (no audio track at all — B-roll, a text-only
+        // edit, music added later by the brand) the only finite stream feeding
+        // the muxer is the video, the `-loop 1` watermark never ends, and
+        // ffmpeg runs FOREVER. In production that means every attempt burns the
+        // full WATERMARK_FFMPEG_TIMEOUT_MS before being killed, and the
+        // delivery still ends up `dead` — just 18 minutes later instead of 2.
+        '[0:v]crop=trunc(iw/2)*2:trunc(ih/2)*2[basesrc];' +
+          '[1:v][basesrc]scale2ref[wm][base];' +
+          '[base][wm]overlay=0:0:format=auto:shortest=1',
         '-c:v',
         'libx264',
         '-preset',
@@ -343,12 +399,26 @@ export class WatermarkService {
         '26',
         '-pix_fmt',
         'yuv420p',
+        // Transcode rather than `-c:a copy`. The MP4 muxer accepts far more
+        // than AAC — Opus, Vorbis, FLAC, ALAC, PCM and AC-3 all mux without
+        // complaint — so a copy does not usually FAIL. It silently produces a
+        // preview no browser will play: the brand opens the delivery and gets
+        // a video with dead audio. The key's `.mp4` is no guarantee of what is
+        // inside either, since it is derived from the browser's content-type,
+        // which the client defaults to video/mp4 whenever the browser reports
+        // none. Both sibling pipelines already encode to AAC
+        // (PreviewVideoService, MediaNormalizeService — the latter explicitly
+        // treats any non-AAC audio as "must transcode"); this was the holdout,
+        // and delivery files never pass through normalization on their way here.
         '-c:a',
-        'copy',
+        'aac',
+        '-b:a',
+        '128k',
         '-movflags',
         '+faststart',
-        // Required by `-loop 1`: without it the endless watermark would keep
-        // the encode running forever.
+        // Belt and braces alongside the overlay's own `shortest=1`, which is
+        // what actually bounds the graph (see the filter comment). Left in
+        // because it costs nothing and `-loop 1` makes input 1 endless.
         '-shortest',
         outPath,
       ]);

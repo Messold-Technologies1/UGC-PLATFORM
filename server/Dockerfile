@@ -47,20 +47,26 @@ RUN npm run build \
 # same commit can get different ffmpeg versions. That matters because an ffmpeg
 # which cannot run this filter graph does not fail — it writes an audio-only file
 # and exits 0 (this is exactly how a watermarked preview with no video stream
-# reached production). So run the real filter chain here, on a 64x64 clip: a
+# reached production). So run the real filter chain here, on a tiny clip: a
 # drifted binary fails the BUILD instead of shipping silent duds. ~0.1s.
 #
 # Keep the filter and the `-loop 1` input in step with WatermarkService.
+# The clip is deliberately ODD-sized (65x63). libx264 cannot encode odd
+# dimensions under yuv420p, so this doubles as proof that the crop in the filter
+# graph is doing its job: drop it and this build step fails with "width not
+# divisible by 2" — which is exactly how a creator's delivery died in prod.
 RUN FF=/app/node_modules/ffmpeg-static/ffmpeg \
     && test -x "$FF" \
-    && "$FF" -v error -y -f lavfi -i testsrc2=s=64x64:r=10:d=1 -f lavfi -i sine=d=1 \
+    && "$FF" -v error -y -f lavfi -i testsrc2=s=66x64:r=10:d=1 -f lavfi -i sine=d=1 \
         -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest /tmp/wm-src.mp4 \
+    && "$FF" -v error -y -i /tmp/wm-src.mp4 -vf crop=65:63 -c:v libx264 \
+        -pix_fmt yuv444p -c:a copy /tmp/wm-odd.mp4 \
     && "$FF" -v error -y -f lavfi -i color=white@0.3:s=64x64:d=1 -frames:v 1 /tmp/wm-mark.png \
-    && "$FF" -v error -y -i /tmp/wm-src.mp4 -loop 1 -i /tmp/wm-mark.png \
-        -filter_complex '[1:v][0:v]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto' \
-        -c:v libx264 -pix_fmt yuv420p -c:a copy -shortest /tmp/wm-out.mp4 \
+    && "$FF" -v error -y -i /tmp/wm-odd.mp4 -loop 1 -i /tmp/wm-mark.png \
+        -filter_complex '[0:v]crop=trunc(iw/2)*2:trunc(ih/2)*2[basesrc];[1:v][basesrc]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto' \
+        -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 128k -shortest /tmp/wm-out.mp4 \
     && "$FF" -v error -i /tmp/wm-out.mp4 -map 0:v:0 -f null - \
-    && rm -f /tmp/wm-src.mp4 /tmp/wm-mark.png /tmp/wm-out.mp4
+    && rm -f /tmp/wm-src.mp4 /tmp/wm-odd.mp4 /tmp/wm-mark.png /tmp/wm-out.mp4
 
 
 # ---- production dependencies -----------------------------------------------

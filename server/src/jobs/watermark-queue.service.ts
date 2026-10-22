@@ -396,7 +396,17 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     // submit, so a row that never reaches a terminal state locks her out of
     // that revision permanently. `dead` is terminal AND unblocks her.
     if (attempt > max) {
-      await this.markDead(deliveryId, attempt, max);
+      // Nothing threw on the attempt that got us here, so no reason was ever
+      // recorded. Say that explicitly — "parked with no error" is itself the
+      // diagnosis (the run was killed, not failed), and an empty column would
+      // otherwise read as a missing feature.
+      await this.markDead(
+        deliveryId,
+        attempt,
+        max,
+        `Parked without a recorded failure: attempt ${attempt} of ${max} was killed mid-run ` +
+          '(OOM, SIGTERM or a deploy) rather than throwing, so it never reported a reason.',
+      );
       return;
     }
 
@@ -424,16 +434,28 @@ export class WatermarkQueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Park a delivery in the terminal `dead` state after the retry budget is spent. */
+  /**
+   * Park a delivery in the terminal `dead` state after the retry budget is spent.
+   *
+   * `previewError` is left alone unless a reason is passed: the failing attempt
+   * has already written why it threw, and that is the useful text. Overwriting
+   * it with "retries exhausted" would replace the diagnosis with a restatement
+   * of the status.
+   */
   private async markDead(
     deliveryId: string,
     attempt: number,
     max: number,
+    reason?: string,
   ): Promise<void> {
     try {
       await this.prisma.orderDelivery.update({
         where: { id: deliveryId },
-        data: { previewStatus: 'dead', previewUpdatedAt: new Date() },
+        data: {
+          previewStatus: 'dead',
+          previewUpdatedAt: new Date(),
+          ...(reason ? { previewError: reason } : {}),
+        },
       });
       this.logger.error(
         `watermark: delivery ${deliveryId} marked dead after ${attempt}/${max} attempts`,

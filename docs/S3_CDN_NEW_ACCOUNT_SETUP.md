@@ -28,8 +28,11 @@ makes this the right moment to adopt a custom domain.
 ### 0a. An admin identity, and where to run commands
 
 A brand-new account has no IAM users, so your first console session is as
-**root**. Root is for exactly two things — creating the first admin user, and
-closing the account. Everything else uses a named identity.
+**root**. Root cannot be deleted — it belongs to the account for as long as the
+account exists, and nothing below removes it. The goal is only to stop *signing
+in* as root for routine work, because root ignores every permission boundary:
+no policy can restrict it, so a leak costs the whole account including billing.
+A named admin user can be scoped, audited, rotated, and deleted if compromised.
 
 1. **MFA on root**, while you are still signed in as root: IAM → Root access
    management → assign MFA device. Non-negotiable on an account with billing.
@@ -38,7 +41,17 @@ closing the account. Everything else uses a named identity.
    `AdministratorAccess` directly. Sign-in URL:
    `https://285870986713.signin.aws.amazon.com/console`
 3. **Sign out of root, sign in as the admin user, add MFA to it too.**
-4. **Stop using root.** Nothing in this runbook needs it.
+4. **Keep the root credentials, stop using them day to day.** Store the
+   password in the team password manager with its MFA. Nothing in this runbook
+   needs root again.
+
+Root stays necessary a few times a year — it alone can change the account email
+or name, close the account, change the Support plan, restore access if an admin
+user locks everyone out, and **enable MFA Delete on an S3 bucket**. That last one
+is worth considering here: MFA Delete demands a physical MFA code before any
+object version can be permanently deleted, which is exactly the guard that makes
+a repeat of the September incident impossible. It can only be switched on by
+root, so plan a deliberate root sign-in for it rather than avoiding root forever.
 
 > For more than two or three people, IAM Identity Center is the better long-term
 > answer than per-person IAM users. It is not worth blocking this migration on.
@@ -487,7 +500,8 @@ aws s3 rm $P "s3://$NEW_BUCKET/test.txt"
 ```
 
 - [ ] `sts get-caller-identity` shows `285870986713`, not `323668150512`
-- [ ] Root has MFA and is no longer used; admin user has MFA
+- [ ] Root has MFA, credentials stored safely, not used routinely
+- [ ] Admin user created with MFA; working as that user, not root
 - [ ] Old account: `Recover*` statements removed (§1)
 - [ ] Bucket region is `ap-south-1`
 - [ ] Block Public Access: all four `true`

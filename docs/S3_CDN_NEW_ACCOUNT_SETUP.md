@@ -1,152 +1,157 @@
 # New AWS account: S3 + CloudFront setup
 
-Phase 1 of moving media storage to a separate AWS account. This document covers
-**building the empty destination** — account, bucket, policies, IAM, CDN. It does
-not copy data or cut over; that is phase 2.
+Phase 1 of moving media storage to a separate AWS account: build the empty
+destination. The data copy and cutover are phase 2.
 
-Nothing here touches production. Every step is additive in a brand-new account,
-so it is safe to work through at your own pace and verify as you go.
+Everything here is additive in a new account. Nothing touches production until
+phase 2, with one exception — §1, which revokes a stale permission in the **old**
+account and should be done first.
+
+## Known values
+
+| | |
+|---|---|
+| Old account | `323668150512` (Messold Parallels) |
+| Old bucket | `ugc-uploads-323668150512-ap-south-1-an` |
+| Region | `ap-south-1` (Mumbai) — the new bucket **must** match |
+| New account | already created |
+| Current CDN | a raw `*.cloudfront.net` hostname |
+
+Because the current CDN is a raw CloudFront hostname, cutover **must** rewrite
+stored URLs in the database — there is no DNS record to move. See §8 for why that
+makes this the right moment to adopt a custom domain.
 
 ---
 
-## 0. Decisions to make before you start
+## 0. Prerequisites
 
-| Decision | Recommendation | Why |
-|---|---|---|
-| Region for the new bucket | **Same region as the current bucket** | Cross-account copy inside one region is free. Cross-region means paying egress on the old account for the whole migration. |
-| CDN hostname | **Keep your existing custom domain** | Moving the DNS record to the new distribution means zero database rows change at cutover, and rollback is a DNS change. |
-| App credentials | IAM user + access keys | `StorageService` reads `AWS_S3_ACCESS_KEY_ID` / `AWS_S3_SECRET_ACCESS_KEY` via `getOrThrow` (`server/src/storage/storage.service.ts:132-137`). It has no role-assumption path today. |
+### 0a. A CLI profile for the new account
 
-Set these once and reuse them in every command below:
+Every command below uses `--profile ugc-new`. Create an admin access key in the
+new account (IAM → Users → your admin user → Security credentials), then:
 
 ```bash
-export NEW_BUCKET=ugc-platform-media            # must be globally unique
-export REGION=ap-south-1                        # MUST match the current bucket's region
-export CDN_DOMAIN=cdn.yourdomain.com            # your existing CDN hostname
-export APP_ORIGIN=https://app.yourdomain.com    # the frontend origin that uploads
+aws configure --profile ugc-new
+# AWS Access Key ID:     <new account admin key>
+# AWS Secret Access Key: <new account admin secret>
+# Default region name:   ap-south-1
+# Default output format: json
 ```
 
-> Confirm the current region before setting `REGION`:
-> `aws s3api get-bucket-location --bucket OLD-BUCKET` (a `null` result means `us-east-1`).
-
----
-
-## 1. Create the account
-
-Prefer **AWS Organizations** over a standalone signup. A member account needs no
-separate card, bills to the same payer, and can be closed from the console later.
-
-From the **existing** account (the one that owns the org, or create an org first):
-
-1. AWS Organizations → **Add an AWS account** → **Create an AWS account**
-2. Account name: something explicit, e.g. `ugc-platform-media`
-3. Email: must be globally unique across all of AWS. Use a plus-address on a
-   distribution list you control — `aws+ugcmedia@yourdomain.com`. **Never a
-   personal mailbox**; this address owns the account and is how you recover it.
-4. IAM role name: leave the default `OrganizationAccountAccessRole`. This is how
-   you get in without a root password.
-
-Account creation takes a few minutes.
-
-### Secure it immediately
-
-The new account's root user has no password until you set one. Before anything
-else:
-
-1. **Root password**: Sign in with the account email → "Forgot password" → set a
-   strong unique password. Store it in your password manager.
-2. **Root MFA**: IAM → root user → assign an MFA device. Non-negotiable — a root
-   user without MFA and with billing attached is the single worst AWS exposure.
-3. **No root access keys.** If any exist, delete them. Root should never have
-   programmatic credentials.
-4. **Billing contact + alternate contacts**: Account settings → add a billing
-   email that more than one person reads.
-
-You access the account day to day by switching roles from the parent account
-(`OrganizationAccountAccessRole`), not by logging in as root.
-
----
-
-## 2. Budget guardrails (do this now, not later)
-
-Given what prompted this migration, set the alarm **before** there is anything to
-alarm about.
-
-Billing and Cost Management → **Budgets** → Create budget:
-
-- Type: **Cost budget**, Monthly, Recurring
-- Amount: your expected steady-state plus headroom (e.g. `$25`)
-- Alerts — create **three**, not one:
-  - **Actual** > 50% of budget
-  - **Actual** > 90% of budget
-  - **Forecasted** > 100% of budget ← this is the one that catches a runaway
-    script on day 2 of the month, while it is still cheap to stop
-- Recipients: the billing distribution list, not one person
-
-Also enable **Cost Explorer** (Billing → Cost Explorer → Enable). It takes ~24h
-to populate, so turning it on now means it is ready when you need it.
-
-Optionally enable **S3 Storage Lens** (free tier) — it surfaces noncurrent
-version bloat and incomplete multipart uploads on a dashboard, which is exactly
-the class of problem that drove this migration.
-
----
-
-## 3. Create the bucket
+Verify you are in the **new** account before doing anything else:
 
 ```bash
-aws s3api create-bucket \
+aws sts get-caller-identity --profile ugc-new
+```
+
+The `Account` field must NOT be `323668150512`. If it is, you are pointed at the
+old account and every command below would hit production.
+
+### 0b. Variables
+
+```bash
+export P="--profile ugc-new"
+export REGION=ap-south-1
+export NEW_ACCOUNT=$(aws sts get-caller-identity $P --query Account --output text)
+export NEW_BUCKET="ugc-uploads-${NEW_ACCOUNT}-ap-south-1"
+export OLD_BUCKET=ugc-uploads-323668150512-ap-south-1-an
+export OLD_ACCOUNT=323668150512
+export APP_ORIGIN=https://app.yourdomain.com      # ← your real frontend origin
+export CDN_DOMAIN=cdn.yourdomain.com              # ← see §8
+
+echo "new account: $NEW_ACCOUNT / bucket: $NEW_BUCKET"
+```
+
+> Do not reuse the old bucket's name. S3 names are globally unique, and the old
+> one embeds `323668150512` — carrying that into the new account is confusing
+> forever. Keys are what the application stores, and those are identical in both
+> buckets, so the bucket name does not matter to the app.
+
+---
+
+## 1. First: revoke the stale recovery grant (old account)
+
+The policy `ugc-platform-s3-upload-putobject` in account `323668150512` was
+widened on **30 September 2026** so `restore-original-videos.ts` could run. It
+still carries those permissions:
+
+```json
+{ "Sid": "RecoverListVersions",   "Action": "s3:ListBucketVersions" },
+{ "Sid": "RecoverObjectVersions", "Action": ["s3:GetObjectVersion",
+                                             "s3:DeleteObjectVersion"] }
+```
+
+That policy is attached to the credentials the running application holds.
+`s3:DeleteObjectVersion` is the only S3 call that destroys bytes irreversibly —
+an ordinary `DeleteObject` on a versioned bucket just writes a delete marker,
+which is precisely why the full-resolution originals were recoverable at all.
+
+The application never issues these calls. Verified:
+
+```
+ListObjectVersionsCommand → server/src/scripts/restore-original-videos.ts only
+Runtime services using version APIs → none
+```
+
+**Edit the policy in the old account and delete both `Recover*` statements**,
+keeping `AllowObjectOps` and `AllowListBucket` as they are. IAM retains the prior
+version, so rollback is one click. No redeploy needed — nothing in the running
+app uses those actions.
+
+When a recovery script next needs to run, put the `Recover*` statements in a
+**separate** policy, attach it for the run, detach it after.
+
+---
+
+## 2. Create the bucket
+
+```bash
+aws s3api create-bucket $P \
   --bucket "$NEW_BUCKET" \
   --region "$REGION" \
   --create-bucket-configuration LocationConstraint="$REGION"
 ```
 
-> `us-east-1` is the exception — omit `--create-bucket-configuration` entirely there.
+## 3. Block all public access
 
-### 3a. Block all public access
-
-The bucket is **never** public. CloudFront reads it with a signed request, and
-uploads use presigned URLs — both are authenticated, so neither needs public
-access.
+The bucket is never public. CloudFront reads it with a signed request; uploads
+use presigned URLs. Both are authenticated.
 
 ```bash
-aws s3api put-public-access-block \
+aws s3api put-public-access-block $P \
   --bucket "$NEW_BUCKET" \
   --public-access-block-configuration \
     BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 ```
 
-> **This does not break presigned uploads.** A presigned PUT carries a SigV4
-> signature of your IAM user, so S3 treats it as an authenticated request, not
-> public access. People disable Block Public Access to "fix" upload problems and
-> expose the whole bucket; the real cause is almost always CORS (§3d).
+> This does not break presigned uploads. A presigned PUT carries a SigV4
+> signature, so S3 treats it as authenticated, not public. If uploads fail later,
+> the cause is CORS (§6) — never disable this to "fix" it.
 
-### 3b. Disable ACLs
+## 4. Disable ACLs
 
 ```bash
-aws s3api put-bucket-ownership-controls \
+aws s3api put-bucket-ownership-controls $P \
   --bucket "$NEW_BUCKET" \
   --ownership-controls 'Rules=[{ObjectOwnership=BucketOwnerEnforced}]'
 ```
 
-`BucketOwnerEnforced` is the default for new buckets, but set it explicitly — it
-guarantees that objects copied **from the old account** during migration are owned
-by this account. Without it you can end up with objects you cannot read from the
-bucket you own.
+This guarantees the new account owns every object copied in from the old one
+during phase 2.
 
-### 3c. Versioning on, with lifecycle from day one
+## 5. Versioning + lifecycle, together
 
-Versioning is genuinely useful — it is what made the full-resolution originals
-recoverable. The failure mode last time was versioning **without** expiry. Enable
-both together, in that order, and never leave a gap between them.
+Versioning is worth keeping — it is what made the originals recoverable.
+Versioning **without expiry** is what inflated the bill. Apply both now; never
+leave a gap.
 
 ```bash
-aws s3api put-bucket-versioning \
+aws s3api put-bucket-versioning $P \
   --bucket "$NEW_BUCKET" \
   --versioning-configuration Status=Enabled
 ```
 
-Save as `lifecycle.json`:
+`lifecycle.json`:
 
 ```json
 {
@@ -169,77 +174,57 @@ Save as `lifecycle.json`:
       "Filter": { "Prefix": "" },
       "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
     },
-    {
-      "ID": "expire-temp-uploads",
-      "Status": "Enabled",
-      "Filter": {
-        "Or": {
-          "Prefix": "",
-          "Tags": []
-        }
-      },
-      "Expiration": { "Days": 7 }
-    }
+    { "ID": "tmp-agency-logo",            "Status": "Enabled", "Filter": { "Prefix": "agency-logo-temp/" },                 "Expiration": { "Days": 7 } },
+    { "ID": "tmp-agency-logo-signup",     "Status": "Enabled", "Filter": { "Prefix": "agency-logo-signup-temp/" },          "Expiration": { "Days": 7 } },
+    { "ID": "tmp-brand-logo",             "Status": "Enabled", "Filter": { "Prefix": "brand-logo-temp/" },                  "Expiration": { "Days": 7 } },
+    { "ID": "tmp-brand-logo-signup",      "Status": "Enabled", "Filter": { "Prefix": "brand-logo-signup-temp/" },           "Expiration": { "Days": 7 } },
+    { "ID": "tmp-brand-pronunciation",    "Status": "Enabled", "Filter": { "Prefix": "brand-pronunciation-temp/" },         "Expiration": { "Days": 7 } },
+    { "ID": "tmp-brand-pron-signup",      "Status": "Enabled", "Filter": { "Prefix": "brand-pronunciation-signup-temp/" },  "Expiration": { "Days": 7 } },
+    { "ID": "tmp-brief-product",          "Status": "Enabled", "Filter": { "Prefix": "brief-product-temp/" },               "Expiration": { "Days": 7 } },
+    { "ID": "tmp-creator-portfolio-signup","Status": "Enabled","Filter": { "Prefix": "creator-portfolio-signup-temp/" },    "Expiration": { "Days": 7 } }
   ]
 }
 ```
 
-> The fourth rule above is a placeholder — a single rule cannot match multiple
-> prefixes. Replace it with one rule per temp prefix, listed below.
-
-The temp prefixes, taken from `server/src/storage/storage.service.ts`:
-
-```
-agency-logo-temp/                     agency-logo-signup-temp/
-brand-logo-temp/                      brand-logo-signup-temp/
-brand-pronunciation-temp/             brand-pronunciation-signup-temp/
-brief-product-temp/                   creator-portfolio-signup-temp/
-```
-
-Each needs its own rule:
-
-```json
-{
-  "ID": "expire-temp-creator-portfolio-signup",
-  "Status": "Enabled",
-  "Filter": { "Prefix": "creator-portfolio-signup-temp/" },
-  "Expiration": { "Days": 7 }
-}
-```
-
-**Why 7 days and not 1.** A temp object becomes permanent only when the matching
-`finalize*` call copies it (`storage.service.ts:421`+). A creator who uploads a
-portfolio video during signup and finishes the wizard two days later still needs
-that object. Seven days is comfortably past any realistic abandon-and-return, and
-these are small objects — the saving from a shorter window is not worth deleting
-a real user's upload. Do **not** apply these rules to the permanent prefixes
-(`creator-portfolio/`, `creator-profile/`, `order-deliveries/`, etc.).
-
-Apply:
-
 ```bash
-aws s3api put-bucket-lifecycle-configuration \
-  --bucket "$NEW_BUCKET" \
-  --lifecycle-configuration file://lifecycle.json
+aws s3api put-bucket-lifecycle-configuration $P \
+  --bucket "$NEW_BUCKET" --lifecycle-configuration file://lifecycle.json
 
-# verify
-aws s3api get-bucket-lifecycle-configuration --bucket "$NEW_BUCKET"
+aws s3api get-bucket-lifecycle-configuration $P --bucket "$NEW_BUCKET"
 ```
 
-> Leave everything in S3 Standard. Do not add Glacier or IA transitions for media
-> served through CloudFront — retrieval latency and per-GB retrieval fees make it
-> a false economy for assets that are actively played.
+The eight temp prefixes are from `server/src/storage/storage.service.ts`. They
+expire at **7 days, not 1**: a temp object becomes permanent only when the
+matching `finalize*` call copies it, and a creator who uploads during signup and
+finishes the wizard two days later still needs the file. These are small objects;
+a shorter window risks deleting real uploads to save pennies.
 
-### 3d. CORS — the one that silently breaks large uploads
+The permanent prefixes — `creator-portfolio/`, `creator-profile/`,
+`order-deliveries/`, `creator-demo-videos/`, `order-chat-voice/`, `brand-logo/`,
+`agency-logo/`, `brief-product/`, `brand-pronunciation/` — get **no** expiry
+rule. Leave everything in S3 Standard; Glacier/IA transitions are a false economy
+for media served through a CDN.
 
-Browsers PUT directly to S3 using presigned URLs, so the **bucket** needs CORS
-(CloudFront is not in that path). Save as `cors.json`:
+> These rules are safe here because the bucket is empty. Do **not** paste
+> `NoncurrentVersionExpiration` onto the old bucket until a dry run of
+> `restore-original-videos.ts` reports 0 remaining — on a bucket with history it
+> permanently deletes the versions that script recovers from.
+
+## 6. CORS — the one that silently breaks large uploads
+
+Browsers PUT directly to S3 via presigned URLs, so the **bucket** needs CORS.
+CloudFront is not in the upload path.
+
+`cors.json`:
 
 ```json
 {
   "CORSRules": [
     {
-      "AllowedOrigins": ["https://app.yourdomain.com"],
+      "AllowedOrigins": [
+        "https://app.yourdomain.com",
+        "http://localhost:3000"
+      ],
       "AllowedMethods": ["PUT", "GET", "HEAD"],
       "AllowedHeaders": ["*"],
       "ExposeHeaders": ["ETag"],
@@ -250,43 +235,36 @@ Browsers PUT directly to S3 using presigned URLs, so the **bucket** needs CORS
 ```
 
 ```bash
-aws s3api put-bucket-cors --bucket "$NEW_BUCKET" --cors-configuration file://cors.json
+aws s3api put-bucket-cors $P --bucket "$NEW_BUCKET" --cors-configuration file://cors.json
 ```
 
-**`ExposeHeaders: ["ETag"]` is mandatory.** The browser uploader reads the
-per-part ETag to complete a multipart upload, and the code says so explicitly at
+**`ExposeHeaders: ["ETag"]` is mandatory.** The uploader reads each part's ETag
+to complete a multipart upload, and says so at
 `client/lib/s3-multipart-upload.ts:61-67`:
 
 > `Part N succeeded but no ETag was returned — check the S3 bucket CORS
 > "ExposeHeaders" includes "ETag".`
 
-Omit it and **small images upload fine while every large video fails** — so it
-passes a casual smoke test and breaks in production. This is the single most
-common way a bucket migration goes wrong.
+Omit it and small images upload fine while **every large video fails** — it
+passes a casual smoke test and breaks in production. List every origin that
+uploads: production, staging, and localhost if developers upload locally.
 
-List every origin that uploads: production, staging, and `http://localhost:3000`
-if developers upload from local.
+## 7. IAM: application user
 
----
-
-## 4. IAM user for the application
-
-Scoped to exactly the operations the code performs. Derived from the AWS SDK
-commands in `server/src/` — `PutObject`, `GetObject`, `DeleteObject`,
-`CopyObject`, and the four multipart commands.
+Scoped to the SDK commands `server/src/` actually issues.
 
 ```bash
-aws iam create-user --user-name ugc-platform-app
+aws iam create-user $P --user-name ugc-platform-app
 ```
 
-Save as `app-policy.json` (substitute your bucket name):
+`app-policy.json`:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ObjectAccess",
+      "Sid": "AllowObjectOps",
       "Effect": "Allow",
       "Action": [
         "s3:PutObject",
@@ -295,150 +273,85 @@ Save as `app-policy.json` (substitute your bucket name):
         "s3:AbortMultipartUpload",
         "s3:ListMultipartUploadParts"
       ],
-      "Resource": "arn:aws:s3:::ugc-platform-media/*"
+      "Resource": "arn:aws:s3:::BUCKET/*"
     },
     {
-      "Sid": "BucketListing",
+      "Sid": "AllowListBucket",
       "Effect": "Allow",
       "Action": ["s3:ListBucket", "s3:ListBucketMultipartUploads"],
-      "Resource": "arn:aws:s3:::ugc-platform-media"
+      "Resource": "arn:aws:s3:::BUCKET"
     }
   ]
 }
 ```
 
 ```bash
-aws iam put-user-policy \
-  --user-name ugc-platform-app \
-  --policy-name ugc-platform-s3 \
-  --policy-document file://app-policy.json
-
-aws iam create-access-key --user-name ugc-platform-app
+sed -i.bak "s/BUCKET/$NEW_BUCKET/g" app-policy.json
+aws iam put-user-policy $P --user-name ugc-platform-app \
+  --policy-name ugc-platform-s3 --policy-document file://app-policy.json
+aws iam create-access-key $P --user-name ugc-platform-app
 ```
 
-Store the key and secret straight into your secret manager. They become
-`AWS_S3_ACCESS_KEY_ID` / `AWS_S3_SECRET_ACCESS_KEY` at cutover.
+Store the key pair in your secret manager; they become `AWS_S3_ACCESS_KEY_ID` /
+`AWS_S3_SECRET_ACCESS_KEY` at cutover.
 
-**Notes on the policy shape:**
+Notes on the shape:
 
-- `CopyObject` (used by `finalizeCreatorPortfolioVideoFromTempKey` and
-  `copyOrderAssetToPortfolio`) needs `GetObject` on the source and `PutObject` on
-  the destination. Both are in-bucket here, so the single `/*` resource covers it.
-- `CreateMultipartUpload`, `UploadPart`, and `CompleteMultipartUpload` all
-  authorize against `s3:PutObject` — there are no separate IAM actions.
-- **No versioning permissions.** `s3:ListBucketVersions`,
-  `s3:GetObjectVersion`, and `s3:DeleteObjectVersion` are deliberately absent.
-  The running app never touches versions; only the maintenance scripts do. Grant
-  those to a **separate** user you use only when running a script, so an
-  application bug can never reach through version history. That separation is
-  worth having given how the last incident unfolded.
+- `CopyObject` (`finalizeCreatorPortfolioVideoFromTempKey`,
+  `copyOrderAssetToPortfolio`) needs `GetObject` on source and `PutObject` on
+  destination — both in-bucket, so `/*` covers it.
+- `CreateMultipartUpload`, `UploadPart` and `CompleteMultipartUpload` all
+  authorize against `s3:PutObject`; there are no separate IAM actions.
+- **No version permissions**, deliberately — see §1.
 
----
+## 8. CloudFront
 
-## 5. IAM for the migration copy (phase 2 prep)
+### 8a. Adopt a custom domain
 
-Create this now so phase 2 is just running a command.
+The current CDN is a raw `*.cloudfront.net`, so cutover rewrites stored URLs in
+the database no matter what. That work is identical whether the new value is
+another `*.cloudfront.net` or `cdn.yourdomain.com` — so point it at a domain you
+own and this becomes the **last** URL rewrite this project needs. Every future
+bucket or CDN change is then a DNS record.
 
-**In the new account** — a user that can read the old bucket and write the new one:
+Certificate first. **ACM certs for CloudFront must be in `us-east-1`**,
+regardless of the bucket's region:
 
 ```bash
-aws iam create-user --user-name ugc-platform-migration
+aws acm request-certificate --profile ugc-new --region us-east-1 \
+  --domain-name "$CDN_DOMAIN" --validation-method DNS
 ```
 
-`migration-policy.json`:
+Add the CNAME validation record ACM returns, and wait for status `ISSUED`.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:ListBucket", "s3:GetObject", "s3:GetObjectVersion"],
-      "Resource": [
-        "arn:aws:s3:::OLD-BUCKET",
-        "arn:aws:s3:::OLD-BUCKET/*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": ["s3:ListBucket", "s3:PutObject"],
-      "Resource": [
-        "arn:aws:s3:::ugc-platform-media",
-        "arn:aws:s3:::ugc-platform-media/*"
-      ]
-    }
-  ]
-}
-```
+### 8b. Distribution
 
-**In the old account** — a bucket policy granting that user read access:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowNewAccountMigrationRead",
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::NEW-ACCOUNT-ID:user/ugc-platform-migration"
-      },
-      "Action": ["s3:ListBucket", "s3:GetObject", "s3:GetObjectVersion"],
-      "Resource": [
-        "arn:aws:s3:::OLD-BUCKET",
-        "arn:aws:s3:::OLD-BUCKET/*"
-      ]
-    }
-  ]
-}
-```
-
-Pulling with new-account credentials (rather than pushing from the old account)
-is what makes the new account the owner of every copied object.
-
-Delete this user the day the migration completes.
-
----
-
-## 6. CloudFront distribution
-
-### 6a. Origin Access Control
-
-OAC lets CloudFront sign its requests to a fully private bucket. It replaces the
-older Origin Access Identity; use OAC for anything new.
-
-Console → CloudFront → **Create distribution**:
+Console → CloudFront → Create distribution:
 
 **Origin**
-- Origin domain: pick `ugc-platform-media.s3.ap-south-1.amazonaws.com` from the
-  dropdown. **Do not** type the website-endpoint form (`...s3-website-...`) —
-  that one requires a public bucket.
-- Origin access: **Origin access control settings (recommended)** → Create new OAC
-  → accept defaults → select it
-- CloudFront will show **"Copy policy"** — copy it. You must apply it to the
-  bucket or every request returns 403.
+- Origin domain: select `<bucket>.s3.ap-south-1.amazonaws.com` from the dropdown.
+  Do **not** type the `s3-website-` form — that requires a public bucket.
+- Origin access: **Origin access control settings (recommended)** → create an OAC
+  → select it
+- CloudFront shows a **Copy policy** button — copy it, you need it below
 
 **Default cache behavior**
-- Viewer protocol policy: **Redirect HTTP to HTTPS**
-- Allowed methods: **GET, HEAD** (uploads bypass CloudFront entirely)
+- Viewer protocol policy: Redirect HTTP to HTTPS
+- Allowed methods: **GET, HEAD** (uploads bypass CloudFront)
 - Cache policy: **CachingOptimized**
-- Compress objects automatically: **Yes**
+- Compress objects automatically: Yes
 
 **Settings**
-- Price class: **Use only North America and Europe** is cheapest, but if your
-  audience is primarily in India choose **Use all edge locations** — Indian edges
-  are not in the restricted sets.
-- Alternate domain name (CNAME): `cdn.yourdomain.com`
-- Custom SSL certificate: see §6c
+- Price class: **Use all edge locations** — the cheaper tiers exclude Indian
+  edges, which is where your traffic is
+- Alternate domain name: `cdn.yourdomain.com`
+- Custom SSL certificate: the one from §8a
 
-Create it, then apply the copied policy to the bucket:
+Then apply the copied policy to the bucket:
 
 ```bash
-aws s3api put-bucket-policy --bucket "$NEW_BUCKET" --policy file://oac-policy.json
+aws s3api put-bucket-policy $P --bucket "$NEW_BUCKET" --policy file://oac-policy.json
 ```
-
-It looks like this — note the `AWS:SourceArn` condition, which scopes access to
-your one distribution:
 
 ```json
 {
@@ -449,10 +362,10 @@ your one distribution:
       "Effect": "Allow",
       "Principal": { "Service": "cloudfront.amazonaws.com" },
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::ugc-platform-media/*",
+      "Resource": "arn:aws:s3:::BUCKET/*",
       "Condition": {
         "StringEquals": {
-          "AWS:SourceArn": "arn:aws:cloudfront::NEW-ACCOUNT-ID:distribution/DISTRIBUTION-ID"
+          "AWS:SourceArn": "arn:aws:cloudfront::NEW_ACCOUNT:distribution/DIST_ID"
         }
       }
     }
@@ -460,86 +373,142 @@ your one distribution:
 }
 ```
 
-That policy plus the migration grant are the **only** two statements the bucket
-policy should ever contain.
+Without this the distribution returns 403 on everything.
 
-### 6b. Video playback
+### 8c. Video playback
 
-Nothing to configure — CloudFront forwards HTTP range requests on GET/HEAD by
-default, which is what lets the player seek without downloading the whole file.
-Your pipeline already writes `+faststart` MP4s (`preview-video.service.ts:170`),
-so playback starts after the first few KB.
+Nothing to configure. CloudFront forwards HTTP range requests on GET/HEAD by
+default, which is what lets players seek. Your pipeline already writes
+`+faststart` MP4s (`preview-video.service.ts:170`). Do not add a header-forwarding
+policy — it destroys the cache hit rate and pushes traffic back to origin.
 
-Do **not** add a `Cache-Control`-stripping policy or forward all headers; it
-wrecks the cache hit rate and sends traffic back to the origin.
+### 8d. DNS
 
-### 6c. Certificate — must be in us-east-1
+Point `cdn.yourdomain.com` at the new distribution now. Nothing references it
+until cutover, so this is safe to do early and lets you test end to end.
 
-**ACM certificates for CloudFront must live in `us-east-1`, regardless of where
-your bucket is.** This catches almost everyone.
+## 9. IAM: migration user (phase 2 prep)
+
+In the **new** account:
 
 ```bash
-aws acm request-certificate \
-  --domain-name "$CDN_DOMAIN" \
-  --validation-method DNS \
-  --region us-east-1
+aws iam create-user $P --user-name ugc-platform-migration
 ```
 
-Add the CNAME validation record ACM gives you to your DNS, wait for **Issued**,
-then attach it to the distribution as the custom SSL certificate.
+`migration-policy.json` — read old, write new:
 
-### 6d. DNS
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetObject"],
+      "Resource": [
+        "arn:aws:s3:::ugc-uploads-323668150512-ap-south-1-an",
+        "arn:aws:s3:::ugc-uploads-323668150512-ap-south-1-an/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:PutObject"],
+      "Resource": ["arn:aws:s3:::BUCKET", "arn:aws:s3:::BUCKET/*"]
+    }
+  ]
+}
+```
 
-Until you are ready to cut over, point a **temporary** hostname at the new
-distribution (e.g. `cdn-new.yourdomain.com`) so you can test end to end without
-touching production. Moving the real `cdn.yourdomain.com` record is a phase-2
-cutover step — and the thing that lets you skip rewriting database URLs entirely.
+In the **old** account, add to the bucket policy:
 
----
+```json
+{
+  "Sid": "AllowNewAccountMigrationRead",
+  "Effect": "Allow",
+  "Principal": { "AWS": "arn:aws:iam::NEW_ACCOUNT:user/ugc-platform-migration" },
+  "Action": ["s3:ListBucket", "s3:GetObject"],
+  "Resource": [
+    "arn:aws:s3:::ugc-uploads-323668150512-ap-south-1-an",
+    "arn:aws:s3:::ugc-uploads-323668150512-ap-south-1-an/*"
+  ]
+}
+```
 
-## 7. Verify before phase 2
+Note this grants **read only** — no `GetObjectVersion`. `aws s3 sync` copies
+current versions, which is exactly what you want: the version bloat stays behind
+in the old bucket and is never carried across.
+
+Pulling with new-account credentials (rather than pushing from the old account)
+is what makes the new account the owner of every copied object. Delete this user
+the day the migration completes.
+
+## 10. Budget guardrails
+
+Billing → Budgets → Create budget in the new account:
+
+- Monthly cost budget, e.g. `$25`
+- Three alerts: **actual > 50%**, **actual > 90%**, and **forecasted > 100%**
+- Recipients: a list more than one person reads
+
+The forecasted alert is the one that matters — it fires on day 2 of a runaway,
+while it is still cheap to stop. Enable Cost Explorer at the same time; it needs
+~24h to populate.
+
+## 11. Verify before phase 2
 
 ```bash
-# Upload a test object
-echo "hello" > test.txt
-aws s3 cp test.txt "s3://$NEW_BUCKET/test.txt"
+echo hello > test.txt
+aws s3 cp $P test.txt "s3://$NEW_BUCKET/test.txt"
 
-# Direct S3 access must FAIL (403) — the bucket is private
+# direct S3 must FAIL (403)
 curl -I "https://$NEW_BUCKET.s3.$REGION.amazonaws.com/test.txt"
 
-# Through CloudFront must SUCCEED (200)
-curl -I "https://cdn-new.yourdomain.com/test.txt"
+# through CloudFront must SUCCEED (200)
+curl -I "https://$CDN_DOMAIN/test.txt"
 
-aws s3 rm "s3://$NEW_BUCKET/test.txt"
+aws s3 rm $P "s3://$NEW_BUCKET/test.txt"
 ```
 
-Checklist:
-
-- [ ] Root MFA enabled, no root access keys
-- [ ] Budget with **forecasted** alert, to a list more than one person reads
-- [ ] Bucket region matches the old bucket exactly
-- [ ] Block Public Access: all four settings `true`
+- [ ] `sts get-caller-identity` shows the new account, not `323668150512`
+- [ ] Old account: `Recover*` statements removed (§1)
+- [ ] Bucket region is `ap-south-1`
+- [ ] Block Public Access: all four `true`
 - [ ] Object Ownership: `BucketOwnerEnforced`
-- [ ] Versioning enabled **and** lifecycle applied — verified with `get-bucket-lifecycle-configuration`
-- [ ] CORS includes `ExposeHeaders: ["ETag"]` and every uploading origin
-- [ ] App IAM user has no version-level permissions
-- [ ] Bucket policy contains only the OAC statement and the migration grant
-- [ ] Direct S3 URL returns 403, CloudFront URL returns 200
-- [ ] ACM certificate issued in `us-east-1` and attached
+- [ ] Versioning on **and** lifecycle applied — confirmed by reading it back
+- [ ] CORS exposes `ETag`, lists every uploading origin
+- [ ] App IAM user has no version permissions
+- [ ] Bucket policy holds only the OAC statement and the migration grant
+- [ ] Direct S3 403, CloudFront 200
+- [ ] ACM cert `ISSUED` in `us-east-1`, attached, custom domain resolving
+- [ ] Budget with a forecasted alert
 
 ---
 
-## Known code change required before cutover
+## Code changes needed before cutover
 
-`AWS_REGION` is a single variable shared by S3 and SES
-(`server/src/config/env.validation.ts:121`), consumed by both
-`storage.service.ts:132` and `ses-mail.transport.ts:38`.
+**`AWS_REGION` is shared by S3 and SES** (`server/src/config/env.validation.ts:121`,
+consumed by `storage.service.ts:132` and `ses-mail.transport.ts:38`). Keeping the
+new bucket in `ap-south-1` sidesteps this — but only as long as SES stays there
+too. Adding an optional `S3_REGION` that falls back to `AWS_REGION` removes the
+coupling permanently.
 
-If the new bucket's region differs from your SES region, this cannot be
-expressed in configuration today. Either keep the bucket in the same region as
-SES (which you want anyway, for free same-region migration transfer), or add an
-optional `S3_REGION` that falls back to `AWS_REGION`.
+**`server/.env.example:35-36`** names `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
+while validation requires `AWS_S3_ACCESS_KEY_ID` / `AWS_S3_SECRET_ACCESS_KEY`.
+Fix before anyone provisions from it.
 
-Separately, `server/.env.example:35-36` names `AWS_ACCESS_KEY_ID` /
-`AWS_SECRET_ACCESS_KEY` while validation requires `AWS_S3_ACCESS_KEY_ID` /
-`AWS_S3_SECRET_ACCESS_KEY`. Worth fixing before anyone provisions from it.
+**URL rewrite script** (phase 2). Because the current CDN is a raw
+`*.cloudfront.net`, cutover must rewrite stored absolute URLs:
+
+```
+CreatorProfile         introVideoUrl, previewVideoUrl, profileImageUrl
+CreatorPortfolioVideo  videoUrl, thumbnailUrl
+CreatorDemoVideo       videoUrl, thumbnailUrl
+Brief                  brandLogoUrl, productImageUrl, brandPronunciationAudioUrl
+BrandProfile           logoUrl, brandPronunciationAudioUrl
+Agency                 logoUrl
+OrderDelivery          assets   ← JSON: url + previewUrl per asset
+```
+
+Object keys are unchanged, so this is a hostname substring swap — except
+`OrderDelivery.assets`, which needs a JSON-aware update
+(`watermark.service.ts:231-241`). Scan every text/JSON column for the old
+hostname before declaring it done rather than trusting this list.

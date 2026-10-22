@@ -15,6 +15,8 @@ account and should be done first.
 | Old bucket | `ugc-uploads-323668150512-ap-south-1-an` |
 | Region | `ap-south-1` (Mumbai) — the new bucket **must** match |
 | New account | `285870986713` (Anukhya) |
+| New bucket | `gocollab-media-prod-285870986713-ap-south-1-an` |
+| Old CloudFront distribution | `E2RZMYZ04CIVMP` (OAC, private origin — the new one mirrors it) |
 | Current CDN | a raw `*.cloudfront.net` hostname |
 
 Because the current CDN is a raw CloudFront hostname, cutover **must** rewrite
@@ -84,11 +86,10 @@ export P=""                     # CloudShell needs no profile; set to
                                 # "--profile ugc-new" only if running locally
 export REGION=ap-south-1
 export NEW_ACCOUNT=$(aws sts get-caller-identity $P --query Account --output text)
-export NEW_BUCKET="ugc-uploads-${NEW_ACCOUNT}-ap-south-1"
+export NEW_BUCKET=gocollab-media-prod-285870986713-ap-south-1-an
 export OLD_BUCKET=ugc-uploads-323668150512-ap-south-1-an
 export OLD_ACCOUNT=323668150512
-export APP_ORIGIN=https://app.yourdomain.com      # ← your real frontend origin
-export CDN_DOMAIN=cdn.yourdomain.com              # ← see §8
+export CDN_DOMAIN=cdn.gocollab.io                 # ← proposed; see §8
 
 echo "new account: $NEW_ACCOUNT / bucket: $NEW_BUCKET"
 ```
@@ -253,10 +254,13 @@ CloudFront is not in the upload path.
   "CORSRules": [
     {
       "AllowedOrigins": [
-        "https://app.yourdomain.com",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "https://gocollab.io",
+        "https://www.gocollab.io",
+        "https://test.gocollab.io",
+        "https://www.test.gocollab.io"
       ],
-      "AllowedMethods": ["PUT", "GET", "HEAD"],
+      "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
       "AllowedHeaders": ["*"],
       "ExposeHeaders": ["ETag"],
       "MaxAgeSeconds": 3000
@@ -268,6 +272,23 @@ CloudFront is not in the upload path.
 ```bash
 aws s3api put-bucket-cors $P --bucket "$NEW_BUCKET" --cors-configuration file://cors.json
 ```
+
+This is the old bucket's CORS copied **verbatim**, and that is deliberate. A
+migration should change as few variables as possible: if uploads misbehave after
+cutover, "byte-identical to the config that works today" rules CORS out
+immediately.
+
+`POST` and `DELETE` are in fact unused — every direct-to-S3 call in the client is
+a `PUT` (`client/lib/s3-put-upload.ts:17`, `client/lib/s3-multipart-upload.ts:54`);
+the `POST`s go to the app's own Next.js routes. Dropping them is reasonable
+hygiene, but do it as a separate change after cutover is verified, not during.
+Note that CORS is a browser policy, not an authorization control — S3 still
+requires a valid presigned signature whatever CORS allows — so the tightening
+buys tidiness rather than security.
+
+Note `http://localhost:3000` grants developer machines upload access to
+production media. That is the status quo, carried over intentionally; worth
+revisiting separately.
 
 **`ExposeHeaders: ["ETag"]` is mandatory.** The uploader reads each part's ETag
 to complete a multipart upload, and says so at
@@ -304,20 +325,19 @@ aws iam create-user $P --user-name ugc-platform-app
         "s3:AbortMultipartUpload",
         "s3:ListMultipartUploadParts"
       ],
-      "Resource": "arn:aws:s3:::BUCKET/*"
+      "Resource": "arn:aws:s3:::gocollab-media-prod-285870986713-ap-south-1-an/*"
     },
     {
       "Sid": "AllowListBucket",
       "Effect": "Allow",
       "Action": ["s3:ListBucket", "s3:ListBucketMultipartUploads"],
-      "Resource": "arn:aws:s3:::BUCKET"
+      "Resource": "arn:aws:s3:::gocollab-media-prod-285870986713-ap-south-1-an"
     }
   ]
 }
 ```
 
 ```bash
-sed -i.bak "s/BUCKET/$NEW_BUCKET/g" app-policy.json
 aws iam put-user-policy $P --user-name ugc-platform-app \
   --policy-name ugc-platform-s3 --policy-document file://app-policy.json
 aws iam create-access-key $P --user-name ugc-platform-app
@@ -341,7 +361,7 @@ Notes on the shape:
 
 The current CDN is a raw `*.cloudfront.net`, so cutover rewrites stored URLs in
 the database no matter what. That work is identical whether the new value is
-another `*.cloudfront.net` or `cdn.yourdomain.com` — so point it at a domain you
+another `*.cloudfront.net` or `cdn.gocollab.io` — so point it at a domain you
 own and this becomes the **last** URL rewrite this project needs. Every future
 bucket or CDN change is then a DNS record.
 
@@ -375,7 +395,7 @@ Console → CloudFront → Create distribution:
 **Settings**
 - Price class: **Use all edge locations** — the cheaper tiers exclude Indian
   edges, which is where your traffic is
-- Alternate domain name: `cdn.yourdomain.com`
+- Alternate domain name: `cdn.gocollab.io`
 - Custom SSL certificate: the one from §8a
 
 Then apply the copied policy to the bucket:
@@ -393,7 +413,7 @@ aws s3api put-bucket-policy $P --bucket "$NEW_BUCKET" --policy file://oac-policy
       "Effect": "Allow",
       "Principal": { "Service": "cloudfront.amazonaws.com" },
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::BUCKET/*",
+      "Resource": "arn:aws:s3:::gocollab-media-prod-285870986713-ap-south-1-an/*",
       "Condition": {
         "StringEquals": {
           "AWS:SourceArn": "arn:aws:cloudfront::NEW_ACCOUNT:distribution/DIST_ID"
@@ -415,7 +435,7 @@ policy — it destroys the cache hit rate and pushes traffic back to origin.
 
 ### 8d. DNS
 
-Point `cdn.yourdomain.com` at the new distribution now. Nothing references it
+Point `cdn.gocollab.io` at the new distribution now. Nothing references it
 until cutover, so this is safe to do early and lets you test end to end.
 
 ## 9. IAM: migration user (phase 2 prep)
@@ -443,7 +463,10 @@ aws iam create-user $P --user-name ugc-platform-migration
     {
       "Effect": "Allow",
       "Action": ["s3:ListBucket", "s3:PutObject"],
-      "Resource": ["arn:aws:s3:::BUCKET", "arn:aws:s3:::BUCKET/*"]
+      "Resource": [
+        "arn:aws:s3:::gocollab-media-prod-285870986713-ap-south-1-an",
+        "arn:aws:s3:::gocollab-media-prod-285870986713-ap-south-1-an/*"
+      ]
     }
   ]
 }

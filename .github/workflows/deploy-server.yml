@@ -1,0 +1,139 @@
+name: Deploy server
+
+# main -> production, development -> testing. Both environments hold their own
+# EC2_HOST / EC2_USER / EC2_SSH_KEY secrets, so one workflow serves both and
+# the only difference is which GitHub Environment it resolves.
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch:
+
+# Never let two deploys to the same branch overlap mid-swap. Not cancel-in-
+# progress: a half-finished deploy is worse than a queued one.
+concurrency:
+  group: deploy-server-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      # prisma generate runs on postinstall and parses the datasource block, so
+      # the variables must exist. It never connects — placeholders are correct.
+      - name: Install
+        run: npm ci
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          DIRECT_URL: postgresql://build:build@localhost:5432/build
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build
+
+      # dist + manifests only. node_modules is deliberately excluded: sharp and
+      # ffmpeg-static ship platform-specific binaries, so they are installed on
+      # the target host where the architecture is known to match.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-release
+          path: |
+            server/dist
+            server/package.json
+            server/package-lock.json
+            server/prisma
+            server/ecosystem.config.js
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'testing' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: server-release
+          path: release
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # --delete keeps the remote tree honest, but node_modules and .env live
+      # on the host and must survive: node_modules because it is installed
+      # there, .env because it holds the secrets and is never in git.
+      - name: Upload release
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          rsync -az --delete \
+            --exclude 'node_modules' \
+            --exclude '.env' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            release/ "$EC2_USER@$EC2_HOST:/opt/gocollab/server/"
+
+      - name: Install, migrate, reload
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$EC2_USER@$EC2_HOST" 'bash -seo pipefail' <<'REMOTE'
+            cd /opt/gocollab/server
+
+            npm ci --omit=dev
+
+            # Migrations before reload: the new code may require the new schema.
+            # `migrate deploy` only applies committed migrations and never
+            # prompts, which is what makes it safe to run unattended.
+            npx prisma migrate deploy
+
+            # reload, not restart — PM2 replaces processes without dropping the
+            # listener, and the worker's kill_timeout lets an in-flight
+            # transcode finish rather than being killed mid-encode.
+            pm2 reload ecosystem.config.js --update-env
+            pm2 save
+          REMOTE
+
+      # The API binds to 127.0.0.1 only, so this has to run on the host.
+      - name: Health check
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$EC2_USER@$EC2_HOST" 'bash -seo pipefail' <<'REMOTE'
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:4000/api/health > /dev/null; then
+                echo "healthy after ${i} attempt(s)"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "health check failed; recent logs:" >&2
+            pm2 logs --nostream --lines 50 >&2 || true
+            exit 1
+          REMOTE

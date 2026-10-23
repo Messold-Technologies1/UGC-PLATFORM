@@ -507,6 +507,49 @@ The forecasted alert is the one that matters — it fires on day 2 of a runaway,
 while it is still cheap to stop. Enable Cost Explorer at the same time; it needs
 ~24h to populate.
 
+## 10b. Cost guardrails and how to read the bill
+
+Four layers. Each catches something the others miss.
+
+**Cost Anomaly Detection** (Billing → Cost Anomaly Detection) is the closest fit
+to what actually went wrong in September. It learns the normal spend shape and
+mails you on deviation, with no threshold to guess. Monitor type *AWS services*,
+alert threshold `$5` absolute, recipients a list more than one person reads. It
+is free, and it would have flagged the restore script on its first day.
+
+**Budget with a forecasted alert** (Billing → Budgets): monthly cost budget at
+`$10`, with three alerts — actual > 50%, actual > 90%, and **forecasted > 100%**.
+The forecast alert is the one that matters: it fires on day 2 of a runaway while
+stopping it is still cheap. Actual-spend alerts only report money already gone.
+
+**S3 Storage Lens** (S3 → Storage Lens): the default dashboard is free and
+already present. Watch *noncurrent version bytes* and *incomplete multipart
+upload bytes* — if either climbs without bound, a lifecycle rule has been removed
+or disabled.
+
+**Cost Explorer grouped by Usage Type** is the diagnostic move rather than a
+setting. Filter Service = S3, group by Usage Type, daily granularity. The usage
+types map onto what the code does:
+
+| Usage type | Rough price | What drives it |
+|---|---|---|
+| `APS3-TimedStorage-ByteHrs` | ~$0.025/GB-mo | Every derivative — normalized MP4, card preview, watermarked delivery, portfolio copy — plus noncurrent versions |
+| `APS3-Requests-Tier1` | ~$0.005/1k | PUT/COPY/LIST: uploads (one per 10 MiB part), `finalize*` copies, transcode writes |
+| `APS3-Requests-Tier2` | ~$0.0004/1k | GET: transcode and watermark reads, CloudFront cache misses |
+| `APS3-DataTransfer-Out-Bytes` | ~$0.109/GB | Egress to the internet |
+
+**`DataTransfer-Out-Bytes` is the line to watch.** Media is served through
+CloudFront, and S3 → CloudFront transfer is free, so in normal operation this
+should be near zero. It grows only when something pulls objects out of AWS —
+precisely what `restore-original-videos.ts` did by downloading every version to
+hash it. Anything more than a rounding figure here means a script is running
+where it should not be.
+
+**Baseline after the migration: 25.1 GB across 16,404 objects**, roughly
+$0.60–$2/month of S3. CloudFront's always-free tier (1 TB out) likely absorbs
+delivery entirely. Anything past ~$5 in a month deserves a look; past $10 trips
+every alarm above.
+
 ## 11. Verify before phase 2
 
 ```bash

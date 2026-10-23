@@ -16,7 +16,8 @@ account and should be done first.
 | Region | `ap-south-1` (Mumbai) — the new bucket **must** match |
 | New account | `285870986713` (Anukhya) |
 | New bucket | `gocollab-media-prod-285870986713-ap-south-1-an` |
-| Old CloudFront distribution | `E2RZMYZ04CIVMP` (OAC, private origin — the new one mirrors it) |
+| Old CloudFront distribution | `E2RZMYZ04CIVMP` — `ugc-uploads-cdn`, OAC over a private origin |
+| Old `CDN_BASE_URL` | `https://d7bgbzuwobk5f.cloudfront.net` (no alternate domain) |
 | Current CDN | a raw `*.cloudfront.net` hostname |
 
 Because the current CDN is a raw CloudFront hostname, cutover **must** rewrite
@@ -425,6 +426,33 @@ aws s3api put-bucket-policy $P --bucket "$NEW_BUCKET" --policy file://oac-policy
 ```
 
 Without this the distribution returns 403 on everything.
+
+### 8b-i. Settings confirmed against the old distribution
+
+Inspected on the live distribution; everything is stock, so the steps above
+reproduce it one-for-one. Recorded here so cutover is not working from memory.
+
+| Setting | Value |
+|---|---|
+| Behaviors | 1 only — `Default (*)` |
+| Cache policy | `Managed-CachingOptimized` |
+| Origin request policy | none |
+| Response headers policy | none |
+| Allowed HTTP methods | HEAD, GET |
+| Viewer protocol policy | Redirect HTTP to HTTPS |
+| Compress objects automatically | Yes |
+| Restrict viewer access | No |
+| Function associations | none (no Lambda@Edge, no CloudFront Functions) |
+| Price class | All edge locations |
+| Default root object | none |
+| Standard logging | off |
+
+**Billing note:** the old distribution runs on the CloudFront **Free plan** and
+the console reports *"You've exceeded your monthly usage allowance."* The new
+distribution serves the same traffic and will hit the same ceiling, so check
+CloudFront → Reports & analytics → Usage, and Cost Explorer filtered to
+CloudFront, before assuming delivery is free. The $10 budget in §10 was sized
+for S3 alone and may need raising once those numbers are known.
 
 ### 8c. Video playback
 

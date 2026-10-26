@@ -55,11 +55,20 @@ export class BrandAgencyLinksController {
   /**
    * An agency switched into this brand still presents the brand's JWT, so the
    * route guard cannot tell them apart. The active-brand header is what
-   * distinguishes them: its presence means somebody is operating a brand that
-   * is not their own account, which is exactly who must be refused here.
+   * distinguishes them — but only when it names a brand that is not the
+   * caller's own.
+   *
+   * It used to be enough that the header was present at all. That is not the
+   * same question: the header is remembered in localStorage per browser, not
+   * per account, so a brand signing in where an agency last worked still sent
+   * one. Their own page then answered 403 and told them their agency
+   * connections could not be loaded, which was both wrong and alarming.
    */
-  private assertBrandItself(req: Request): void {
-    if (readBrandProfileIdFromRequest(req)) {
+  private async assertBrandItself(
+    req: Request & { user: { id: string } },
+  ): Promise<void> {
+    const brandProfileId = readBrandProfileIdFromRequest(req);
+    if (await this.links.isActingForAnotherBrand(req.user.id, brandProfileId)) {
       throw new ForbiddenException(
         'Managing your agency connections can only be done by the brand itself.',
       );
@@ -86,7 +95,7 @@ export class BrandAgencyLinksController {
     @Body() dto: RequestAgencyLinkDto,
     @Req() req: Request & { user: { id: string } },
   ) {
-    this.assertBrandItself(req);
+    await this.assertBrandItself(req);
     return this.links.requestLink({
       brandUserId: req.user.id,
       rawPartnerId: dto.partnerId,
@@ -99,7 +108,7 @@ export class BrandAgencyLinksController {
   })
   @ApiOkResponse({ type: BrandAgencyLinksResponseDto })
   async list(@Req() req: Request & { user: { id: string } }) {
-    this.assertBrandItself(req);
+    await this.assertBrandItself(req);
     return this.links.listForBrand(req.user.id);
   }
 
@@ -110,7 +119,7 @@ export class BrandAgencyLinksController {
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request & { user: { id: string } },
   ) {
-    this.assertBrandItself(req);
+    await this.assertBrandItself(req);
     return this.links.revokeLink({
       linkId: id,
       actorUserId: req.user.id,
@@ -128,7 +137,7 @@ export class BrandAgencyLinksController {
     @Body() dto: RevokeAgencyLinkDto,
     @Req() req: Request & { user: { id: string } },
   ) {
-    this.assertBrandItself(req);
+    await this.assertBrandItself(req);
     return this.links.revokeLink({
       linkId: id,
       actorUserId: req.user.id,

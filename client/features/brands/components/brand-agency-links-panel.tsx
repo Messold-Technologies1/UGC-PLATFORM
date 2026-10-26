@@ -8,6 +8,7 @@ import {
   BRAND_COMPLETENESS_GAP_LABELS,
   classifyPartnerLinkError,
   type BrandCompletenessGap,
+  type PartnerLinkFailure,
 } from "@/features/agency/api/agency-brand-links";
 import {
   useBrandAgencyLinksQuery,
@@ -27,6 +28,45 @@ import {
  * does not own one — it redeems the agency's. That asymmetry is the feature:
  * the agency hands out the code, the brand enters it, the agency accepts.
  */
+
+/**
+ * What the page says when the list could not be loaded, per cause.
+ *
+ * Kept as data rather than nested ternaries so the hero and the two cards
+ * cannot drift apart — a brand reading "Not enabled yet" above and "Couldn't
+ * load" below has been told two different things about one request.
+ *
+ * `cardTitle` is what the cards show, which is shorter because the hero is
+ * already carrying the explanation.
+ */
+const FAILURE_COPY: Record<
+  PartnerLinkFailure,
+  { title: string; detail: string; cardTitle: string; profileLink?: boolean }
+> = {
+  "feature-disabled": {
+    title: "Not enabled yet",
+    detail: "Brand partnerships aren't switched on for this environment yet.",
+    cardTitle: "Not enabled yet",
+  },
+  "no-profile": {
+    title: "Finish setting up your brand",
+    detail:
+      "Create your brand profile first, then come back to connect an agency.",
+    cardTitle: "No brand profile yet",
+    profileLink: true,
+  },
+  "wrong-workspace": {
+    title: "You're working inside another brand",
+    detail:
+      "A brand's agency connections are managed by that brand itself. Switch back to your own account from the account menu.",
+    cardTitle: "Not your workspace",
+  },
+  other: {
+    title: "Couldn't load your agency connections",
+    detail: "Reload the page to try again.",
+    cardTitle: "Couldn't load",
+  },
+};
 
 /** A themed empty state, matching the one the credits page uses. */
 function EmptyState({
@@ -86,14 +126,15 @@ export function BrandAgencyLinksPanel() {
   const showGate = (attempted || serverGaps.length > 0) && gaps.length > 0;
 
   /**
-   * Two of the three failures make submitting pointless — the feature is off
-   * here, or there is no brand profile to attach an agency to — so the form
-   * gives way to the explanation. A generic failure is different: the list
+   * Most failures make submitting pointless — the feature is off here, there
+   * is no brand profile to attach an agency to, or this is not the brand's
+   * own account — so the form gives way to the explanation. A generic failure
+   * is different: the list
    * request died, but the submit endpoint may well answer, and someone
    * holding a Partner ID should be able to try it rather than stare at a
    * banner with nowhere to type.
    */
-  const canSubmit = failure !== "feature-disabled" && failure !== "no-profile";
+  const canSubmit = failure === null || failure === "other";
 
   const pending = (links.data?.links ?? []).filter(
     (l) => l.status === "PENDING",
@@ -127,20 +168,12 @@ export function BrandAgencyLinksPanel() {
             <div className="mt-5 max-w-xl rounded-2xl bg-white/10 px-4 py-3">
               <p className="flex items-center gap-2 text-xs font-semibold text-white">
                 <AlertCircle className="size-3.5" />
-                {failure === "feature-disabled"
-                  ? "Not enabled yet"
-                  : failure === "no-profile"
-                    ? "Finish setting up your brand"
-                    : "Couldn't load your agency connections"}
+                {FAILURE_COPY[failure].title}
               </p>
               <p className="mt-1 text-xs text-white/70">
-                {failure === "feature-disabled"
-                  ? "Brand partnerships aren't switched on for this environment yet."
-                  : failure === "no-profile"
-                    ? "Create your brand profile first, then come back to connect an agency."
-                    : "Reload the page to try again."}
+                {FAILURE_COPY[failure].detail}
               </p>
-              {failure === "no-profile" ? (
+              {FAILURE_COPY[failure].profileLink ? (
                 <Link
                   href="/brand/settings/profile"
                   className="mt-2 inline-block text-xs font-semibold text-white underline"
@@ -250,8 +283,8 @@ export function BrandAgencyLinksPanel() {
           ) : failure ? (
             <EmptyState
               icon={AlertCircle}
-              title="Couldn't load"
-              hint="We don't know what's pending — the list didn't load. Reload to try again."
+              title={FAILURE_COPY[failure].cardTitle}
+              hint="We can't tell you what's pending — this list never loaded."
             />
           ) : pending.length === 0 ? (
             <EmptyState
@@ -308,8 +341,8 @@ export function BrandAgencyLinksPanel() {
           ) : failure ? (
             <EmptyState
               icon={AlertCircle}
-              title="Couldn't load"
-              hint="We can't confirm who has access — the list didn't load. Reload to try again."
+              title={FAILURE_COPY[failure].cardTitle}
+              hint="We can't confirm who has access — this list never loaded."
             />
           ) : active.length === 0 ? (
             <EmptyState

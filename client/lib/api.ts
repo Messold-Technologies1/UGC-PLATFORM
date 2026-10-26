@@ -4,6 +4,7 @@ import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { buildLoginHref } from "@/features/auth/lib/login-redirect";
 import {
   ACTIVE_BRAND_PROFILE_ID_HEADER,
+  clearActiveBrandProfileId,
   getActiveBrandProfileId,
   initActiveBrandProfileId,
 } from "@/lib/active-brand-context";
@@ -14,6 +15,20 @@ const AUTH_ME_SNAPSHOT_KEY = "ugc:auth-me-snapshot";
 const AUTH_USER_ID_KEY = "ugc:current-user-id";
 
 export function persistAuthMeSnapshot(user: AuthUser | null): void {
+  /**
+   * Only an agency ever works inside someone else's workspace, so nobody else
+   * may carry an active brand.
+   *
+   * The choice is remembered in localStorage, which is per browser and not per
+   * account: signing out of an agency and into a brand on the same machine
+   * left the agency's last workspace behind, and every one of the brand's own
+   * requests then went out claiming to act for another brand. Dropping it here
+   * covers a fresh tab too, where nothing else knows an agency was ever here.
+   */
+  if (user && user.primaryRole !== "AGENCY" && !user.hasAgencyProfile) {
+    clearActiveBrandProfileId();
+  }
+
   try {
     if (!user) {
       sessionStorage.removeItem(AUTH_ME_SNAPSHOT_KEY);

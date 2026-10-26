@@ -504,6 +504,47 @@ describe('AgencyBrandLinkService.revokeLink — ending it', () => {
   });
 });
 
+describe('AgencyBrandLinkService.isActingForAnotherBrand', () => {
+  /**
+   * The active-brand header lives in localStorage, which is per browser and
+   * not per account. A brand signing in where an agency last worked carried
+   * the agency's leftover workspace, and the brand-side routes refused it —
+   * so their own page reported that their agency connections could not be
+   * loaded. Owning the brand in the header is not acting for anyone.
+   */
+  it('is false when no workspace is being asked for', async () => {
+    const { service, prisma } = build();
+    await expect(
+      service.isActingForAnotherBrand(BRAND_USER, null),
+    ).resolves.toBe(false);
+    // Nothing to check, so nothing is read.
+    expect(prisma.brandProfile.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("is false when the header names the caller's own brand", async () => {
+    const { service } = build();
+    await expect(
+      service.isActingForAnotherBrand(BRAND_USER, BRAND_ID),
+    ).resolves.toBe(false);
+  });
+
+  it("is true when the header names someone else's brand", async () => {
+    const { service } = build();
+    await expect(
+      service.isActingForAnotherBrand(BRAND_USER, 'another-brand'),
+    ).resolves.toBe(true);
+  });
+
+  it('is true when the caller owns no brand at all', async () => {
+    // An agency switched into a brand: it has no brand profile of its own, so
+    // every id in the header belongs to somebody else.
+    const { service } = build({ brand: null });
+    await expect(
+      service.isActingForAnotherBrand(AGENCY_USER, BRAND_ID),
+    ).resolves.toBe(true);
+  });
+});
+
 describe('AgencyBrandLinkService.spendReport', () => {
   it('refuses an agency that does not manage the brand', async () => {
     const { service } = build({

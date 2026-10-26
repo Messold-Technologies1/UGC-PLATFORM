@@ -610,6 +610,29 @@ export class AgencyBrandLinkService {
     return { link, agency };
   }
 
+  /**
+   * Is the caller asking to act inside a brand that is not their own?
+   *
+   * The active-brand header is a request for a workspace, not proof of one,
+   * and it lives in localStorage per browser rather than per account — so a
+   * brand owner can be handed one left behind by an agency that used the same
+   * browser. Their own brand's id in that header means nothing is being acted
+   * for; any other id means somebody is working on another brand's behalf.
+   */
+  async isActingForAnotherBrand(
+    userId: string,
+    brandProfileId: string | null | undefined,
+  ): Promise<boolean> {
+    if (!brandProfileId) return false;
+
+    const own = await this.prisma.brandProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    return own?.id !== brandProfileId;
+  }
+
   private async loadBrandForUser(userId: string) {
     const brand = await this.prisma.brandProfile.findUnique({
       where: { userId },

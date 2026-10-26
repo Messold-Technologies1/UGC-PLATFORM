@@ -157,22 +157,28 @@ export const BRAND_COMPLETENESS_GAP_LABELS: Record<
 /**
  * How a partner-link request failed, for UI that must explain itself.
  *
- * Both outcomes arrive as a 404 and are told apart by message, because the
+ * Two of these arrive as a 404 and are told apart by message, because the
  * server uses NotFoundException for each: `assertEnabled()` sends "Not found"
  * when AGENCY_BRAND_PARTNER_LINKS_ENABLED is off, while a missing profile row
- * sends "Brand profile not found".
+ * sends "Brand profile not found". The third is the brand-side 403 raised when
+ * the caller is working inside a brand they do not own.
  *
- * The distinction matters to whoever is looking at the screen: one is "this
- * isn't switched on here", the other is "finish signing up", and neither is
- * "something is broken".
+ * The distinction matters to whoever is looking at the screen: "this isn't
+ * switched on here", "finish signing up" and "you are in the wrong workspace"
+ * are three different answers, and none of them is "something is broken".
  */
-export type PartnerLinkFailure = "feature-disabled" | "no-profile" | "other";
+export type PartnerLinkFailure =
+  | "feature-disabled"
+  | "no-profile"
+  | "wrong-workspace"
+  | "other";
 
 export function classifyPartnerLinkError(error: unknown): PartnerLinkFailure {
   const response = (
     error as { response?: { status?: number; data?: { message?: string } } }
   )?.response;
 
+  if (response?.status === 403) return "wrong-workspace";
   if (response?.status !== 404) return "other";
 
   const message = response.data?.message ?? "";

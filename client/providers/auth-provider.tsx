@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import api from "@/lib/api";
+import { clearActiveBrandProfileId } from "@/lib/active-brand-context";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ENDPOINTS } from "@/lib/endpoints";
 import { disconnectSocket } from "@/lib/socket";
@@ -74,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (remembered) setRememberedRole(remembered);
 
       disconnectSocket();
+      // The next person to sign in on this machine must not inherit the last
+      // one's workspace.
+      clearActiveBrandProfileId();
       queryClient.setQueryData(authMeQueryKey, null);
       queryClient.clear();
       beginClientNavigation();

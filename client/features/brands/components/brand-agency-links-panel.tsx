@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Building2, Handshake, Send } from "lucide-react";
+import { toast } from "sonner";
 import {
   BRAND_COMPLETENESS_GAP_LABELS,
   classifyPartnerLinkError,
@@ -52,6 +53,15 @@ export function BrandAgencyLinksPanel() {
   const links = useBrandAgencyLinksQuery();
   const [partnerId, setPartnerId] = useState("");
   const [serverGaps, setServerGaps] = useState<BrandCompletenessGap[]>([]);
+  /**
+   * Whether they have tried to send yet.
+   *
+   * The gate used to grey the field out before anyone touched it, which says
+   * "you may not" without saying why. Letting the click happen and answering
+   * it is both clearer and more honest: the requirement is explained at the
+   * moment it actually applies.
+   */
+  const [attempted, setAttempted] = useState(false);
 
   const request = useRequestAgencyLinkMutation({ onGaps: setServerGaps });
   const cancel = useCancelAgencyLinkMutation();
@@ -65,14 +75,15 @@ export function BrandAgencyLinksPanel() {
   /**
    * A failed load must not look like a refused one.
    *
-   * `canConnect` comes from `completeness`, which is absent both when the
-   * profile is incomplete AND when the request never succeeded. Treating the
-   * second as the first disabled the form with no reason on screen — the
-   * server was never asked, yet the page implied the brand had been told no.
-   * So the failure is named here and reported in the hero instead.
+   * Completeness is absent both when the profile is incomplete AND when the
+   * request never succeeded. The form used to be disabled on that combined
+   * signal, so a failed load was presented as a refusal — the server was
+   * never asked, yet the page implied the brand had been told no. Nothing is
+   * disabled now; the failure is named in the hero instead.
    */
   const failure = links.isError ? classifyPartnerLinkError(links.error) : null;
-  const canConnect = !failure && (completeness?.complete ?? false);
+  // Shown only once they have tried, or once the server has refused a submit.
+  const showGate = (attempted || serverGaps.length > 0) && gaps.length > 0;
 
   const pending = (links.data?.links ?? []).filter(
     (l) => l.status === "PENDING",
@@ -128,7 +139,7 @@ export function BrandAgencyLinksPanel() {
             </div>
           ) : (
             <>
-              {!canConnect && gaps.length > 0 ? (
+              {showGate ? (
                 <div className="mt-5 max-w-xl rounded-2xl bg-white/10 px-4 py-3">
                   <p className="flex items-center gap-2 text-xs font-semibold text-white">
                     <AlertCircle className="size-3.5" />
@@ -157,8 +168,23 @@ export function BrandAgencyLinksPanel() {
                 onSubmit={(event) => {
                   event.preventDefault();
                   setServerGaps([]);
+
                   const trimmed = partnerId.trim();
                   if (!trimmed) return;
+                  setAttempted(true);
+
+                  // Answer from what we already know rather than spending a
+                  // round trip to be told the same thing. If completeness is
+                  // unknown the request still goes out, and the server's 422
+                  // fills in the gaps through onGaps.
+                  if (completeness && !completeness.complete) {
+                    toast.error("Complete your brand profile first", {
+                      description:
+                        "An agency acts under your brand's name, so we need a few details before connecting one.",
+                    });
+                    return;
+                  }
+
                   request.mutate(trimmed, {
                     onSuccess: () => setPartnerId(""),
                   });
@@ -169,15 +195,13 @@ export function BrandAgencyLinksPanel() {
                   onChange={(event) => setPartnerId(event.target.value)}
                   placeholder="GC-XXXX-XXXX"
                   aria-label="Agency Partner ID"
-                  disabled={!canConnect || request.isPending}
+                  disabled={request.isPending}
                   className="w-[220px] rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 font-mono text-sm uppercase tracking-widest text-white placeholder:text-white/40 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#15181f] shadow-sm transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={
-                    !canConnect || request.isPending || !partnerId.trim()
-                  }
+                  disabled={request.isPending || !partnerId.trim()}
                 >
                   {request.isPending ? "Sending…" : "Send request"}
                 </button>

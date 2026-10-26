@@ -25,6 +25,13 @@ export interface OrderBrandSnapshot {
   agencyLogoUrl?: string | null;
   /** Client brand name from the brief (agency orders). */
   clientBrandName?: string | null;
+  /**
+   * The agency running this brand's account, when one placed the order.
+   *
+   * Separate from `agencyName`, which means the agency IS the buyer. Here the
+   * buyer shown is still the brand — this only says who operates it.
+   */
+  placedByAgencyName?: string | null;
 }
 
 export interface OrderListSummary {

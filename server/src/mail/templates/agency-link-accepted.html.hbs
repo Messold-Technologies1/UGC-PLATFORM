@@ -1,0 +1,25 @@
+{{!-- context: recipientName, agencyName, platformName, actionUrl --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">{{agencyName}} is now managing your brand</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  They accepted your request and have access to your workspace on {{platformName}}.
+</p>
+<div style="margin:0 0 16px;padding:14px 16px;background:#eff6ff;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0 0 8px;font-size:14px;line-height:1.55;color:#111827;"><strong>What they can do</strong></p>
+  <p style="margin:0;font-size:14px;line-height:1.55;color:#374151;">
+    Browse creators, build wishlists, write briefs, place orders paid from your credits, and talk to creators on your behalf. Orders they place are yours, and appear in your dashboard marked as placed by {{agencyName}}.
+  </p>
+</div>
+<div style="margin:0 0 20px;padding:14px 16px;background:#f9fafb;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0 0 8px;font-size:14px;line-height:1.55;color:#111827;"><strong>What they cannot do</strong></p>
+  <p style="margin:0;font-size:14px;line-height:1.55;color:#374151;">
+    Withdraw your credits, edit your brand profile, or connect another agency. Those stay with you.
+  </p>
+</div>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Manage agency access →"}}
+</div>
+<p style="margin:0 0 12px;font-size:14px;line-height:1.5;color:#6b7280;">
+  You can end this at any time from your brand settings.
+</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

@@ -98,6 +98,21 @@ export const envValidationSchema = Joi.object({
     .optional()
     .default(5000),
 
+  // ---- Agency <-> brand partner links ----
+  /**
+   * Let agencies manage brands that have accepted a partner link: the switcher,
+   * the link endpoints, and an agency's ability to act inside a brand's
+   * workspace. Off by default, so it is switched on deliberately.
+   *
+   * Switching it off is a kill switch, not a rollback: links already accepted
+   * stop granting access, but nothing is lost, because an order an agency
+   * placed is an ordinary brand-owned order and stays valid either way.
+   */
+  AGENCY_BRAND_PARTNER_LINKS_ENABLED: Joi.string()
+    .valid('true', 'false')
+    .optional()
+    .default('false'),
+
   // ---- Signup welcome credit ----
   /**
    * Grant a newly registered buyer non-withdrawable credit. One pair of settings

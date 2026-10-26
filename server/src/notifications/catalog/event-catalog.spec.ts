@@ -84,6 +84,7 @@ describe('notification event catalog', () => {
     ).sort();
 
     expect(conditional).toEqual([
+      'agency-link-requested',
       'creator-profile-completion-reminder',
       'creator-profile-resubmit-reminder',
       'order-brief-accepted-for-brand',

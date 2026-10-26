@@ -1,0 +1,21 @@
+{{!-- context: recipientName, agencyName, creatorName, packageName, orderId, platformName, actionUrl --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}},</p>
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">{{agencyName}} placed an order for you</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  The agency managing your brand placed an order on your behalf, paid from your account.
+</p>
+<div style="margin:0 0 20px;padding:14px 16px;background:#eff6ff;border:2px solid #181313;border-radius:12px;">
+  <p style="margin:0 0 6px;font-size:14px;line-height:1.55;color:#374151;"><strong>Creator:</strong> {{creatorName}}</p>
+  <p style="margin:0 0 6px;font-size:14px;line-height:1.55;color:#374151;"><strong>Package:</strong> {{packageName}}</p>
+  <p style="margin:0;font-size:14px;line-height:1.55;color:#374151;"><strong>Order:</strong> {{orderId}}</p>
+</div>
+<p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#374151;">
+  It's your order — it appears in your dashboard like any other, marked as placed by {{agencyName}}.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="View the order →"}}
+</div>
+<p style="margin:0 0 12px;font-size:14px;line-height:1.5;color:#6b7280;">
+  If this wasn't expected, you can end the agency's access from your brand settings at any time.
+</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team</p>

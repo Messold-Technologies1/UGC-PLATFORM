@@ -39,6 +39,16 @@ export class OrderBrandSnapshotDto {
   agencyName?: string | null;
 
   @ApiPropertyOptional({
+    example: 'Northstar Media',
+    nullable: true,
+    description:
+      'The agency managing this brand, when one placed the order on their ' +
+      'behalf. Distinct from agencyName: here the BRAND owns the order and ' +
+      'the agency only acted, so the buyer shown is still the brand.',
+  })
+  placedByAgencyName?: string | null;
+
+  @ApiPropertyOptional({
     example: 'https://cdn.example.com/agency-logo/...png',
     nullable: true,
   })

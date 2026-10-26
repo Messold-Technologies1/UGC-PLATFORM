@@ -4,12 +4,15 @@ export function createBrandAccessMock(options?: {
   agencyId?: string | null;
   actorUserId?: string;
   brandActorUserId?: string;
+  /** Agency acting inside a brand's workspace via an ACTIVE partner link. */
+  actingAgencyId?: string | null;
 }) {
   const brandId = options?.brandId === undefined ? 'brand-1' : options.brandId;
   const agencyId = options?.agencyId ?? null;
   const actorUserId = options?.actorUserId ?? 'user-1';
   const brandActorUserId = options?.brandActorUserId ?? actorUserId;
   const isAgencyWorkspace = Boolean(agencyId) && !brandId;
+  const actingAgencyId = options?.actingAgencyId ?? null;
 
   const actor = {
     brand: brandId ? { id: brandId } : null,
@@ -29,6 +32,7 @@ export function createBrandAccessMock(options?: {
     actorUserId,
     brandActorUserId,
     isAgencyWorkspace,
+    actingAgencyId,
   };
 
   const resolveOrderActor = jest.fn(() => Promise.resolve(actor));
@@ -43,6 +47,7 @@ export function createBrandAccessMock(options?: {
       actorUserId: actor.actorUserId,
       brandActorUserId: actor.brandActorUserId,
       isAgencyWorkspace: actor.isAgencyWorkspace,
+      actingAgencyId: actor.actingAgencyId,
     }),
   );
 
@@ -82,10 +87,36 @@ export function createBrandAccessMock(options?: {
       }: {
         brandId?: string | null;
         agencyId?: string | null;
-      }) => Promise.resolve(aid ? brandActorUserId : bid ? brandActorUserId : actorUserId),
+      }) =>
+        Promise.resolve(
+          aid ? brandActorUserId : bid ? brandActorUserId : actorUserId,
+        ),
     ),
     resolveBrandActorUserIdForProfile: jest.fn(() =>
       Promise.resolve(brandActorUserId),
+    ),
+    actorAttributionCreateData: jest.fn((a: typeof actor) => ({
+      placedByAgencyId: a.actingAgencyId,
+      placedByUserId: a.actorUserId,
+    })),
+    wishlistAttributionCreateData: jest.fn((a: typeof actor) => ({
+      createdByAgencyId: a.actingAgencyId,
+      createdByUserId: a.actorUserId,
+    })),
+    /**
+     * Defaults to false so existing suites keep asserting that a
+     * non-participant is refused. Suites exercising the agency path override
+     * it, or use the dedicated order-chat.agency-access spec.
+     */
+    isLinkedAgencyUserForBrand: jest.fn(() => Promise.resolve(false)),
+    assertNotActingAsAgency: jest.fn(
+      (ctx: { actingAgencyId: string | null }, action = 'This action') => {
+        if (ctx?.actingAgencyId) {
+          throw new Error(
+            `${action} can only be done by the brand itself, not by a managing agency.`,
+          );
+        }
+      },
     ),
   };
 }

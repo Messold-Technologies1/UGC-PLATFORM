@@ -273,22 +273,25 @@ export class AgencyService {
     });
   }
 
-  async assertContactPhoneAvailable(
-    phone: string,
-    excludeAgencyId?: string,
-  ): Promise<void> {
-    const existing = await this.prisma.agency.findFirst({
-      where: {
-        contactPhone: phone,
-        contactPhoneVerified: true,
-        ...(excludeAgencyId ? { NOT: { id: excludeAgencyId } } : {}),
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new BadRequestException('This phone number is already in use.');
-    }
-  }
+  /*
+   * A contact phone used to have to be unique across agencies: a number any
+   * other agency had verified was refused with "This phone number is already
+   * in use."
+   *
+   * Removed, because nothing else in the product worked that way. Brands and
+   * creators never had the check, and `User.phone` carries no unique
+   * constraint — the schema has always allowed two people to verify the same
+   * number. Agencies were the lone exception, added wholesale with the agency
+   * feature and with no stated reason, so it read as an oversight rather than
+   * a policy.
+   *
+   * What it actually did was block a real person from registering an agency
+   * with their own verified number because some other account had reached it
+   * first, and tell them the number was "in use" without saying by whom or
+   * what to do about it. Someone wanting several agencies on one number could
+   * do it with brands regardless, so the rule cost legitimate users more than
+   * it prevented.
+   */
 
   async presignAgencyLogoUpload(
     userId: string,
@@ -327,8 +330,41 @@ export class AgencyService {
     }
 
     const contactPhone = dto.contactPhone?.trim() || user.phone || null;
-    if (contactPhone) {
-      await this.assertContactPhoneAvailable(contactPhone);
+
+    /**
+     * The screen behind this is "Finish your agency profile", so submitting it
+     * twice — a refresh, a double click, a back-button retry — has to be safe.
+     *
+     * It was not. The phone check below runs with no exclusion, on the
+     * assumption that a creating user has no agency yet. Once one exists its
+     * `contactPhone` is this very number and `contactPhoneVerified` is true,
+     * so the owner collided with their OWN record and was told "This phone
+     * number is already in use." — a message about someone else's account,
+     * for what is really a second submit of their own.
+     *
+     * Updating instead of erroring both fixes that and matches what the form
+     * says it does. The phone check keeps its meaning for the case it was
+     * written for: a genuine clash with a DIFFERENT agency, which
+     * `updateAgencyProfileForOwner` still enforces while excluding this one.
+     *
+     * Only the fields this form collects are forwarded. `contactFullName` and
+     * `contactEmail` are deliberately left alone: they are set from the
+     * account at creation and editable later on the settings screen, and
+     * re-deriving them here would quietly revert an edit made there.
+     */
+    const existingAgency = await this.prisma.agency.findUnique({
+      where: { ownerUserId },
+      select: { id: true },
+    });
+    if (existingAgency) {
+      return this.updateAgencyProfileForOwner(ownerUserId, {
+        name: dto.name,
+        // Undefined means "leave as is"; null or '' would CLEAR the value, and
+        // finishing onboarding must never wipe a detail already saved.
+        ...(contactPhone ? { contactPhone } : {}),
+        ...(dto.website !== undefined ? { website: dto.website } : {}),
+        ...(dto.logoKey !== undefined ? { logoKey: dto.logoKey } : {}),
+      });
     }
 
     await this.prisma.$transaction(
@@ -452,9 +488,6 @@ export class AgencyService {
 
     if (dto.contactPhone !== undefined) {
       const contactPhone = dto.contactPhone?.trim() || null;
-      if (contactPhone) {
-        await this.assertContactPhoneAvailable(contactPhone, existing.id);
-      }
 
       const owner = await this.prisma.user.findUnique({
         where: { id: ownerUserId },

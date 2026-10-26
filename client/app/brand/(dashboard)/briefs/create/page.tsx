@@ -26,7 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { Controller, useForm, useWatch, type UseFormReturn } from "react-hook-form";
+import { useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
@@ -49,10 +49,8 @@ import {
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import { useUpdateBriefMutation } from "@/features/briefs/hooks/use-update-brief-mutation";
 import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
-import { useListBriefsQuery } from "@/features/briefs/hooks/use-list-briefs-query";
+import { useActiveBrand } from "@/providers/active-brand-provider";
 import { useAgencyProfileMeQuery } from "@/features/agency/hooks/use-agency-profile-me-query";
-import { uniqueBrandNames } from "@/features/agency/lib/unique-brand-names";
-import { BrandNameCombobox } from "@/features/briefs/components/brand-name-combobox";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
 import { useBuyTravelAddOn } from "@/features/payments/hooks/use-buy-travel-add-on";
@@ -494,56 +492,30 @@ function toCreateBriefPayload(
   };
 }
 
+/**
+ * Who the brief says it is for.
+ *
+ * An agency used to type this, picking from brands it had briefed before.
+ * That stopped being true when partner links arrived: the server now derives
+ * the name from the workspace — the brand's own name inside a brand
+ * workspace, the agency's own name outside one — and ignores whatever the
+ * client sends. The field is read-only here so the screen agrees with what
+ * is actually stored, instead of inviting an answer that is discarded.
+ *
+ * A brand still types its name on its first brief, which is the one case
+ * where the profile has nothing to derive from.
+ */
 function BriefBrandNameFields({
   isAgencyBriefAuthor,
   needsBrandName,
   effectiveBrandName,
-  existingBrandNames,
   form,
 }: Readonly<{
   isAgencyBriefAuthor: boolean;
   needsBrandName: boolean;
   effectiveBrandName: string;
-  existingBrandNames: string[];
   form: UseFormReturn<CreateBriefValues>;
 }>) {
-  if (isAgencyBriefAuthor) {
-    return (
-      <div className="space-y-2 min-w-0">
-        <Label
-          htmlFor="brandName"
-          className="text-xs font-semibold text-foreground/80"
-        >
-          Brand Name <span className="text-destructive">*</span>
-        </Label>
-        <Controller
-          name="brandName"
-          control={form.control}
-          render={({ field }) => (
-            <BrandNameCombobox
-              id="brandName"
-              value={field.value ?? ""}
-              options={existingBrandNames}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              invalid={!!form.formState.errors.brandName}
-              placeholder="Type or pick a brand"
-            />
-          )}
-        />
-        <p className="text-[11px] text-muted-foreground">
-          Pick a brand you already briefed, or type a new name. Matching names
-          are treated as the same brand.
-        </p>
-        {form.formState.errors.brandName ? (
-          <p className="text-[11px] text-destructive mt-1">
-            {form.formState.errors.brandName.message}
-          </p>
-        ) : null}
-      </div>
-    );
-  }
-
   if (needsBrandName) {
     return (
       <div className="space-y-2 min-w-0">
@@ -585,6 +557,12 @@ function BriefBrandNameFields({
         readOnly
         className="rounded-lg bg-muted/40"
       />
+      {isAgencyBriefAuthor ? (
+        <p className="text-[11px] text-muted-foreground">
+          Taken from the workspace you are in. Switch workspace from the
+          account menu to brief for another brand.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -655,26 +633,36 @@ function CreateBriefPageContent() {
     staleTime: 5 * 60 * 1000,
   });
   const isAgencyBriefAuthor = workspaceBase === "/agency";
+  const { activeBrandProfileId } = useActiveBrand();
   const { data: agencyProfile } = useAgencyProfileMeQuery({
     enabled: isAgencyBriefAuthor,
   });
-  const { data: briefsList } = useListBriefsQuery({
-    enabled: isAgencyBriefAuthor,
-  });
-  const existingBrandNames = useMemo(
-    () =>
-      uniqueBrandNames([
-        ...(agencyProfile?.brandNames ?? []),
-        ...(briefsList?.items.map((brief) => brief.brandName) ?? []),
-      ]),
-    [agencyProfile?.brandNames, briefsList?.items],
-  );
   const profileBrandName =
     brandProfileState?.kind === "ready"
       ? brandProfileState.profile.brandName?.trim() ?? ""
       : "";
-  const effectiveBrandName = isAgencyBriefAuthor ? "" : profileBrandName;
-  const needsBrandName = isAgencyBriefAuthor || !effectiveBrandName;
+
+  /**
+   * Which name the brief carries, matching what the server will store.
+   *
+   * Inside a brand workspace — the brand's own, whether the brand is signed
+   * in or an agency is working on its behalf. `GET /brands/profile/me` is
+   * brand-context aware, so `profileBrandName` is already that brand's.
+   *
+   * Outside one, an agency's brief carries the AGENCY's name: client brands
+   * are no longer free text, they register and connect by partner ID. The
+   * server derives both cases and discards anything else the client sends,
+   * so the field is shown rather than asked for.
+   */
+  const actingAsBrand = isAgencyBriefAuthor && Boolean(activeBrandProfileId);
+  const agencyOwnName = agencyProfile?.name?.trim() ?? "";
+  const effectiveBrandName =
+    isAgencyBriefAuthor && !actingAsBrand ? agencyOwnName : profileBrandName;
+
+  // Only a brand on its first brief has to supply one; for an agency there is
+  // nothing to ask, so requiring it would block a form the server would have
+  // accepted.
+  const needsBrandName = !isAgencyBriefAuthor && !effectiveBrandName;
 
   const createBriefSchema = useMemo(
     () => buildCreateBriefSchema(needsBrandName),
@@ -1254,7 +1242,6 @@ function CreateBriefPageContent() {
                       isAgencyBriefAuthor={isAgencyBriefAuthor}
                       needsBrandName={needsBrandName}
                       effectiveBrandName={effectiveBrandName}
-                      existingBrandNames={existingBrandNames}
                       form={form}
                     />
                     <div className="space-y-2 min-w-0">

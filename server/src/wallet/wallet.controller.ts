@@ -53,6 +53,26 @@ export class WalletController {
     return { brandId: actor.brandId, agencyId: actor.agencyId };
   }
 
+  /**
+   * Credit owner, but refusing a managing agency.
+   *
+   * Reading the balance and history is part of running the account, so an
+   * agency may do it. Turning that credit into real money is not: a managing
+   * agency must never be able to drain the brand's wallet to a bank account.
+   * This is the most consequential thing the partner link does NOT grant, so
+   * it is enforced here rather than left to the UI.
+   */
+  private async creditOwnerForMoneyOut(
+    req: Request & { user: { id: string } },
+    action: string,
+  ) {
+    const actor = await this.brandAccess.resolveOrderActor(
+      brandActorParams(req),
+    );
+    this.brandAccess.assertNotActingAsAgency(actor, action);
+    return { brandId: actor.brandId, agencyId: actor.agencyId };
+  }
+
   @Get()
   @ApiOperation({ summary: 'Current credit balance for the brand or agency' })
   @ApiOkResponse({ type: WalletBalanceDto })
@@ -98,7 +118,10 @@ export class WalletController {
     @Req() req: Request & { user: { id: string } },
     @Body() dto: CreateWithdrawalDto,
   ): Promise<WalletWithdrawalDto> {
-    const owner = await this.creditOwner(req);
+    const owner = await this.creditOwnerForMoneyOut(
+      req,
+      'Withdrawing credit',
+    );
     const withdrawal = await this.wallet.requestWithdrawal({
       ...owner,
       requestedByUserId: req.user.id,
@@ -116,7 +139,10 @@ export class WalletController {
     @Req() req: Request & { user: { id: string } },
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<WalletWithdrawalDto> {
-    const owner = await this.creditOwner(req);
+    const owner = await this.creditOwnerForMoneyOut(
+      req,
+      'Cancelling a withdrawal',
+    );
     const withdrawal = await this.wallet.cancelWithdrawalByBrand({
       withdrawalId: id,
       ...owner,

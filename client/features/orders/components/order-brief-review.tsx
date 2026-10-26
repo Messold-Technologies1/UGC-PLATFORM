@@ -619,6 +619,18 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
       "Brand",
   );
   const agencyLabel = agencyName ? brandDisplayName(agencyName) : null;
+  /**
+   * An agency managing this brand's account, when one placed the order.
+   *
+   * The buyer stays the brand — this is a quiet note that someone operates
+   * the account on their behalf, not a second party to the order. Suppressed
+   * when `agencyLabel` is set, since that already means an agency is the
+   * buyer and showing both would read as two agencies.
+   */
+  const managedByLabel =
+    !agencyLabel && brand?.placedByAgencyName?.trim()
+      ? brandDisplayName(brand.placedByAgencyName)
+      : null;
   const orderStatus = order?.status;
   const isCancelled =
     orderStatus === "REJECTED" ||
@@ -734,6 +746,14 @@ export function OrderBriefReview({ orderId }: OrderBriefReviewProps) {
                 ) : (
                   brandName
                 )}
+                {managedByLabel ? (
+                  <>
+                    <span className="mx-1.5">·</span>
+                    <span className="text-muted-foreground/80">
+                      Managed by {managedByLabel}
+                    </span>
+                  </>
+                ) : null}
                 <span className="mx-1.5">·</span>
                 Submitted {formatDate(data.briefSubmittedAt)}
               </p>

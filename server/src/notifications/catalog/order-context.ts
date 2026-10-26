@@ -60,6 +60,14 @@ export const orderSelect = {
       ownerUserId: true,
     },
   },
+  /**
+   * The agency that placed this on a linked brand's behalf, if any.
+   *
+   * Distinct from `agency` above: there the agency IS the buyer, here the
+   * brand owns the order and the agency merely acted. Only the latter should
+   * ever produce a "your agency did this" notice.
+   */
+  placedByAgency: { select: { id: true, name: true } },
   creator: {
     select: {
       id: true,

@@ -216,10 +216,10 @@ per request.
 |---|---|---|---|
 | `GET` | `/agency/partner-id` | Agency | Reveal own Partner ID |
 | `POST` | `/agency/partner-id/rotate` | Agency | Rotate |
-| `POST` | `/brand-profile/agency-links` | **Brand** | **Submit an agency's Partner ID** (creates `PENDING`, emails the agency) |
-| `GET` | `/brand-profile/agency-links` | Brand | Own pending + active links |
-| `POST` | `/brand-profile/agency-links/:id/cancel` | Brand | Withdraw a pending request |
-| `POST` | `/brand-profile/agency-links/:id/revoke` | Brand | Revoke an active link |
+| `POST` | `/brands/profile/agency-links` | **Brand** | **Submit an agency's Partner ID** (creates `PENDING`, emails the agency) |
+| `GET` | `/brands/profile/agency-links` | Brand | Own pending + active links |
+| `POST` | `/brands/profile/agency-links/:id/cancel` | Brand | Withdraw a pending request |
+| `POST` | `/brands/profile/agency-links/:id/revoke` | Brand | Revoke an active link |
 | `GET` | `/agency/brand-links` | Agency | Incoming requests + switcher list |
 | `POST` | `/agency/brand-links/:id/accept` | **Agency** | **Accept** |
 | `POST` | `/agency/brand-links/:id/reject` | Agency | Reject |
@@ -228,7 +228,7 @@ per request.
 | `GET` | `/admin/agency-brand-links` | Admin | Oversight |
 | `POST` | `/admin/agency-brand-links/:id/force-unlink` | Admin | Support escape hatch |
 
-Submission (`POST /brand-profile/agency-links`) is rate limited per brand to
+Submission (`POST /brands/profile/agency-links`) is rate limited per brand to
 blunt code guessing, and rejects when the brand profile is incomplete
 (decision 13, specified next).
 

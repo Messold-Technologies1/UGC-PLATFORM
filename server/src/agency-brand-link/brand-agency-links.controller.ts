@@ -44,7 +44,9 @@ import {
  */
 @ApiTags('Brand - Agency links')
 @ApiBearerAuth()
-@Controller('brand-profile/agency-links')
+// Sits under the brand profile family — /api/brands/profile/* — alongside
+// GET profile/me and PATCH profile, which is where the client looks for it.
+@Controller('brands/profile/agency-links')
 @RequiredWorkspace('BRAND')
 @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
 export class BrandAgencyLinksController {

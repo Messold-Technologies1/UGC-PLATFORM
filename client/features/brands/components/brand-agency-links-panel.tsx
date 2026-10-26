@@ -85,6 +85,16 @@ export function BrandAgencyLinksPanel() {
   // Shown only once they have tried, or once the server has refused a submit.
   const showGate = (attempted || serverGaps.length > 0) && gaps.length > 0;
 
+  /**
+   * Two of the three failures make submitting pointless — the feature is off
+   * here, or there is no brand profile to attach an agency to — so the form
+   * gives way to the explanation. A generic failure is different: the list
+   * request died, but the submit endpoint may well answer, and someone
+   * holding a Partner ID should be able to try it rather than stare at a
+   * banner with nowhere to type.
+   */
+  const canSubmit = failure !== "feature-disabled" && failure !== "no-profile";
+
   const pending = (links.data?.links ?? []).filter(
     (l) => l.status === "PENDING",
   );
@@ -111,7 +121,9 @@ export function BrandAgencyLinksPanel() {
 
           {links.isLoading ? (
             <div className="mt-5 h-11 w-64 animate-pulse rounded-xl bg-white/10" />
-          ) : failure ? (
+          ) : null}
+
+          {failure ? (
             <div className="mt-5 max-w-xl rounded-2xl bg-white/10 px-4 py-3">
               <p className="flex items-center gap-2 text-xs font-semibold text-white">
                 <AlertCircle className="size-3.5" />
@@ -137,7 +149,9 @@ export function BrandAgencyLinksPanel() {
                 </Link>
               ) : null}
             </div>
-          ) : (
+          ) : null}
+
+          {!links.isLoading && canSubmit ? (
             <>
               {showGate ? (
                 <div className="mt-5 max-w-xl rounded-2xl bg-white/10 px-4 py-3">
@@ -207,7 +221,7 @@ export function BrandAgencyLinksPanel() {
                 </button>
               </form>
             </>
-          )}
+          ) : null}
         </div>
       </div>
 

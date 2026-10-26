@@ -15,10 +15,7 @@ import React, {
 } from "react";
 import { OrderModal } from "./order-modal";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
-import {
-  trackBeginCheckout,
-  trackViewProfile,
-} from "@/features/analytics/lib/buyer-pixel-events";
+import { trackBeginCheckout } from "@/features/analytics/lib/buyer-pixel-events";
 import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import {
   X,
@@ -943,16 +940,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
   });
 
   /**
-   * Step 3 of the buyer funnel. The profile opens in a new tab, so this page
-   * stays alive and the pixel's beacon leaves on its own — no flush needed.
-   */
-  async function reportViewProfile(creatorId: string, startingPrice: number) {
-    const identity = await resolveBuyerIdentity();
-    if (!identity) return;
-    trackViewProfile(identity, { creatorId, startingPrice });
-  }
-
-  /**
    * Step 4 of the buyer funnel, reported only once the order modal is actually
    * opening — not when the click bounced off an unavailable creator, a failed
    * profile load, or the landing page's redirect to sign up.
@@ -1088,11 +1075,6 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="dr-tabs-profile-link"
-                onClick={() => {
-                  if (activeId) {
-                    void reportViewProfile(activeId, c.startingPrice);
-                  }
-                }}
               >
                 View profile
                 <ExternalLink size={13} />

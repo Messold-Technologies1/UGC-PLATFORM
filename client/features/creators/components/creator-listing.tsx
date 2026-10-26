@@ -25,6 +25,8 @@ import { BROWSE_LIST_LIMIT } from "@/features/creators/lib/browse-constants";
 import { cn } from "@/lib/utils";
 import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import { ProfileDrawer } from "./browse-creators/profile-drawer";
+import { trackViewCreator } from "@/features/analytics/lib/buyer-pixel-events";
+import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import type { Creator } from "../types";
 import { CreatorFilterBar } from "./creator-filter-bar";
 import {
@@ -198,11 +200,30 @@ export function CreatorListing({
   const [drawerCreatorId, setDrawerCreatorId] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
 
-  const openDrawer = useCallback((creator: Creator) => {
-    setSelectedCreator(creator);
-    setDrawerCreatorId(creator.id);
-    setDrawerOpen(true);
-  }, []);
+  const resolveBuyerIdentity = useBuyerIdentityResolver();
+
+  /**
+   * Every way a viewer opens a creator from the grid — the card's "View"
+   * button, the card body, Enter/Space — arrives here, so this is where step 3
+   * of the buyer funnel is reported. The `?creatorId=` deep link sets the
+   * drawer state directly instead, and deliberately doesn't count: nobody
+   * chose that creator from the catalogue.
+   */
+  const openDrawer = useCallback(
+    (creator: Creator) => {
+      setSelectedCreator(creator);
+      setDrawerCreatorId(creator.id);
+      setDrawerOpen(true);
+      void resolveBuyerIdentity().then((identity) => {
+        if (!identity) return;
+        trackViewCreator(identity, {
+          creatorId: creator.id,
+          startingPrice: creator.startingPrice,
+        });
+      });
+    },
+    [resolveBuyerIdentity],
+  );
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);

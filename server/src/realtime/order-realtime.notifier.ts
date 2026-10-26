@@ -276,6 +276,46 @@ export class OrderRealtimeNotifier {
       .emit('order.usage_rights_purchased', payload);
   }
 
+  /**
+   * A brand bought the creator's travel add-on from the brief form (an
+   * on-location shoot they hadn't paid for at checkout). Notify both parties:
+   * the brand's brief form unblocks, and the creator sees that the order now
+   * covers travel before they are asked to accept the brief.
+   */
+  async emitOrderTravelAddOnPurchased(params: {
+    orderId: string;
+    amountPaise: number;
+  }): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        brandId: true,
+        agencyId: true,
+        brand: { select: { id: true } },
+        creator: { select: { userId: true } },
+      },
+    });
+    if (!order) {
+      this.logger.warn(
+        `emitOrderTravelAddOnPurchased: order not found ${params.orderId}`,
+      );
+      return;
+    }
+    const payload = {
+      orderId: params.orderId,
+      amountPaise: params.amountPaise,
+    };
+    const brandUserId = await this.resolveBuyerUserId(order);
+    if (brandUserId) {
+      this.gateway.server
+        .to(`user:${brandUserId}`)
+        .emit('order.travel_add_on_purchased', payload);
+    }
+    this.gateway.server
+      .to(`user:${order.creator.userId}`)
+      .emit('order.travel_add_on_purchased', payload);
+  }
+
   /** Creator received physical product; notify brand. Includes the now-set delivery deadlines. */
   async emitOrderProductReceived(params: {
     orderId: string;

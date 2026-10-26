@@ -18,6 +18,46 @@ import { assertEncodedVideoFrames } from './ffmpeg-output.util';
 const ffmpegPath: string =
   process.env.FFMPEG_PATH || (ffmpegStatic as unknown as string) || 'ffmpeg';
 
+/**
+ * Threads x264 may use, and the reason this is not left to x264.
+ *
+ * x264 sizes its thread pool from the CPU count it detects, and inside a
+ * container that is the HOST's core count, not the share the container is
+ * actually allowed. On a 72-core host it opened 72 threads (plus 16 for
+ * lookahead) and allocated per-thread frame buffers for a 2160x3840 source up
+ * front — gigabytes before a single frame encoded. The kernel killed it during
+ * allocation, which surfaced as `frame= 0` repeated in the progress output and
+ * then `ffmpeg exited with code null` (null = killed by a signal, not an exit
+ * code). Every attempt died the same way, so the delivery was parked `dead`
+ * and the creator was told to re-upload a file that was never the problem.
+ *
+ * A small fixed pool is the fix: watermarking is throughput work spread across
+ * WATERMARK_CONCURRENCY jobs, not a latency-sensitive single encode, so wide
+ * per-job parallelism buys little and costs memory linearly.
+ */
+function encodeThreads(): number {
+  const raw = Number(process.env.WATERMARK_FFMPEG_THREADS);
+  if (Number.isFinite(raw) && raw >= 1) return Math.floor(raw);
+  return 4;
+}
+
+/**
+ * Height cap for the brand-facing preview; 0 or negative disables it.
+ *
+ * The preview is a watermarked throwaway — once the brand accepts, they get
+ * the original files and this copy stops being shown at all. Re-encoding a 4K
+ * source at full resolution to produce it costs memory quadratically in the
+ * frame size (the thing that was killing these encodes) and ~2.7x the wall
+ * clock, measured, for a copy nobody keeps.
+ */
+function previewMaxHeight(): number | null {
+  const raw = process.env.WATERMARK_MAX_HEIGHT?.trim();
+  if (raw === undefined || raw === '') return 1080;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.floor(n);
+}
+
 /** Shape of a delivery asset as persisted in OrderDelivery.assets JSON. */
 export interface StoredDeliveryAsset {
   key: string;
@@ -46,6 +86,29 @@ function contentTypeForKey(key: string): string {
     default:
       return 'video/mp4';
   }
+}
+
+const PREVIEW_ERROR_MAX_CHARS = 1000;
+
+/**
+ * Render a failure into the single line stored on the delivery row.
+ *
+ * ffmpeg's message leads with the diagnosis ("width not divisible by 2", "moov
+ * atom not found") and then drags a 4 KB stderr tail behind it, while this
+ * column exists to be read at a glance in a query result. Keep the head, where
+ * the actual error is, and cap the rest.
+ */
+export function describePreviewError(error: unknown): string {
+  const raw: string | undefined =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : JSON.stringify(error);
+  const text = (raw ?? 'Unknown error').trim() || 'Unknown error';
+  return text.length > PREVIEW_ERROR_MAX_CHARS
+    ? `${text.slice(0, PREVIEW_ERROR_MAX_CHARS)}…`
+    : text;
 }
 
 @Injectable()
@@ -115,6 +178,7 @@ export class WatermarkService {
             assets: assets as unknown as object,
             previewStatus: 'ready',
             previewUpdatedAt: new Date(),
+            previewError: null,
           },
         });
       } else {
@@ -141,7 +205,7 @@ export class WatermarkService {
           ),
         );
     } catch (err) {
-      await this.markStatus(deliveryId, 'failed').catch(() => undefined);
+      await this.markStatus(deliveryId, 'failed', err).catch(() => undefined);
       this.logger.error(
         `watermark: delivery ${deliveryId} failed: ${(err as Error)?.message}`,
       );
@@ -152,10 +216,17 @@ export class WatermarkService {
   private async markStatus(
     deliveryId: string,
     status: 'pending' | 'processing' | 'ready' | 'failed' | 'dead',
+    error?: unknown,
   ): Promise<void> {
     await this.prisma.orderDelivery.update({
       where: { id: deliveryId },
-      data: { previewStatus: status, previewUpdatedAt: new Date() },
+      data: {
+        previewStatus: status,
+        previewUpdatedAt: new Date(),
+        // A run that got anywhere clears the previous reason, so the column
+        // always describes the LATEST attempt rather than any attempt ever.
+        previewError: error === undefined ? null : describePreviewError(error),
+      },
     });
   }
 
@@ -319,6 +390,15 @@ export class WatermarkService {
       const wmPng = await sharp(this.watermarkSvg(1080, 1080)).png().toBuffer();
       await writeFile(wmPath, wmPng);
 
+      // Even dimensions, plus an optional downscale. `-2` keeps the aspect
+      // ratio AND rounds to an even width, so when the cap applies it already
+      // guarantees what the crop guarantees otherwise.
+      const cap = previewMaxHeight();
+      const baseChain =
+        cap === null
+          ? '[0:v]crop=trunc(iw/2)*2:trunc(ih/2)*2[basesrc];'
+          : `[0:v]scale=-2:'min(${cap},ih)',crop=trunc(iw/2)*2:trunc(ih/2)*2[basesrc];`;
+
       const stderr = await this.runFfmpeg([
         '-y',
         '-i',
@@ -333,8 +413,39 @@ export class WatermarkService {
         '-i',
         wmPath,
         '-filter_complex',
-        // [1:v]=watermark scaled to match [0:v]=video, then overlaid full-frame.
-        '[1:v][0:v]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto',
+        // [1:v]=watermark, scaled to match the (evened) video, then overlaid
+        // full-frame over it.
+        //
+        // The base is scaled (when WATERMARK_MAX_HEIGHT applies) and cropped
+        // to even dimensions FIRST, and the watermark is matched to that
+        // reference. scale2ref passes the video through
+        // untouched, so without this an odd-sized source (1079x1920 off a crop
+        // or a screen recording) reaches libx264 as-is and it refuses outright:
+        // "width not divisible by 2". That is an instant, every-attempt failure
+        // that burns the retry budget and parks the delivery `dead`, which the
+        // creator reads as "we couldn't process this video".
+        //
+        // The other two ffmpeg pipelines here are immune by accident — both
+        // scale with `-2`, which already forces evenness. This one does no
+        // scaling at all, so it has to say so explicitly. Cropping (at most one
+        // row/column) rather than scaling keeps the preview pixel-exact.
+        //
+        // `shortest=1` on the overlay is what actually ends the graph. The
+        // `-shortest` output flag below is not enough on its own: with a
+        // video-only delivery (no audio track at all — B-roll, a text-only
+        // edit, music added later by the brand) the only finite stream feeding
+        // the muxer is the video, the `-loop 1` watermark never ends, and
+        // ffmpeg runs FOREVER. In production that means every attempt burns the
+        // full WATERMARK_FFMPEG_TIMEOUT_MS before being killed, and the
+        // delivery still ends up `dead` — just 18 minutes later instead of 2.
+        baseChain +
+          '[1:v][basesrc]scale2ref[wm][base];' +
+          '[base][wm]overlay=0:0:format=auto:shortest=1',
+        // Cap the thread pool BEFORE -c:v so it applies to the encoder (see
+        // encodeThreads: x264 otherwise sizes it from the host's core count and
+        // allocates itself out of memory).
+        '-threads',
+        String(encodeThreads()),
         '-c:v',
         'libx264',
         '-preset',
@@ -343,12 +454,26 @@ export class WatermarkService {
         '26',
         '-pix_fmt',
         'yuv420p',
+        // Transcode rather than `-c:a copy`. The MP4 muxer accepts far more
+        // than AAC — Opus, Vorbis, FLAC, ALAC, PCM and AC-3 all mux without
+        // complaint — so a copy does not usually FAIL. It silently produces a
+        // preview no browser will play: the brand opens the delivery and gets
+        // a video with dead audio. The key's `.mp4` is no guarantee of what is
+        // inside either, since it is derived from the browser's content-type,
+        // which the client defaults to video/mp4 whenever the browser reports
+        // none. Both sibling pipelines already encode to AAC
+        // (PreviewVideoService, MediaNormalizeService — the latter explicitly
+        // treats any non-AAC audio as "must transcode"); this was the holdout,
+        // and delivery files never pass through normalization on their way here.
         '-c:a',
-        'copy',
+        'aac',
+        '-b:a',
+        '128k',
         '-movflags',
         '+faststart',
-        // Required by `-loop 1`: without it the endless watermark would keep
-        // the encode running forever.
+        // Belt and braces alongside the overlay's own `shortest=1`, which is
+        // what actually bounds the graph (see the filter comment). Left in
+        // because it costs nothing and `-loop 1` makes input 1 endless.
         '-shortest',
         outPath,
       ]);
@@ -390,10 +515,23 @@ export class WatermarkService {
         stderr = (stderr + d.toString()).slice(-4000);
       });
       proc.on('error', (err) => finish(() => reject(err)));
-      proc.on('close', (code) => {
+      proc.on('close', (code, signal) => {
         finish(() => {
-          if (code === 0) resolve(stderr);
-          else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
+          if (code === 0) {
+            resolve(stderr);
+            return;
+          }
+          // `code` is null when the process was terminated by a SIGNAL rather
+          // than exiting, and the signal is the whole diagnosis: an external
+          // SIGKILL here is the OOM killer, not a bad file. Logging only "code
+          // null" sent us hunting through the creator's video for a fault that
+          // was never in it. Name the signal.
+          const how =
+            signal !== null
+              ? `was killed by ${signal} (no exit code — the OS terminated it; ` +
+                'SIGKILL here is typically the OOM killer)'
+              : `exited with code ${code}`;
+          reject(new Error(`ffmpeg ${how}: ${stderr}`));
         });
       });
     });

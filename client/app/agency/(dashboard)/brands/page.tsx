@@ -1,12 +1,15 @@
 "use client";
 
-import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { AgencyBrandsPanel } from "@/features/agency/components/agency-brands-panel";
 import { useAuth } from "@/providers/auth-provider";
 
 /**
  * Brands this agency manages, and the Partner ID that gets them here.
+ *
+ * The panel owns its own page padding so it matches the credits page, which is
+ * the closest sibling in this nav — full-bleed with responsive gutters rather
+ * than a centred column.
  */
 export default function AgencyBrandsPage() {
   const { user, isLoading } = useAuth();
@@ -21,17 +24,5 @@ export default function AgencyBrandsPage() {
 
   if (!user) return null;
 
-  return (
-    <div className="space-y-6 pb-12 pt-4 lg:pt-5">
-      <div className="mx-auto w-full max-w-[1180px] px-4">
-        <PageHeader
-          title="Brands"
-          description="Share your Partner ID with a brand, accept their request, then switch into their account to work."
-        />
-        <div className="mt-6">
-          <AgencyBrandsPanel />
-        </div>
-      </div>
-    </div>
-  );
+  return <AgencyBrandsPanel />;
 }

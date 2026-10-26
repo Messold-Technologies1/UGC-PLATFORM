@@ -39,12 +39,12 @@ export function BrandSwitcher() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex w-full items-center justify-between gap-2 rounded-xl border-2 border-[#181313] bg-white px-3 py-2 text-left text-sm font-semibold text-[#111827]">
+      <DropdownMenuTrigger className="flex w-full items-center justify-between gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-left text-sm font-semibold text-foreground transition-colors hover:bg-muted/60">
         <span className="flex min-w-0 items-center gap-2">
-          <Building2 className="h-4 w-4 shrink-0" />
+          <Building2 className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate">{label}</span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0" />
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="w-60">
@@ -53,7 +53,7 @@ export function BrandSwitcher() {
         <DropdownMenuItem onSelect={() => switchToBrand(null)}>
           <span className="flex-1">My Agency</span>
           {activeBrandProfileId === null ? (
-            <Check className="h-4 w-4" />
+            <Check className="size-4" />
           ) : null}
         </DropdownMenuItem>
 
@@ -69,7 +69,7 @@ export function BrandSwitcher() {
               {link.brandName ?? "Unnamed brand"}
             </span>
             {activeBrandProfileId === link.brandId ? (
-              <Check className="h-4 w-4" />
+              <Check className="size-4" />
             ) : null}
           </DropdownMenuItem>
         ))}

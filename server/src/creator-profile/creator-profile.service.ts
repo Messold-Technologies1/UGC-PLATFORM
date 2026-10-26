@@ -3023,10 +3023,12 @@ export class CreatorProfileService {
 
     // Kick off the "resubmit your profile" drip, timed from the withdraw.
     // occurrenceKey is the withdraw time, because a creator may withdraw more
-    // than once and each withdraw starts a fresh drip.
+    // than once and each withdraw starts a fresh drip. Epoch milliseconds
+    // rather than ISO: the key becomes part of a BullMQ job id, which may not
+    // contain the colons an ISO timestamp carries.
     void this.events.emit('creator-profile-resubmit-reminder', {
       entityId: creatorProfileId,
-      occurrenceKey: withdrawnAt.toISOString(),
+      occurrenceKey: String(withdrawnAt.getTime()),
       occurredAt: withdrawnAt,
     });
 

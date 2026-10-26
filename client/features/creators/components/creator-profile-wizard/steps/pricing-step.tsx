@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Lightbulb, X } from "lucide-react";
+import { AlertTriangle, Lightbulb, Sparkles, X } from "lucide-react";
 import { CatalogStatus } from "@/features/creators/components/creator-profile-update/shared-components";
 import {
   PackageEditor,
@@ -16,8 +16,12 @@ import { useAuth } from "@/providers/auth-provider";
 import { CwCard, CwFieldWarn } from "../wizard-ui";
 import { WizardAccordionSection } from "./wizard-parts";
 
+const FOLLOWER_START_PRICE_MAX = 10_000;
+
 export type PricingStepProps = {
   disabled: boolean;
+  /** Active Instagram follower count, when known. */
+  instagramFollowers?: number | null;
 
   packageDraft: PackageDraft;
   onPackageChange: (draft: PackageDraft) => void;
@@ -114,8 +118,34 @@ function StartLowGrowFastTip() {
   );
 }
 
+/** Shown only under 10k followers. Copy only — does not change the price. */
+function FollowerStartPriceSuggestion() {
+  return (
+    <div
+      className="mb-3 flex items-start gap-3 rounded-xl border border-[color-mix(in_oklab,var(--primary)_28%,transparent)] bg-[color-mix(in_oklab,var(--primary)_7%,var(--card))] px-3.5 py-3"
+      role="note"
+    >
+      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Sparkles size={15} aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="m-0 text-[11px] font-bold uppercase tracking-[0.06em] text-primary">
+          AI recommendation
+        </p>
+        <p className="mt-1 text-[13px] leading-snug text-foreground">
+          You have under 10k followers, so start at{" "}
+          <span className="font-semibold">₹500</span>. At this reach, a lower
+          starting price brings in the first orders faster — raise it anytime
+          once work starts coming in.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function PricingStep({
   disabled,
+  instagramFollowers = null,
   packageDraft,
   onPackageChange,
   packageErrors,
@@ -231,6 +261,10 @@ export function PricingStep({
             defaultsConfirmedError={errors.defaultsConfirmed}
           >
             <StartLowGrowFastTip />
+            {instagramFollowers != null &&
+            instagramFollowers < FOLLOWER_START_PRICE_MAX ? (
+              <FollowerStartPriceSuggestion />
+            ) : null}
           </PackageEditor>
           {extraCount > 0 && !addonsReviewed ? (
             <div className="mt-3.5 hidden rounded-xl border-[1.4px] border-[color-mix(in_oklab,var(--primary)_40%,var(--border))] bg-[color-mix(in_oklab,var(--primary)_7%,var(--background))] p-3.5 max-[960px]:block">

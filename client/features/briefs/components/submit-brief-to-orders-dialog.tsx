@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Package, Send } from "lucide-react";
+import { AlertCircle, MapPin, Package, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,9 +18,93 @@ import { Spinner } from "@/components/ui/spinner";
 import { useGetBrandOrdersQuery } from "@/features/orders/hooks/use-get-brand-orders-query";
 import type { OrderListSummary } from "@/features/orders/api/types";
 import { useAttachBriefToOrdersMutation } from "@/features/briefs/hooks/use-attach-brief-to-orders-mutation";
+import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
 import type { AttachBriefToOrdersResponse } from "@/features/briefs/api/attach-brief-to-orders";
+import { useBuyTravelAddOn } from "@/features/payments/hooks/use-buy-travel-add-on";
 
 const PENDING_STATUS = "BRIEF_SUBMISSION_PENDING";
+
+/**
+ * Shoot locations that put the creator on the road, so the order has to carry
+ * the creator's travel add-on. Mirrors TRAVEL_REQUIRING_SHOOT_LOCATIONS on the
+ * server, which is what rejects the submit.
+ */
+const TRAVEL_REQUIRING_SHOOT_LOCATIONS = [
+  "OUTDOOR_PUBLIC_LOCATION",
+  "BRAND_SELECTED_LOCATION",
+];
+
+function formatPaise(paise: number, currency: string) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: currency || "INR",
+    maximumFractionDigits: 0,
+  }).format(paise / 100);
+}
+
+/**
+ * The per-order travel row inside an order card. Its own component because the
+ * buy hook is per order — one order's payment must not spin every other row.
+ */
+function TravelAddOnRow({
+  order,
+  disabled,
+}: {
+  order: OrderListSummary;
+  disabled: boolean;
+}) {
+  const { isProcessing, buyTravelAddOn } = useBuyTravelAddOn(order.id);
+  const unitPaise = order.travelAddOnUnitPaise ?? null;
+
+  if (order.travelAddOnPurchased) {
+    return (
+      <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
+        <MapPin className="size-3 shrink-0" aria-hidden />
+        On-location shoot covered — travel is on this order
+      </p>
+    );
+  }
+
+  // Nothing to sell: this creator doesn't travel, so the brief goes through and
+  // the creator may reject it. Say so rather than offering a button.
+  if (unitPaise == null) {
+    return (
+      <p className="mt-2 text-[11px] text-amber-700">
+        This brief needs an on-location shoot, but this creator doesn&apos;t
+        offer travel — they may reject it.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-2">
+      <p className="min-w-0 text-[11px] text-amber-900">
+        This brief needs an on-location shoot. Add travel to submit it.
+      </p>
+      <Button
+        type="button"
+        size="sm"
+        onClick={(event) => {
+          // The card is a <label>: without this the click toggles selection.
+          event.preventDefault();
+          event.stopPropagation();
+          void buyTravelAddOn();
+        }}
+        disabled={disabled || isProcessing || !order.travelAddOnAvailable}
+        className="h-7 shrink-0 rounded-lg px-3 text-[11px] font-bold"
+      >
+        {isProcessing ? (
+          <>
+            <Spinner className="mr-1.5 size-3" aria-hidden />
+            Processing…
+          </>
+        ) : (
+          <>Add travel — {formatPaise(unitPaise, order.currency)}</>
+        )}
+      </Button>
+    </div>
+  );
+}
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "";
@@ -76,6 +160,30 @@ export function SubmitBriefToOrdersDialog({
     [data],
   );
 
+  // An on-location brief can only go to an order that carries the creator's
+  // travel add-on — the server rejects the rest, which used to surface as a
+  // bare "FAILED" row. Resolve it here so each card can say so, and sell the
+  // add-on where there is one to sell.
+  const { data: brief } = useGetBriefQuery(briefId ?? "", {
+    enabled: open && Boolean(briefId),
+  });
+  const briefNeedsTravel = TRAVEL_REQUIRING_SHOOT_LOCATIONS.includes(
+    String(brief?.shootLocationKind ?? ""),
+  );
+  const blockedOrderIds = useMemo(() => {
+    if (!briefNeedsTravel) return new Set<string>();
+    return new Set(
+      pendingOrders
+        // No travel on offer means nothing to buy: the brief is submittable and
+        // the creator decides, so those orders are not blocked.
+        .filter(
+          (order) =>
+            !order.travelAddOnPurchased && order.travelAddOnUnitPaise != null,
+        )
+        .map((order) => order.id),
+    );
+  }, [briefNeedsTravel, pendingOrders]);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Seed the selection with the preselected order whenever the dialog opens.
@@ -98,6 +206,7 @@ export function SubmitBriefToOrdersDialog({
   const isSubmitting = mutation.isPending;
 
   const toggle = (orderId: string) => {
+    if (blockedOrderIds.has(orderId)) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(orderId)) next.delete(orderId);
@@ -106,20 +215,32 @@ export function SubmitBriefToOrdersDialog({
     });
   };
 
+  const effectiveSelected = useMemo(
+    () =>
+      new Set([...selected].filter((orderId) => !blockedOrderIds.has(orderId))),
+    [selected, blockedOrderIds],
+  );
+
+  const selectableOrders = useMemo(
+    () => pendingOrders.filter((order) => !blockedOrderIds.has(order.id)),
+    [pendingOrders, blockedOrderIds],
+  );
+
   const allSelected =
-    pendingOrders.length > 0 && selected.size === pendingOrders.length;
+    selectableOrders.length > 0 &&
+    effectiveSelected.size === selectableOrders.length;
 
   const toggleAll = () => {
     if (allSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(pendingOrders.map((o) => o.id)));
+      setSelected(new Set(selectableOrders.map((o) => o.id)));
     }
   };
 
   const handleSubmit = () => {
-    if (!briefId || selected.size === 0) return;
-    mutation.mutate({ briefId, orderIds: Array.from(selected) });
+    if (!briefId || effectiveSelected.size === 0) return;
+    mutation.mutate({ briefId, orderIds: Array.from(effectiveSelected) });
   };
 
   return (
@@ -156,7 +277,7 @@ export function SubmitBriefToOrdersDialog({
           <>
             <div className="flex items-center justify-between px-1">
               <span className="text-xs text-muted-foreground">
-                {selected.size} of {pendingOrders.length} selected
+                {effectiveSelected.size} of {selectableOrders.length} selected
               </span>
               <button
                 type="button"
@@ -170,21 +291,24 @@ export function SubmitBriefToOrdersDialog({
             <ScrollArea className="max-h-[320px] pr-3">
               <div className="flex flex-col gap-2">
                 {pendingOrders.map((order) => {
-                  const isChecked = selected.has(order.id);
+                  const isChecked = effectiveSelected.has(order.id);
+                  const isBlocked = blockedOrderIds.has(order.id);
                   return (
                     <label
                       key={order.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
-                        isChecked
-                          ? "border-primary/50 bg-primary/5"
-                          : "border-border/40 hover:bg-muted/30"
+                      className={`flex items-start gap-3 rounded-xl border p-3 transition-colors ${
+                        isBlocked
+                          ? "cursor-default border-amber-300/60 bg-amber-50/40"
+                          : isChecked
+                            ? "cursor-pointer border-primary/50 bg-primary/5"
+                            : "cursor-pointer border-border/40 hover:bg-muted/30"
                       }`}
                     >
                       <Checkbox
                         checked={isChecked}
                         onCheckedChange={() => toggle(order.id)}
                         className="mt-0.5"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isBlocked}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -209,6 +333,12 @@ export function SubmitBriefToOrdersDialog({
                             )}
                           </span>
                         </div>
+                        {briefNeedsTravel ? (
+                          <TravelAddOnRow
+                            order={order}
+                            disabled={isSubmitting}
+                          />
+                        ) : null}
                       </div>
                       <Badge
                         variant="outline"
@@ -235,7 +365,7 @@ export function SubmitBriefToOrdersDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || selected.size === 0 || !briefId}
+            disabled={isSubmitting || effectiveSelected.size === 0 || !briefId}
             className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             {isSubmitting ? (
@@ -246,8 +376,8 @@ export function SubmitBriefToOrdersDialog({
             ) : (
               <>
                 <Send className="mr-2 size-4" />
-                Submit to {selected.size || 0} order
-                {selected.size === 1 ? "" : "s"}
+                Submit to {effectiveSelected.size || 0} order
+                {effectiveSelected.size === 1 ? "" : "s"}
               </>
             )}
           </Button>

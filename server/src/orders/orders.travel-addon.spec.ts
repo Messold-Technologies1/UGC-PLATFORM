@@ -82,6 +82,17 @@ describe('OrdersService travel add-on', () => {
                 },
           ),
         ),
+        // Bulk lookup: one row per creator asked about, at the same price.
+        findMany: jest.fn((args: { where: { creatorId: { in: string[] } } }) =>
+          Promise.resolve(
+            opts.addOnPrice == null
+              ? []
+              : args.where.creatorId.in.map((creatorId) => ({
+                  creatorId,
+                  priceAmount: new Prisma.Decimal(opts.addOnPrice as number),
+                })),
+          ),
+        ),
       },
       orderTravelPurchase: {
         findFirst: jest.fn(() =>
@@ -371,6 +382,113 @@ describe('OrdersService travel add-on', () => {
         amountPaise: 50000,
       });
       expect(orderUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('travel state for a page of orders', () => {
+    // What the submit-brief dialog renders per order card. One catalog lookup
+    // and one CreatorAddOn query for the whole page, whatever its length.
+    async function resolveFor(
+      orders: Array<Record<string, unknown>>,
+      addOnPrice: number | null,
+    ) {
+      const { service, prisma } = makeService({ addOnPrice });
+      const state = await (
+        service as unknown as {
+          resolveTravelAddOnStateForOrders: (
+            o: Array<Record<string, unknown>>,
+          ) => Promise<
+            Map<
+              string,
+              {
+                unitPaise: number | null;
+                purchased: boolean;
+                available: boolean;
+              }
+            >
+          >;
+        }
+      ).resolveTravelAddOnStateForOrders(orders);
+      return { state, prisma };
+    }
+
+    const row = (over: Record<string, unknown> = {}) => ({
+      id: 'order-1',
+      creatorId: 'c1',
+      addOnsSnapshot: [],
+      status: 'BRIEF_SUBMISSION_PENDING',
+      briefAcceptedAt: null,
+      ...over,
+    });
+
+    it('offers travel on an order awaiting a brief', async () => {
+      const { state } = await resolveFor([row()], 500);
+      expect(state.get('order-1')).toEqual({
+        unitPaise: 50000,
+        purchased: false,
+        available: true,
+      });
+    });
+
+    it('reports travel already on the order, and stops offering it', async () => {
+      const { state } = await resolveFor(
+        [row({ addOnsSnapshot: [travelAddOnSnapshot] })],
+        500,
+      );
+      expect(state.get('order-1')).toEqual({
+        unitPaise: 50000,
+        purchased: true,
+        available: false,
+      });
+    });
+
+    it('offers nothing when the creator does not travel', async () => {
+      const { state } = await resolveFor([row()], null);
+      expect(state.get('order-1')).toEqual({
+        unitPaise: null,
+        purchased: false,
+        available: false,
+      });
+    });
+
+    it('stops offering once the creator accepted the brief', async () => {
+      const { state } = await resolveFor(
+        [
+          row({
+            status: 'BRIEF_ACCEPTED',
+            briefAcceptedAt: new Date(),
+          }),
+        ],
+        500,
+      );
+      expect(state.get('order-1')?.available).toBe(false);
+    });
+
+    it('queries once for a page of orders, not once per row', async () => {
+      const { state, prisma } = await resolveFor(
+        [
+          row({ id: 'o1', creatorId: 'c1' }),
+          row({ id: 'o2', creatorId: 'c2' }),
+          row({ id: 'o3', creatorId: 'c1' }),
+        ],
+        500,
+      );
+      expect(state.size).toBe(3);
+      expect(prisma.creatorAddOnOption.findUnique).toHaveBeenCalledTimes(1);
+      expect(prisma.creatorAddOn.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.creatorAddOn.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            creatorId: { in: ['c1', 'c2'] },
+          }),
+        }),
+      );
+    });
+
+    it('is a no-op for an empty page', async () => {
+      const { state, prisma } = await resolveFor([], 500);
+      expect(state.size).toBe(0);
+      expect(prisma.creatorAddOnOption.findUnique).not.toHaveBeenCalled();
     });
   });
 

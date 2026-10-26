@@ -3811,6 +3811,70 @@ export class OrdersService {
     return { addOnId: row.id, name: row.name, unitPaise };
   }
 
+  /**
+   * Travel add-on state for a page of orders — one catalog lookup and one
+   * CreatorAddOn query for the whole page, not a pair per row. Keyed by order
+   * id. `unitPaise` is null when that order's creator doesn't offer travel at
+   * all, which the UI shows as a warning rather than a buy button.
+   */
+  private async resolveTravelAddOnStateForOrders(
+    orders: Array<{
+      id: string;
+      creatorId: string;
+      addOnsSnapshot: Prisma.JsonValue;
+      status: OrderStatus;
+      briefAcceptedAt: Date | null;
+    }>,
+  ): Promise<
+    Map<
+      string,
+      { unitPaise: number | null; purchased: boolean; available: boolean }
+    >
+  > {
+    const state = new Map<
+      string,
+      { unitPaise: number | null; purchased: boolean; available: boolean }
+    >();
+    if (orders.length === 0) return state;
+
+    const option = await this.prisma.creatorAddOnOption.findUnique({
+      where: { slug: ON_LOCATION_SHOOT_OPTION_SLUG },
+      select: { name: true },
+    });
+    const rows = option
+      ? await this.prisma.creatorAddOn.findMany({
+          where: {
+            name: option.name,
+            creatorId: { in: [...new Set(orders.map((o) => o.creatorId))] },
+          },
+          select: { creatorId: true, priceAmount: true },
+        })
+      : [];
+    const priceByCreator = new Map<string, number>();
+    for (const row of rows) {
+      const paise = toPaise(row.priceAmount);
+      if (paise > 0) priceByCreator.set(row.creatorId, paise);
+    }
+
+    for (const order of orders) {
+      const unitPaise = option
+        ? (priceByCreator.get(order.creatorId) ?? null)
+        : null;
+      const purchased = option
+        ? OrdersService.orderHasAddOnNamed(order.addOnsSnapshot, option.name)
+        : false;
+      state.set(order.id, {
+        unitPaise,
+        purchased,
+        available:
+          unitPaise != null &&
+          !purchased &&
+          OrdersService.travelAddOnPurchasable(order),
+      });
+    }
+    return state;
+  }
+
   /** Whether an order's add-on snapshot already carries an add-on of this name. */
   private static orderHasAddOnNamed(
     addOnsSnapshot: Prisma.JsonValue,
@@ -4235,6 +4299,12 @@ export class OrdersService {
         : {}),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      // Travel add-on state is resolved in bulk on the brand list path (one
+      // lookup for the page, see resolveTravelAddOnStateForOrders); every other
+      // viewer keeps these defaults.
+      travelAddOnUnitPaise: null,
+      travelAddOnPurchased: false,
+      travelAddOnAvailable: false,
       refundedAt: order.refundedAt ?? null,
       cancellationReason: order.cancellationReason ?? null,
       cancelledAt: order.cancelledAt ?? null,
@@ -4636,19 +4706,19 @@ export class OrdersService {
     // Travel add-on: the brief form needs to know whether an on-location shoot
     // is already covered, can still be bought, or is simply not on offer from
     // this creator (warn instead of block — see assertTravelAddOnSatisfied).
-    const travelAddOn = await this.resolveTravelAddOn(creator.id);
-    const travelPurchased = travelAddOn
-      ? OrdersService.orderHasAddOnNamed(
-          order.addOnsSnapshot,
-          travelAddOn.name,
-        )
-      : false;
-    mappedOrder.travelAddOnUnitPaise = travelAddOn?.unitPaise ?? null;
-    mappedOrder.travelAddOnPurchased = travelPurchased;
-    mappedOrder.travelAddOnAvailable =
-      travelAddOn != null &&
-      !travelPurchased &&
-      OrdersService.travelAddOnPurchasable(order);
+    const travelState = await this.resolveTravelAddOnStateForOrders([
+      {
+        id: order.id,
+        creatorId: creator.id,
+        addOnsSnapshot: order.addOnsSnapshot,
+        status: order.status,
+        briefAcceptedAt: order.briefAcceptedAt,
+      },
+    ]);
+    const travel = travelState.get(order.id);
+    mappedOrder.travelAddOnUnitPaise = travel?.unitPaise ?? null;
+    mappedOrder.travelAddOnPurchased = travel?.purchased ?? false;
+    mappedOrder.travelAddOnAvailable = travel?.available ?? false;
 
     await this.attachRevisionSnapshots(mappedOrder, order);
 
@@ -5276,6 +5346,9 @@ export class OrdersService {
           revisionCount: true,
           createdAt: true,
           updatedAt: true,
+          // Only for the travel add-on state below; not part of the summary.
+          creatorId: true,
+          addOnsSnapshot: true,
           refundedAt: true,
           cancellationReason: true,
           cancelledAt: true,
@@ -5306,10 +5379,21 @@ export class OrdersService {
       }),
     ]);
 
+    // One lookup for the page: the submit-brief dialog has to tell, per order,
+    // whether an on-location brief can go to it or needs travel bought first.
+    const travelState = await this.resolveTravelAddOnStateForOrders(rows);
+
     const items: BrandOrderListItemDto[] = rows.map((r) => {
-      const { creator, ...orderFields } = r;
+      const { creator, creatorId, addOnsSnapshot, ...orderFields } = r;
+      const summary = this.mapOrderListSummary(orderFields);
+      const travel = travelState.get(r.id);
+      if (travel) {
+        summary.travelAddOnUnitPaise = travel.unitPaise;
+        summary.travelAddOnPurchased = travel.purchased;
+        summary.travelAddOnAvailable = travel.available;
+      }
       return {
-        order: this.mapOrderListSummary(orderFields),
+        order: summary,
         creator: {
           id: creator.id,
           // Creator identity is hidden from the brand in the order flow.

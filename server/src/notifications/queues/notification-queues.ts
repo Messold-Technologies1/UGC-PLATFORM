@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { NotificationChannel } from '@prisma/client';
 
 /**
@@ -46,13 +48,41 @@ export type StepJobData = EventJobData & {
   channels: NotificationChannel[];
 };
 
+/**
+ * BullMQ rejects a custom job id containing ':' — it delimits its own Redis
+ * keys with it — and `Queue.add` throws rather than enqueueing. Because every
+ * emit is wrapped in a try/catch that only logs, such an id does not fail the
+ * request: it silently drops the notification.
+ *
+ * That is exactly what happened to the agency-link events and the creator
+ * resubmit drip, whose occurrence keys carried a timestamp. So the id is made
+ * safe here, at the single place it is built, rather than trusting every
+ * caller to remember.
+ *
+ * A key that is already safe passes through byte-for-byte, keeping ids
+ * readable in Redis and unchanged for events that work today. Anything else
+ * is hashed rather than rewritten, because substituting characters can map
+ * two distinct keys onto one id — and a collision here is a notification that
+ * never sends, which is the bug being fixed.
+ */
+const SAFE_KEY = /^[A-Za-z0-9_-]+$/;
+
+function safeKeyPart(part: string): string {
+  if (SAFE_KEY.test(part)) return part;
+  return createHash('sha256').update(part).digest('hex').slice(0, 16);
+}
+
 /** Deterministic, so a repeated emit is refused by BullMQ before it becomes work. */
 export function eventJobId(d: EventJobData): string {
-  return `nev-${d.eventKey}-${d.entityId}-${d.occurrenceKey}`;
+  return `nev-${d.eventKey}-${safeKeyPart(d.entityId)}-${safeKeyPart(
+    d.occurrenceKey,
+  )}`;
 }
 
 export function stepJobId(d: StepJobData): string {
-  return `nst-${d.eventKey}-${d.entityId}-${d.occurrenceKey}-${d.offsetMinutes}`;
+  return `nst-${d.eventKey}-${safeKeyPart(d.entityId)}-${safeKeyPart(
+    d.occurrenceKey,
+  )}-${d.offsetMinutes}`;
 }
 
 /**

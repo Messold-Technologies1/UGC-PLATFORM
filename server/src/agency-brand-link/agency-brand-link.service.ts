@@ -265,12 +265,14 @@ export class AgencyBrandLinkService {
         });
 
     // The agency has to act on this, so it is the one message in the flow that
-    // must go out. `occurrenceKey` carries the request timestamp because a
+    // must go out. `occurrenceKey` carries the request time because a
     // relationship can be reopened after a rejection or a revoke, and a second
     // request on the same row must not be swallowed as a duplicate of the first.
+    // The row id is already the entityId, so the key need only say which
+    // occurrence this is.
     await this.notifications.emit('agency-link-requested', {
       entityId: link.id,
-      occurrenceKey: `${link.id}:${Date.now()}`,
+      occurrenceKey: `requested-${Date.now()}`,
     });
 
     return { linkId: link.id, agencyName: agency.name, status: link.status };
@@ -307,7 +309,7 @@ export class AgencyBrandLinkService {
 
     await this.notifications.emit('agency-link-accepted', {
       entityId: link.id,
-      occurrenceKey: `${link.id}:accepted:${Date.now()}`,
+      occurrenceKey: `accepted-${Date.now()}`,
     });
 
     return { linkId: link.id, brandName: brand.brandName };
@@ -337,7 +339,7 @@ export class AgencyBrandLinkService {
 
     await this.notifications.emit('agency-link-rejected', {
       entityId: link.id,
-      occurrenceKey: `${link.id}:rejected:${Date.now()}`,
+      occurrenceKey: `rejected-${Date.now()}`,
     });
 
     return { linkId: link.id };
@@ -401,7 +403,7 @@ export class AgencyBrandLinkService {
 
     await this.notifications.emit('agency-link-ended', {
       entityId: link.id,
-      occurrenceKey: `${link.id}:ended:${Date.now()}`,
+      occurrenceKey: `ended-${Date.now()}`,
     });
 
     return { linkId: link.id };

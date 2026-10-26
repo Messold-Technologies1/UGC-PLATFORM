@@ -31,6 +31,50 @@ describe('notification queue identity', () => {
       stepJobId({ ...step, offsetMinutes: 1440 }),
     );
   });
+
+  /**
+   * BullMQ throws 'Custom Id cannot contain :' from Queue.add, and emit()
+   * only logs what it throws — so a colon anywhere in a key dropped the
+   * notification without failing the request. Both the agency-link events
+   * and the creator resubmit drip shipped with one.
+   */
+  describe('ids BullMQ will accept', () => {
+    const withColons = {
+      ...base,
+      entityId: 'a38ca5dd-fead-491a-a14a-2accd52a0aaf',
+      occurrenceKey: '2026-10-26T10:36:05.699Z',
+    };
+
+    it('never emits a colon, whatever the caller passed', () => {
+      expect(eventJobId(withColons)).not.toContain(':');
+      expect(
+        stepJobId({ ...withColons, offsetMinutes: 1440, channels: [] }),
+      ).not.toContain(':');
+    });
+
+    it('leaves an already-safe key untouched', () => {
+      // Events that work today must keep the ids they already have, or every
+      // queued job is suddenly a different one.
+      expect(eventJobId(base)).toBe(
+        'nev-order-brief-submitted-for-creator-ord_1-ord_1',
+      );
+    });
+
+    it('still tells two unsafe keys apart', () => {
+      // The whole point of the key: a second withdraw must not be swallowed
+      // as a duplicate of the first.
+      expect(eventJobId(withColons)).not.toBe(
+        eventJobId({
+          ...withColons,
+          occurrenceKey: '2026-10-26T10:36:06.699Z',
+        }),
+      );
+    });
+
+    it('is deterministic for an unsafe key', () => {
+      expect(eventJobId(withColons)).toBe(eventJobId({ ...withColons }));
+    });
+  });
 });
 
 describe('stepDelayMs', () => {

@@ -66,6 +66,15 @@ export interface OrderListSummary {
   createdAt: string;
   updatedAt: string;
   expectedAmountPaise?: number;
+  /**
+   * Price (paise) of the creator's "Travel within City" add-on; null when the
+   * creator does not offer travel at all. Brand list only.
+   */
+  travelAddOnUnitPaise?: number | null;
+  /** Whether travel is already on this order. Brand list only. */
+  travelAddOnPurchased?: boolean;
+  /** Whether the brand can still buy travel for this order. Brand list only. */
+  travelAddOnAvailable?: boolean;
   refundedAt?: string | null;
   /**
    * Reason captured when the creator rejected the brief or the brand cancelled

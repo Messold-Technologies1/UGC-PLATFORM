@@ -94,6 +94,31 @@ export class OrderListSummaryDto {
   })
   currentRevision?: OrderCurrentRevisionDto;
 
+  @ApiPropertyOptional({
+    example: 50000,
+    nullable: true,
+    description:
+      "Price in paise of the creator's 'Travel within City' add-on. Null when " +
+      'the creator does not offer travel at all. Brand list only.',
+  })
+  travelAddOnUnitPaise?: number | null;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the travel add-on is already on this order (bought at checkout ' +
+      'or added later). Brand list only.',
+  })
+  travelAddOnPurchased!: boolean;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether the brand can still buy the travel add-on for this order right ' +
+      'now. Brand list only.',
+  })
+  travelAddOnAvailable!: boolean;
+
   @ApiProperty()
   createdAt!: Date;
 

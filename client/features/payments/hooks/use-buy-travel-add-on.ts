@@ -28,19 +28,30 @@ function getErrorMessage(error: unknown): string {
 /**
  * The add-on lands on the order only on the verified Razorpay webhook, which
  * arrives a moment after the modal closes — so the client success callback alone
- * can't be trusted. Refetch the order a few times until it reports travel as
- * purchased, then confirm to the brand (the brief submit unblocks off the same
- * flag).
+ * can't be trusted. Fetch the order a few times until it reports travel as
+ * purchased, then confirm to the brand (everything that gates on travel reads
+ * the same flag).
+ *
+ * fetchQuery, not refetchQueries: the buy button also lives in the submit-brief
+ * dialog, which lists orders and never mounts any one order's details query —
+ * a refetch there would have nothing to refetch and the poll would always time
+ * out. Fetching seeds the cache either way, so an open brief form updates too.
  */
 async function pollUntilTravelPurchased(
   queryClient: QueryClient,
   orderId: string,
 ): Promise<void> {
-  const queryKey = brandOrderDetailsQueryOptions(orderId).queryKey;
   for (let attempt = 0; attempt < 8; attempt++) {
-    await queryClient.refetchQueries({ queryKey });
-    const data = queryClient.getQueryData<BrandOrderDetailsResponse>(queryKey);
+    const data = await queryClient
+      .fetchQuery<BrandOrderDetailsResponse>({
+        ...brandOrderDetailsQueryOptions(orderId),
+        staleTime: 0,
+      })
+      .catch(() => null);
     if (data?.order?.travelAddOnPurchased) {
+      // The orders list carries its own copy of the travel state (the dialog
+      // reads it per order), so it has to be refreshed alongside the details.
+      await queryClient.invalidateQueries({ queryKey: ["orders", "brand"] });
       toast.success("Travel added to this order", {
         description: "You can submit the brief with an on-location shoot now.",
       });
@@ -48,8 +59,10 @@ async function pollUntilTravelPurchased(
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+  await queryClient.invalidateQueries({ queryKey: ["orders", "brand"] });
   toast.message("Your payment is being confirmed", {
-    description: "Travel will appear on this order in a moment — refresh if needed.",
+    description:
+      "Travel will appear on this order in a moment — refresh if needed.",
   });
 }
 

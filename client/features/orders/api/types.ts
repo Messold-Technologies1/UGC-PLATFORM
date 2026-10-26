@@ -140,6 +140,15 @@ export interface OrderDetailsPublic extends OrderListSummary {
   extraRevisionsAdded: number;
   /** Total paid for post-order usage-rights extensions (paise). Brand details only. */
   extraUsageRightsPaidPaise: number;
+  /**
+   * Price (paise) of the creator's "Travel within City" add-on; null when the
+   * creator does not offer travel at all. Brand details only.
+   */
+  travelAddOnUnitPaise?: number | null;
+  /** Whether travel is already on this order (bought at checkout or later). */
+  travelAddOnPurchased: boolean;
+  /** Whether the brand can still buy travel for this order right now. */
+  travelAddOnAvailable: boolean;
   /** Coupon applied at checkout, if any. */
   coupon?: OrderCouponSummary | null;
   /** True when this was placed under a first-order-free promo. */

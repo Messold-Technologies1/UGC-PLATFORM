@@ -238,6 +238,22 @@ export const BASE_USAGE_RIGHTS_DAYS = 30;
 const EXTRA_USAGE_RIGHTS_OPTION_SLUG = 'paid_ads_usage_30_days';
 
 /**
+ * Catalog slug for the creator's optional "Travel within City" add-on: the
+ * creator comes to a location the brand picks instead of shooting at their own
+ * setup. Resolved by name like the other two (`CreatorAddOn` has no slug).
+ */
+const ON_LOCATION_SHOOT_OPTION_SLUG = 'on_location_shoot';
+
+/**
+ * Shoot locations that put the creator on the road. A brief asking for one of
+ * these needs the travel add-on on the order — see assertTravelAddOnSatisfied.
+ */
+const TRAVEL_REQUIRING_SHOOT_LOCATIONS = new Set([
+  'OUTDOOR_PUBLIC_LOCATION',
+  'BRAND_SELECTED_LOCATION',
+]);
+
+/**
  * Razorpay rejects charges below ₹1. When store credit covers all but a tiny
  * remainder, credit absorbs that remainder so the Razorpay charge is either ₹0
  * (fully credit-paid) or at least ₹1. Mirrors coupons' MIN_NET_PAISE.
@@ -2144,6 +2160,40 @@ export class OrdersService {
     return order.id;
   }
 
+  /**
+   * A brief asking for an on-location shoot (outdoor / a location the brand
+   * picks) only makes sense if the order pays for the creator to get there.
+   * Shoot location is chosen in the brief, long after checkout, so a brand that
+   * skipped the travel add-on must buy it here before the brief can be
+   * submitted — on EVERY path into an order (the order-linked brief form, a
+   * saved brief pushed to orders, support acting on a brand's behalf), which is
+   * why this lives next to the write and not in the form.
+   *
+   * Creators who don't offer travel at all are the exception: there is nothing
+   * to buy, so the brief goes through and the brand is warned in the UI that
+   * the creator may reject it.
+   */
+  private async assertTravelAddOnSatisfied(params: {
+    creatorId: string;
+    addOnsSnapshot: Prisma.JsonValue;
+    shootLocationKind: string | null;
+  }): Promise<void> {
+    if (
+      !params.shootLocationKind ||
+      !TRAVEL_REQUIRING_SHOOT_LOCATIONS.has(params.shootLocationKind)
+    ) {
+      return;
+    }
+    const travel = await this.resolveTravelAddOn(params.creatorId);
+    if (!travel) return; // creator doesn't travel — warned, not blocked
+    if (OrdersService.orderHasAddOnNamed(params.addOnsSnapshot, travel.name)) {
+      return;
+    }
+    throw new BadRequestException(
+      'This brief asks for an on-location shoot. Add the travel add-on to this order before submitting the brief, or choose a shoot location that does not need the creator to travel.',
+    );
+  }
+
   async submitBrief(params: {
     actorUserId: string;
     brandProfileId?: string | null;
@@ -2162,8 +2212,10 @@ export class OrdersService {
         id: true,
         brandId: true,
         agencyId: true,
+        creatorId: true,
         status: true,
         briefSubmittedAt: true,
+        addOnsSnapshot: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -2188,6 +2240,7 @@ export class OrdersService {
         willShipPhysicalProductToCreator: true,
         isProduct: true,
         productImageKey: true,
+        shootLocationKind: true,
       },
     });
     if (!brief) {
@@ -2198,6 +2251,11 @@ export class OrdersService {
         'Brief must include a product image before it can be submitted to an order for product campaigns',
       );
     }
+    await this.assertTravelAddOnSatisfied({
+      creatorId: order.creatorId,
+      addOnsSnapshot: order.addOnsSnapshot,
+      shootLocationKind: brief.shootLocationKind,
+    });
 
     await this.updateOrder({
       where: { id: order.id },
@@ -3727,6 +3785,316 @@ export class OrdersService {
     return purchase.orderId;
   }
 
+  /**
+   * The creator's optional "Travel within City" add-on, resolved via the catalog
+   * option (slug 'on_location_shoot') → its name → the creator's `CreatorAddOn`
+   * of that name. Null when the creator doesn't offer travel at all — brands are
+   * then warned instead of blocked, because there is nothing they could buy.
+   */
+  private async resolveTravelAddOn(creatorId: string): Promise<{
+    addOnId: string;
+    name: string;
+    unitPaise: number;
+  } | null> {
+    const option = await this.prisma.creatorAddOnOption.findUnique({
+      where: { slug: ON_LOCATION_SHOOT_OPTION_SLUG },
+      select: { name: true },
+    });
+    if (!option) return null;
+    const row = await this.prisma.creatorAddOn.findFirst({
+      where: { creatorId, name: option.name },
+      select: { id: true, name: true, priceAmount: true },
+    });
+    if (!row) return null;
+    const unitPaise = toPaise(row.priceAmount);
+    if (unitPaise <= 0) return null;
+    return { addOnId: row.id, name: row.name, unitPaise };
+  }
+
+  /** Whether an order's add-on snapshot already carries an add-on of this name. */
+  private static orderHasAddOnNamed(
+    addOnsSnapshot: Prisma.JsonValue,
+    name: string,
+  ): boolean {
+    if (!Array.isArray(addOnsSnapshot)) return false;
+    return addOnsSnapshot.some(
+      (entry) =>
+        !!entry &&
+        typeof entry === 'object' &&
+        !Array.isArray(entry) &&
+        String((entry as { name?: unknown }).name ?? '').trim() === name,
+    );
+  }
+
+  /**
+   * Travel can only be bought while the shoot terms are still open: from the
+   * moment the order is paid until the creator accepts the brief (which includes
+   * the re-edit window after a creator rejects a brief).
+   */
+  private static travelAddOnPurchasable(order: {
+    status: OrderStatus;
+    briefAcceptedAt: Date | null;
+  }): boolean {
+    if (order.briefAcceptedAt) return false;
+    return (
+      order.status === 'BRIEF_SUBMISSION_PENDING' ||
+      order.status === 'BRIEF_SUBMITTED'
+    );
+  }
+
+  /**
+   * Start a Razorpay checkout for the creator's "Travel within City" add-on on an
+   * already-paid order, so a brand that skipped it at checkout can still ask for
+   * an on-location shoot in the brief. Reuses/refreshes a pending purchase row
+   * (its own Razorpay order + verifiable amount) so a dismissed modal doesn't
+   * orphan a charge. The add-on lands on the order only on the verified webhook
+   * capture (see markTravelPurchasePaidFromWebhook). Non-refundable.
+   */
+  async createTravelAddOnCheckout(params: {
+    orderId: string;
+    actorUserId: string;
+    brandProfileId?: string | null;
+  }): Promise<CheckoutSessionResult> {
+    const actor = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        agencyId: true,
+        creatorId: true,
+        status: true,
+        currency: true,
+        briefAcceptedAt: true,
+        addOnsSnapshot: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    this.brandAccess.assertOwnsOrder(order, actor);
+
+    if (!OrdersService.travelAddOnPurchasable(order)) {
+      throw new BadRequestException(
+        'Travel can only be added before the creator accepts the brief',
+      );
+    }
+
+    const travel = await this.resolveTravelAddOn(order.creatorId);
+    if (!travel) {
+      throw new BadRequestException(
+        'This creator does not offer travel to a shoot location',
+      );
+    }
+    if (OrdersService.orderHasAddOnNamed(order.addOnsSnapshot, travel.name)) {
+      throw new BadRequestException(
+        'Travel is already included in this order',
+      );
+    }
+
+    let purchase = await this.prisma.orderTravelPurchase.findFirst({
+      where: { orderId: order.id, status: 'PENDING_PAYMENT' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (purchase && purchase.unitAmountPaise !== travel.unitPaise) {
+      // The creator re-priced travel since the row was created — re-quote it and
+      // drop the stale Razorpay order so a fresh one is minted below.
+      purchase = await this.prisma.orderTravelPurchase.update({
+        where: { id: purchase.id },
+        data: {
+          creatorAddOnId: travel.addOnId,
+          nameSnapshot: travel.name,
+          unitAmountPaise: travel.unitPaise,
+          expectedAmountPaise: travel.unitPaise,
+          razorpayOrderId: null,
+        },
+      });
+    }
+    if (!purchase) {
+      purchase = await this.prisma.orderTravelPurchase.create({
+        data: {
+          orderId: order.id,
+          creatorAddOnId: travel.addOnId,
+          nameSnapshot: travel.name,
+          unitAmountPaise: travel.unitPaise,
+          expectedAmountPaise: travel.unitPaise,
+          currency: order.currency,
+          createdByUserId: params.actorUserId,
+        },
+      });
+    }
+
+    let razorpayOrderId = purchase.razorpayOrderId;
+    if (!razorpayOrderId) {
+      const rzp = await this.razorpay.createOrder({
+        amountPaise: purchase.expectedAmountPaise,
+        currency: purchase.currency,
+        receipt: purchase.id,
+        notes: {
+          kind: 'travel_add_on',
+          travelPurchaseId: purchase.id,
+          platformOrderId: order.id,
+          brandProfileId: actor.brandId ?? actor.agencyId!,
+          creatorProfileId: order.creatorId,
+        },
+      });
+      razorpayOrderId = rzp.id;
+      await this.prisma.orderTravelPurchase.update({
+        where: { id: purchase.id },
+        data: { razorpayOrderId },
+      });
+    }
+
+    return this.buildCheckoutSessionResult({
+      orderId: order.id,
+      razorpayOrderId,
+      amountPaise: purchase.expectedAmountPaise,
+      currency: purchase.currency,
+      packageAmountPaise: 0,
+      addOnsAmountPaise: purchase.expectedAmountPaise,
+      addOnsCount: 1,
+    });
+  }
+
+  /**
+   * payment.captured for a travel add-on purchase: verify the amount, mark the
+   * purchase paid, and fold the add-on into the order itself — appended to
+   * addOnsSnapshot and added to addOnsTotalSnapshot / expectedAmountPaise (and
+   * grossAmountPaise on coupon orders, so the platform-fee base keeps matching).
+   * From there it settles exactly like travel bought at checkout: every view
+   * lists it, and the pricing ledger splits it 80/20. Idempotent (a replayed
+   * webhook is a no-op). Mirrors markUsageRightsPurchasePaidFromWebhook.
+   */
+  async markTravelPurchasePaidFromWebhook(params: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    paidAt: Date;
+    amountPaise?: number;
+  }): Promise<{ orderId: string; amountPaise: number } | null> {
+    const purchase = await this.prisma.orderTravelPurchase.findUnique({
+      where: { razorpayOrderId: params.razorpayOrderId },
+      select: {
+        id: true,
+        orderId: true,
+        status: true,
+        creatorAddOnId: true,
+        nameSnapshot: true,
+        unitAmountPaise: true,
+        expectedAmountPaise: true,
+      },
+    });
+    if (!purchase) return null;
+    if (purchase.status !== 'PENDING_PAYMENT') return null; // idempotent
+
+    if (
+      purchase.expectedAmountPaise > 0 &&
+      params.amountPaise != null &&
+      purchase.expectedAmountPaise !== params.amountPaise
+    ) {
+      this.logger.warn(
+        `payment.captured amount mismatch travelPurchase=${purchase.id} expectedPaise=${purchase.expectedAmountPaise} gotPaise=${params.amountPaise} — not adding the travel add-on`,
+      );
+      return null;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderTravelPurchase.update({
+        where: { id: purchase.id },
+        data: {
+          status: 'PAID',
+          paidAt: params.paidAt,
+          razorpayPaymentId: params.razorpayPaymentId,
+        },
+      });
+
+      const order = await tx.order.findUnique({
+        where: { id: purchase.orderId },
+        select: {
+          addOnsSnapshot: true,
+          addOnsTotalSnapshot: true,
+          expectedAmountPaise: true,
+          grossAmountPaise: true,
+        },
+      });
+      if (!order) return;
+      if (
+        OrdersService.orderHasAddOnNamed(
+          order.addOnsSnapshot,
+          purchase.nameSnapshot,
+        )
+      ) {
+        return; // already folded in (manual fix-up, or a duplicate purchase)
+      }
+
+      const priceDecimal = new Prisma.Decimal(purchase.unitAmountPaise).div(
+        100,
+      );
+      const existing = Array.isArray(order.addOnsSnapshot)
+        ? order.addOnsSnapshot
+        : [];
+
+      await tx.order.update({
+        where: { id: purchase.orderId },
+        data: {
+          addOnsSnapshot: [
+            ...existing,
+            {
+              id: purchase.creatorAddOnId ?? purchase.id,
+              name: purchase.nameSnapshot,
+              priceAmount: priceDecimal.toString(),
+              description: null,
+            },
+          ] as Prisma.InputJsonValue,
+          addOnsTotalSnapshot: (
+            order.addOnsTotalSnapshot ?? new Prisma.Decimal(0)
+          ).add(priceDecimal),
+          expectedAmountPaise:
+            order.expectedAmountPaise + purchase.expectedAmountPaise,
+          // grossAmountPaise is 0 on non-coupon orders (the ledger falls back to
+          // the net base); only a real gross is worth keeping in step.
+          ...(order.grossAmountPaise > 0
+            ? {
+                grossAmountPaise:
+                  order.grossAmountPaise + purchase.expectedAmountPaise,
+              }
+            : {}),
+        },
+      });
+    });
+
+    this.logger.log(
+      `[payment] captured travel add-on PAID purchase=${purchase.id} order=${purchase.orderId} payment=${params.razorpayPaymentId} amountPaise=${params.amountPaise ?? 'n/a'}`,
+    );
+
+    void this.orderRealtime.emitOrderTravelAddOnPurchased({
+      orderId: purchase.orderId,
+      amountPaise: purchase.expectedAmountPaise,
+    });
+
+    return {
+      orderId: purchase.orderId,
+      amountPaise: purchase.expectedAmountPaise,
+    };
+  }
+
+  /** payment.failed for a travel add-on purchase: flip its row to FAILED. */
+  async markTravelPurchaseFailedFromWebhook(params: {
+    razorpayOrderId: string;
+  }): Promise<string | null> {
+    const purchase = await this.prisma.orderTravelPurchase.findUnique({
+      where: { razorpayOrderId: params.razorpayOrderId },
+      select: { id: true, orderId: true, status: true },
+    });
+    if (!purchase || purchase.status !== 'PENDING_PAYMENT') return null;
+    await this.prisma.orderTravelPurchase.update({
+      where: { id: purchase.id },
+      data: { status: 'FAILED' },
+    });
+    return purchase.orderId;
+  }
+
   async listRevisionsForOrder(params: {
     orderId: string;
     viewerUserId: string;
@@ -4042,6 +4410,11 @@ export class OrdersService {
       extraRevisionsPaidPaise: 0,
       extraRevisionsAdded: 0,
       extraUsageRightsPaidPaise: 0,
+      // Travel add-on state for the brief form's on-location gate. Resolved only
+      // on the brand details path (below); other viewers keep the defaults.
+      travelAddOnUnitPaise: null,
+      travelAddOnPurchased: false,
+      travelAddOnAvailable: false,
       isFreeOrder: !!order.isFreeOrder,
       coupon: order.couponCodeSnapshot
         ? {
@@ -4259,6 +4632,23 @@ export class OrdersService {
       revisionPurchaseAgg._sum.revisionsAdded ?? 0;
     mappedOrder.extraUsageRightsPaidPaise =
       usageRightsPurchaseAgg._sum.expectedAmountPaise ?? 0;
+
+    // Travel add-on: the brief form needs to know whether an on-location shoot
+    // is already covered, can still be bought, or is simply not on offer from
+    // this creator (warn instead of block — see assertTravelAddOnSatisfied).
+    const travelAddOn = await this.resolveTravelAddOn(creator.id);
+    const travelPurchased = travelAddOn
+      ? OrdersService.orderHasAddOnNamed(
+          order.addOnsSnapshot,
+          travelAddOn.name,
+        )
+      : false;
+    mappedOrder.travelAddOnUnitPaise = travelAddOn?.unitPaise ?? null;
+    mappedOrder.travelAddOnPurchased = travelPurchased;
+    mappedOrder.travelAddOnAvailable =
+      travelAddOn != null &&
+      !travelPurchased &&
+      OrdersService.travelAddOnPurchasable(order);
 
     await this.attachRevisionSnapshots(mappedOrder, order);
 

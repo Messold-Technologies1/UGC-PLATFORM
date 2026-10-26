@@ -325,12 +325,23 @@ export class WebhooksService {
           if (!revisionResult) {
             // ...or a standalone usage-rights extension purchase. Extend the
             // order's usage-rights days; it emits its own realtime event.
-            await this.orders.markUsageRightsPurchasePaidFromWebhook({
-              razorpayOrderId: entity.order_id,
-              razorpayPaymentId: entity.id,
-              paidAt: new Date(entity.created_at * 1000),
-              amountPaise: paymentAmountPaise(entity),
-            });
+            const usageRightsResult =
+              await this.orders.markUsageRightsPurchasePaidFromWebhook({
+                razorpayOrderId: entity.order_id,
+                razorpayPaymentId: entity.id,
+                paidAt: new Date(entity.created_at * 1000),
+                amountPaise: paymentAmountPaise(entity),
+              });
+            if (!usageRightsResult) {
+              // ...or a travel add-on bought from the brief form. Folds the
+              // add-on into the order; it emits its own realtime event.
+              await this.orders.markTravelPurchasePaidFromWebhook({
+                razorpayOrderId: entity.order_id,
+                razorpayPaymentId: entity.id,
+                paidAt: new Date(entity.created_at * 1000),
+                amountPaise: paymentAmountPaise(entity),
+              });
+            }
           }
         }
       }
@@ -377,9 +388,16 @@ export class WebhooksService {
           });
         if (!failedRevisionOrderId) {
           // ...or a standalone usage-rights extension purchase.
-          await this.orders.markUsageRightsPurchaseFailedFromWebhook({
-            razorpayOrderId: entity.order_id,
-          });
+          const failedUsageRightsOrderId =
+            await this.orders.markUsageRightsPurchaseFailedFromWebhook({
+              razorpayOrderId: entity.order_id,
+            });
+          if (!failedUsageRightsOrderId) {
+            // ...or a travel add-on purchase started from the brief form.
+            await this.orders.markTravelPurchaseFailedFromWebhook({
+              razorpayOrderId: entity.order_id,
+            });
+          }
         }
       }
     }

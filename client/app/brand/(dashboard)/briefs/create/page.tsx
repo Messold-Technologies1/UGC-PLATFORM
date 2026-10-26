@@ -22,6 +22,7 @@ import {
   Plus,
   ImageIcon,
   Upload,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -54,6 +55,7 @@ import { uniqueBrandNames } from "@/features/agency/lib/unique-brand-names";
 import { BrandNameCombobox } from "@/features/briefs/components/brand-name-combobox";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { useGetBrandOrderDetailsQuery } from "@/features/orders/hooks/use-get-brand-order-details-query";
+import { useBuyTravelAddOn } from "@/features/payments/hooks/use-buy-travel-add-on";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 import { BrandPronunciationAudioField } from "@/features/brands/components/brand-pronunciation-audio-field";
 import {
@@ -599,6 +601,24 @@ function getScriptOptionLabel(value: ScriptOptionValue) {
   }
 }
 
+/**
+ * Shoot locations that put the creator on the road, so the order has to carry
+ * the creator's travel add-on. Mirrors TRAVEL_REQUIRING_SHOOT_LOCATIONS on the
+ * server, which is what actually enforces it at brief submit.
+ */
+const TRAVEL_REQUIRING_SHOOT_LOCATIONS: BriefShootLocationKind[] = [
+  "OUTDOOR_PUBLIC_LOCATION",
+  "BRAND_SELECTED_LOCATION",
+];
+
+function formatMoneyPaise(paise: number, currency = "INR") {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: currency || "INR",
+    maximumFractionDigits: 0,
+  }).format(paise / 100);
+}
+
 function CreateBriefPageContent() {
   const router = useRouter();
   const workspaceBase = useBuyerWorkspaceBase();
@@ -753,6 +773,15 @@ function CreateBriefPageContent() {
 
   const handleSubmitBrief = () => {
     if (!orderId || !savedBriefId) return;
+    // The server enforces this too (every path into an order goes through it);
+    // stopping here just saves the brand a round trip and a red toast.
+    if (travelBlocksBriefSubmit) {
+      toast.error("Add the travel add-on first", {
+        description:
+          "This brief asks for an on-location shoot, so the order needs the creator's travel add-on.",
+      });
+      return;
+    }
     submitBriefMutation.mutate({ orderId, briefId: savedBriefId });
   };
 
@@ -760,6 +789,28 @@ function CreateBriefPageContent() {
     control: form.control,
     name: "shootLocationKind",
   });
+
+  // On-location shoot gate. Shoot location is picked here, long after checkout,
+  // so a brand that skipped the creator's travel add-on is asking for a trip it
+  // never paid for. They buy it inline (Razorpay, same as any add-on) and the
+  // brief submit stays blocked until the webhook lands it on the order. A
+  // creator who doesn't offer travel at all is a warning, not a block — there's
+  // nothing to buy, and they may still reject the brief.
+  const needsTravelAddOn =
+    !!watchShootLocation &&
+    TRAVEL_REQUIRING_SHOOT_LOCATIONS.includes(watchShootLocation);
+  const travelUnitPaise = orderData?.travelAddOnUnitPaise ?? null;
+  const creatorOffersTravel = travelUnitPaise != null;
+  const travelAlreadyOnOrder = !!orderData?.travelAddOnPurchased;
+  const canBuyTravelNow = !!orderData?.travelAddOnAvailable;
+  const travelBlocksBriefSubmit =
+    isFromOrder &&
+    needsTravelAddOn &&
+    creatorOffersTravel &&
+    !travelAlreadyOnOrder;
+  const { isProcessing: isBuyingTravel, buyTravelAddOn } = useBuyTravelAddOn(
+    orderId ?? "",
+  );
   const watchWillShip = useWatch({
     control: form.control,
     name: "willShipPhysicalProductToCreator",
@@ -1644,6 +1695,87 @@ function CreateBriefPageContent() {
                       )}
                     </div>
                   )}
+
+                  {isFromOrder && needsTravelAddOn && !isOrderLoading && (
+                    <>
+                      {travelAlreadyOnOrder ? (
+                        <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                          <Check
+                            className="size-4 text-emerald-700 mt-0.5 shrink-0"
+                            aria-hidden
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-emerald-900">
+                              Travel is covered on this order
+                            </p>
+                            <p className="text-xs text-emerald-800/70 mt-0.5">
+                              {creatorName ?? "The creator"} can come to the
+                              location you picked.
+                            </p>
+                          </div>
+                        </div>
+                      ) : creatorOffersTravel ? (
+                        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <MapPin
+                              className="size-4 text-primary mt-0.5 shrink-0"
+                              aria-hidden
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-foreground">
+                                This shoot needs the creator to travel
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                You didn&apos;t add travel at checkout. Add it to
+                                this order to submit a brief with an on-location
+                                shoot — or pick a location that doesn&apos;t need
+                                the creator to travel. Non-refundable once paid.
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => void buyTravelAddOn()}
+                            disabled={isBuyingTravel || !canBuyTravelNow}
+                            className="rounded-xl font-bold px-6 h-11 shrink-0"
+                          >
+                            {isBuyingTravel ? (
+                              <>
+                                <Spinner className="mr-2 size-4" aria-hidden />
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                Add travel —{" "}
+                                {formatMoneyPaise(
+                                  travelUnitPaise ?? 0,
+                                  orderData?.currency,
+                                )}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                          <AlertTriangle
+                            className="size-4 text-amber-700 mt-0.5 shrink-0"
+                            aria-hidden
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-amber-900">
+                              {creatorName ?? "This creator"} doesn&apos;t offer
+                              travel to a shoot location
+                            </p>
+                            <p className="text-xs text-amber-800/80 mt-0.5">
+                              You can still send this brief, but they may reject
+                              it. Consider a location close to them, or
+                              Creator&apos;s Own Setup.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                   </div>
                 </div>
 
@@ -1893,20 +2025,42 @@ function CreateBriefPageContent() {
                 </div>
 
               {savedBriefId && isFromOrder && (
-                <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div
+                  className={cn(
+                    "mt-6 rounded-xl border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4",
+                    travelBlocksBriefSubmit
+                      ? "border-amber-200 bg-amber-50/70"
+                      : "border-emerald-200 bg-emerald-50/60",
+                  )}
+                >
                   <div>
-                    <h3 className="font-bold text-sm text-emerald-900">
-                      Brief saved! Ready to send?
-                    </h3>
-                    <p className="text-xs text-emerald-800/70 mt-0.5">
-                      Submit the brief to {creatorName ?? "the creator"} so they
-                      can start working.
-                    </p>
+                    {travelBlocksBriefSubmit ? (
+                      <>
+                        <h3 className="font-bold text-sm text-amber-900">
+                          Brief saved — travel still needs to be added
+                        </h3>
+                        <p className="text-xs text-amber-800/80 mt-0.5">
+                          This brief asks for an on-location shoot. Add the
+                          travel add-on above, or change the shoot location, to
+                          send it to {creatorName ?? "the creator"}.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="font-bold text-sm text-emerald-900">
+                          Brief saved! Ready to send?
+                        </h3>
+                        <p className="text-xs text-emerald-800/70 mt-0.5">
+                          Submit the brief to {creatorName ?? "the creator"} so
+                          they can start working.
+                        </p>
+                      </>
+                    )}
                   </div>
                   <Button
                     type="button"
                     onClick={handleSubmitBrief}
-                    disabled={isSubmittingBrief}
+                    disabled={isSubmittingBrief || travelBlocksBriefSubmit}
                     className="rounded-xl font-bold px-8 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shrink-0"
                   >
                     {isSubmittingBrief ? (

@@ -238,6 +238,28 @@ export class OrderDetailsPublicDto {
   extraUsageRightsPaidPaise!: number;
 
   @ApiPropertyOptional({
+    example: 50000,
+    nullable: true,
+    description:
+      "Price in paise of the creator's 'Travel within City' add-on. Null when the creator does not offer travel at all. Brand details only.",
+  })
+  travelAddOnUnitPaise?: number | null;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the travel add-on is already on this order (bought at checkout or added later). Brand details only.',
+  })
+  travelAddOnPurchased!: boolean;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether the brand can still buy the travel add-on for this order right now (creator offers it, it is not already on the order, and the creator has not accepted the brief yet). Brand details only.',
+  })
+  travelAddOnAvailable!: boolean;
+
+  @ApiPropertyOptional({
     type: () => OrderCouponDto,
     nullable: true,
     description: 'Coupon applied at checkout, if any.',

@@ -239,6 +239,7 @@ model User {
   requestedRevisions          OrderRevision[]            @relation("OrderRevisionRequester")
   revisionPurchases           OrderRevisionPurchase[]    @relation("RevisionPurchaseCreator")
   usageRightsPurchases        OrderUsageRightsPurchase[] @relation("UsageRightsPurchaseCreator")
+  travelPurchases             OrderTravelPurchase[]      @relation("TravelPurchaseCreator")
   sentChatMessages            OrderChatMessage[]
   orderChatReadStates         OrderChatReadState[]
   passwordResetTokens         PasswordResetToken[]
@@ -780,6 +781,7 @@ model Order {
   revisions            OrderRevision[]
   revisionPurchases    OrderRevisionPurchase[]
   usageRightsPurchases OrderUsageRightsPurchase[]
+  travelPurchases      OrderTravelPurchase[]
   deliveries           OrderDelivery[]
   chatMessages         OrderChatMessage[]
   chatReadStates       OrderChatReadState[]
@@ -914,6 +916,46 @@ model OrderUsageRightsPurchase {
 
   order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   createdBy User  @relation("UsageRightsPurchaseCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+enum OrderTravelPurchaseStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+}
+
+/// A supplemental, standalone charge on an ALREADY PAID Order: the brand bought
+/// the creator's "Travel within City" add-on after checkout, because the brief
+/// they are writing asks for an on-location shoot (OUTDOOR_PUBLIC_LOCATION /
+/// BRAND_SELECTED_LOCATION) and they did not select travel at checkout.
+/// Non-refundable; once paid the add-on is folded into the order itself
+/// (addOnsSnapshot / addOnsTotalSnapshot / expectedAmountPaise), so it settles
+/// through the normal pricing ledger like any add-on bought at checkout.
+model OrderTravelPurchase {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  orderId             String                    @db.Uuid
+  /// The creator's CreatorAddOn row this purchase bought, so the order snapshot
+  /// keeps the same add-on id as a checkout-time selection.
+  creatorAddOnId      String?                   @db.Uuid
+  /// Add-on name snapshotted at purchase time (what lands in addOnsSnapshot).
+  nameSnapshot        String
+  /// Creator's "Travel within City" add-on price, in paise, snapshotted at purchase time.
+  unitAmountPaise     Int
+  /// Amount the Razorpay order is created for and verified against on capture.
+  expectedAmountPaise Int
+  currency            String                    @default("INR")
+  status              OrderTravelPurchaseStatus @default(PENDING_PAYMENT)
+  razorpayOrderId     String?                   @unique
+  razorpayPaymentId   String?
+  paidAt              DateTime?
+  createdByUserId     String                    @db.Uuid
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("TravelPurchaseCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
 }

@@ -632,6 +632,28 @@ export class OrdersController {
     });
   }
 
+  @Post(':id/travel-add-on/checkout')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      "Create/reuse a Razorpay checkout to add the creator's travel add-on to a paid order",
+    description:
+      'For a brief that asks for an on-location shoot (outdoor / brand-selected location) on an order checked out without travel. Available until the creator accepts the brief; the add-on is folded into the order once the payment is captured (webhook). Non-refundable.',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID (UUID)', format: 'uuid' })
+  @ApiCreatedResponse({ type: CheckoutResponseDto })
+  async createTravelAddOnCheckout(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<CheckoutResponseDto> {
+    return this.ordersService.createTravelAddOnCheckout({
+      orderId: id,
+      ...brandActorParams(req),
+    });
+  }
+
   @Get(':id/revisions')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({

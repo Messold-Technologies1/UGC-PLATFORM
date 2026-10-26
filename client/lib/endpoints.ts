@@ -130,6 +130,8 @@ export const ENDPOINTS = {
       `/api/orders/${encodeURIComponent(id)}/revisions/checkout`,
     USAGE_RIGHTS_CHECKOUT: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/usage-rights/checkout`,
+    TRAVEL_ADD_ON_CHECKOUT: (id: string) =>
+      `/api/orders/${encodeURIComponent(id)}/travel-add-on/checkout`,
     REVISIONS: (id: string) =>
       `/api/orders/${encodeURIComponent(id)}/revisions`,
     RATING_REVIEW: (id: string) =>

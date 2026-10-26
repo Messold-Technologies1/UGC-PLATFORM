@@ -10,6 +10,16 @@ export interface OrderPaymentEvent {
   [extra: string]: unknown;
 }
 
+/**
+ * The brand bought the creator's travel add-on mid-order (from the brief form
+ * or the submit-brief dialog). Carries no state of its own — views re-read the
+ * order, which now lists travel among its add-ons.
+ */
+export interface OrderTravelAddOnPurchasedEvent {
+  orderId: string;
+  amountPaise: number;
+}
+
 export interface OrderBriefSubmittedEvent {
   orderId: string;
   briefSubmittedAt: string;
@@ -191,6 +201,9 @@ export interface ClientToServerEvents {
 
 export interface ServerToClientEvents {
   "order.payment": (e: OrderPaymentEvent) => void;
+  "order.travel_add_on_purchased": (
+    e: OrderTravelAddOnPurchasedEvent,
+  ) => void;
   "order.brief_submitted": (e: OrderBriefSubmittedEvent) => void;
   "order.brief_accepted": (e: OrderBriefAcceptedEvent) => void;
   "order.product_shipped": (e: OrderProductShippedEvent) => void;

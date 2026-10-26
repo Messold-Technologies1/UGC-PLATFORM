@@ -827,6 +827,34 @@ function CreateBriefPageContent() {
       block: "center",
     });
   }, [savedBriefId, travelBlocksBriefSubmit]);
+
+  // Paying for travel clears the block without a reload — the purchase polls
+  // the order, and the realtime event refreshes it the moment the webhook
+  // lands, so the banner turns green and the submit enables on its own. Both of
+  // those happen off-screen though: the brand is looking at the banner, and
+  // what they need next is the submit, further down. Carry them to it.
+  const submitSectionRef = useRef<HTMLDivElement | null>(null);
+  const formActionsRef = useRef<HTMLDivElement | null>(null);
+  const travelPurchaseStartedRef = useRef(false);
+  const travelWasCoveredRef = useRef(travelAlreadyOnOrder);
+  useEffect(() => {
+    const wasCovered = travelWasCoveredRef.current;
+    travelWasCoveredRef.current = travelAlreadyOnOrder;
+    // Only on the transition, and only for a purchase made here — an order that
+    // simply loads with travel on it must not yank the page.
+    if (wasCovered || !travelAlreadyOnOrder) return;
+    if (!travelPurchaseStartedRef.current) return;
+    travelPurchaseStartedRef.current = false;
+    // The submit card exists only once the brief is saved; before that, the
+    // next step is the "Create brief" button in the form's action bar.
+    const target = submitSectionRef.current ?? formActionsRef.current;
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [travelAlreadyOnOrder]);
+
+  const handleBuyTravelAddOn = () => {
+    travelPurchaseStartedRef.current = true;
+    void buyTravelAddOn();
+  };
   const watchWillShip = useWatch({
     control: form.control,
     name: "willShipPhysicalProductToCreator",
@@ -1727,7 +1755,7 @@ function CreateBriefPageContent() {
                           </div>
                           <Button
                             type="button"
-                            onClick={() => void buyTravelAddOn()}
+                            onClick={handleBuyTravelAddOn}
                             disabled={isBuyingTravel || !canBuyTravelNow}
                             className="rounded-xl font-bold px-6 h-11 shrink-0"
                           >
@@ -2042,8 +2070,9 @@ function CreateBriefPageContent() {
 
               {savedBriefId && isFromOrder && (
                 <div
+                  ref={submitSectionRef}
                   className={cn(
-                    "mt-6 rounded-xl border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4",
+                    "mt-6 scroll-mt-24 rounded-xl border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4",
                     travelBlocksBriefSubmit
                       ? "border-amber-200 bg-amber-50/70"
                       : "border-emerald-200 bg-emerald-50/60",
@@ -2110,7 +2139,7 @@ function CreateBriefPageContent() {
                   </span>
                 </div>
               ) : null}
-              <div className={styles.panelFootActions}>
+              <div ref={formActionsRef} className={styles.panelFootActions}>
               {!isEditMode && (
                 <Button
                   type="button"

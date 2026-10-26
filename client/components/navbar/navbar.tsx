@@ -22,6 +22,7 @@ import {
   ChevronDown,
   MessageSquare,
   Building2,
+  Handshake,
   Heart,
   Video,
   Ticket,
@@ -96,6 +97,12 @@ const roleConfigs: Record<string, NavItem[]> = {
       label: "Credits",
       icon: Wallet,
       tourId: "nav-brand-credits",
+    },
+    {
+      href: "/brand/agencies",
+      label: "Agencies",
+      icon: Handshake,
+      tourId: "nav-brand-agencies",
     },
   ],
   agency: [

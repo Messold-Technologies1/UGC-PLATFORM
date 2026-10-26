@@ -17,6 +17,15 @@ import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
 describe('OrdersService travel add-on', () => {
   const TRAVEL_OPTION_NAME = 'Travel within City';
 
+  /** The `data` of the last order.update, failing loudly if there wasn't one. */
+  function lastOrderUpdateData(
+    orderUpdate: jest.Mock<unknown, [{ data: Record<string, any> }]>,
+  ): Record<string, any> {
+    const call = orderUpdate.mock.calls.at(-1);
+    if (!call) throw new Error('expected an order.update call');
+    return call[0].data;
+  }
+
   function makeService(opts: {
     order?: Record<string, unknown> | null;
     brief?: Record<string, unknown> | null;
@@ -27,7 +36,10 @@ describe('OrdersService travel add-on', () => {
     /** Order row the paid-webhook transaction reads back. */
     orderForWebhook?: Record<string, unknown> | null;
   }) {
-    const orderUpdate = jest.fn(() => Promise.resolve({}));
+    // Typed arg so lastOrderUpdateData can read back the update payload.
+    const orderUpdate = jest.fn((args: { data: Record<string, any> }) =>
+      Promise.resolve(args.data),
+    );
     const purchaseUpdate = jest.fn((args: any) =>
       Promise.resolve({ id: 'tp-1', ...args.data }),
     );
@@ -277,7 +289,7 @@ describe('OrdersService travel add-on', () => {
       });
       expect(result).toEqual({ orderId: 'order-1', amountPaise: 50000 });
 
-      const data = orderUpdate.mock.calls.at(-1)?.[0]?.data;
+      const data = lastOrderUpdateData(orderUpdate);
       expect(data.addOnsSnapshot).toHaveLength(2);
       expect(data.addOnsSnapshot[1]).toEqual({
         id: 'addon-travel',
@@ -309,7 +321,7 @@ describe('OrdersService travel add-on', () => {
         paidAt: new Date(),
         amountPaise: 50000,
       });
-      const data = orderUpdate.mock.calls.at(-1)?.[0]?.data;
+      const data = lastOrderUpdateData(orderUpdate);
       expect(data.expectedAmountPaise).toBe(300000);
       expect(data.grossAmountPaise).toBe(350000);
     });

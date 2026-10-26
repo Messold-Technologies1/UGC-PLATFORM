@@ -811,6 +811,22 @@ function CreateBriefPageContent() {
   const { isProcessing: isBuyingTravel, buyTravelAddOn } = useBuyTravelAddOn(
     orderId ?? "",
   );
+
+  // Saving scrolls the brand to the bottom "Brief saved" card, which is where
+  // they learn the submit is blocked — but the button that unblocks it is back
+  // up by the shoot location. Carry them to it instead, once per save so we
+  // don't yank the page while they're still editing.
+  const travelBannerRef = useRef<HTMLDivElement | null>(null);
+  const travelScrolledForBriefRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!savedBriefId || !travelBlocksBriefSubmit) return;
+    if (travelScrolledForBriefRef.current === savedBriefId) return;
+    travelScrolledForBriefRef.current = savedBriefId;
+    travelBannerRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [savedBriefId, travelBlocksBriefSubmit]);
   const watchWillShip = useWatch({
     control: form.control,
     name: "willShipPhysicalProductToCreator",
@@ -1672,32 +1688,8 @@ function CreateBriefPageContent() {
                     </div>
                   </div>
 
-                  {(watchShootLocation === "BRAND_SELECTED_LOCATION" ||
-                    watchShootLocation === "OUTDOOR_PUBLIC_LOCATION") && (
-                    <div className="space-y-2 min-w-0">
-                      <Label
-                        htmlFor="shootLocationAddress"
-                        className="text-xs font-semibold text-foreground/80"
-                      >
-                        Location Address{" "}
-                        <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="shootLocationAddress"
-                        placeholder="Enter the shoot location address"
-                        className="rounded-lg bg-white"
-                        {...form.register("shootLocationAddress")}
-                      />
-                      {form.formState.errors.shootLocationAddress && (
-                        <p className="text-[11px] text-destructive mt-1">
-                          {form.formState.errors.shootLocationAddress.message}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
                   {isFromOrder && needsTravelAddOn && !isOrderLoading && (
-                    <>
+                    <div ref={travelBannerRef} className="scroll-mt-24">
                       {travelAlreadyOnOrder ? (
                         <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
                           <Check
@@ -1774,7 +1766,31 @@ function CreateBriefPageContent() {
                           </div>
                         </div>
                       )}
-                    </>
+                    </div>
+                  )}
+
+                  {(watchShootLocation === "BRAND_SELECTED_LOCATION" ||
+                    watchShootLocation === "OUTDOOR_PUBLIC_LOCATION") && (
+                    <div className="space-y-2 min-w-0">
+                      <Label
+                        htmlFor="shootLocationAddress"
+                        className="text-xs font-semibold text-foreground/80"
+                      >
+                        Location Address{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="shootLocationAddress"
+                        placeholder="Enter the shoot location address"
+                        className="rounded-lg bg-white"
+                        {...form.register("shootLocationAddress")}
+                      />
+                      {form.formState.errors.shootLocationAddress && (
+                        <p className="text-[11px] text-destructive mt-1">
+                          {form.formState.errors.shootLocationAddress.message}
+                        </p>
+                      )}
+                    </div>
                   )}
                   </div>
                 </div>

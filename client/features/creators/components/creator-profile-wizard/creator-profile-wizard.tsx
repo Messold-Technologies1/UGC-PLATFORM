@@ -362,6 +362,12 @@ export function CreatorProfileWizard({
         (connection) =>
           connection.platform === "INSTAGRAM" && connection.status === "ACTIVE",
       );
+  const instagramFollowers = adminMode
+    ? (adminInstagramInsightsQuery.data?.followers ?? null)
+    : ((socialConnectionsQuery.data ?? []).find(
+        (connection) =>
+          connection.platform === "INSTAGRAM" && connection.status === "ACTIVE",
+      )?.followersCount ?? null);
 
   /**
    * Drives the Instagram option in the add-reel chooser. Admin mode always
@@ -2134,6 +2140,7 @@ export function CreatorProfileWizard({
               ) : activeStep.id === "pricing" ? (
                 <PricingStep
                   disabled={fieldsDisabled}
+                  instagramFollowers={instagramFollowers}
                   packageDraft={packages.packageDraft}
                   onPackageChange={onPackageChange}
                   packageErrors={{

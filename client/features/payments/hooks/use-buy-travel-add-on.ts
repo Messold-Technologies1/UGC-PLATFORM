@@ -36,12 +36,20 @@ function getErrorMessage(error: unknown): string {
  * dialog, which lists orders and never mounts any one order's details query —
  * a refetch there would have nothing to refetch and the poll would always time
  * out. Fetching seeds the cache either way, so an open brief form updates too.
+ *
+ * This is the fallback path. The realtime `order.travel_add_on_purchased` event
+ * normally refreshes the order the moment the webhook lands; the poll is what
+ * covers a dropped socket, and it waits a full minute because giving up early
+ * leaves the brand looking at a block they have already paid to clear.
  */
+const POLL_ATTEMPTS = 20;
+const POLL_INTERVAL_MS = 3000;
+
 async function pollUntilTravelPurchased(
   queryClient: QueryClient,
   orderId: string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
     const data = await queryClient
       .fetchQuery<BrandOrderDetailsResponse>({
         ...brandOrderDetailsQueryOptions(orderId),
@@ -57,7 +65,7 @@ async function pollUntilTravelPurchased(
       });
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
   await queryClient.invalidateQueries({ queryKey: ["orders", "brand"] });
   toast.message("Your payment is being confirmed", {

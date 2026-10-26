@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { isAxiosError } from "axios";
 import {
+  AlertCircle,
   Building2,
   Check,
   Copy,
@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { classifyPartnerLinkError } from "@/features/agency/api/agency-brand-links";
 import {
   useAcceptBrandLinkMutation,
   useAgencyBrandLinksQuery,
@@ -81,7 +82,14 @@ export function AgencyBrandsPanel() {
    * sends someone hunting for a bug.
    */
   const featureDisabled =
-    isAxiosError(partnerId.error) && partnerId.error.response?.status === 404;
+    classifyPartnerLinkError(partnerId.error) === "feature-disabled";
+
+  /**
+   * The link list fails separately from the code above, and a failed load is
+   * not an empty one: claiming "no pending requests" when the request died
+   * tells the agency nothing is waiting on them, which may be false.
+   */
+  const linksFailed = links.isError;
 
   async function copyPartnerId() {
     const code = partnerId.data?.partnerId;
@@ -192,6 +200,12 @@ export function AgencyBrandsPanel() {
                 </li>
               ))}
             </ul>
+          ) : linksFailed ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Couldn't load"
+              hint="We don't know what's waiting on you — the list didn't load. Reload to try again."
+            />
           ) : pending.length === 0 ? (
             <EmptyState
               icon={Inbox}
@@ -259,6 +273,12 @@ export function AgencyBrandsPanel() {
                 </li>
               ))}
             </ul>
+          ) : linksFailed ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Couldn't load"
+              hint="We can't confirm which brands you manage — the list didn't load. Reload to try again."
+            />
           ) : active.length === 0 ? (
             <EmptyState
               icon={Building2}

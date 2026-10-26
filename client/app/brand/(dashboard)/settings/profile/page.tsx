@@ -3,7 +3,6 @@
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/providers/auth-provider";
-import { BrandAgencyLinksPanel } from "@/features/brands/components/brand-agency-links-panel";
 import { BrandProfileUpdateForm } from "@/features/brands/components/brand-profile-update-form.lazy";
 import { useBrandProfileStateQuery } from "@/features/brands/hooks/use-brand-profile-state-query";
 import { NotificationPreferencesCard } from "@/features/notification-preferences/components/notification-preferences-card";
@@ -78,16 +77,6 @@ export default function BrandSettingsProfilePage() {
       <div className="mx-auto w-full max-w-[1180px] px-4">
         <NotificationPreferencesCard enabled={hasExistingProfile} />
       </div>
-      {/*
-        Only once a profile exists: connecting an agency requires a complete
-        one, so offering it before the brand has saved anything would show a
-        list of everything that is missing as the first thing on the page.
-      */}
-      {hasExistingProfile ? (
-        <div className="mx-auto w-full max-w-[1180px] px-4">
-          <BrandAgencyLinksPanel />
-        </div>
-      ) : null}
     </div>
   );
 }

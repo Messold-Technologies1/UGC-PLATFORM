@@ -22,6 +22,7 @@ import {
 } from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
 import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog";
+import { WorkspaceSwitcherMenuItem } from "@/features/agency/components/workspace-switcher-menu-item";
 
 export function NavbarProfileMenu({
   onNavigate,
@@ -100,6 +101,7 @@ export function NavbarProfileMenu({
                   accountMenuGlassPanel,
                 )}
               >
+                <WorkspaceSwitcherMenuItem />
                 <Link
                   href={profileHref}
                   className={cn(
@@ -203,6 +205,7 @@ export function NavbarProfileMenu({
               <div className={cn("p-1")}>
                 {!pathname.startsWith("/admin") && (
                   <>
+                    <WorkspaceSwitcherMenuItem />
                     <Link
                       href={profileHref}
                       role="menuitem"

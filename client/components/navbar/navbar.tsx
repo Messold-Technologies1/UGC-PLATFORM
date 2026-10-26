@@ -38,7 +38,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { NavbarProfileMenu } from "@/components/navbar/navbar-profile-menu";
-import { BrandSwitcher } from "@/features/agency/components/brand-switcher";
 import { NotificationDropdown } from "@/components/navbar/notification-dropdown";
 import { useAuth } from "@/providers/auth-provider";
 import { useWalletBalance } from "@/features/wallet/hooks";
@@ -332,16 +331,6 @@ export function Navbar({ className }: { className?: string } = {}) {
   // Admin carries the most destinations of any role (nine, against four or
   // five elsewhere), so the pill that fits the others squeezes its labels.
   const isAdminNav = (pathname || "").split("/")[1] === "admin";
-  /**
-   * Agencies get a workspace picker; nobody else has one to pick.
-   *
-   * The switcher hides itself when the agency manages no brands, so this only
-   * has to answer "is this an agency at all". Matches the same test the nav
-   * items use, so the picker and the links agree about who is an agency.
-   */
-  const showAgencyBrandSwitcher =
-    user?.primaryRole === "AGENCY" ||
-    Boolean(user?.hasAgencyProfile && !user?.hasBrandProfile);
 
   const [hidden, setHidden] = useState(false);
   const { scrollY } = useScroll();
@@ -495,11 +484,6 @@ export function Navbar({ className }: { className?: string } = {}) {
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {showAgencyBrandSwitcher ? (
-                  <span className="hidden min-w-[180px] lg:inline-flex">
-                    <BrandSwitcher />
-                  </span>
-                ) : null}
                 <span data-tour="nav-notifications" className="inline-flex">
                   <NotificationDropdown />
                 </span>
@@ -625,11 +609,6 @@ export function Navbar({ className }: { className?: string } = {}) {
                 </div>
               ) : isAuthenticated ? (
                 <div className="px-3 py-2">
-                  {showAgencyBrandSwitcher ? (
-                    <div className="mb-3">
-                      <BrandSwitcher />
-                    </div>
-                  ) : null}
                   <NavbarProfileMenu onNavigate={() => setMobileOpen(false)} />
                 </div>
               ) : (

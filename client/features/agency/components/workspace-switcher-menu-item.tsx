@@ -17,9 +17,11 @@ import { useAuth } from "@/providers/auth-provider";
  * control only agencies ever see in the row everyone sees, and the account
  * menu is already where "who am I signed in as" questions are answered.
  *
- * The current workspace is named on the row rather than only inside the
- * dialog: an agency acting inside a brand is spending that brand's credits,
- * and that is not something to learn after the fact.
+ * The row leads with the workspace you are in rather than with the word
+ * "Switch": an agency acting inside a brand is spending that brand's credits
+ * under that brand's name, and that is not something to learn after the fact.
+ * What the row does is the quiet second line, because it only matters once
+ * you have read the first.
  */
 export function WorkspaceSwitcherMenuItem({
   className,
@@ -65,9 +67,11 @@ export function WorkspaceSwitcherMenuItem({
         className={cn(accountMenuItemClass, "w-full text-left", className)}
       >
         <ArrowLeftRight className="size-4 shrink-0" aria-hidden />
-        <span className="flex-1">Switch workspace</span>
-        <span className="max-w-28 truncate text-xs font-medium text-muted-foreground">
-          {label}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{label}</span>
+          <span className="block truncate text-[11px] font-normal leading-tight text-muted-foreground/70">
+            Click here to switch brands
+          </span>
         </span>
       </button>
 

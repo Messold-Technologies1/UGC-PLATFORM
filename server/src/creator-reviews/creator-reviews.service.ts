@@ -140,6 +140,9 @@ export class CreatorReviewsService {
             orderId: order.id,
             brandId: owner.brandId ?? null,
             agencyId: owner.agencyId ?? null,
+            // The review is published under the brand's name; this records
+            // that an agency actually wrote it.
+            ...this.brandAccess.actorAttributionCreateData(actor),
             creatorId: order.creatorId,
             rating: params.dto.rating,
             review: reviewText && reviewText.length > 0 ? reviewText : null,

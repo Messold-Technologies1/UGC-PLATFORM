@@ -131,12 +131,13 @@ function BrandOrdersListInner() {
           <OrdersEmptyState hasFilter={hasActiveFilter} />
         )}
         {!isLoading &&
-          filteredItems.map(({ order, creator }, i) => (
+          filteredItems.map(({ order, creator, placedByAgencyName }, i) => (
             <OrderCollaborationCard
               key={order.id}
               order={order}
               creator={creator}
               index={i}
+              placedByAgencyName={placedByAgencyName}
             />
           ))}
       </div>

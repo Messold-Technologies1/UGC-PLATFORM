@@ -18,9 +18,16 @@ import { buildOrderLastChatSnapshotUpdate } from './order-chat-order-snapshot';
 import { OrderChatRealtimeNotifier } from './order-chat-realtime.notifier';
 
 type OrderChatParticipants = {
+  /**
+   * The buyer side's primary user — the brand owner, or the agency owner for a
+   * legacy agency-direct order. A partner-linked agency is NOT this user; it
+   * reaches the chat through `brandId` below.
+   */
   brandUserId: string;
   creatorUserId: string;
   briefAcceptedAt: Date | null;
+  /** Owning brand, when there is one. Null for legacy agency-direct orders. */
+  brandId: string | null;
 };
 
 const CHAT_OPENS_AFTER_ACCEPT_MESSAGE =
@@ -93,6 +100,7 @@ export class OrderChatService {
       brandUserId,
       creatorUserId: order.creator.userId,
       briefAcceptedAt: order.briefAcceptedAt,
+      brandId: order.brandId ?? order.brand?.id ?? null,
     };
   }
 
@@ -107,8 +115,16 @@ export class OrderChatService {
     const participants = await this.getOrderParticipants(params.orderId);
     const ok =
       params.viewerUserId === participants.brandUserId ||
-      params.viewerUserId === participants.creatorUserId;
-    if (!ok) throw new ForbiddenException('Not allowed to access this order chat');
+      params.viewerUserId === participants.creatorUserId ||
+      // An agency managing this brand joins the brand's side of the
+      // conversation. Checked live, so revoking a link drops the agency out of
+      // in-flight chats immediately rather than at the next login.
+      (await this.brandAccess.isLinkedAgencyUserForBrand(
+        params.viewerUserId,
+        participants.brandId,
+      ));
+    if (!ok)
+      throw new ForbiddenException('Not allowed to access this order chat');
     return participants;
   }
 

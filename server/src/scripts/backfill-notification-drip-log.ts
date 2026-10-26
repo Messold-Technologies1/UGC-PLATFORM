@@ -180,9 +180,13 @@ async function backfillResubmit(): Promise<number> {
         eventKey: RESUBMIT_EVENT,
         profileId: approval.creatorId,
         userId: approval.creator.userId,
-        // Matches what the emit passes: each withdraw is its own occurrence.
-        occurrenceKey:
-          approval.withdrawnAt?.toISOString() ?? approval.creatorId,
+        // Matches what the emit passes: each withdraw is its own occurrence,
+        // keyed by epoch milliseconds. These rows exist to block a resend, so
+        // a key in a different shape from the emit's would not match and the
+        // drip would go out twice.
+        occurrenceKey: approval.withdrawnAt
+          ? String(approval.withdrawnAt.getTime())
+          : approval.creatorId,
         stamps: RESUBMIT_STAGES,
         source: approval as unknown as Record<string, Date | null>,
       }),

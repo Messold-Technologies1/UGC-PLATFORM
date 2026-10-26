@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
   Info,
+  Link2,
   Users,
   ShoppingCart,
   Briefcase,
@@ -21,6 +22,7 @@ import {
   ChevronDown,
   MessageSquare,
   Building2,
+  Handshake,
   Heart,
   Video,
   Ticket,
@@ -95,6 +97,12 @@ const roleConfigs: Record<string, NavItem[]> = {
       icon: Wallet,
       tourId: "nav-brand-credits",
     },
+    {
+      href: "/brand/agencies",
+      label: "Agencies",
+      icon: Handshake,
+      tourId: "nav-brand-agencies",
+    },
   ],
   agency: [
     {
@@ -133,6 +141,12 @@ const roleConfigs: Record<string, NavItem[]> = {
       icon: Wallet,
       tourId: "nav-brand-credits",
     },
+    {
+      href: "/agency/brands",
+      label: "Brands",
+      icon: Building2,
+      tourId: "nav-agency-brands",
+    },
   ],
   creator: [
     {
@@ -157,6 +171,7 @@ const roleConfigs: Record<string, NavItem[]> = {
   admin: [
     { href: "/admin/creators", label: "Creators", icon: Users },
     { href: "/admin/brandManagement", label: "Brand", icon: Building2 },
+    { href: "/admin/agencyBrandLinks", label: "Agency links", icon: Link2 },
     { href: "/admin/orderManagement", label: "Orders", icon: Package },
     { href: "/admin/legal", label: "Legal", icon: FileText },
     { href: "/admin/demo-videos", label: "Demo Videos", icon: Video },

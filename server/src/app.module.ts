@@ -25,6 +25,7 @@ import { BriefsModule } from './briefs/briefs.module';
 import { WishlistsModule } from './wishlists/wishlists.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
+import { AgencyBrandLinkModule } from './agency-brand-link/agency-brand-link.module';
 import { MailModule } from './mail/mail.module';
 import { CitiesModule } from './cities/cities.module';
 import { LegalPagesModule } from './legal-pages/legal-pages.module';
@@ -66,6 +67,7 @@ import { NotificationPreferencesModule } from './notification-preferences/notifi
     CreatorDemoVideosModule,
     BrandProfileModule,
     AgencyModule,
+    AgencyBrandLinkModule,
     NotificationPreferencesModule,
     OrdersModule,
     CouponsModule,

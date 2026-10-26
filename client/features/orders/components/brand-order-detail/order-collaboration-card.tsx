@@ -52,12 +52,15 @@ interface OrderCollaborationCardProps {
   order: OrderListSummary;
   creator: OrderCreatorSnapshot;
   index: number;
+  /** Set when a managing agency placed this order for the brand. */
+  placedByAgencyName?: string | null;
 }
 
 export function OrderCollaborationCard({
   order,
   creator,
   index,
+  placedByAgencyName,
 }: OrderCollaborationCardProps) {
   const workspaceBase = useBuyerWorkspaceBase();
   const [usageModalOpen, setUsageModalOpen] = useState(false);
@@ -132,6 +135,17 @@ export function OrderCollaborationCard({
               <FileText className="size-[15px] shrink-0 opacity-85" />
               <span className="truncate">{order.packageNameSnapshot}</span>
             </div>
+
+            {/*
+              Quiet by design: the brand delegated this, so it is context
+              rather than an alert. It still has to be visible on every row,
+              which is the whole point of the audit trail.
+            */}
+            {placedByAgencyName ? (
+              <div className="mt-1 truncate text-[12.5px] font-semibold text-muted-foreground/80 leading-snug">
+                Placed by {placedByAgencyName}
+              </div>
+            ) : null}
           </div>
         </div>
 

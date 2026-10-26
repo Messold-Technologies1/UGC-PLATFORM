@@ -288,6 +288,7 @@ export class WebhooksService {
         amountPaise: paymentAmountPaise(entity),
       });
       if (orderId) {
+        void this.orders.notifyBrandOfAgencyPlacedOrder(orderId);
         await this.orderRealtime.emitOrderPayment({
           orderId,
           kind: 'captured',
@@ -305,6 +306,7 @@ export class WebhooksService {
         });
         if (batchOrderIds) {
           for (const batchOrderId of batchOrderIds) {
+            void this.orders.notifyBrandOfAgencyPlacedOrder(batchOrderId);
             await this.orderRealtime.emitOrderPayment({
               orderId: batchOrderId,
               kind: 'captured',

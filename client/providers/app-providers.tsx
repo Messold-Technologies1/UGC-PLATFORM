@@ -3,6 +3,7 @@
 import { Suspense, type ReactNode } from "react";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ActiveBrandProvider } from "@/providers/active-brand-provider";
 import { AuthProvider } from "@/providers/auth-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { RealtimeProvider } from "@/providers/realtime-provider";
@@ -37,9 +38,11 @@ export function AuthenticatedAppProviders({
 }) {
   return (
     <AuthProvider>
-      <NotificationProvider>
-        <RealtimeProvider>{children}</RealtimeProvider>
-      </NotificationProvider>
+      <ActiveBrandProvider>
+        <NotificationProvider>
+          <RealtimeProvider>{children}</RealtimeProvider>
+        </NotificationProvider>
+      </ActiveBrandProvider>
     </AuthProvider>
   );
 }

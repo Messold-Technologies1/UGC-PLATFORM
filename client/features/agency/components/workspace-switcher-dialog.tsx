@@ -53,14 +53,14 @@ export function WorkspaceSwitcherDialog({
       .map<Row>((link) => ({
         id: link.brandId,
         name: link.brandName ?? "Unnamed brand",
-        hint: "Work inside this brand's account",
+        hint: "Work as this brand",
       }));
 
     return [
       {
         id: null,
         name: "My Agency",
-        hint: "Your own account — orders and briefs you own",
+        hint: "Your own account",
       },
       ...managed,
     ];
@@ -91,8 +91,8 @@ export function WorkspaceSwitcherDialog({
         <DialogHeader>
           <DialogTitle>Switch workspace</DialogTitle>
           <DialogDescription>
-            Everything you do — orders, wishlists, briefs — belongs to the
-            workspace you pick here.
+            Pick whose account you want to work in. Anything you do next —
+            orders, wishlists, briefs — happens in that account, not yours.
           </DialogDescription>
         </DialogHeader>
 

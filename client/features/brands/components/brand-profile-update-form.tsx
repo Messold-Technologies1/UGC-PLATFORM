@@ -588,7 +588,7 @@ function BrandProfileUpdateFormContent({
           </div>
           
           <div className="pe-field max-w-sm mt-4">
-            <label>Mobile number</label>
+            <label>Mobile number <span className="pe-required">*</span></label>
             <PhoneVerificationField
               idPrefix="brand-profile"
               disabled={pending}

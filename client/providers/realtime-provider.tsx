@@ -19,6 +19,7 @@ import type {
   OrderPaymentEvent,
   OrderBriefAcceptedEvent,
   OrderBriefSubmittedEvent,
+  OrderTravelAddOnPurchasedEvent,
   OrderProductReceivedEvent,
   OrderProductShippedEvent,
   OrderRevisionRequestedEvent,
@@ -142,6 +143,20 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         title: msg,
         description: `Order ${e.orderId.slice(0, 8)}...`,
         link: orderNotificationLink(e.orderId),
+      });
+    };
+
+    /**
+     * Travel was added to an order mid-flight. No toast: whoever paid is
+     * already being told by the checkout flow, and the creator learns about it
+     * from the order itself. This exists so the brief form drops its "add
+     * travel" block and enables the submit the moment the webhook lands,
+     * instead of waiting on the buyer's poll (or a page refresh).
+     */
+    const onTravelAddOnPurchased = (e: OrderTravelAddOnPurchasedEvent) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({
+        queryKey: ["orders", "brand", e.orderId],
       });
     };
 
@@ -376,6 +391,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     s.on("connect", onConnect);
     s.on("connect_error", onConnectError);
     s.on("order.payment", onOrderPayment);
+    s.on("order.travel_add_on_purchased", onTravelAddOnPurchased);
     s.on("order.brief_submitted", onBriefSubmitted);
     s.on("order.brief_accepted", onBriefAccepted);
     s.on("order.product_shipped", onProductShipped);
@@ -396,6 +412,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       s.off("connect", onConnect);
       s.off("connect_error", onConnectError);
       s.off("order.payment", onOrderPayment);
+      s.off("order.travel_add_on_purchased", onTravelAddOnPurchased);
       s.off("order.brief_submitted", onBriefSubmitted);
       s.off("order.brief_accepted", onBriefAccepted);
       s.off("order.product_shipped", onProductShipped);

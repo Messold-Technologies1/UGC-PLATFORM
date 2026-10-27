@@ -19,6 +19,7 @@ import {
   Search,
   SlidersHorizontal,
   Clock,
+  Sparkles,
   X,
   Zap,
 } from "lucide-react";
@@ -52,7 +53,33 @@ import {
   type Filters,
 } from "../types/creator-filter-types";
 import { formatContentPreferenceLabel } from "../lib/format-content-preference-label";
+import { BRAND_CREATOR_MATCH_FORM_URL } from "../lib/browse-constants";
 import type { CreatorFacetOption } from "../api/get-creator-facet-options";
+
+function CustomMatchFilterButton({ className }: { className?: string }) {
+  return (
+    <a
+      href={BRAND_CREATOR_MATCH_FORM_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        // Match FilterPopover trigger sizing (h/padding/radius/type) so the
+        // row stays level; only color marks it as the CTA.
+        "box-border inline-flex h-[44px] shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-primary/40 bg-primary/6 px-3.5 text-[13.5px] font-semibold leading-none text-primary shadow-sm transition-colors hover:bg-primary/10",
+        className,
+      )}
+    >
+      <Sparkles className="size-[15px] shrink-0" aria-hidden />
+      <span className="hidden min-[1400px]:inline">
+        Can&apos;t find a fit? We&apos;ll match you
+      </span>
+      <span className="min-[1400px]:hidden">We&apos;ll match you</span>
+      <span className="text-muted-foreground" aria-hidden>
+        →
+      </span>
+    </a>
+  );
+}
 
 const PRICE_STEP = 250;
 
@@ -690,7 +717,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
   onClear,
   landingPage,
 }: CreatorFilterBarProps) {
-  const [mode, setMode] = useState<"smart" | "manual">("manual");
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [localCity, setLocalCity] = useState(filters.city);
   useEffect(() => {
@@ -882,7 +908,10 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
         )}
       >
         <div className="flex flex-col gap-2.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          {/* One row: mode + search + filters + CTA.
+              Do NOT use overflow-x-auto here — it clips FilterPopover panels
+              (overflow-x non-visible forces overflow-y to compute to auto). */}
+          <div className="flex min-w-0 flex-nowrap items-center gap-2.5">
             <div className="flex shrink-0 items-center">
             <div
               className="inline-flex gap-[3px] rounded-[13px] border border-gray-200 bg-gray-100/80 p-1"
@@ -892,59 +921,32 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
               <button
                 type="button"
                 role="tab"
-                aria-selected={mode === "smart"}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] font-bold transition-colors sm:gap-2 sm:px-4 sm:text-[13px]",
-                  mode === "smart"
-                    ? "bg-white text-foreground shadow-sm"
-                    : "bg-transparent text-muted-foreground",
-                )}
-                onClick={() => setMode("smart")}
+                aria-selected={false}
+                aria-disabled="true"
+                disabled
+                title="Smart search coming soon"
+                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] font-bold text-muted-foreground/55 sm:gap-2 sm:px-4 sm:text-[13px]"
               >
                 Smart search
-                <span className="rounded-full bg-primary px-1.5 py-px text-[9px] font-extrabold tracking-wide text-white">
-                  AI
+                <span className="rounded-full bg-muted-foreground/25 px-1.5 py-px text-[9px] font-extrabold tracking-wide text-white">
+                  Soon
                 </span>
               </button>
               <button
                 type="button"
                 role="tab"
-                aria-selected={mode === "manual"}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] font-bold transition-colors sm:gap-2 sm:px-4 sm:text-[13px]",
-                  mode === "manual"
-                    ? "bg-white text-foreground shadow-sm"
-                    : "bg-transparent text-muted-foreground",
-                )}
-                onClick={() => setMode("manual")}
+                aria-selected={true}
+                className="inline-flex items-center gap-1.5 rounded-[10px] bg-white px-2.5 py-2 text-[12.5px] font-bold text-foreground shadow-sm sm:gap-2 sm:px-4 sm:text-[13px]"
               >
-                <SlidersHorizontal
-                  className={cn(
-                    "size-[15px]",
-                    mode === "manual" && "text-primary",
-                  )}
-                />
+                <SlidersHorizontal className="size-[15px] text-primary" />
                 Manual filters
               </button>
             </div>
           </div>
 
-          {mode === "smart" ? (
-            <div className="min-w-0 flex-1">
-              <SmartSearchBar
-                onSubmit={(val) => {
-                  // TODO: Wire up smart search logic here once backend is ready
-                  console.log("Smart search query:", val);
-                }}
-              />
-            </div>
-          ) : (
             <>
-              {/* Search + the phone "Filters" button wrap together, so the
-                  button never ends up alone on a line below a half-empty
-                  search field. */}
-              <div className="flex flex-1 items-center gap-2.5">
-                <div className="relative min-w-[150px] flex-1 min-[480px]:min-w-[240px]">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+                <div className="relative min-w-0 flex-1 overflow-hidden">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
                   <Input
                     type="search"
@@ -955,7 +957,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     }}
                     placeholder="Search creators by keyword…"
                     aria-label="Search creators"
-                    className="h-[44px] w-full rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                    className="h-[44px] w-full min-w-0 rounded-xl border-gray-200 bg-white pl-9 pr-9 text-[13.5px] shadow-sm [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                   />
                   {localSearch ? (
                     <button
@@ -971,7 +973,8 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     </button>
                   ) : null}
                 </div>
-                <div className="flex lg:hidden">
+                <div className="flex items-center gap-2 lg:hidden">
+                  <CustomMatchFilterButton />
                   <Drawer>
                     <DrawerTrigger asChild>
                       <button className="inline-flex h-[44px] items-center gap-2 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3.5 text-[13.5px] font-semibold text-foreground shadow-sm transition-colors hover:bg-gray-50">
@@ -1166,11 +1169,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                 </div>
               </div>
 
-              {/* The filter buttons wrap as a single group. Before, they were
-                  laid out with `contents`, so at widths where the row was a
-                  little too narrow (~1280px and ~1536px) only the last button
-                  ("More filters") dropped to a second line on its own. */}
-              <div className="hidden min-w-0 flex-wrap items-center gap-2.5 lg:flex">
+              <div className="relative z-10 hidden shrink-0 items-center gap-2.5 lg:flex">
                   <FilterPopover
                     id="category"
                     openId={openPopover}
@@ -1301,6 +1300,7 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                     aria-hidden
                   />
 
+                  <div className="flex shrink-0 items-center gap-2.5">
                   <FilterPopover
                     id="more"
                     openId={openPopover}
@@ -1447,13 +1447,19 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                       </button>
                     </div>
                   </FilterPopover>
-                </div>
+
+                  <div
+                    className="mx-0.5 h-[26px] w-px shrink-0 bg-gray-200"
+                    aria-hidden
+                  />
+
+                  <CustomMatchFilterButton />
+                  </div>
+              </div>
             </>
-          )}
           </div>
 
-          {mode === "manual" && (
-              <AnimatePresence>
+          <AnimatePresence>
                 {hasActiveFilters && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
@@ -1507,7 +1513,6 @@ export const CreatorFilterBar = memo(function CreatorFilterBar({
                   </motion.div>
                 )}
               </AnimatePresence>
-          )}
         </div>
       </div>
     </div>

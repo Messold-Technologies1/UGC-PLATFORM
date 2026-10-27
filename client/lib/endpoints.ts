@@ -61,9 +61,7 @@ export const ENDPOINTS = {
     PROFILE: "/api/agency/profile",
     PROFILE_ME: "/api/agency/profile/me",
     PROFILE_LOGO_PRESIGN: "/api/agency/profile/uploads/presign",
-    // Partner links. The agency owns the code; brands redeem it.
-    PARTNER_ID: "/api/agency/partner-id",
-    PARTNER_ID_ROTATE: "/api/agency/partner-id/rotate",
+    // Partner links. A brand names the agency by its sign-in email.
     BRAND_LINKS: "/api/agency/brand-links",
     BRAND_LINK_ACCEPT: (id: string) =>
       `/api/agency/brand-links/${encodeURIComponent(id)}/accept`,

@@ -6,30 +6,16 @@ import {
   acceptBrandLink,
   cancelAgencyLinkRequest,
   fetchAgencyBrandLinks,
-  fetchAgencyPartnerId,
   fetchBrandAgencyLinks,
   leaveBrandLink,
   rejectBrandLink,
   requestAgencyLink,
   revokeAgencyLink,
-  rotateAgencyPartnerId,
   type BrandCompletenessGap,
 } from "@/features/agency/api/agency-brand-links";
 
-export const agencyPartnerIdQueryKey = ["agency", "partner-id"] as const;
 export const agencyBrandLinksQueryKey = ["agency", "brand-links"] as const;
 export const brandAgencyLinksQueryKey = ["brand", "agency-links"] as const;
-
-/** The code the agency hands to brands. */
-export function useAgencyPartnerIdQuery(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: agencyPartnerIdQueryKey,
-    queryFn: fetchAgencyPartnerId,
-    enabled: options?.enabled ?? true,
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
-}
 
 /** Brands this agency manages, plus requests waiting on it. */
 export function useAgencyBrandLinksQuery(options?: { enabled?: boolean }) {
@@ -92,7 +78,7 @@ export function useRequestAgencyLinkMutation(options?: {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (partnerId: string) => requestAgencyLink(partnerId),
+    mutationFn: (agencyEmail: string) => requestAgencyLink(agencyEmail),
     onSuccess: (result) => {
       toast.success(`Request sent to ${result.agencyName}`, {
         description: "They'll get an email and can accept from their dashboard.",
@@ -167,20 +153,6 @@ export function useLeaveBrandLinkMutation() {
     onSuccess: () => {
       toast.success("You've stopped managing this brand");
       void queryClient.invalidateQueries({ queryKey: agencyBrandLinksQueryKey });
-    },
-    onError: (error) => toast.error(describeLinkError(error).message),
-  });
-}
-
-export function useRotatePartnerIdMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: rotateAgencyPartnerId,
-    onSuccess: () => {
-      toast.success("New Partner ID generated", {
-        description: "Brands you already manage keep their access.",
-      });
-      void queryClient.invalidateQueries({ queryKey: agencyPartnerIdQueryKey });
     },
     onError: (error) => toast.error(describeLinkError(error).message),
   });

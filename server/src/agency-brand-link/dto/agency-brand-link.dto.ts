@@ -1,19 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AgencyBrandLinkStatus } from '@prisma/client';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
-/** A brand redeeming an agency's partner code. */
+/** A brand naming the agency it wants to be managed by. */
 export class RequestAgencyLinkDto {
   @ApiProperty({
-    example: 'GC-7F3K-92QX',
+    example: 'hello@bestagency.com',
     description:
-      "The agency's partner ID. Case-insensitive, and tolerant of missing " +
-      'dashes or stray spacing from a copy-paste.',
+      'The email address the agency signs in with. Matched case-insensitively.',
   })
-  @IsString()
-  @MinLength(4)
-  @MaxLength(64)
-  partnerId!: string;
+  @IsEmail()
+  @MaxLength(254)
+  agencyEmail!: string;
 }
 
 export class RevokeAgencyLinkDto {
@@ -72,12 +70,4 @@ export class BrandAgencyLinksResponseDto {
 
   @ApiProperty({ type: BrandAgencyLinkItemDto, isArray: true })
   links!: BrandAgencyLinkItemDto[];
-}
-
-export class AgencyPartnerIdResponseDto {
-  @ApiProperty({ example: 'GC-7F3K-92QX' })
-  partnerId!: string;
-
-  @ApiProperty({ nullable: true }) issuedAt!: Date | null;
-  @ApiProperty({ nullable: true }) rotatedAt!: Date | null;
 }

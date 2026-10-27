@@ -4,9 +4,9 @@ import { ENDPOINTS } from "@/lib/endpoints";
 /**
  * Partner links, both sides.
  *
- * Worth keeping the direction in mind while reading: the AGENCY holds the
- * partner code, the BRAND redeems it to create a PENDING request, and the
- * AGENCY accepts. So the brand calls `requestAgencyLink` and the agency calls
+ * Worth keeping the direction in mind while reading: the BRAND names the
+ * agency by its sign-in email to create a PENDING request, and the AGENCY
+ * accepts. So the brand calls `requestAgencyLink` and the agency calls
  * `acceptBrandLink` — not the other way round.
  */
 
@@ -51,12 +51,6 @@ export type AgencyBrandLink = {
   brandLogoUrl: string | null;
 };
 
-export type AgencyPartnerId = {
-  partnerId: string;
-  issuedAt: string | null;
-  rotatedAt: string | null;
-};
-
 export type AgencySpendReport = {
   brandId: string;
   orderCount: number;
@@ -67,18 +61,6 @@ export type AgencySpendReport = {
 };
 
 // ---------------------------------------------------------------- agency side
-
-export async function fetchAgencyPartnerId(): Promise<AgencyPartnerId> {
-  const { data } = await api.get<AgencyPartnerId>(ENDPOINTS.AGENCY.PARTNER_ID);
-  return data;
-}
-
-export async function rotateAgencyPartnerId(): Promise<{ partnerId: string }> {
-  const { data } = await api.post<{ partnerId: string }>(
-    ENDPOINTS.AGENCY.PARTNER_ID_ROTATE,
-  );
-  return data;
-}
 
 export async function fetchAgencyBrandLinks(): Promise<AgencyBrandLink[]> {
   const { data } = await api.get<AgencyBrandLink[]>(
@@ -123,11 +105,11 @@ export async function fetchBrandAgencyLinks(): Promise<BrandAgencyLinksResponse>
 }
 
 export async function requestAgencyLink(
-  partnerId: string,
+  agencyEmail: string,
 ): Promise<{ linkId: string; agencyName: string }> {
   const { data } = await api.post<{ linkId: string; agencyName: string }>(
     ENDPOINTS.BRANDS.AGENCY_LINKS,
-    { partnerId },
+    { agencyEmail },
   );
   return data;
 }

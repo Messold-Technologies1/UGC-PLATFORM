@@ -20,7 +20,7 @@ const BRAND_ID = 'brand-1';
 const BRAND_USER = 'brand-user-1';
 const AGENCY_ID = 'agency-1';
 const AGENCY_USER = 'agency-user-1';
-const PARTNER_ID = 'GC-7F3K-92QX';
+const AGENCY_EMAIL = 'hello@bestagency.com';
 
 type BrandFixture = {
   id: string;
@@ -50,11 +50,14 @@ type Options = {
   flagEnabled?: boolean;
   otpEnabled?: boolean;
   brand?: BrandFixture | null;
-  agencyByPartnerId?: {
+  /** The agency owning the email that was typed; null means no such agency. */
+  agencyByEmail?: {
     id: string;
     name: string;
     ownerUserId: string;
   } | null;
+  /** The user behind the typed email; null means no account at all. */
+  ownerByEmail?: { id: string } | null;
   agencyByOwner?: { id: string; ownerUserId: string } | null;
   existingLink?: { id: string; status: AgencyBrandLinkStatus } | null;
   linkById?: Record<string, unknown> | null;
@@ -67,18 +70,26 @@ function build(opts: Options = {}) {
         Promise.resolve(opts.brand === undefined ? completeBrand : opts.brand),
       ),
     },
+    user: {
+      findUnique: jest.fn(() =>
+        Promise.resolve(
+          opts.ownerByEmail === undefined
+            ? { id: AGENCY_USER }
+            : opts.ownerByEmail,
+        ),
+      ),
+    },
     agency: {
-      findUnique: jest.fn((args: { where: Record<string, unknown> }) => {
-        if ('partnerId' in args.where) {
-          return Promise.resolve(
-            opts.agencyByPartnerId === undefined
-              ? { id: AGENCY_ID, name: 'Best Agency', ownerUserId: AGENCY_USER }
-              : opts.agencyByPartnerId,
-          );
+      findUnique: jest.fn(() => {
+        // requestLink resolves the agency from the owner it found by email;
+        // the other callers look up the signed-in agency the same way, so the
+        // fixture is chosen by which option the test set.
+        if (opts.agencyByEmail !== undefined) {
+          return Promise.resolve(opts.agencyByEmail);
         }
         return Promise.resolve(
           opts.agencyByOwner === undefined
-            ? { id: AGENCY_ID, ownerUserId: AGENCY_USER }
+            ? { id: AGENCY_ID, name: 'Best Agency', ownerUserId: AGENCY_USER }
             : opts.agencyByOwner,
         );
       }),
@@ -155,7 +166,7 @@ describe('AgencyBrandLinkService — the feature flag', () => {
     await expect(
       service.requestLink({
         brandUserId: BRAND_USER,
-        rawPartnerId: PARTNER_ID,
+        rawAgencyEmail: AGENCY_EMAIL,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
     await expect(service.listForBrand(BRAND_USER)).rejects.toBeInstanceOf(
@@ -167,13 +178,13 @@ describe('AgencyBrandLinkService — the feature flag', () => {
   });
 });
 
-describe('AgencyBrandLinkService.requestLink — the brand redeems the code', () => {
+describe('AgencyBrandLinkService.requestLink — the brand names the agency', () => {
   it('creates a pending request and names the agency', async () => {
     const { service, prisma } = build();
 
     const result = await service.requestLink({
       brandUserId: BRAND_USER,
-      rawPartnerId: PARTNER_ID,
+      rawAgencyEmail: AGENCY_EMAIL,
     });
 
     expect(result.status).toBe(AgencyBrandLinkStatus.PENDING);
@@ -181,16 +192,18 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
     expect(prisma.agencyBrandLink.create).toHaveBeenCalled();
   });
 
-  it('normalizes a sloppily pasted code before looking it up', async () => {
+  it('lowercases and trims the address before looking it up', async () => {
+    // Signup stores addresses lowercased, so a brand given the address in
+    // title case must still resolve.
     const { service, prisma } = build();
 
     await service.requestLink({
       brandUserId: BRAND_USER,
-      rawPartnerId: '  gc7f3k92qx ',
+      rawAgencyEmail: '  Hello@BestAgency.com ',
     });
 
-    expect(prisma.agency.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { partnerId: PARTNER_ID } }),
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: AGENCY_EMAIL } }),
     );
   });
 
@@ -206,7 +219,7 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
     await expect(
       service.requestLink({
         brandUserId: BRAND_USER,
-        rawPartnerId: PARTNER_ID,
+        rawAgencyEmail: AGENCY_EMAIL,
       }),
     ).rejects.toMatchObject({
       response: {
@@ -214,8 +227,9 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
       },
     });
 
-    // Refused before any code lookup, so an incomplete brand cannot probe
-    // which partner IDs exist.
+    // Refused before any lookup, so an incomplete brand cannot probe which
+    // addresses belong to an agency.
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.agency.findUnique).not.toHaveBeenCalled();
   });
 
@@ -231,33 +245,41 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
     await expect(
       service.requestLink({
         brandUserId: BRAND_USER,
-        rawPartnerId: PARTNER_ID,
+        rawAgencyEmail: AGENCY_EMAIL,
       }),
     ).resolves.toMatchObject({ status: AgencyBrandLinkStatus.PENDING });
   });
 
-  it('answers the same way for an unknown code and a malformed one', async () => {
-    // Both 404, so the endpoint cannot be used to discover valid codes.
-    const unknown = build({ agencyByPartnerId: null });
+  it('answers the same way whether the account is missing or is not an agency', async () => {
+    // Both 404, so the endpoint does not report which of the two it was.
+    const noAccount = build({ ownerByEmail: null });
     await expect(
-      unknown.service.requestLink({
+      noAccount.service.requestLink({
         brandUserId: BRAND_USER,
-        rawPartnerId: 'GC-AAAA-BBBB',
+        rawAgencyEmail: 'nobody@example.com',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
 
-    const malformed = build();
+    const notAnAgency = build({ agencyByEmail: null });
     await expect(
-      malformed.service.requestLink({
+      notAnAgency.service.requestLink({
         brandUserId: BRAND_USER,
-        rawPartnerId: 'not-a-code',
+        rawAgencyEmail: 'a-creator@example.com',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const blank = build();
+    await expect(
+      blank.service.requestLink({
+        brandUserId: BRAND_USER,
+        rawAgencyEmail: '   ',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('refuses an agency owner linking their own agency to their own brand', async () => {
     const { service } = build({
-      agencyByPartnerId: {
+      agencyByEmail: {
         id: AGENCY_ID,
         name: 'Best Agency',
         ownerUserId: BRAND_USER,
@@ -267,7 +289,7 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
     await expect(
       service.requestLink({
         brandUserId: BRAND_USER,
-        rawPartnerId: PARTNER_ID,
+        rawAgencyEmail: AGENCY_EMAIL,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -282,7 +304,7 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
       await expect(
         service.requestLink({
           brandUserId: BRAND_USER,
-          rawPartnerId: PARTNER_ID,
+          rawAgencyEmail: AGENCY_EMAIL,
         }),
       ).rejects.toBeInstanceOf(ConflictException);
     },
@@ -297,7 +319,7 @@ describe('AgencyBrandLinkService.requestLink — the brand redeems the code', ()
 
       await service.requestLink({
         brandUserId: BRAND_USER,
-        rawPartnerId: PARTNER_ID,
+        rawAgencyEmail: AGENCY_EMAIL,
       });
 
       expect(prisma.agencyBrandLink.create).not.toHaveBeenCalled();

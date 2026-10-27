@@ -24,9 +24,9 @@ import {
  * look like two halves of one feature: a dark hero carrying the single action
  * that matters, then equal cards for what is pending and what is live.
  *
- * The hero here is the Partner ID *input* rather than a code, because a brand
- * does not own one — it redeems the agency's. That asymmetry is the feature:
- * the agency hands out the code, the brand enters it, the agency accepts.
+ * The hero here is an input rather than something to copy, because the brand
+ * is the side that asks: it names the agency by the address that agency signs
+ * in with, and the agency accepts.
  */
 
 /**
@@ -91,7 +91,7 @@ function EmptyState({
 
 export function BrandAgencyLinksPanel() {
   const links = useBrandAgencyLinksQuery();
-  const [partnerId, setPartnerId] = useState("");
+  const [agencyEmail, setAgencyEmail] = useState("");
   const [serverGaps, setServerGaps] = useState<BrandCompletenessGap[]>([]);
   /**
    * Whether they have tried to send yet.
@@ -129,10 +129,9 @@ export function BrandAgencyLinksPanel() {
    * Most failures make submitting pointless — the feature is off here, there
    * is no brand profile to attach an agency to, or this is not the brand's
    * own account — so the form gives way to the explanation. A generic failure
-   * is different: the list
-   * request died, but the submit endpoint may well answer, and someone
-   * holding a Partner ID should be able to try it rather than stare at a
-   * banner with nowhere to type.
+   * is different: the list request died, but the submit endpoint may well
+   * answer, and someone who knows their agency's address should be able to
+   * try it rather than stare at a banner with nowhere to type.
    */
   const canSubmit = failure === null || failure === "other";
 
@@ -155,9 +154,9 @@ export function BrandAgencyLinksPanel() {
             Let an agency run your campaigns
           </p>
           <p className="mt-3 max-w-xl text-xs text-white/70">
-            Ask your agency for their Partner ID and enter it below. They have
-            to accept before they get any access — and they can never withdraw
-            your credits, edit your brand profile, or connect another agency.
+            Enter the email address your agency signs in with. They have to
+            accept before they get any access — and they can never withdraw your
+            credits, edit your brand profile, or connect another agency.
           </p>
 
           {links.isLoading ? (
@@ -216,7 +215,7 @@ export function BrandAgencyLinksPanel() {
                   event.preventDefault();
                   setServerGaps([]);
 
-                  const trimmed = partnerId.trim();
+                  const trimmed = agencyEmail.trim();
                   if (!trimmed) return;
                   setAttempted(true);
 
@@ -233,22 +232,25 @@ export function BrandAgencyLinksPanel() {
                   }
 
                   request.mutate(trimmed, {
-                    onSuccess: () => setPartnerId(""),
+                    onSuccess: () => setAgencyEmail(""),
                   });
                 }}
               >
                 <input
-                  value={partnerId}
-                  onChange={(event) => setPartnerId(event.target.value)}
-                  placeholder="GC-XXXX-XXXX"
-                  aria-label="Agency Partner ID"
+                  type="email"
+                  value={agencyEmail}
+                  onChange={(event) => setAgencyEmail(event.target.value)}
+                  placeholder="agency@example.com"
+                  aria-label="Agency sign-in email"
+                  autoComplete="off"
+                  spellCheck={false}
                   disabled={request.isPending}
-                  className="w-[220px] rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 font-mono text-sm uppercase tracking-widest text-white placeholder:text-white/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-[280px] rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/40 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#15181f] shadow-sm transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={request.isPending || !partnerId.trim()}
+                  disabled={request.isPending || !agencyEmail.trim()}
                 >
                   {request.isPending ? "Sending…" : "Send request"}
                 </button>
@@ -290,7 +292,7 @@ export function BrandAgencyLinksPanel() {
             <EmptyState
               icon={Send}
               title="No requests sent"
-              hint="Enter an agency's Partner ID above to ask them to manage your brand."
+              hint="Enter your agency's sign-in email above to ask them to manage your brand."
             />
           ) : (
             <ul className="divide-y divide-border/50">

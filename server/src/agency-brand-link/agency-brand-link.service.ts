@@ -1,4 +1,3 @@
-import { randomInt } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -8,11 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AgencyBrandLinkStatus, Prisma } from '@prisma/client';
-import {
-  generatePartnerId,
-  normalizePartnerId,
-} from '../agency/partner-id.util';
+import { AgencyBrandLinkStatus } from '@prisma/client';
 import {
   BRAND_COMPLETENESS_GAP_MESSAGES,
   brandProfileCompleteness,
@@ -38,9 +33,6 @@ import { PrismaService } from '../prisma/prisma.service';
  * the brand's workspace stays owned by the brand (see BrandAccessService), so
  * revoking is clean — access stops, nothing is orphaned.
  */
-
-/** Unique-constraint violation. */
-const PRISMA_UNIQUE_VIOLATION = 'P2002';
 
 export type BrandCompletenessError = {
   message: string;
@@ -76,122 +68,25 @@ export class AgencyBrandLinkService {
     }
   }
 
-  // ---------------------------------------------------------------- partner id
-
-  /**
-   * The agency's code, minting one on first read.
-   *
-   * Agencies created before this feature have no code, and the migration
-   * backfills them — but an agency created while the flag was off would still
-   * arrive here empty, so issuing lazily keeps every agency answerable without
-   * depending on the backfill having run.
-   */
-  async getOrIssuePartnerId(ownerUserId: string): Promise<{
-    partnerId: string;
-    issuedAt: Date | null;
-    rotatedAt: Date | null;
-  }> {
-    this.assertEnabled();
-
-    const agency = await this.prisma.agency.findUnique({
-      where: { ownerUserId },
-      select: {
-        id: true,
-        partnerId: true,
-        partnerIdIssuedAt: true,
-        partnerIdRotatedAt: true,
-      },
-    });
-    if (!agency) throw new NotFoundException('Agency profile not found');
-
-    if (agency.partnerId) {
-      return {
-        partnerId: agency.partnerId,
-        issuedAt: agency.partnerIdIssuedAt,
-        rotatedAt: agency.partnerIdRotatedAt,
-      };
-    }
-
-    const issued = await this.assignPartnerId(agency.id, { rotated: false });
-    return { partnerId: issued, issuedAt: new Date(), rotatedAt: null };
-  }
-
-  /**
-   * Replace the code, for a leak.
-   *
-   * Links already accepted are keyed on the agency id and survive untouched —
-   * rotating is about stopping future requests, not severing relationships.
-   */
-  async rotatePartnerId(ownerUserId: string): Promise<{ partnerId: string }> {
-    this.assertEnabled();
-
-    const agency = await this.prisma.agency.findUnique({
-      where: { ownerUserId },
-      select: { id: true },
-    });
-    if (!agency) throw new NotFoundException('Agency profile not found');
-
-    const partnerId = await this.assignPartnerId(agency.id, { rotated: true });
-    return { partnerId };
-  }
-
-  /**
-   * Write a fresh code, retrying on the unique constraint.
-   *
-   * The database constraint is the real guarantee of uniqueness; the retry just
-   * makes the astronomically unlikely collision a non-event instead of a 500.
-   */
-  private async assignPartnerId(
-    agencyId: string,
-    opts: { rotated: boolean },
-  ): Promise<string> {
-    const MAX_ATTEMPTS = 5;
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-      const candidate = generatePartnerId((max) => randomInt(max));
-      const now = new Date();
-
-      try {
-        await this.prisma.agency.update({
-          where: { id: agencyId },
-          data: {
-            partnerId: candidate,
-            partnerIdIssuedAt: now,
-            ...(opts.rotated ? { partnerIdRotatedAt: now } : {}),
-          },
-        });
-        return candidate;
-      } catch (err) {
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === PRISMA_UNIQUE_VIOLATION
-        ) {
-          continue;
-        }
-        throw err;
-      }
-    }
-
-    throw new ConflictException(
-      'Could not allocate a partner ID, please try again',
-    );
-  }
-
   // ------------------------------------------------------------ brand: request
 
   /**
-   * A brand redeems an agency's code.
+   * A brand asks an agency to manage it, naming the agency by the email that
+   * agency signs in with.
    *
    * Refuses unless the brand profile is complete (§ completeness util): the
    * agency is about to act under this brand's name on every order and brief a
    * creator sees, so the identity has to be real first.
    *
-   * An unknown code and a malformed one give the same answer, so the endpoint
-   * cannot be used to discover which codes exist.
+   * A malformed address, an address with no account, and an account that is
+   * not an agency all give the same answer. That keeps the endpoint from
+   * reporting which of those it was — it still tells a persistent caller that
+   * some address belongs to an agency, which is why the route is rate
+   * limited, but it does not distinguish "no such user" from "not an agency".
    */
   async requestLink(params: {
     brandUserId: string;
-    rawPartnerId: string;
+    rawAgencyEmail: string;
   }): Promise<{
     linkId: string;
     agencyName: string;
@@ -202,16 +97,25 @@ export class AgencyBrandLinkService {
     const brand = await this.loadBrandForUser(params.brandUserId);
     this.assertBrandProfileComplete(brand);
 
-    const partnerId = normalizePartnerId(params.rawPartnerId);
-    if (!partnerId)
-      throw new NotFoundException('No agency found for that partner ID');
+    // Signup stores addresses lowercased, so match the same way rather than
+    // relying on whatever casing the brand was given.
+    const agencyEmail = params.rawAgencyEmail.trim().toLowerCase();
+    const notFound = new NotFoundException(
+      'No agency is registered with that email address',
+    );
+    if (!agencyEmail) throw notFound;
+
+    const owner = await this.prisma.user.findUnique({
+      where: { email: agencyEmail },
+      select: { id: true },
+    });
+    if (!owner) throw notFound;
 
     const agency = await this.prisma.agency.findUnique({
-      where: { partnerId },
+      where: { ownerUserId: owner.id },
       select: { id: true, name: true, ownerUserId: true },
     });
-    if (!agency)
-      throw new NotFoundException('No agency found for that partner ID');
+    if (!agency) throw notFound;
 
     // An agency owner who also holds a brand profile must not link to itself:
     // it would make the blocked-action checks meaningless, since the same
@@ -242,7 +146,7 @@ export class AgencyBrandLinkService {
           where: { id: existing.id },
           data: {
             status: AgencyBrandLinkStatus.PENDING,
-            partnerIdUsed: partnerId,
+            requestedViaEmail: agencyEmail,
             requestedByUserId: params.brandUserId,
             requestedAt: new Date(),
             respondedByUserId: null,
@@ -258,7 +162,7 @@ export class AgencyBrandLinkService {
             agencyId: agency.id,
             brandId: brand.id,
             status: AgencyBrandLinkStatus.PENDING,
-            partnerIdUsed: partnerId,
+            requestedViaEmail: agencyEmail,
             requestedByUserId: params.brandUserId,
           },
           select: { id: true, status: true },

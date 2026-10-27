@@ -15,6 +15,7 @@ import {
   type PhoneOtpChannel,
 } from "@/features/auth/api/phone-otp";
 import { PhoneCountryCodeSelect } from "@/features/auth/components/phone-country-code-select";
+import { readPhoneOtpError } from "@/features/auth/lib/phone-otp-error";
 import {
   buildE164Phone,
   findPhoneCountryByIso,
@@ -39,36 +40,6 @@ export function normalizePhoneForOtp(raw: string): string {
   if (!trimmed) return "";
   if (!trimmed.startsWith("+")) return trimmed;
   return `+${trimmed.replace(/\D/g, "")}`;
-}
-
-function readApiErrorMessage(error: unknown): string | undefined {
-  if (!isAxiosError(error)) return undefined;
-
-  const data = error.response?.data;
-  if (typeof data === "string") return data;
-
-  const message = (data as { message?: unknown } | undefined)?.message;
-  if (typeof message === "string") return message;
-  if (Array.isArray(message)) {
-    return message.find((item): item is string => typeof item === "string");
-  }
-
-  return undefined;
-}
-
-function phoneOtpErrorMessage(error: unknown, fallback: string): string {
-  if (isAxiosError(error)) {
-    if (error.response?.status === 429) {
-      return "Too many attempts. Please wait before trying again.";
-    }
-    if (error.response?.status === 503) {
-      return "Phone verification is temporarily unavailable.";
-    }
-  }
-
-  const message = readApiErrorMessage(error);
-  if (message && message !== "Invalid request.") return message;
-  return fallback;
 }
 
 function initialCountryAndNational(initialPhone?: string): {
@@ -169,6 +140,9 @@ export function PhoneVerificationField({
       setPhoneInput(buildE164Phone(nextDial, capped));
       setVerifiedPhone(null);
       setPhoneError(null);
+      // The cooldown is the server's, keyed by number — a different number
+      // starts with a clean one.
+      setOtpResendAvailableAt(null);
     },
     [],
   );
@@ -249,17 +223,22 @@ export function PhoneVerificationField({
       );
     },
     onError: (error) => {
-      if (isAxiosError(error) && error.response?.status === 429) {
+      const { message, retryAfterSeconds } = readPhoneOtpError(
+        error,
+        "Could not send verification code. Check the number and try again.",
+      );
+      // The 30s cooldown is enforced server-side per number, so it survives a
+      // reload and an earlier attempt from another tab. Re-arm the button from
+      // the time the server reported instead of guessing a full 30s.
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (retryAfterSeconds || status === 429) {
         const now = Date.now();
         setOtpClockTick(now);
-        setOtpResendAvailableAt(now + PHONE_OTP_RESEND_SECONDS * 1000);
+        setOtpResendAvailableAt(
+          now + (retryAfterSeconds ?? PHONE_OTP_RESEND_SECONDS) * 1000,
+        );
       }
-      toast.error(
-        phoneOtpErrorMessage(
-          error,
-          "Could not send verification code. Check the number and try again.",
-        ),
-      );
+      toast.error(message);
     },
   });
 
@@ -291,7 +270,7 @@ export function PhoneVerificationField({
       toast.success("Mobile number verified");
     },
     onError: (error) => {
-      const message = phoneOtpErrorMessage(
+      const { message } = readPhoneOtpError(
         error,
         "Could not verify the code. Try again.",
       );
@@ -390,13 +369,13 @@ export function PhoneVerificationField({
               phoneOtpPending ||
               phoneVerified ||
               !PHONE_E164_REGEX.test(normalizedPhone) ||
-              (resendSecondsRemaining > 0 && Boolean(activeOtpPhone))
+              resendSecondsRemaining > 0
             }
             className={cn(
               "h-full min-w-[5.75rem] shrink-0 rounded-none border-l border-slate-200 px-3.5 text-xs font-bold dark:border-slate-800",
               phoneVerified
                 ? "!bg-emerald-50 !text-emerald-700 hover:!bg-emerald-50 dark:!bg-emerald-950/40 dark:!text-emerald-300"
-                : resendSecondsRemaining > 0 && activeOtpPhone
+                : resendSecondsRemaining > 0
                   ? "!bg-[#f4f1f1] !text-[#8b8489] dark:!bg-slate-900 dark:!text-slate-400"
                   : "!bg-deep-pink !text-deep-pink-foreground hover:!bg-deep-pink/90 dark:!bg-deep-pink dark:!text-white",
             )}
@@ -405,7 +384,7 @@ export function PhoneVerificationField({
               ? "Verified"
               : phoneOtpPending
                 ? "Sending..."
-                : resendSecondsRemaining > 0 && activeOtpPhone
+                : resendSecondsRemaining > 0
                   ? formatResendCountdown(resendSecondsRemaining)
                   : activeOtpPhone
                     ? "Resend"

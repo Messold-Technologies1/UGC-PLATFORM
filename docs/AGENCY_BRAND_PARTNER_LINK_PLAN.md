@@ -44,7 +44,7 @@ We are introducing a real relationship:
 | 9 | Switcher UX | **Switcher in the agency shell**, reusing the existing brand route tree via the `x-brand-profile-id` header. |
 | 10 | Audit & alerts | **Full audit trail**; brand owner notified on **money-spending actions only** (order placed, credits spent). |
 | 11 | Agency seats | **Out of scope.** Single agency owner login retained; audit stores `actorUserId` so seats can be added later without migrating data. |
-| 12 | Partner ID | **Short readable code on the Agency, rotatable.** Issued unconditionally at agency creation (`Agency.name`/`contactFullName`/`contactEmail` are non-nullable, so an agency is always complete). Backfilled for all existing agencies. Rotation does not break accepted links. |
+| 12 | Partner ID | **Short readable code on the Agency, fixed once issued.** Issued unconditionally at agency creation (`Agency.name`/`contactFullName`/`contactEmail` are non-nullable, so an agency is always complete). Backfilled for all existing agencies. Rotation was built and then removed — see the note at the end. |
 | 13 | Profile gate | **The brand profile must be complete before the brand can submit a link request** — `brandName`, `contactFullName`, `contactEmail`, `contactPhone`, **and phone OTP verification**. See §5.3. |
 | 16 | OTP in the gate | **Verified owner phone is what counts**, regardless of whether `contactPhone` differs from the login phone. The check is **skipped entirely when `PHONE_OTP_ENABLED=false`**, matching how the rest of the codebase treats the flag. |
 | 14 | Admin | **View links + force-unlink** for support cases. |
@@ -87,10 +87,11 @@ The code belongs to the **agency**, which hands it to brands.
 model Agency {
   // ...
   /// Shareable partner code (e.g. GC-7F3K-92QX) the agency gives to brands.
-  /// Issued at agency creation. Rotatable; rotation does NOT break already-
-  /// accepted links, which are keyed on agencyId, not on the code.
+  /// Issued at agency creation and then fixed: there is no way to replace it.
   partnerId          String?   @unique
   partnerIdIssuedAt  DateTime?
+  /// Unused. Rotation was built and then removed; the column stays because
+  /// dropping it buys nothing and costs a destructive migration.
   partnerIdRotatedAt DateTime?
 
   brandLinks         AgencyBrandLink[]
@@ -126,7 +127,8 @@ model AgencyBrandLink {
   brandId           String                @db.Uuid
   status            AgencyBrandLinkStatus @default(PENDING)
 
-  /// Audit: the agency code actually redeemed, so a rotation leaves a trail.
+  /// Audit: the agency code actually redeemed, kept so the row records which
+  /// code was used rather than only which agency.
   partnerIdUsed     String
   /// The BRAND user who redeemed the agency's code.
   requestedByUserId String                @db.Uuid
@@ -215,7 +217,6 @@ per request.
 | Method | Route | Who | Purpose |
 |---|---|---|---|
 | `GET` | `/agency/partner-id` | Agency | Reveal own Partner ID |
-| `POST` | `/agency/partner-id/rotate` | Agency | Rotate |
 | `POST` | `/brands/profile/agency-links` | **Brand** | **Submit an agency's Partner ID** (creates `PENDING`, emails the agency) |
 | `GET` | `/brands/profile/agency-links` | Brand | Own pending + active links |
 | `POST` | `/brands/profile/agency-links/:id/cancel` | Brand | Withdraw a pending request |
@@ -370,7 +371,7 @@ In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
    showing exactly what's missing from the `gaps[]` response and deep-linking to
    the field — or to the OTP step for `PHONE_NOT_VERIFIED`, reusing the existing
    phone-verification component rather than building a second one.
-5. **Agency dashboard**: Partner ID card with copy + rotate, an **incoming
+5. **Agency dashboard**: Partner ID card with copy, an **incoming
    requests** inbox with accept/reject, the linked-brands page, and the
    per-brand spend report.
 6. **Tags**: `placed by Agency X` in the brand's order and brief lists;
@@ -391,8 +392,7 @@ In `My Agency` mode, `Brief.brandName` is forced to the agency name and locked;
 - Revocation mid-flight: agency loses order, chat, and realtime access; the
   order continues normally for the brand.
 - Blocked set returns 403 for an acting agency.
-- Partner ID: uniqueness across agencies, case-insensitive match, rotation
-  keeps accepted links intact, an old code stops resolving after rotation.
+- Partner ID: uniqueness across agencies, case-insensitive match.
 - Link flow direction: a brand submitting a valid code creates `PENDING` and
   emails the agency; the brand gets **no access to anything** until the agency
   accepts; a rejected request grants nothing.
@@ -451,14 +451,14 @@ agency-placed orders are ordinary brand-owned orders.
 
 ### Shipped
 
-- **Schema + migration.** `Agency.partnerId` (+ issued/rotated timestamps),
+- **Schema + migration.** `Agency.partnerId` (+ its issued timestamp),
   `AgencyBrandLink` with its status enum, and attribution columns on `Order`,
   `OrderCheckoutBatch`, `Brief`, `BrandWishlist` and `CreatorRatingReview`.
   Partner IDs backfilled for every existing agency.
 - **Access resolution.** `resolveBrandAccess()` admits brand owner, ACTIVE-linked
   agency, or admin, and reports which. Ownership never moves: a linked agency
   resolves with `brandId` set and `agencyId` null.
-- **The link module.** Partner ID reveal/rotate, brand request/list/cancel/revoke,
+- **The link module.** Partner ID reveal, brand request/list/cancel/revoke,
   agency list/accept/reject/leave, per-brand spend report, admin list and
   force-unlink.
 - **The completeness gate**, on submit and re-checked on accept, returning 422
@@ -518,3 +518,19 @@ Nothing from the agreed scope is outstanding. Worth knowing for later:
   base commit. Type errors and per-file lint findings are at exact parity with
   the base.
 - Client: typecheck clean, lint clean on changed files, `next build` succeeds.
+
+### Partner ID rotation: built, then removed
+
+Rotation shipped and was taken out again. The reasoning that justified it —
+"the code could leak" — does not survive contact with what the code actually
+is. Redeeming one only creates a PENDING request; the agency still has to
+accept before anything is granted, so a leaked code is spam in an inbox, not
+a breach. Guessing is not a threat either: 32^8 combinations, and the submit
+endpoint is rate limited per brand.
+
+That left a button whose only honest description was "retire a code you have
+been handing out", for a cost of an endpoint, a mutation, a confirm dialog
+and a response field — and a real risk of being read as a security control it
+never was. `Agency.partnerIdRotatedAt` stays in the schema, unwritten: the
+column is harmless and dropping it would mean a destructive migration for no
+gain.

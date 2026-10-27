@@ -89,18 +89,12 @@ export class AgencyBrandLinkService {
   async getOrIssuePartnerId(ownerUserId: string): Promise<{
     partnerId: string;
     issuedAt: Date | null;
-    rotatedAt: Date | null;
   }> {
     this.assertEnabled();
 
     const agency = await this.prisma.agency.findUnique({
       where: { ownerUserId },
-      select: {
-        id: true,
-        partnerId: true,
-        partnerIdIssuedAt: true,
-        partnerIdRotatedAt: true,
-      },
+      select: { id: true, partnerId: true, partnerIdIssuedAt: true },
     });
     if (!agency) throw new NotFoundException('Agency profile not found');
 
@@ -108,31 +102,11 @@ export class AgencyBrandLinkService {
       return {
         partnerId: agency.partnerId,
         issuedAt: agency.partnerIdIssuedAt,
-        rotatedAt: agency.partnerIdRotatedAt,
       };
     }
 
-    const issued = await this.assignPartnerId(agency.id, { rotated: false });
-    return { partnerId: issued, issuedAt: new Date(), rotatedAt: null };
-  }
-
-  /**
-   * Replace the code, for a leak.
-   *
-   * Links already accepted are keyed on the agency id and survive untouched —
-   * rotating is about stopping future requests, not severing relationships.
-   */
-  async rotatePartnerId(ownerUserId: string): Promise<{ partnerId: string }> {
-    this.assertEnabled();
-
-    const agency = await this.prisma.agency.findUnique({
-      where: { ownerUserId },
-      select: { id: true },
-    });
-    if (!agency) throw new NotFoundException('Agency profile not found');
-
-    const partnerId = await this.assignPartnerId(agency.id, { rotated: true });
-    return { partnerId };
+    const issued = await this.assignPartnerId(agency.id);
+    return { partnerId: issued, issuedAt: new Date() };
   }
 
   /**
@@ -141,10 +115,7 @@ export class AgencyBrandLinkService {
    * The database constraint is the real guarantee of uniqueness; the retry just
    * makes the astronomically unlikely collision a non-event instead of a 500.
    */
-  private async assignPartnerId(
-    agencyId: string,
-    opts: { rotated: boolean },
-  ): Promise<string> {
+  private async assignPartnerId(agencyId: string): Promise<string> {
     const MAX_ATTEMPTS = 5;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
@@ -154,11 +125,7 @@ export class AgencyBrandLinkService {
       try {
         await this.prisma.agency.update({
           where: { id: agencyId },
-          data: {
-            partnerId: candidate,
-            partnerIdIssuedAt: now,
-            ...(opts.rotated ? { partnerIdRotatedAt: now } : {}),
-          },
+          data: { partnerId: candidate, partnerIdIssuedAt: now },
         });
         return candidate;
       } catch (err) {

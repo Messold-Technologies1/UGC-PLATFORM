@@ -1381,10 +1381,13 @@ model Agency {
   brandNames           String[] @default([])
   /// Shareable partner code (e.g. GC-7F3K-92QX) the agency hands to brands; the
   /// brand redeems it to request a link, which the agency then accepts. Issued
-  /// at agency creation and backfilled for existing rows. Rotatable: links are
-  /// keyed on agencyId, so rotating never breaks an accepted link.
+  /// at agency creation and backfilled for existing rows, then fixed — there
+  /// is no way to replace a code.
   partnerId            String?  @unique
   partnerIdIssuedAt    DateTime?
+  /// Unused. Rotation was built and then removed, because redeeming a code
+  /// only asks for a link and the agency still has to accept. Kept because
+  /// dropping it would be a destructive migration for no gain.
   partnerIdRotatedAt   DateTime?
   /// Opt-in for transactional/order emails. Set true at signup, like the brand
   /// and creator columns; agencies that predate these were backfilled true,

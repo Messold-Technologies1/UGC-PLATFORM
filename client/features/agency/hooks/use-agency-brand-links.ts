@@ -12,7 +12,6 @@ import {
   rejectBrandLink,
   requestAgencyLink,
   revokeAgencyLink,
-  rotateAgencyPartnerId,
   type BrandCompletenessGap,
 } from "@/features/agency/api/agency-brand-links";
 
@@ -167,20 +166,6 @@ export function useLeaveBrandLinkMutation() {
     onSuccess: () => {
       toast.success("You've stopped managing this brand");
       void queryClient.invalidateQueries({ queryKey: agencyBrandLinksQueryKey });
-    },
-    onError: (error) => toast.error(describeLinkError(error).message),
-  });
-}
-
-export function useRotatePartnerIdMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: rotateAgencyPartnerId,
-    onSuccess: () => {
-      toast.success("New Partner ID generated", {
-        description: "Brands you already manage keep their access.",
-      });
-      void queryClient.invalidateQueries({ queryKey: agencyPartnerIdQueryKey });
     },
     onError: (error) => toast.error(describeLinkError(error).message),
   });

@@ -8,7 +8,6 @@ import {
   Copy,
   Inbox,
   KeyRound,
-  RefreshCw,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,7 +18,6 @@ import {
   useAgencyPartnerIdQuery,
   useLeaveBrandLinkMutation,
   useRejectBrandLinkMutation,
-  useRotatePartnerIdMutation,
 } from "@/features/agency/hooks/use-agency-brand-links";
 import { AgencyBrandSpendReport } from "@/features/agency/components/agency-brand-spend-report";
 
@@ -63,7 +61,6 @@ export function AgencyBrandsPanel() {
   const accept = useAcceptBrandLinkMutation();
   const reject = useRejectBrandLinkMutation();
   const leave = useLeaveBrandLinkMutation();
-  const rotate = useRotatePartnerIdMutation();
 
   const [copied, setCopied] = useState(false);
   // One spend report open at a time: each is its own fetch, and an agency
@@ -139,41 +136,20 @@ export function AgencyBrandsPanel() {
           </div>
 
           {partnerId.data ? (
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#15181f] shadow-sm transition-colors hover:bg-white/90"
-                onClick={copyPartnerId}
-              >
-                <span className="inline-flex items-center gap-2">
-                  {copied ? (
-                    <Check className="size-4" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                  {copied ? "Copied" : "Copy"}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="rounded-xl border border-white/25 px-4 py-2.5 text-sm font-semibold text-white/90 transition-colors hover:bg-white/10 disabled:opacity-50"
-                disabled={rotate.isPending}
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Generate a new Partner ID? The old one stops working for new requests. Brands you already manage keep their access.",
-                    )
-                  ) {
-                    rotate.mutate();
-                  }
-                }}
-              >
-                <span className="inline-flex items-center gap-2">
-                  <RefreshCw className="size-4" />
-                  Rotate
-                </span>
-              </button>
-            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#15181f] shadow-sm transition-colors hover:bg-white/90"
+              onClick={copyPartnerId}
+            >
+              <span className="inline-flex items-center gap-2">
+                {copied ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
+                {copied ? "Copied" : "Copy"}
+              </span>
+            </button>
           ) : null}
         </div>
       </div>

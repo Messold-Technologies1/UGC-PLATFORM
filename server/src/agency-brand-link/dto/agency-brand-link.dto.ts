@@ -79,5 +79,4 @@ export class AgencyPartnerIdResponseDto {
   partnerId!: string;
 
   @ApiProperty({ nullable: true }) issuedAt!: Date | null;
-  @ApiProperty({ nullable: true }) rotatedAt!: Date | null;
 }

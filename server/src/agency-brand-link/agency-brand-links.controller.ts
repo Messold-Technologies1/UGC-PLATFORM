@@ -53,16 +53,6 @@ export class AgencyBrandLinksController {
     return this.links.getOrIssuePartnerId(req.user.id);
   }
 
-  @Post('partner-id/rotate')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Replace the code. Brands already accepted keep their link.',
-  })
-  @ApiOkResponse({ type: AgencyPartnerIdResponseDto })
-  async rotate(@Req() req: Request & { user: { id: string } }) {
-    return this.links.rotatePartnerId(req.user.id);
-  }
-
   @Get('brand-links')
   @ApiOperation({
     summary: 'Brands managed, plus requests awaiting this agency',

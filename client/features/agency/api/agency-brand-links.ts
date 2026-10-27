@@ -54,7 +54,6 @@ export type AgencyBrandLink = {
 export type AgencyPartnerId = {
   partnerId: string;
   issuedAt: string | null;
-  rotatedAt: string | null;
 };
 
 export type AgencySpendReport = {
@@ -70,13 +69,6 @@ export type AgencySpendReport = {
 
 export async function fetchAgencyPartnerId(): Promise<AgencyPartnerId> {
   const { data } = await api.get<AgencyPartnerId>(ENDPOINTS.AGENCY.PARTNER_ID);
-  return data;
-}
-
-export async function rotateAgencyPartnerId(): Promise<{ partnerId: string }> {
-  const { data } = await api.post<{ partnerId: string }>(
-    ENDPOINTS.AGENCY.PARTNER_ID_ROTATE,
-  );
   return data;
 }
 

@@ -42,7 +42,15 @@ import { NotificationDropdown } from "@/components/navbar/notification-dropdown"
 import { useAuth } from "@/providers/auth-provider";
 import { useWalletBalance } from "@/features/wallet/hooks";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
+import { resolveCreatorOnboardingPath } from "@/features/auth/lib/resolve-creator-onboarding-path";
 import { SITE_NAME } from "@/config/site";
+
+const CREATOR_UNDER_REVIEW_PATH = "/creator/under-review";
+const CREATOR_NAV_GATED_HREFS = new Set([
+  "/creator/orders",
+  "/creator/messages",
+  "/creator/portfolio",
+]);
 
 interface NavItem {
   href?: string;
@@ -198,7 +206,8 @@ function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
     isAgencyUser && (segment === "brand" || segment === "agency")
       ? "agency"
       : segment;
-  const items = roleConfigs[navSegment] ?? [];
+  // Copy so role config arrays are never mutated across renders.
+  let items = [...(roleConfigs[navSegment] ?? [])];
   if (navSegment === "admin" && !user?.canManageAdmins) {
     // Settings (create admins), Coupons and Refunds are super-admin only.
     const superAdminOnly = new Set([
@@ -206,8 +215,30 @@ function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
       "/admin/coupons",
       "/admin/refunds",
     ]);
-    return items.filter((item) => !superAdminOnly.has(item.href ?? ""));
+    items = items.filter((item) => !superAdminOnly.has(item.href ?? ""));
   }
+
+  // While the creator is waiting on review, Orders / Messages / Portfolio all
+  // land on the under-review screen instead of the locked workspace routes.
+  // Keep a distinct `from` query per item so React/Next keys & hrefs stay unique.
+  if (
+    navSegment === "creator" &&
+    user &&
+    resolveCreatorOnboardingPath(user) === CREATOR_UNDER_REVIEW_PATH
+  ) {
+    items = items.map((item) => {
+      if (!item.href || !CREATOR_NAV_GATED_HREFS.has(item.href)) return item;
+      const from = item.href.replace("/creator/", "");
+      return {
+        ...item,
+        href: `${CREATOR_UNDER_REVIEW_PATH}?from=${from}`,
+        // Under-review isn't a real Orders/Messages/Portfolio page — don't
+        // highlight every gated item as active.
+        match: () => false,
+      };
+    });
+  }
+
   return items;
 }
 
@@ -444,7 +475,7 @@ export function Navbar({ className }: { className?: string } = {}) {
 
                   return (
                     <Link
-                      key={item.href || item.label}
+                      key={item.tourId || item.label}
                       href={item.href || "#"}
                       prefetch
                       data-tour={item.tourId}
@@ -583,7 +614,7 @@ export function Navbar({ className }: { className?: string } = {}) {
                     }
                     return (
                       <Link
-                        key={item.href || item.label}
+                        key={item.tourId || item.label}
                         href={item.href || "#"}
                         prefetch
                         onClick={() => setMobileOpen(false)}

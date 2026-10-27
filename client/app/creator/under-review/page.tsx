@@ -1,200 +1,225 @@
 import {
+  Check,
   CheckCircle2,
-  Circle,
-  Clock3,
-  Mail,
+  Clock,
+  Link2,
+  Sparkles,
 } from "lucide-react";
+
 import { isProfileFirstOnboardingMode } from "@/features/auth/lib/creator-onboarding-mode";
 
-const APPROVAL_FIRST_STEPS = [
+const TIMELINE_STEPS = [
   {
-    id: "submitted",
-    label: "Application submitted",
-    description: "Your profile and portfolio are in.",
+    title: "We Review & Publish Your Profile",
+    note: "Once approved, your profile goes live and brands can discover you.",
     status: "complete" as const,
   },
   {
-    id: "review",
-    label: "Under review",
-    description: "Our team is reviewing your work.",
+    title: "Brands Place Orders Directly",
+    note: "No searching, pitching or applying. Brands view your services and book you directly.",
     status: "active" as const,
   },
   {
-    id: "live",
-    label: "Go live",
-    description: "Start receiving brand briefs.",
+    title: "You Get Notified",
+    note: "When an order comes in, review the brief, accept it, and start creating.",
     status: "upcoming" as const,
   },
-];
+] as const;
 
-const PROFILE_FIRST_STEPS = [
-  {
-    id: "profile",
-    label: "Profile completed",
-    description: "Your profile and portfolio are ready.",
-    status: "complete" as const,
-  },
-  {
-    id: "review",
-    label: "Under admin review",
-    description: "Our team is reviewing your profile.",
-    status: "active" as const,
-  },
-  {
-    id: "live",
-    label: "Go live on marketplace",
-    description: "Brands can discover you and send briefs.",
-    status: "upcoming" as const,
-  },
-];
+const LINK_BENEFITS = [
+  <>
+    Brands can instantly explore your{" "}
+    <span className="font-semibold text-slate-800 dark:text-slate-100">
+      prices, portfolio and insights
+    </span>{" "}
+    in one place.
+  </>,
+  <>Skip repetitive DMs about pricing and collaborations.</>,
+  <>
+    Every visit through your link helps increase your{" "}
+    <span className="font-semibold text-slate-800 dark:text-slate-100">
+      profile visibility
+    </span>{" "}
+    on GoCollab.
+  </>,
+  <>
+    Brands can place orders directly instead of going through lengthy
+    conversations.
+  </>,
+] as const;
 
 export default function UnderReviewPage() {
   const profileFirst = isProfileFirstOnboardingMode();
-  const reviewSteps = profileFirst ? PROFILE_FIRST_STEPS : APPROVAL_FIRST_STEPS;
 
   return (
-    <div className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center justify-center py-6">
+    <div className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center justify-center py-1">
+      {/* Soft pastel background */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -mx-4 -mt-4 -mb-8 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 overflow-hidden -z-10 bg-[#fdfcfb] dark:bg-slate-950"
+        className="pointer-events-none absolute inset-0 -mx-4 -mt-4 -mb-8 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 -z-10 overflow-hidden bg-[#faf9f8] dark:bg-slate-950"
       >
-        <div
-          aria-hidden
-          className="absolute -left-24 top-1/4 size-72 rounded-full bg-[#ef3e51]/15 blur-3xl dark:bg-[#ef3e51]/10"
-        />
-        <div
-          aria-hidden
-          className="absolute -right-16 bottom-1/4 size-80 rounded-full bg-violet-400/20 blur-3xl dark:bg-violet-500/10"
-        />
+        <div className="absolute -left-28 top-[18%] size-[22rem] rounded-full bg-[#f7c4b8]/55 blur-3xl dark:bg-[#ef3e51]/15" />
+        <div className="absolute -right-24 top-[8%] size-[20rem] rounded-full bg-[#b8e4e0]/50 blur-3xl dark:bg-teal-500/10" />
+        <div className="absolute bottom-[6%] left-[28%] size-[18rem] rounded-full bg-[#fde8c8]/45 blur-3xl dark:bg-amber-500/10" />
+        <div className="absolute -right-10 bottom-[12%] size-[16rem] rounded-full bg-[#f5c5d0]/40 blur-3xl dark:bg-rose-500/10" />
       </div>
 
-      <div className="relative w-full max-w-2xl">
-        <div className="flex min-h-[min(34rem,calc(100dvh-7rem))] flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/95 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.22)] backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95">
-          <div className="border-b border-slate-100 bg-gradient-to-br from-[#fff5f6] via-white to-[#f8f5ff] px-5 py-6 sm:px-8 sm:py-8 text-center dark:border-slate-800 dark:from-red-500/10 dark:via-slate-900 dark:to-violet-500/10">
-            <div className="relative mx-auto mb-5 flex size-16 sm:size-[4.5rem] items-center justify-center">
-              <span className="absolute inset-0 animate-ping rounded-full bg-[#ef3e51]/20 [animation-duration:2.4s]" />
-              <span className="absolute inset-2 rounded-full bg-[#ef3e51]/10" />
-              <span className="relative flex size-14 sm:size-[3.75rem] items-center justify-center rounded-2xl bg-gradient-to-br from-[#ef3e51] to-[#c42d48] text-white shadow-lg shadow-[#ef3e51]/30">
-                <Clock3 className="size-7" strokeWidth={1.75} />
+      <div className="relative w-full max-w-[52rem] px-0">
+        <div className="overflow-hidden rounded-[28px] border border-white/80 bg-white/95 px-5 py-6 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.28)] backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:px-8 sm:py-7">
+          {/* Hero */}
+          <div className="flex flex-col items-center text-center">
+            <div className="relative mb-4">
+              <span
+                aria-hidden
+                className="absolute -left-3.5 top-1 size-2.5 rotate-12 rounded-[2px] bg-sky-400"
+              />
+              <span
+                aria-hidden
+                className="absolute -right-3 top-0 size-2 rotate-45 rounded-[1px] bg-amber-400"
+              />
+              <span
+                aria-hidden
+                className="absolute -bottom-1 -left-1 size-1.5 rounded-full bg-emerald-400"
+              />
+              <span
+                aria-hidden
+                className="absolute -right-4 bottom-2 size-2 rotate-12 rounded-[1px] bg-violet-400"
+              />
+              <span
+                aria-hidden
+                className="absolute left-8 -top-2 size-1.5 rounded-full bg-rose-400"
+              />
+              <div className="grid size-[3.75rem] place-items-center rounded-full bg-emerald-500 text-white shadow-[0_10px_28px_rgba(16,185,129,0.38)]">
+                <CheckCircle2 className="size-8" strokeWidth={2.2} aria-hidden />
+              </div>
+            </div>
+
+            <h1 className="font-heading text-[1.75rem] font-bold tracking-tight text-slate-900 dark:text-white sm:text-[2rem]">
+              You&apos;re In! 🥳
+            </h1>
+            <p className="mt-2.5 max-w-lg text-[14px] leading-relaxed text-slate-600 dark:text-slate-300">
+              {profileFirst
+                ? "Your GoCollab creator profile has been submitted successfully."
+                : "Your GoCollab application has been submitted successfully."}
+            </p>
+
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/90 bg-[#fbf3ea] px-3.5 py-1.5 text-[13px] font-semibold text-[#8a5a2b] dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+                <Clock className="size-3.5" aria-hidden />
+                Profile Under Review
+              </span>
+              <span className="text-[13px] font-bold text-slate-900 dark:text-white">
+                Up to 7 days
               </span>
             </div>
-
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#ef3e51]">
-              Almost there
-            </p>
-            <h1 className="font-heading mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {profileFirst
-                ? "Your profile is under review"
-                : "Your application is under review"}
-            </h1>
-            <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-slate-600 dark:text-slate-300">
-              {profileFirst ? (
-                <>
-                  Thanks for completing your profile on Go Collab. We&apos;re
-                  reviewing your work and will email you as soon as you&apos;re
-                  approved to go live on the marketplace.
-                </>
-              ) : (
-                <>
-                  Thanks for joining Go Collab. We&apos;re reviewing your
-                  application and will email you as soon as you&apos;re approved
-                  to work with brands.
-                </>
-              )}
+            <p className="mt-3 max-w-md text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">
+              We&apos;re reviewing your profile and will notify you once
+              it&apos;s approved.
             </p>
           </div>
 
-          <div className="flex flex-1 flex-col justify-center gap-6 px-5 py-6 sm:px-8 sm:py-7">
-            <ol className="grid gap-3 sm:grid-cols-3">
-              {reviewSteps.map((step) => (
-                <li
-                  key={step.id}
-                  className="flex flex-col rounded-2xl border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-800/50"
-                >
-                  <StepIcon status={step.status} />
-                  <p className="mt-3 text-sm font-bold text-slate-900 dark:text-white">
-                    {step.label}
-                  </p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                    {step.description}
-                  </p>
+          {/* Timeline */}
+          <ol className="relative mt-8 m-0 grid list-none gap-6 p-0 sm:grid-cols-3 sm:gap-4">
+            {/* Connector line (desktop) */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-[16.5%] right-[16.5%] top-4 hidden h-[2px] sm:block"
+              style={{
+                background:
+                  "linear-gradient(90deg, #ef3e51 0%, #f5a524 50%, #d4d4d8 100%)",
+              }}
+            />
+
+            {TIMELINE_STEPS.map((step) => (
+              <li
+                key={step.title}
+                className="relative flex flex-col items-center text-center sm:px-2"
+              >
+                <TimelineIcon status={step.status} />
+                <p className="mt-3.5 m-0 text-[13.5px] font-bold leading-snug text-slate-900 dark:text-white">
+                  {step.title}
+                </p>
+                <p className="mt-1.5 m-0 max-w-[15rem] text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  {step.note}
+                </p>
+              </li>
+            ))}
+          </ol>
+
+          {/* Personal link card */}
+          <div className="mt-7 rounded-2xl border border-[#f3d5db]/80 bg-[#fff5f6] px-4 py-4 dark:border-red-500/20 dark:bg-red-500/10 sm:px-5 sm:py-5">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#ef3e51] shadow-sm dark:bg-slate-900 dark:text-red-400">
+                <Link2 className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="m-0 text-[14px] font-extrabold text-slate-900 dark:text-white">
+                  Your Personal GoCollab Link
+                </p>
+                <p className="mt-1 m-0 text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  Available after approval — we&apos;ll unlock your link once
+                  your profile is live.
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 m-0 text-[14px] font-bold leading-snug text-slate-900 dark:text-white">
+              Stop Answering &ldquo;What Are Your Rates?&rdquo; Again &amp;
+              Again.
+            </p>
+            <p className="mt-2 m-0 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+              Once approved, share your GoCollab link with brands or add it to
+              your Instagram bio.
+            </p>
+
+            <ul className="mt-3.5 m-0 flex list-none flex-col gap-2.5 p-0">
+              {LINK_BENEFITS.map((benefit, i) => (
+                <li key={i} className="flex items-start gap-2.5">
+                  <span className="mt-0.5 grid size-[1.125rem] shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
+                    <Check className="size-2.5" strokeWidth={3} aria-hidden />
+                  </span>
+                  <span className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+                    {benefit}
+                  </span>
                 </li>
               ))}
-            </ol>
+            </ul>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <InfoTile
-                icon={Clock3}
-                title="Typical timeline"
-                description="Most reviews are completed within 24–48 hours."
-              />
-              <InfoTile
-                icon={Mail}
-                title="Check your inbox"
-                description="We'll send approval updates to the email you registered with."
-              />
-            </div>
+            <p className="mt-3.5 m-0 text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+              Sharing your link is completely optional. Brands can still
+              discover and book you through GoCollab.
+            </p>
           </div>
         </div>
-
-        <p className="mt-5 text-center text-xs text-slate-500 dark:text-slate-500">
-          {profileFirst
-            ? "You can still edit your profile while we review — we'll notify you by email."
-            : "No action needed right now — sit tight and we'll take it from here."}
-        </p>
       </div>
     </div>
   );
 }
 
-function StepIcon({
+function TimelineIcon({
   status,
 }: {
   status: "complete" | "active" | "upcoming";
 }) {
   if (status === "complete") {
     return (
-      <span className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
-        <CheckCircle2 className="size-5" strokeWidth={2} />
+      <span className="relative z-10 grid size-8 place-items-center rounded-full bg-[#ef3e51] text-white shadow-[0_4px_12px_rgba(239,62,81,0.35)]">
+        <Check className="size-4" strokeWidth={2.75} aria-hidden />
       </span>
     );
   }
 
   if (status === "active") {
     return (
-      <span className="flex size-10 items-center justify-center rounded-full bg-[#ffebed] text-[#ef3e51] ring-2 ring-[#ef3e51]/25 dark:bg-red-500/15 dark:text-red-400 dark:ring-red-500/30">
-        <Clock3 className="size-5 animate-pulse" strokeWidth={2} />
+      <span className="relative z-10 grid size-8 place-items-center rounded-full bg-[#f5a524] text-white shadow-[0_4px_12px_rgba(245,165,36,0.4)] ring-4 ring-[#f5a524]/20">
+        <Clock className="size-4" strokeWidth={2.25} aria-hidden />
       </span>
     );
   }
 
   return (
-    <span className="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-      <Circle className="size-5" strokeWidth={2} />
+    <span className="relative z-10 grid size-8 place-items-center rounded-full bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+      <Sparkles className="size-3.5" strokeWidth={2} aria-hidden />
     </span>
-  );
-}
-
-function InfoTile({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof Clock3;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex gap-3 rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/80">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#fff5f6] text-[#ef3e51] dark:bg-red-500/10 dark:text-red-400">
-        <Icon className="size-5" strokeWidth={1.75} />
-      </span>
-      <div>
-        <p className="text-sm font-bold text-slate-900 dark:text-white">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-          {description}
-        </p>
-      </div>
-    </div>
   );
 }

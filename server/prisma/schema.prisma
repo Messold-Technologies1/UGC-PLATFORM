@@ -1379,13 +1379,6 @@ model Agency {
   /// own name, and real client brands arrive as AgencyBrandLink rows. Kept so
   /// historical rows stay readable.
   brandNames           String[] @default([])
-  /// Shareable partner code (e.g. GC-7F3K-92QX) the agency hands to brands; the
-  /// brand redeems it to request a link, which the agency then accepts. Issued
-  /// at agency creation and backfilled for existing rows. Rotatable: links are
-  /// keyed on agencyId, so rotating never breaks an accepted link.
-  partnerId            String?  @unique
-  partnerIdIssuedAt    DateTime?
-  partnerIdRotatedAt   DateTime?
   /// Opt-in for transactional/order emails. Set true at signup, like the brand
   /// and creator columns; agencies that predate these were backfilled true,
   /// since the gate used to let every agency through.
@@ -1480,10 +1473,11 @@ model AgencyBrandLink {
   brandId           String                @db.Uuid
   status            AgencyBrandLinkStatus  @default(PENDING)
 
-  /// The agency partner code actually redeemed. Kept verbatim so a later
-  /// rotation still leaves a trail of which code opened this relationship.
-  partnerIdUsed     String
-  /// The BRAND user who redeemed the code.
+  /// The email the brand typed to reach this agency, kept verbatim as a record
+  /// of how the relationship was opened. Nullable because rows created while
+  /// the partner-code flow existed have no email to record.
+  requestedViaEmail String?
+  /// The BRAND user who asked.
   requestedByUserId String                @db.Uuid
   requestedAt       DateTime              @default(now())
   /// The AGENCY owner who accepted or rejected.

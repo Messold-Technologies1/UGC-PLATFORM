@@ -8,10 +8,14 @@ export interface OrderCreatorSnapshot {
   avgRating?: string | null;
   reviewCount?: number;
   /**
-   * Creator's shipping address for physical-product orders. Recipient name and
-   * phone are intentionally omitted server-side to keep the creator anonymized.
+   * Creator's shipping address for physical-product orders. Display name stays
+   * anonymized; phone is included for courier contact.
    */
   shippingAddress?: string | null;
+  /** Creator phone for physical-product shipping. */
+  phone?: string | null;
+  /** True when the phone is OTP-verified. */
+  phoneVerified?: boolean;
 }
 
 export interface OrderBrandSnapshot {

@@ -217,7 +217,11 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
           <div className="flex flex-col gap-5 lg:col-span-8">
             <div className="lg:hidden">
-              <ShippingAddressCard shippingAddress={creator.shippingAddress} />
+              <ShippingAddressCard
+                shippingAddress={creator.shippingAddress}
+                phone={creator.phone}
+                phoneVerified={creator.phoneVerified}
+              />
             </div>
 
             {order.dispatchedAt ? (
@@ -240,7 +244,11 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
             <div className="hidden lg:block">
-              <ShippingAddressCard shippingAddress={creator.shippingAddress} />
+              <ShippingAddressCard
+                shippingAddress={creator.shippingAddress}
+                phone={creator.phone}
+                phoneVerified={creator.phoneVerified}
+              />
             </div>
             <OrderActivityTimeline order={order} />
           </aside>

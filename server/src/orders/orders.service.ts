@@ -4686,6 +4686,14 @@ export class OrdersService {
             profileImageUrl: true,
             city: true,
             shippingAddress: true,
+            user: {
+              select: {
+                phone: true,
+                phoneVerified: true,
+                phoneOtpLastStatus: true,
+                phoneOtpLastPhone: true,
+              },
+            },
             profileLanguages: {
               select: {
                 option: {
@@ -4805,10 +4813,15 @@ export class OrdersService {
           typeof primaryNiche === 'string' && primaryNiche.trim()
             ? primaryNiche.trim()
             : null,
-        // Real address is needed so the brand can ship the product; the
-        // recipient name and phone are deliberately withheld to preserve the
-        // anonymized creator identity.
+        // Address + phone for courier; display name stays anonymized.
         shippingAddress: creator.shippingAddress ?? null,
+        phone:
+          creator.user?.phone?.trim() ||
+          creator.user?.phoneOtpLastPhone?.trim() ||
+          null,
+        phoneVerified:
+          Boolean(creator.user?.phoneVerified) &&
+          creator.user?.phoneOtpLastStatus === 'approved',
       },
     };
   }

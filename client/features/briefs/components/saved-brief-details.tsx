@@ -78,6 +78,10 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
 
   const { data: brief, isLoading, isError, error } = useGetBriefQuery(briefId);
 
+  // A copy made by editing one order's brief. It is not a reusable template,
+  // so it is never offered up for submitting to other orders.
+  const isOrderScopedCopy = !!brief?.orderScopedOrderId;
+
   const { data: listBriefsData, isLoading: isLoadingBriefs } =
     useListBriefsQuery();
   const existingBriefs = listBriefsData?.items ?? [];
@@ -462,7 +466,7 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
             </section>
           )}
 
-          {!isFromOrder && (
+          {!isFromOrder && !isOrderScopedCopy && (
             <section className="sticky top-6 flex max-h-[calc(100vh-120px)] min-w-[320px] flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-white shadow-sm dark:bg-card max-md:static max-md:max-h-none">
               <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
                 <div className="grid size-[38px] shrink-0 place-items-center rounded-[11px] bg-primary/12 text-primary">

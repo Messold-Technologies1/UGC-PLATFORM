@@ -48,6 +48,11 @@ export interface OrderListSummary {
   paidAt?: string | null;
   briefSubmittedAt?: string | null;
   briefAcceptedAt?: string | null;
+  /**
+   * Set when the buyer edited and resubmitted the brief before the creator
+   * accepted it. Null means the brief is the one first submitted.
+   */
+  briefRevisedAt?: string | null;
   hasBrief: boolean;
   requiresPhysicalProductShipment: boolean;
   courierName?: string | null;

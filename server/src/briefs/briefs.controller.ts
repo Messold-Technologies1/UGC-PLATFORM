@@ -29,6 +29,7 @@ import { BriefFieldOptionsResponseDto } from './dto/brief-field-options-response
 import { CreateBriefDto } from './dto/create-brief.dto';
 import { CreateBriefResponseDto } from './dto/create-brief-response.dto';
 import { UpdateBriefDto } from './dto/update-brief.dto';
+import { ReviseBriefForOrderDto } from './dto/revise-brief-for-order.dto';
 import { ListBriefsResponseDto } from './dto/list-briefs-response.dto';
 import { AttachBriefToOrderDto } from './dto/attach-brief-to-order.dto';
 import { AttachBriefToOrdersDto } from './dto/attach-brief-to-orders.dto';
@@ -169,6 +170,30 @@ export class BriefsController {
       ...brandActorParams(req),
       briefId: id,
       dto,
+    });
+  }
+
+  @Post(':id/revise-for-order')
+  @RequiredWorkspace('BRAND')
+  @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Edit and resubmit the brief on an order',
+    description:
+      'Available while the order is awaiting the creator\u2019s response (BRIEF_SUBMITTED). Because a saved brief is reusable across orders, the edit is applied to a private copy attached to this order; the saved brief is left untouched. The order keeps its status, its brief-submitted timestamp is reset so the creator\u2019s reminder starts over, and both sides see the brief marked as updated. Returns the revised copy.',
+  })
+  @ApiOkResponse({ type: BriefDto })
+  async reviseBriefForOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviseBriefForOrderDto,
+    @Req() req: Request & { user: { id: string } },
+  ): Promise<BriefDto> {
+    const { orderId, ...briefFields } = dto;
+    return this.briefsService.reviseBriefForOrder({
+      ...brandActorParams(req),
+      briefId: id,
+      orderId,
+      dto: briefFields,
     });
   }
 

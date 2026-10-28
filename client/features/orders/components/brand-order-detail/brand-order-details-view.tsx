@@ -235,11 +235,16 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
               <ShippingDetailsCard orderId={orderId} />
             )}
 
-            <OrderSummaryCard order={order} creator={creator} />
-
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
+
+            <OrderSummaryCard order={order} creator={creator} />
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
@@ -293,11 +298,16 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
-          <OrderSummaryCard order={order} creator={creator} />
-
           {order.hasBrief && brief ? (
-            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            <BriefSummaryCard
+              order={order}
+              brief={brief}
+              briefId={briefId}
+              canEditBrief
+            />
           ) : null}
+
+          <OrderSummaryCard order={order} creator={creator} />
         </div>
       </div>
     );
@@ -350,11 +360,16 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
           <div className="flex flex-col gap-5 lg:col-span-8">
-            <OrderSummaryCard order={order} creator={creator} />
-
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
+
+            <OrderSummaryCard order={order} creator={creator} />
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
@@ -402,11 +417,16 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
               />
             )}
 
-            <OrderSummaryCard order={order} creator={creator} />
-
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
+
+            <OrderSummaryCard order={order} creator={creator} />
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
@@ -450,14 +470,19 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
         aria-disabled={isAwaitingPayment}
       >
         <div className="flex flex-col gap-5 lg:col-span-8">
+          {order.hasBrief && brief ? (
+            <BriefSummaryCard
+              order={order}
+              brief={brief}
+              briefId={briefId}
+              canEditBrief
+            />
+          ) : null}
+
           <OrderSummaryCard
             order={order}
             creator={creator}
           />
-
-          {order.hasBrief && brief ? (
-            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
-          ) : null}
         </div>
 
         <aside className="flex flex-col gap-5 lg:col-span-4">

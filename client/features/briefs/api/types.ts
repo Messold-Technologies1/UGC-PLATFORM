@@ -65,6 +65,12 @@ export type Brief = {
   finalNotes?: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Set when this brief is a private copy belonging to one order, made by
+   * editing that order's brief. Such a copy is not a reusable template: it is
+   * kept out of the saved-brief list and cannot be sent to another order.
+   */
+  orderScopedOrderId?: string | null;
 };
 
 export type ListBriefsResponse = {

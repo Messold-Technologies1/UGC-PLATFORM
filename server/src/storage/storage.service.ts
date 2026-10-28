@@ -575,6 +575,36 @@ export class StorageService {
     return finalKey;
   }
 
+  /**
+   * Copy an already-finalized brief product image onto a second brief.
+   *
+   * Used when a buyer edits a submitted brief: the order gets a forked copy of
+   * the brief, and the copy needs its own object. Sharing the original's key
+   * would make the two briefs share one file, so deleting or replacing the
+   * image on either would blank it on the other.
+   */
+  async copyBriefProductImageToBrief(input: {
+    sourceKey: string;
+    briefId: string;
+  }): Promise<string> {
+    const fileName = input.sourceKey.split('/').pop();
+    if (!fileName?.includes('.')) {
+      throw new Error('Invalid brief product image key');
+    }
+    const finalKey = `brief-product/${input.briefId}/${fileName}`;
+    if (finalKey === input.sourceKey) return finalKey;
+
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: finalKey,
+        CopySource: `${this.bucket}/${input.sourceKey}`,
+      }),
+    );
+
+    return finalKey;
+  }
+
   async finalizeBrandPronunciationAudioKey(input: {
     tempKey: string;
     brandProfileId: string;

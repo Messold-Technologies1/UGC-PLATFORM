@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  OrderAcceptedBy,
   OrderDisputeOpenedBy,
   OrderDisputeStatus,
   OrderStatus,
@@ -153,8 +154,24 @@ export class OrderDetailsPublicDto {
   @ApiPropertyOptional()
   deliveredAt?: Date | null;
 
+  @ApiPropertyOptional({
+    description:
+      'When this order accepts itself if the brand never reviews the ' +
+      'content. Null means no clock is running — nothing is delivered, a ' +
+      'revision is outstanding, a dispute is open, or the order is closed.',
+  })
+  autoAcceptAt?: Date | null;
+
   @ApiPropertyOptional()
   acceptedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    enum: OrderAcceptedBy,
+    description:
+      'How the order was accepted: BRAND if someone clicked Accept, AUTO if ' +
+      'the review deadline passed. Null until the order is accepted.',
+  })
+  acceptedBy?: OrderAcceptedBy | null;
 
   @ApiPropertyOptional()
   creatorPaidAt?: Date | null;

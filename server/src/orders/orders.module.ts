@@ -4,6 +4,7 @@ import { RazorpayModule } from '../razorpay/razorpay.module';
 import { AdminOrdersController } from './admin-orders.controller';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { OrderAutoAcceptService } from './order-auto-accept.service';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageModule } from '../storage/storage.module';
 import { OrderChatModule } from '../order-chat/order-chat.module';
@@ -27,7 +28,7 @@ import { WalletModule } from '../wallet/wallet.module';
     WalletModule,
   ],
   controllers: [OrdersController, AdminOrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, OrderAutoAcceptService],
   exports: [OrdersService],
 })
 export class OrdersModule {}

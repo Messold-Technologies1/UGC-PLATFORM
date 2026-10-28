@@ -24,6 +24,9 @@ describe('OrdersService.acceptDelivery → completion reward credit', () => {
         lastChatMessageId: null,
         ...order,
       }),
+      // The acceptance is a conditional `updateMany`, not an `update` by id:
+      // the preconditions live in the WHERE so concurrent callers serialise.
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       update: jest.fn().mockResolvedValue({}),
     };
     const transaction = jest.fn(
@@ -94,9 +97,12 @@ describe('OrdersService.acceptDelivery → completion reward credit', () => {
       expect.anything(),
       { order: orderClient },
     );
-    expect(orderClient.update).toHaveBeenCalledWith(
+    expect(orderClient.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: 'ACCEPTED' }),
+        data: expect.objectContaining({
+          status: 'ACCEPTED',
+          acceptedBy: 'BRAND',
+        }),
       }),
     );
   });
@@ -123,7 +129,7 @@ describe('OrdersService.acceptDelivery → completion reward credit', () => {
 
     await accept(service);
 
-    expect(orderClient.update).toHaveBeenCalled();
+    expect(orderClient.updateMany).toHaveBeenCalled();
     expect(wallet.creditOrderCompletion).not.toHaveBeenCalled();
   });
 
@@ -155,7 +161,22 @@ describe('OrdersService.acceptDelivery → completion reward credit', () => {
 
     await accept(service);
 
-    expect(orderClient.update).not.toHaveBeenCalled();
+    expect(orderClient.updateMany).not.toHaveBeenCalled();
+    expect(wallet.creditOrderCompletion).not.toHaveBeenCalled();
+  });
+
+  /**
+   * `@Cron` fires in the API process, the worker, and every API replica, so the
+   * auto-accept sweep genuinely races itself and the brand's own click. The
+   * loser's claim matches no row, and must not hand out a second reward.
+   */
+  it('does not reward again when the claim loses the race', async () => {
+    const { service, wallet, orderClient } = makeService(enabled);
+    orderClient.updateMany.mockResolvedValue({ count: 0 });
+
+    await accept(service);
+
+    expect(orderClient.updateMany).toHaveBeenCalled();
     expect(wallet.creditOrderCompletion).not.toHaveBeenCalled();
   });
 
@@ -164,7 +185,7 @@ describe('OrdersService.acceptDelivery → completion reward credit', () => {
     wallet.creditOrderCompletion.mockRejectedValue(new Error('wallet down'));
 
     await expect(accept(service)).rejects.toThrow('wallet down');
-    // The update ran, but inside the transaction that threw — nothing commits.
-    expect(orderClient.update).toHaveBeenCalled();
+    // The claim ran, but inside the transaction that threw — nothing commits.
+    expect(orderClient.updateMany).toHaveBeenCalled();
   });
 });

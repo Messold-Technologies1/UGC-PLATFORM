@@ -121,6 +121,16 @@ enum OrderStatus {
   CANCELLED_CREDITED
 }
 
+/// Who closed an order by accepting its content. Null until the order reaches
+/// ACCEPTED. There is no admin accept-on-behalf path today, so there are only
+/// two ways an order can be accepted.
+enum OrderAcceptedBy {
+  /// The buyer clicked Accept (a brand user, or an agency acting as buyer).
+  BRAND
+  /// Nobody acted and the auto-accept deadline passed. See Order.autoAcceptAt.
+  AUTO
+}
+
 enum OrderDisputeStatus {
   OPEN
   RESOLVED_CONTINUE
@@ -688,7 +698,20 @@ model Order {
   deliveryDueAt           DateTime?
   deliveryGraceDeadlineAt DateTime?
   deliveredAt             DateTime?
+  /// When this order accepts itself if the brand never reviews the content.
+  ///
+  /// Set the moment the order enters DELIVERED/REVISION_SUBMITTED, to
+  /// `max(deliveryDueAt, deliveredAt) + AUTO_ACCEPT_DAYS`: delivering early
+  /// does not shorten the brand's window, and delivering late does not either.
+  /// Cleared whenever the ball leaves the brand's court — a revision request,
+  /// an open dispute — and restored when it comes back. Null therefore means
+  /// "no clock is running", which is what the sweep keys off.
+  autoAcceptAt            DateTime?
   acceptedAt              DateTime?
+  /// How the order came to be ACCEPTED. Distinguishes a brand that reviewed
+  /// the work from one that simply went quiet, which support needs when a
+  /// brand disputes afterwards.
+  acceptedBy              OrderAcceptedBy?
   creatorPaidAt           DateTime?
   revisionCount           Int       @default(0)
 
@@ -808,6 +831,9 @@ model Order {
   @@index([creatorId, lastChatActivityAt(sort: Desc)])
   @@index([status, createdAt])
   @@index([deliveryGraceDeadlineAt])
+  /// Drives the hourly auto-accept sweep, which reads only rows with a clock
+  /// running (`autoAcceptAt <= now`). Most orders hold NULL here.
+  @@index([autoAcceptAt])
   @@index([briefId])
   @@index([checkoutBatchId])
   /// Serves the checkout lookup for a buyer's open drafts with one creator

@@ -32,6 +32,7 @@ export const orderSelect = {
   dispatchedAt: true,
   deliveryDueAt: true,
   deliveredAt: true,
+  autoAcceptAt: true,
   briefSubmittedAt: true,
   briefAcceptedAt: true,
   cancellationReason: true,

@@ -18,6 +18,7 @@ import {
   sendSignupPhoneOtp,
   type PhoneOtpChannel,
 } from "@/features/auth/api/phone-otp";
+import { readPhoneOtpError } from "@/features/auth/lib/phone-otp-error";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { startGoogleOAuth } from "@/features/auth/lib/start-google-oauth";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
@@ -161,14 +162,21 @@ export function UnifiedSignupForm() {
       );
     },
     onError: (error) => {
-      const status = isAxiosError(error) ? error.response?.status : undefined;
-      toast.error(
-        status === 429
-          ? "Too many attempts. Please wait a moment."
-          : status === 503
-            ? "Phone verification is temporarily unavailable."
-            : "Could not send the code. Check the number and try again.",
+      const { message, retryAfterSeconds } = readPhoneOtpError(
+        error,
+        "Could not send the code. Check the number and try again.",
       );
+      // The 30s cooldown lives on the server and is keyed by number, so it
+      // outlives this tab: a reload, or a second attempt on the same number,
+      // lands here with time still on the clock. Re-arm the button from what
+      // the server actually said rather than leaving it live to be hammered.
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (retryAfterSeconds || status === 429) {
+        setOtpResendAt(
+          Date.now() + (retryAfterSeconds ?? PHONE_OTP_RESEND_MS / 1000) * 1000,
+        );
+      }
+      toast.error(message);
     },
   });
 

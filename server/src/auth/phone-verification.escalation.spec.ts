@@ -143,6 +143,80 @@ describe('PhoneVerificationService channel escalation', () => {
     );
   });
 
+  describe('transport failover', () => {
+    /**
+     * The rung decides where a send starts, not whether the user gets a code.
+     * A dead tier used to fail the whole request — in practice a suspended
+     * Twilio account meant every send past the second one in the window died,
+     * even though WhatsApp was working the whole time.
+     */
+    it('falls back to a working tier when the chosen one refuses', async () => {
+      priorSends = 2;
+      twilioMock.startVerification.mockRejectedValue(
+        new Error('authentication failed, account is not active'),
+      );
+
+      await expect(buildService().sendVerificationCode(phone)).resolves.toBe(
+        'whatsapp',
+      );
+      expect(whatsappMock.sendAuthenticationCode).toHaveBeenCalledTimes(1);
+
+      // The row must name the tier that actually sent, and carry the code we
+      // generated — `verifyCode` branches on exactly these two fields.
+      const updates = prismaMock.phoneOtp.update.mock.calls as Array<
+        [
+          {
+            data: { channel: string; codeHash: string; deliveryStatus: string };
+          },
+        ]
+      >;
+      const saved = updates.at(-1)?.[0].data;
+      expect(saved?.channel).toBe('whatsapp');
+      expect(saved?.codeHash).not.toBe('');
+      expect(saved?.deliveryStatus).toBe('accepted');
+    });
+
+    /**
+     * A send that never left our server cost nothing and delivered nothing.
+     * Letting it hold the 30s cooldown is what turned one dead tier into
+     * "Please wait 19s" on a number that had never been messaged.
+     */
+    it('ignores never-dispatched rows in the cooldown and the caps', async () => {
+      const dispatchedOnly = {
+        NOT: { AND: [{ wamid: null }, { deliveryStatus: 'failed' }] },
+      };
+      priorSends = 0;
+      await buildService().sendVerificationCode(phone);
+
+      type WhereCall = [{ where: Record<string, unknown> }];
+      const cooldownCalls = prismaMock.phoneOtp.findFirst.mock
+        .calls as WhereCall[];
+      expect(cooldownCalls.at(-1)?.[0].where).toMatchObject(dispatchedOnly);
+
+      const countCalls = prismaMock.phoneOtp.count.mock.calls as WhereCall[];
+      expect(countCalls.length).toBeGreaterThan(0);
+      for (const [{ where }] of countCalls) {
+        expect(where).toMatchObject(dispatchedOnly);
+      }
+    });
+
+    it('fails only once every configured tier has refused', async () => {
+      priorSends = 0;
+      whatsappMock.sendAuthenticationCode.mockRejectedValue(
+        new Error('token expired'),
+      );
+      twilioMock.sendSms.mockRejectedValue(new Error('no DLT template'));
+      twilioMock.startVerification.mockRejectedValue(new Error('not active'));
+
+      await expect(buildService().sendVerificationCode(phone)).rejects.toThrow(
+        /Could not send the verification code/i,
+      );
+      expect(whatsappMock.sendAuthenticationCode).toHaveBeenCalledTimes(1);
+      expect(twilioMock.sendSms).toHaveBeenCalledTimes(1);
+      expect(twilioMock.startVerification).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('PHONE_OTP_ENABLED kill switch', () => {
     afterEach(() => {
       delete env.PHONE_OTP_ENABLED;

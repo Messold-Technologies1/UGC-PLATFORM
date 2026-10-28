@@ -59,6 +59,12 @@ export interface OrderListSummary {
   deliveryGraceDeadlineAt?: string | null;
   /** When the content was delivered — "Delivered on" for list cards. */
   deliveredAt?: string | null;
+  /**
+   * When this order accepts itself if the brand never reviews the content.
+   * Null means no clock is running — nothing delivered, a revision outstanding,
+   * a dispute open, or the order already closed.
+   */
+  autoAcceptAt?: string | null;
   /** Revisions requested so far. */
   revisionCount?: number;
   /**
@@ -136,6 +142,12 @@ export interface OrderDetailsPublic extends OrderListSummary {
   addOnsTotalSnapshot?: string | null;
   expectedAmountPaise: number;
   acceptedAt?: string | null;
+  /**
+   * How the order was accepted: "BRAND" if someone clicked Approve, "AUTO" if
+   * the review deadline passed. Null until the order is accepted — and worth
+   * checking before telling a brand they approved something.
+   */
+  acceptedBy?: "BRAND" | "AUTO" | null;
   creatorPaidAt?: string | null;
   revisionCount: number;
   /** Revisions granted by one paid extra-revisions purchase. */

@@ -18,6 +18,7 @@ import {
 } from "../../constants";
 import { BuyUsageRightsModal } from "./order-completed/buy-usage-rights-modal";
 import { getDeliveryDeadlineCardMeta } from "../delivery-deadline-display";
+import { autoAcceptNotice } from "../../lib/auto-accept-notice";
 
 function getInitials(name: string): string {
   return name
@@ -82,6 +83,13 @@ export function OrderCollaborationCard({
       ? `₹${Math.round(order.expectedAmountPaise / 100).toLocaleString("en-IN")}`
       : formatCurrency(order.priceAmountSnapshot, order.currency);
   const deadlineMeta = getDeliveryDeadlineCardMeta(order);
+  // Only while the brand can still act on the delivery. The server clears the
+  // deadline once a revision is outstanding or the order closes, so this is
+  // belt-and-braces against a stale cached list.
+  const autoAccept =
+    order.status === "DELIVERED" || order.status === "REVISION_SUBMITTED"
+      ? autoAcceptNotice(order.autoAcceptAt)
+      : null;
   const timelineLabel =
     order.status === "REJECTED" ||
     order.status === "REFUNDED" ||
@@ -191,6 +199,18 @@ export function OrderCollaborationCard({
                 {statusLabel}
               </span>
             )}
+
+            {autoAccept ? (
+              <span
+                className={
+                  autoAccept.urgent
+                    ? "text-[11px] font-semibold whitespace-nowrap text-amber-600 dark:text-amber-500"
+                    : "text-[11px] font-semibold whitespace-nowrap text-muted-foreground"
+                }
+              >
+                {autoAccept.short}
+              </span>
+            ) : null}
 
             <div className="flex flex-wrap items-center justify-end gap-2">
               {canBuyUsageRights ? (

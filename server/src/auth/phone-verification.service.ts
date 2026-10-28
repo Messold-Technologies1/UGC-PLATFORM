@@ -40,9 +40,13 @@ export type PhoneOtpPurpose = 'signup' | 'profile';
  * 2. `sms`        — our code, as a plain Twilio SMS.
  * 3. `twilio_verify` — Twilio generates, sends and checks its own code.
  *
- * Escalation is driven purely by the number of sends, not by delivery
- * failures: one "Send OTP" click sends exactly one message, and the user steps
- * down a tier by asking for another code.
+ * Escalation is driven by the number of sends, not by delivery failures: one
+ * "Send OTP" click sends exactly one message, and the user steps down a tier by
+ * asking for another code.
+ *
+ * The rung only decides where a send STARTS. If that transport rejects the
+ * send, the remaining configured tiers are tried in ladder order, so a tier
+ * that is down or misconfigured costs a fallback rather than the whole code.
  */
 export type PhoneOtpChannel = 'whatsapp' | 'sms' | 'twilio_verify';
 
@@ -74,6 +78,21 @@ const MAX_SENDS_PER_IP_PER_HOUR = 20;
 const ESCALATION_WINDOW_MS = 30 * 60_000;
 /** Rows are kept this long for support/abuse forensics, then purged. */
 const RETENTION_DAYS = 30;
+
+/**
+ * Narrows a `PhoneOtp` query to sends that actually left our server.
+ *
+ * A row marked failed with no provider id never reached a transport: nothing
+ * was delivered and nothing was charged. Counting those would punish the user
+ * for our own outage — a dead Twilio account would hold the number under a 30s
+ * cooldown, burn its hourly cap and march the escalation ladder forward, all
+ * without a single message being sent. A delivery that failed *after* dispatch
+ * keeps its provider id and still counts; that one is the reason the ladder
+ * exists.
+ */
+const DISPATCHED_SEND = {
+  NOT: { AND: [{ wamid: null }, { deliveryStatus: 'failed' }] },
+};
 
 /**
  * Raised when a caller is sending too fast. Controllers translate this into a
@@ -290,28 +309,46 @@ export class PhoneVerificationService implements OnModuleInit {
 
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60_000);
     const sendsToday = await this.prisma.phoneOtp.count({
-      where: { phone: normalized, purpose, createdAt: { gte: dayAgo } },
+      where: {
+        phone: normalized,
+        purpose,
+        createdAt: { gte: dayAgo },
+        ...DISPATCHED_SEND,
+      },
     });
 
-    // Pick the tier from how many codes this number has already been sent
-    // recently. Past the last rung we stay on it — a fourth resend repeats
-    // Verify rather than falling back up to a channel that already failed.
+    // Pick the tier from how many codes this number has actually been sent
+    // recently. Past the last rung we stay on it — a fourth resend starts at
+    // Verify rather than quietly resetting to the cheapest channel.
     const recentSends = await this.prisma.phoneOtp.count({
       where: {
         phone: normalized,
         purpose,
         createdAt: { gte: new Date(now.getTime() - ESCALATION_WINDOW_MS) },
+        ...DISPATCHED_SEND,
       },
     });
     const channel = ladder[Math.min(recentSends, ladder.length - 1)];
 
-    // Twilio Verify issues and holds its own code; every other tier sends ours.
-    const code = channel === 'twilio_verify' ? null : this.generateCode();
+    /**
+     * The chosen rung first, then every other configured rung.
+     *
+     * Escalation decides where a send *starts*; it must not decide whether the
+     * user gets a code at all. A tier can be down or misconfigured (expired
+     * WhatsApp token, suspended Twilio account), and failing the whole request
+     * because the rung we happened to land on is broken leaves the user stuck
+     * with no way back to a channel that works.
+     */
+    const attempts = [channel, ...ladder.filter((tier) => tier !== channel)];
+
+    // One code for the whole attempt chain: Twilio Verify issues and holds its
+    // own, every other tier sends this one.
+    const code = this.generateCode();
 
     const record = await this.prisma.phoneOtp.create({
       data: {
         phone: normalized,
-        codeHash: code ? this.hashCode(code) : '',
+        codeHash: channel === 'twilio_verify' ? '' : this.hashCode(code),
         purpose,
         channel,
         sendCount: sendsToday + 1,
@@ -333,33 +370,53 @@ export class PhoneVerificationService implements OnModuleInit {
       data: { consumedAt: now },
     });
 
-    try {
-      const providerId = await this.dispatch(channel, normalized, code);
-      await this.prisma.phoneOtp.update({
-        where: { id: record.id },
-        data: { wamid: providerId, deliveryStatus: 'accepted' },
-      });
-      return channel;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      // Burn the code: it never reached anyone, and leaving it live would let
-      // a failed send still count against the number's active-code slot.
-      await this.prisma.phoneOtp.update({
-        where: { id: record.id },
-        data: {
-          consumedAt: now,
-          deliveryStatus: 'failed',
-          failureDetail: message.slice(0, 500),
-          failedAt: now,
-        },
-      });
-      this.logger.error(
-        `[phone] OTP send failed via ${channel} for ${normalized}: ${message}`,
-      );
-      throw new PhoneOtpSendError(
-        'Could not send the verification code. Check the number and try again.',
-      );
+    let lastFailure = '';
+    for (const attempt of attempts) {
+      try {
+        const providerId = await this.dispatch(
+          attempt,
+          normalized,
+          attempt === 'twilio_verify' ? null : code,
+        );
+        await this.prisma.phoneOtp.update({
+          where: { id: record.id },
+          data: {
+            // The row has to name the tier that actually sent: `verifyCode`
+            // branches on it, and a Verify row must hold no code of ours.
+            channel: attempt,
+            codeHash: attempt === 'twilio_verify' ? '' : this.hashCode(code),
+            wamid: providerId,
+            deliveryStatus: 'accepted',
+          },
+        });
+        if (attempt !== channel) {
+          this.logger.warn(
+            `[phone] OTP for ${normalized} fell back from ${channel} to ${attempt}`,
+          );
+        }
+        return attempt;
+      } catch (err) {
+        lastFailure = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `[phone] OTP send failed via ${attempt} for ${normalized}: ${lastFailure}`,
+        );
+      }
     }
+
+    // Every configured tier refused. Burn the code: it never reached anyone,
+    // and leaving it live would still hold the number's active-code slot.
+    await this.prisma.phoneOtp.update({
+      where: { id: record.id },
+      data: {
+        consumedAt: now,
+        deliveryStatus: 'failed',
+        failureDetail: lastFailure.slice(0, 500),
+        failedAt: now,
+      },
+    });
+    throw new PhoneOtpSendError(
+      'Could not send the verification code. Check the number and try again.',
+    );
   }
 
   /** Hand the send to the transport for this tier; returns the provider id. */
@@ -398,7 +455,7 @@ export class PhoneVerificationService implements OnModuleInit {
     ipHash: string | null,
   ): Promise<void> {
     const latest = await this.prisma.phoneOtp.findFirst({
-      where: { phone, purpose },
+      where: { phone, purpose, ...DISPATCHED_SEND },
       orderBy: { createdAt: 'desc' },
       select: { lastSentAt: true },
     });
@@ -418,10 +475,20 @@ export class PhoneVerificationService implements OnModuleInit {
 
     const [lastHour, lastDay] = await Promise.all([
       this.prisma.phoneOtp.count({
-        where: { phone, purpose, createdAt: { gte: hourAgo } },
+        where: {
+          phone,
+          purpose,
+          createdAt: { gte: hourAgo },
+          ...DISPATCHED_SEND,
+        },
       }),
       this.prisma.phoneOtp.count({
-        where: { phone, purpose, createdAt: { gte: dayAgo } },
+        where: {
+          phone,
+          purpose,
+          createdAt: { gte: dayAgo },
+          ...DISPATCHED_SEND,
+        },
       }),
     ]);
 
@@ -438,7 +505,7 @@ export class PhoneVerificationService implements OnModuleInit {
 
     if (ipHash) {
       const fromIp = await this.prisma.phoneOtp.count({
-        where: { ipHash, createdAt: { gte: hourAgo } },
+        where: { ipHash, createdAt: { gte: hourAgo }, ...DISPATCHED_SEND },
       });
       if (fromIp >= MAX_SENDS_PER_IP_PER_HOUR) {
         throw new PhoneOtpRateLimitError(

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type {
+  NotificationChannel,
   NotificationTemplateSummary,
   OffsetUnit,
   ScheduleRow,
@@ -68,7 +69,7 @@ export function ScheduleEditor({
     .map((r) => r.offsetMinutes)
     .filter((o, i, all) => all.indexOf(o) !== i);
 
-  const toggleChannel = (row: DraftRow, channel: "EMAIL" | "WHATSAPP") => {
+  const toggleChannel = (row: DraftRow, channel: NotificationChannel) => {
     const next = row.channels.includes(channel)
       ? row.channels.filter((c) => c !== channel)
       : [...row.channels, channel];
@@ -155,6 +156,13 @@ export function ScheduleEditor({
                       onCheckedChange={() => toggleChannel(row, "WHATSAPP")}
                     />
                     WhatsApp
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={row.channels.includes("PUSH")}
+                      onCheckedChange={() => toggleChannel(row, "PUSH")}
+                    />
+                    Browser
                   </label>
                 </div>
 

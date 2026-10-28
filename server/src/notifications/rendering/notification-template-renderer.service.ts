@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import Handlebars from 'handlebars';
 import type { TemplateDelegate } from 'handlebars';
 import { deriveText } from './derive-text';
+import { truncateForPush } from './push-copy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TemplateRendererService } from '../../mail/template-renderer.service';
 import {
@@ -27,6 +28,13 @@ export type RenderRequest = {
 export type RenderResult = RenderedEmail & {
   /** Where the content came from — useful in the delivery log and in tests. */
   source: 'db' | 'disk';
+  templateId: string | null;
+};
+
+export type RenderedPush = {
+  title: string;
+  body: string;
+  /** Recorded on the delivery log row, as the email path does. */
   templateId: string | null;
 };
 
@@ -76,6 +84,29 @@ export class NotificationTemplateRenderer {
         deriveText(bodyHtml);
 
     return { subject, html, text, source: 'db', templateId: row.id };
+  }
+
+  /**
+   * The same event, as a browser notification.
+   *
+   * Derived from the email rather than authored separately: the subject is
+   * already a one-line statement of what happened, which is exactly what a
+   * notification title is, and the plain-text part opens with the sentence
+   * that explains it. That correspondence is what lets push be switched on
+   * for any event in the catalog without writing thirty more templates first.
+   *
+   * It is a fallback, not a ceiling. Where a subject reads badly as a title —
+   * too long, or written for an inbox rather than a lock screen — the answer
+   * is a per-event push override, which is a column and an admin field this
+   * does not have yet (docs/BROWSER_PUSH_PLAN.md §4.3).
+   */
+  async renderPush(req: RenderRequest): Promise<RenderedPush> {
+    const rendered = await this.render(req);
+    return {
+      title: rendered.subject.trim(),
+      body: truncateForPush(rendered.text),
+      templateId: rendered.templateId,
+    };
   }
 
   /**

@@ -31,6 +31,10 @@ type Options = {
   buyer?: 'brand' | 'agency';
   /** What the relevance check answers: true, false, or null for "gone". */
   stillRelevant?: boolean | null;
+  /** Event vars to render after `{{1}}` on WhatsApp, in placeholder order. */
+  whatsappBodyVars?: string[];
+  /** Extra values the stubbed resolve() returns, for those placeholders. */
+  extraVars?: Record<string, string>;
 };
 
 function build(opts: Options = {}) {
@@ -129,6 +133,9 @@ function build(opts: Options = {}) {
           label: 'x',
           recipient: 'BRAND',
           vars: {},
+          ...(opts.whatsappBodyVars
+            ? { whatsappBodyVars: opts.whatsappBodyVars }
+            : {}),
           resolve: jest.fn().mockResolvedValue(
             opts.resolveNull
               ? null
@@ -141,6 +148,7 @@ function build(opts: Options = {}) {
                   vars: {
                     recipientName: 'Rohit',
                     actionUrl: 'https://app.gocollab.io/brand/orders/ord_1',
+                    ...(opts.extraVars ?? {}),
                   },
                 },
           ),
@@ -180,6 +188,57 @@ describe('NotificationStepService.deliver', () => {
       'log1',
       expect.objectContaining({ providerMessageId: 'ses-msg-1' }),
     );
+  });
+
+  /**
+   * `{{1}}` is the recipient's name on every template. An event that needs more
+   * opts in by naming vars, and the ORDER of those names is the order of the
+   * Meta placeholders — get it wrong and the brand is told the work arrived on
+   * the day it is due to close.
+   */
+  it('sends only the recipient name by default', async () => {
+    const { service, whatsapp } = build();
+
+    await service.deliver(job);
+
+    const [sent] = whatsapp.send.mock.calls[0] as [{ bodyVars: string[] }];
+    expect(sent.bodyVars).toEqual(['Rohit']);
+  });
+
+  it("appends an event's declared vars after the name, in order", async () => {
+    const { service, whatsapp } = build({
+      whatsappBodyVars: ['deliveredAt', 'autoAcceptAt'],
+      extraVars: {
+        deliveredAt: '10 Mar 2026, 1:15 pm',
+        autoAcceptAt: '15 Mar 2026, 9:00 am',
+      },
+    });
+
+    await service.deliver(job);
+
+    const [sent] = whatsapp.send.mock.calls[0] as [{ bodyVars: string[] }];
+    expect(sent.bodyVars).toEqual([
+      'Rohit',
+      '10 Mar 2026, 1:15 pm',
+      '15 Mar 2026, 9:00 am',
+    ]);
+  });
+
+  /**
+   * A var the resolve() did not supply renders as an empty string rather than
+   * `undefined` — a blank in the message is bad, "undefined" in a WhatsApp to a
+   * paying brand is worse, and dropping it would shift every later placeholder.
+   */
+  it('keeps the placeholder count when a declared var is missing', async () => {
+    const { service, whatsapp } = build({
+      whatsappBodyVars: ['deliveredAt', 'autoAcceptAt'],
+      extraVars: { deliveredAt: '10 Mar 2026, 1:15 pm' },
+    });
+
+    await service.deliver(job);
+
+    const [sent] = whatsapp.send.mock.calls[0] as [{ bodyVars: string[] }];
+    expect(sent.bodyVars).toEqual(['Rohit', '10 Mar 2026, 1:15 pm', '']);
   });
 
   it('records a skip and sends nothing while sending is disabled', async () => {

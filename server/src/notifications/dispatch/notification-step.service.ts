@@ -156,6 +156,7 @@ export class NotificationStepService {
               row.whatsappTemplateOverride ??
               event.whatsappTemplateName ??
               defaultWhatsAppTemplateName(job.eventKey),
+            whatsappBodyVars: definition.whatsappBodyVars ?? [],
           }),
         );
       } catch (err) {
@@ -176,6 +177,8 @@ export class NotificationStepService {
       alwaysSend: boolean;
       emailTemplateId: string | null;
       whatsappTemplateName: string;
+      /** Keys of the event's vars to render after `{{1}}`. */
+      whatsappBodyVars: readonly string[];
     },
   ): Promise<StepOutcome> {
     const address =
@@ -236,6 +239,7 @@ export class NotificationStepService {
               recipient,
               address,
               opts.whatsappTemplateName,
+              opts.whatsappBodyVars,
             );
 
       await this.log.markSent(claim.logId, {
@@ -290,6 +294,7 @@ export class NotificationStepService {
     recipient: ResolvedRecipient,
     phone: string,
     templateName: string,
+    extraBodyVars: readonly string[],
   ): Promise<{ messageId: string | null; subject: string; templateId: null }> {
     const base = frontendBaseUrl(this.config);
     const actionUrl = recipient.vars.actionUrl;
@@ -298,8 +303,15 @@ export class NotificationStepService {
       templateName,
       language:
         this.config.get<string>('WHATSAPP_DEFAULT_LANGUAGE')?.trim() || 'en',
-      // The universal contract: {{1}} is the recipient's name.
-      bodyVars: [sanitizeBodyVar(String(recipient.vars.recipientName ?? ''))],
+      // The universal contract: {{1}} is the recipient's name. Anything after
+      // it is the event opting in by name (see `whatsappBodyVars`), and the
+      // count has to match the approved Meta template or the send is rejected.
+      bodyVars: [
+        sanitizeBodyVar(String(recipient.vars.recipientName ?? '')),
+        ...extraBodyVars.map((key) =>
+          sanitizeBodyVar(String(recipient.vars[key] ?? '')),
+        ),
+      ],
       buttonUrlVar:
         typeof actionUrl === 'string' && actionUrl
           ? frontendRelativePath(base, actionUrl)

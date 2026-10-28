@@ -99,6 +99,33 @@ describe('notification event catalog', () => {
     ]);
   });
 
+  /**
+   * WhatsApp rejects a send whose parameter count does not match the template
+   * it was approved with, and a typo here renders an empty string rather than
+   * throwing — the brand gets "delivered on  " and nobody finds out. Pinned by
+   * name as well as by shape, because adding an entry means re-submitting a
+   * template to Meta and that should be a visible decision in review.
+   */
+  it('declares only real vars as extra WhatsApp body placeholders', () => {
+    const declaring = NOTIFICATION_EVENT_KEYS.filter(
+      (k) => NOTIFICATION_EVENTS_BY_KEY[k].whatsappBodyVars?.length,
+    );
+
+    expect(declaring).toEqual(['order-auto-accept-reminder-for-brand']);
+
+    for (const key of declaring) {
+      const def = NOTIFICATION_EVENTS_BY_KEY[key];
+      for (const name of def.whatsappBodyVars ?? []) {
+        expect(`${key}:${name}`).toBe(
+          `${key}:${Object.keys(def.vars).includes(name) ? name : 'MISSING'}`,
+        );
+      }
+      // {{1}} is always the recipient name, so declaring it again would send
+      // it twice and shift every other placeholder.
+      expect(def.whatsappBodyVars).not.toContain('recipientName');
+    }
+  });
+
   it('derives WhatsApp template names the way the existing bridge does', () => {
     expect(
       defaultWhatsAppTemplateName('order-brief-submitted-for-creator'),

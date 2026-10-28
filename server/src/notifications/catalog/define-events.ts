@@ -152,6 +152,22 @@ export type EventDefinition = {
   ) => Promise<boolean | null>;
 
   /**
+   * Extra WhatsApp body placeholders, after `{{1}}`.
+   *
+   * The universal contract is one body variable — `{{1}}` is the recipient's
+   * name — and every event kept it until an order reminder needed to name two
+   * dates. Each entry here is a key of {@link vars}, rendered in order as
+   * `{{2}}`, `{{3}}` and so on.
+   *
+   * THIS IS COUPLED TO AN APPROVED META TEMPLATE. WhatsApp rejects a send whose
+   * parameter count does not match the template it was approved with, so adding
+   * or removing an entry means re-submitting that template in WhatsApp Manager.
+   * Leave it unset unless the copy genuinely needs the value — the email
+   * carries the full detail either way, and it costs nothing to change.
+   */
+  whatsappBodyVars?: readonly string[];
+
+  /**
    * Present when this event is swept rather than emitted. See
    * {@link PopulationSpec}.
    */

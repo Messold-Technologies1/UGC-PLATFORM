@@ -480,8 +480,16 @@ export const orderEvents = defineEvents({
     vars: {
       ...commonVars,
       ...creatorNameVar,
+      deliveredAt: { type: 'date', example: '10 Mar 2026, 1:15 pm' },
       autoAcceptAt: { type: 'date', example: '15 Mar 2026, 9:00 am' },
     },
+    /**
+     * Both dates reach WhatsApp as `{{2}}` and `{{3}}`. A nudge that cannot say
+     * when the work arrived or when the window shuts is just noise — the whole
+     * message is those two dates — so this is the one event worth coupling to
+     * an approved template with more than the universal `{{1}}`.
+     */
+    whatsappBodyVars: ['deliveredAt', 'autoAcceptAt'],
     resolve: async (ctx, id) => {
       const order = await loadOrder(ctx, id);
       if (!order) return null;
@@ -489,6 +497,7 @@ export const orderEvents = defineEvents({
         creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
+        deliveredAt: formatDate(order.deliveredAt),
         autoAcceptAt: formatDate(order.autoAcceptAt),
         actionUrl: brandOrderUrl(ctx, order),
       });

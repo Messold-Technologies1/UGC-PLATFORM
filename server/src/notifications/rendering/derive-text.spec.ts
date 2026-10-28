@@ -64,7 +64,7 @@ describe('deriveTextHbs', () => {
       .filter((f) => f.endsWith('.html.hbs'))
       .map((f) => f.replace('.html.hbs', ''));
 
-    expect(keys.length).toBe(38);
+    expect(keys.length).toBe(40);
     for (const key of keys) {
       const out = deriveTextHbs(
         readFileSync(join(dir, `${key}.html.hbs`), 'utf8'),

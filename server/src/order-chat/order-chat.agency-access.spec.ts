@@ -42,6 +42,7 @@ function build(opts: { agencyLinked?: boolean } = {}) {
     {} as never,
     {} as never,
     brandAccess as never,
+    { emit: jest.fn() } as never,
   );
 
   return { service, brandAccess };

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { OrderChatMessageType } from '@prisma/client';
@@ -16,6 +17,8 @@ import {
 } from './order-chat-message.mapper';
 import { buildOrderLastChatSnapshotUpdate } from './order-chat-order-snapshot';
 import { OrderChatRealtimeNotifier } from './order-chat-realtime.notifier';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
+import { chatOccurrenceKey } from '../notifications/catalog/order-chat.events';
 
 type OrderChatParticipants = {
   /**
@@ -48,11 +51,14 @@ const MESSAGE_SELECT = {
 
 @Injectable()
 export class OrderChatService {
+  private readonly logger = new Logger(OrderChatService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly realtime: OrderChatRealtimeNotifier,
     private readonly brandAccess: BrandAccessService,
+    private readonly notifications: NotificationEventsService,
   ) {}
 
   private formatMessage(row: OrderChatMessageRow): FormattedOrderChatMessage {
@@ -78,6 +84,60 @@ export class OrderChatService {
       orderId,
       message: toRealtimeChatMessagePayload(message),
     });
+    await this.notifyCounterparties(orderId, message);
+  }
+
+  /**
+   * Tell whoever did not write it.
+   *
+   * Both the realtime emit above and this run from the one place all three
+   * send paths converge on, so a new way to post a message cannot forget
+   * either half.
+   *
+   * Which side is notified follows from who is absent rather than from who
+   * sent it, which is what makes the admin case fall out for free: support
+   * writes into this same thread during a dispute, and being neither party it
+   * matches both tests, so both sides hear about it.
+   *
+   * The occurrence key buckets by time, so a burst of messages claims one
+   * delivery-log row and arrives as one notification — see CHAT_WINDOW_MS.
+   * `createdAt` is the database's timestamp rather than the clock here, so two
+   * app servers handling the same conversation agree on the bucket.
+   */
+  private async notifyCounterparties(
+    orderId: string,
+    message: FormattedOrderChatMessage,
+  ): Promise<void> {
+    try {
+      const { brandUserId, creatorUserId } =
+        await this.getOrderParticipants(orderId);
+      const occurrenceKey = chatOccurrenceKey(orderId, message.createdAt);
+
+      const events = [
+        ...(message.senderUserId !== creatorUserId
+          ? (['order-chat-message-for-creator'] as const)
+          : []),
+        ...(message.senderUserId !== brandUserId
+          ? (['order-chat-message-for-brand'] as const)
+          : []),
+      ];
+
+      for (const eventKey of events) {
+        await this.notifications.emit(eventKey, {
+          entityId: orderId,
+          occurrenceKey,
+          occurredAt: message.createdAt,
+        });
+      }
+    } catch (err) {
+      // Never let notifying cost the message. It is already written and
+      // already on the socket; the recipient will see it when they look.
+      this.logger.error(
+        `chat notification for order ${orderId} failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   private async getOrderParticipants(orderId: string): Promise<OrderChatParticipants> {

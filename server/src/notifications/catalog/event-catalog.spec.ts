@@ -90,6 +90,8 @@ describe('notification event catalog', () => {
       'order-auto-accept-reminder-for-brand',
       'order-brief-accepted-for-brand',
       'order-brief-submitted-for-creator',
+      'order-chat-message-for-brand',
+      'order-chat-message-for-creator',
       'order-content-delivered-for-brand',
       'order-dispute-opened-for-brand',
       'order-dispute-opened-for-creator',

@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle,
+  Clock,
   FileEdit,
   RotateCcw,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import { useAcceptOrderDeliveryMutation } from "../../../hooks/use-accept-order-
 import { useRequestOrderRevisionMutation } from "../../../hooks/use-request-order-revision-mutation";
 import { useOpenBrandDisputeMutation } from "../../../hooks/use-open-brand-dispute-mutation";
 import { useBuyExtraRevisions } from "@/features/payments/hooks/use-buy-extra-revisions";
+import { autoAcceptNotice } from "../../../lib/auto-accept-notice";
 import type { OrderDetailsPublic } from "../../../api/types";
 
 interface YourActionRequiredCardProps {
@@ -105,6 +107,11 @@ export function YourActionRequiredCard({
     !hasRevisionsRemaining &&
     order.revisionAddOnAvailable &&
     revisionAddOnPrice != null;
+  // Only while the brand can still act: once a revision is outstanding or the
+  // order is accepted the server has cleared the deadline anyway.
+  const autoAccept = canReviewDelivery
+    ? autoAcceptNotice(order.autoAcceptAt)
+    : null;
   const isAcceptPending = acceptMutation.isPending;
   const isRevisionPending = revisionMutation.isPending;
   const isIssuePending = issueMutation.isPending;
@@ -127,6 +134,7 @@ export function YourActionRequiredCard({
   }
 
   if (isAccepted) {
+    const wasAutoApproved = order.acceptedBy === "AUTO";
     const approvedDate = order.acceptedAt
       ? new Intl.DateTimeFormat("en-IN", {
           day: "numeric",
@@ -148,11 +156,14 @@ export function YourActionRequiredCard({
             Content Approved
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs">
-            You approved the delivered content and this order is now complete.
+            {wasAutoApproved
+              ? "The review window closed, so this order was approved automatically and is now complete."
+              : "You approved the delivered content and this order is now complete."}
           </p>
           {approvedDate && (
             <p className="text-xs text-muted-foreground">
-              Approved on {approvedDate}
+              {wasAutoApproved ? "Auto-approved on" : "Approved on"}{" "}
+              {approvedDate}
             </p>
           )}
         </div>
@@ -193,6 +204,33 @@ export function YourActionRequiredCard({
             Please review the content and take action.
           </p>
         </div>
+
+        {autoAccept ? (
+          <div
+            className={
+              autoAccept.urgent
+                ? "mt-4 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-3.5 py-3"
+                : "mt-4 flex items-start gap-2.5 rounded-xl border border-border/70 bg-muted/30 px-3.5 py-3"
+            }
+          >
+            <Clock
+              className={
+                autoAccept.urgent
+                  ? "size-4 shrink-0 mt-px text-amber-600 dark:text-amber-500"
+                  : "size-4 shrink-0 mt-px text-muted-foreground"
+              }
+              aria-hidden
+            />
+            <div>
+              <p className="text-xs font-semibold text-foreground">
+                {autoAccept.short}
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                {autoAccept.detail}
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-5">
           <div className="flex flex-col gap-3">

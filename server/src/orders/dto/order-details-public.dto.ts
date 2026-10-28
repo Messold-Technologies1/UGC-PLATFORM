@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  OrderAcceptedBy,
   OrderDisputeOpenedBy,
   OrderDisputeStatus,
   OrderStatus,
@@ -78,6 +79,12 @@ export class OrderDetailsPublicDto {
   @ApiPropertyOptional()
   briefAcceptedAt?: Date | null;
 
+  @ApiPropertyOptional({
+    description:
+      'Set when the buyer edited and resubmitted the brief before the creator accepted it. Null means the brief is the one first submitted.',
+  })
+  briefRevisedAt?: Date | null;
+
   @ApiProperty({
     description:
       'True when the linked brief required physical shipment to the creator (snapshot at brief submit)',
@@ -153,8 +160,24 @@ export class OrderDetailsPublicDto {
   @ApiPropertyOptional()
   deliveredAt?: Date | null;
 
+  @ApiPropertyOptional({
+    description:
+      'When this order accepts itself if the brand never reviews the ' +
+      'content. Null means no clock is running — nothing is delivered, a ' +
+      'revision is outstanding, a dispute is open, or the order is closed.',
+  })
+  autoAcceptAt?: Date | null;
+
   @ApiPropertyOptional()
   acceptedAt?: Date | null;
+
+  @ApiPropertyOptional({
+    enum: OrderAcceptedBy,
+    description:
+      'How the order was accepted: BRAND if someone clicked Accept, AUTO if ' +
+      'the review deadline passed. Null until the order is accepted.',
+  })
+  acceptedBy?: OrderAcceptedBy | null;
 
   @ApiPropertyOptional()
   creatorPaidAt?: Date | null;

@@ -217,7 +217,11 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
           <div className="flex flex-col gap-5 lg:col-span-8">
             <div className="lg:hidden">
-              <ShippingAddressCard shippingAddress={creator.shippingAddress} />
+              <ShippingAddressCard
+                shippingAddress={creator.shippingAddress}
+                phone={creator.phone}
+                phoneVerified={creator.phoneVerified}
+              />
             </div>
 
             {order.dispatchedAt ? (
@@ -234,13 +238,22 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
             <OrderSummaryCard order={order} creator={creator} />
 
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
           </div>
 
           <aside className="flex flex-col gap-5 lg:col-span-4">
             <div className="hidden lg:block">
-              <ShippingAddressCard shippingAddress={creator.shippingAddress} />
+              <ShippingAddressCard
+                shippingAddress={creator.shippingAddress}
+                phone={creator.phone}
+                phoneVerified={creator.phoneVerified}
+              />
             </div>
             <OrderActivityTimeline order={order} />
           </aside>
@@ -288,7 +301,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
           <OrderSummaryCard order={order} creator={creator} />
 
           {order.hasBrief && brief ? (
-            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
           ) : null}
         </div>
       </div>
@@ -345,7 +363,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
             <OrderSummaryCard order={order} creator={creator} />
 
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
           </div>
 
@@ -397,7 +420,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
             <OrderSummaryCard order={order} creator={creator} />
 
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
           </div>
 
@@ -448,7 +476,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
           />
 
           {order.hasBrief && brief ? (
-            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
           ) : null}
         </div>
 

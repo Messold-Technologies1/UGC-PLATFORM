@@ -50,7 +50,12 @@ export function BrandOrderDisputeView({
         <aside className="flex flex-col gap-5 lg:col-span-5">
           {creator ? <OrderSummaryCard order={order} creator={creator} /> : null}
           {order.hasBrief && brief ? (
-            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
           ) : null}
         </aside>
       </div>

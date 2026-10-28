@@ -10,6 +10,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
+import {
+  computeAutoAcceptAt,
+  resolveAutoAcceptDays,
+} from '../orders/delivery-deadline.util';
 import { assertEncodedVideoFrames } from './ffmpeg-output.util';
 
 // Prefer an explicit FFMPEG_PATH (set to the system ffmpeg in production —
@@ -115,6 +119,8 @@ export function describePreviewError(error: unknown): string {
 export class WatermarkService {
   private readonly logger = new Logger(WatermarkService.name);
   private readonly text: string;
+  /** Review window a delivery's auto-accept deadline is measured with. */
+  private readonly autoAcceptDays: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -124,6 +130,11 @@ export class WatermarkService {
     config: ConfigService,
   ) {
     this.text = config.get<string>('WATERMARK_TEXT', 'Go Collab');
+    // Resolved once, like the watermark text above: ConfigService reads the
+    // environment at boot, so a change needs a restart either way.
+    this.autoAcceptDays = resolveAutoAcceptDays(
+      config.get<string>('ORDER_AUTO_ACCEPT_DAYS'),
+    );
   }
 
   /**
@@ -240,7 +251,12 @@ export class WatermarkService {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, status: true, deliveredAt: true },
+      select: {
+        id: true,
+        status: true,
+        deliveredAt: true,
+        deliveryDueAt: true,
+      },
     });
     if (!order) return;
 
@@ -271,6 +287,15 @@ export class WatermarkService {
       data: {
         status: targetStatus as any,
         deliveredAt,
+        // The brand's review clock starts here, and only here: this is the one
+        // place an order becomes something a brand can accept. A resubmit after
+        // a revision lands here too, so it restarts the clock rather than
+        // inheriting the deadline from the original delivery.
+        autoAcceptAt: computeAutoAcceptAt({
+          deliveryDueAt: order.deliveryDueAt,
+          deliveredAt,
+          days: this.autoAcceptDays,
+        }),
       },
     });
 

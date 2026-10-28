@@ -36,7 +36,6 @@ import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 type DisplayVideo = PortfolioVideoApi & { isIntro?: boolean };
 import type { CreatorProfileItemApi } from "@/features/creators/api/types";
 import { CreatorPayoutDetailsBanner } from "@/components/dashboard/creator-payout-details-banner";
-import { CreatorSpotlightProgram } from "@/features/creators/components/creator-spotlight/creator-spotlight-program";
 import { SnapchatIcon } from "@/components/icons/social-icons";
 import { formatINR } from "@/lib/format-currency";
 import { CLARITY_MASK } from "@/lib/clarity";
@@ -229,7 +228,6 @@ export function CreatorAccountProfileView({
       animate="visible"
     >
       <CreatorPayoutDetailsBanner />
-      <CreatorSpotlightProgram />
       <div className="flex flex-col items-start gap-6 xl:flex-row">
         <motion.div
           className="min-w-0 w-full flex-1 space-y-6"

@@ -40,8 +40,21 @@ export class OpenRouterClient {
 
   constructor(private readonly config: ConfigService) {}
 
+  /**
+   * The key, with surrounding whitespace removed.
+   *
+   * Trimmed because these are pasted into a dashboard by hand: a trailing
+   * newline or a stray space rides along into the `Authorization` header and
+   * OpenRouter answers `401 {"error":{"message":"User not found."}}`, which
+   * reads like an outage rather than a typo. Quotes are left alone — a key
+   * wrapped in them is wrong in a way worth seeing.
+   */
+  private apiKey(): string {
+    return this.config.get<string>('OPENROUTER_API_KEY')?.trim() ?? '';
+  }
+
   isConfigured(): boolean {
-    return Boolean(this.config.get<string>('OPENROUTER_API_KEY'));
+    return this.apiKey().length > 0;
   }
 
   private baseUrl(): string {
@@ -69,7 +82,7 @@ export class OpenRouterClient {
    * empty completion.
    */
   async chatComplete(params: ChatCompletionParams): Promise<string> {
-    const apiKey = this.config.get<string>('OPENROUTER_API_KEY');
+    const apiKey = this.apiKey();
     if (!apiKey) {
       throw new OpenRouterError('OpenRouter is not configured');
     }
@@ -114,9 +127,18 @@ export class OpenRouterClient {
     const elapsed = Date.now() - startedAt;
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      this.logger.warn(
-        `openrouter chat: response ${res.status} in ${elapsed}ms — ${body.slice(0, 300)}`,
-      );
+      // 401/403 is our credential, not their outage, and it will not clear on
+      // a retry. Callers turn every failure into the same "try again" 503, so
+      // say plainly in the logs that the key is the thing to look at.
+      const credentialProblem = res.status === 401 || res.status === 403;
+      const detail = `openrouter chat: response ${res.status} in ${elapsed}ms — ${body.slice(0, 300)}`;
+      if (credentialProblem) {
+        this.logger.error(
+          `${detail} — OPENROUTER_API_KEY was rejected (missing, revoked, or not this account's key); retrying will not help until it is replaced.`,
+        );
+      } else {
+        this.logger.warn(detail);
+      }
       throw new OpenRouterError(`OpenRouter responded ${res.status}`);
     }
 

@@ -121,6 +121,16 @@ enum OrderStatus {
   CANCELLED_CREDITED
 }
 
+/// Who closed an order by accepting its content. Null until the order reaches
+/// ACCEPTED. There is no admin accept-on-behalf path today, so there are only
+/// two ways an order can be accepted.
+enum OrderAcceptedBy {
+  /// The buyer clicked Accept (a brand user, or an agency acting as buyer).
+  BRAND
+  /// Nobody acted and the auto-accept deadline passed. See Order.autoAcceptAt.
+  AUTO
+}
+
 enum OrderDisputeStatus {
   OPEN
   RESOLVED_CONTINUE
@@ -677,6 +687,11 @@ model Order {
   /// on their behalf) the admin user. Resolve their role to tell which. Null
   /// until the brief is accepted.
   briefAcceptedByUserId String?   @db.Uuid
+  /// Set every time the buyer edits and resubmits the brief before the creator
+  /// accepts it. Null means the brief on this order is the one first submitted.
+  /// Drives the "Brief updated" badge both sides see; `briefSubmittedAt` is
+  /// reset alongside it, so the creator's reminder nudge starts over.
+  briefRevisedAt        DateTime?
 
   /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
   requiresPhysicalProductShipment Boolean   @default(false)
@@ -688,7 +703,20 @@ model Order {
   deliveryDueAt           DateTime?
   deliveryGraceDeadlineAt DateTime?
   deliveredAt             DateTime?
+  /// When this order accepts itself if the brand never reviews the content.
+  ///
+  /// Set the moment the order enters DELIVERED/REVISION_SUBMITTED, to
+  /// `max(deliveryDueAt, deliveredAt) + AUTO_ACCEPT_DAYS`: delivering early
+  /// does not shorten the brand's window, and delivering late does not either.
+  /// Cleared whenever the ball leaves the brand's court — a revision request,
+  /// an open dispute — and restored when it comes back. Null therefore means
+  /// "no clock is running", which is what the sweep keys off.
+  autoAcceptAt            DateTime?
   acceptedAt              DateTime?
+  /// How the order came to be ACCEPTED. Distinguishes a brand that reviewed
+  /// the work from one that simply went quiet, which support needs when a
+  /// brand disputes afterwards.
+  acceptedBy              OrderAcceptedBy?
   creatorPaidAt           DateTime?
   revisionCount           Int       @default(0)
 
@@ -808,6 +836,9 @@ model Order {
   @@index([creatorId, lastChatActivityAt(sort: Desc)])
   @@index([status, createdAt])
   @@index([deliveryGraceDeadlineAt])
+  /// Drives the hourly auto-accept sweep, which reads only rows with a clock
+  /// running (`autoAcceptAt <= now`). Most orders hold NULL here.
+  @@index([autoAcceptAt])
   @@index([briefId])
   @@index([checkoutBatchId])
   /// Serves the checkout lookup for a buyer's open drafts with one creator
@@ -1067,6 +1098,21 @@ model Brief {
   placedByAgencyId String? @db.Uuid
   placedByUserId   String? @db.Uuid
 
+  /// Set when this brief is a private copy made for one order, by a buyer
+  /// editing the brief after submitting it. A saved brief is reusable — the
+  /// same row can sit on many orders — so editing it in place would rewrite
+  /// the brief under every other creator already working from it. Editing
+  /// from an order forks instead: this copy belongs to that order alone, and
+  /// the original stays the library brief it was.
+  ///
+  /// Forks are hidden from the brand's saved-brief list (they are not
+  /// reusable templates) but stay readable by id, which is what the order
+  /// page and the creator's brief view ask for.
+  orderScopedOrderId String? @db.Uuid
+  /// The library brief this copy was forked from. Always the root brief, never
+  /// the previous fork, so a brief revised five times still points home.
+  forkedFromBriefId  String? @db.Uuid
+
   brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
   agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   placedByAgency Agency? @relation("BriefPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
@@ -1075,6 +1121,7 @@ model Brief {
   @@index([brandId, createdAt])
   @@index([agencyId, createdAt])
   @@index([placedByAgencyId, createdAt])
+  @@index([orderScopedOrderId])
 }
 
 enum OrderChatMessageType {
@@ -1379,13 +1426,6 @@ model Agency {
   /// own name, and real client brands arrive as AgencyBrandLink rows. Kept so
   /// historical rows stay readable.
   brandNames           String[] @default([])
-  /// Shareable partner code (e.g. GC-7F3K-92QX) the agency hands to brands; the
-  /// brand redeems it to request a link, which the agency then accepts. Issued
-  /// at agency creation and backfilled for existing rows. Rotatable: links are
-  /// keyed on agencyId, so rotating never breaks an accepted link.
-  partnerId            String?  @unique
-  partnerIdIssuedAt    DateTime?
-  partnerIdRotatedAt   DateTime?
   /// Opt-in for transactional/order emails. Set true at signup, like the brand
   /// and creator columns; agencies that predate these were backfilled true,
   /// since the gate used to let every agency through.
@@ -1480,10 +1520,11 @@ model AgencyBrandLink {
   brandId           String                @db.Uuid
   status            AgencyBrandLinkStatus  @default(PENDING)
 
-  /// The agency partner code actually redeemed. Kept verbatim so a later
-  /// rotation still leaves a trail of which code opened this relationship.
-  partnerIdUsed     String
-  /// The BRAND user who redeemed the code.
+  /// The email the brand typed to reach this agency, kept verbatim as a record
+  /// of how the relationship was opened. Nullable because rows created while
+  /// the partner-code flow existed have no email to record.
+  requestedViaEmail String?
+  /// The BRAND user who asked.
   requestedByUserId String                @db.Uuid
   requestedAt       DateTime              @default(now())
   /// The AGENCY owner who accepted or rejected.

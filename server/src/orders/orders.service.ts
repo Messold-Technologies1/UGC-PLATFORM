@@ -12,6 +12,7 @@ import {
   OrderStatus,
   OrderDisputeStatus,
   OrderDisputeOpenedBy,
+  OrderAcceptedBy,
 } from '@prisma/client';
 import type { CreatorAddOn } from '@prisma/client';
 import type { AdminOrdersListResponseDto } from './dto/admin-orders-list-response.dto';
@@ -56,8 +57,10 @@ import type {
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
 import {
+  computeAutoAcceptAt,
   computeDeliveryDeadlines,
   inGracePeriodWhere,
+  resolveAutoAcceptDays,
 } from './delivery-deadline.util';
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
@@ -269,6 +272,28 @@ const TRAVEL_REQUIRING_SHOOT_LOCATIONS = new Set([
  * (fully credit-paid) or at least ₹1. Mirrors coupons' MIN_NET_PAISE.
  */
 const RAZORPAY_MIN_CHARGE_PAISE = 100;
+
+/**
+ * Everything an acceptance needs to read, whoever triggers it: ownership for
+ * the brand path, the preconditions, the figures the completion credit is sized
+ * from, and `lastChatMessageId` so the inbox bump survives the conditional
+ * write. Shared so the manual and automatic paths cannot drift apart.
+ */
+const ACCEPTANCE_SELECT = {
+  id: true,
+  brandId: true,
+  agencyId: true,
+  status: true,
+  acceptedAt: true,
+  autoAcceptAt: true,
+  expectedAmountPaise: true,
+  isFreeOrder: true,
+  lastChatMessageId: true,
+} as const;
+
+type AcceptanceCandidate = Prisma.OrderGetPayload<{
+  select: typeof ACCEPTANCE_SELECT;
+}>;
 
 /**
  * Written on drafts replaced within a single checkout attempt (the brand
@@ -2343,6 +2368,128 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Check that this order will still accept the brief after an edit, without
+   * writing anything.
+   *
+   * Called by BriefsService before it forks the brief, so a rejected edit
+   * never leaves an orphan copy behind. The window is BRIEF_SUBMITTED and
+   * nothing else: before that there is no brief to revise, and from
+   * BRIEF_ACCEPTED on the creator has agreed to the brief as written and may
+   * already be shooting to it.
+   */
+  async assertBriefRevisable(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    orderId: string;
+    briefId: string;
+    isProduct: boolean;
+    productImageKey: string | null;
+    shootLocationKind: string | null;
+  }): Promise<void> {
+    const actor = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        agencyId: true,
+        creatorId: true,
+        status: true,
+        briefId: true,
+        addOnsSnapshot: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    this.brandAccess.assertOwnsOrder(order, actor);
+
+    if (String(order.status) !== 'BRIEF_SUBMITTED') {
+      throw new BadRequestException(
+        'The brief can only be edited while it is awaiting the creator\'s response.',
+      );
+    }
+    // Guards against revising a brief the order has since moved off — two
+    // tabs open on the same order, the first one saving last.
+    if (order.briefId !== params.briefId) {
+      throw new BadRequestException(
+        'This brief is no longer the one on this order. Reload the order and try again.',
+      );
+    }
+    if (params.isProduct && !params.productImageKey?.trim()) {
+      throw new BadRequestException(
+        'Brief must include a product image before it can be submitted to an order for product campaigns',
+      );
+    }
+    await this.assertTravelAddOnSatisfied({
+      creatorId: order.creatorId,
+      addOnsSnapshot: order.addOnsSnapshot,
+      shootLocationKind: params.shootLocationKind,
+    });
+  }
+
+  /**
+   * Point an order at the revised copy of its brief.
+   *
+   * The order stays in BRIEF_SUBMITTED — the creator has not acted, and this
+   * is still the same decision in front of them. `briefSubmittedAt` is reset
+   * so the unanswered-brief reminder counts from the version they are actually
+   * being asked to read, and `briefRevisedAt` is what the "Brief updated"
+   * badge shows on both sides.
+   *
+   * No notification fires: the creator has an unanswered brief either way, and
+   * a second email for the same decision is noise. The realtime event refreshes
+   * a page that is already open.
+   *
+   * `requiresPhysicalProductShipment` is re-snapshotted because it decides
+   * whether the delivery clock starts at acceptance or at product receipt, and
+   * the edit may have turned shipping on or off.
+   */
+  async resubmitBrief(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    orderId: string;
+    briefId: string;
+    requiresPhysicalProductShipment: boolean;
+  }): Promise<void> {
+    const actor = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, brandId: true, agencyId: true, status: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    this.brandAccess.assertOwnsOrder(order, actor);
+    if (String(order.status) !== 'BRIEF_SUBMITTED') {
+      throw new BadRequestException(
+        'The brief can only be edited while it is awaiting the creator\'s response.',
+      );
+    }
+
+    const now = new Date();
+    await this.updateOrder({
+      where: { id: order.id },
+      data: {
+        briefId: params.briefId,
+        briefSubmittedAt: now,
+        briefRevisedAt: now,
+        requiresPhysicalProductShipment:
+          params.requiresPhysicalProductShipment,
+      },
+    });
+
+    await this.orderRealtime.emitOrderBriefSubmitted({
+      orderId: order.id,
+      briefSubmittedAt: now,
+    });
+  }
+
   async acceptBrief(params: {
     creatorUserId: string;
     orderId: string;
@@ -3349,6 +3496,10 @@ export class OrdersService {
           data: {
             status: 'REVISION_REQUESTED' as any,
             revisionCount: newRevisionNumber,
+            // The brand has acted; the wait is now on the creator, and a
+            // creator cannot be held to a deadline the brand controls. The
+            // resubmit sets a fresh one (see WatermarkService).
+            autoAcceptAt: null,
           } as any,
         },
         tx,
@@ -4300,6 +4451,7 @@ export class OrdersService {
     deliveryDueAt: Date | null;
     deliveryGraceDeadlineAt: Date | null;
     deliveredAt: Date | null;
+    autoAcceptAt: Date | null;
     revisionCount: number;
     createdAt: Date;
     updatedAt: Date;
@@ -4350,6 +4502,7 @@ export class OrdersService {
       deliveryDueAt: order.deliveryDueAt,
       deliveryGraceDeadlineAt: order.deliveryGraceDeadlineAt,
       deliveredAt: order.deliveredAt,
+      autoAcceptAt: order.autoAcceptAt,
       revisionCount: order.revisionCount,
       ...(currentRevision
         ? {
@@ -4444,6 +4597,7 @@ export class OrdersService {
     briefId: string | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
+    briefRevisedAt?: Date | null;
     requiresPhysicalProductShipment: boolean;
     courierName: string | null;
     trackingId: string | null;
@@ -4452,7 +4606,9 @@ export class OrdersService {
     deliveryDueAt: Date | null;
     deliveryGraceDeadlineAt: Date | null;
     deliveredAt: Date | null;
+    autoAcceptAt: Date | null;
     acceptedAt: Date | null;
+    acceptedBy: OrderAcceptedBy | null;
     creatorPaidAt: Date | null;
     revisionCount: number;
     refundedAt: Date | null;
@@ -4500,6 +4656,7 @@ export class OrdersService {
       paidAt: order.paidAt,
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
+      briefRevisedAt: order.briefRevisedAt ?? null,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
       courierName: order.courierName ?? null,
       trackingId: order.trackingId ?? null,
@@ -4519,7 +4676,9 @@ export class OrdersService {
         : null,
       expectedAmountPaise: order.expectedAmountPaise,
       deliveredAt: order.deliveredAt,
+      autoAcceptAt: order.autoAcceptAt,
       acceptedAt: order.acceptedAt,
+      acceptedBy: order.acceptedBy,
       creatorPaidAt: order.creatorPaidAt,
       revisionCount: order.revisionCount,
       refundedAt: order.refundedAt,
@@ -4654,6 +4813,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         requiresPhysicalProductShipment: true,
         courierName: true,
         trackingId: true,
@@ -4662,7 +4822,9 @@ export class OrdersService {
         deliveryDueAt: true,
         deliveryGraceDeadlineAt: true,
         deliveredAt: true,
+        autoAcceptAt: true,
         acceptedAt: true,
+        acceptedBy: true,
         creatorPaidAt: true,
         revisionCount: true,
         refundedAt: true,
@@ -4686,6 +4848,14 @@ export class OrdersService {
             profileImageUrl: true,
             city: true,
             shippingAddress: true,
+            user: {
+              select: {
+                phone: true,
+                phoneVerified: true,
+                phoneOtpLastStatus: true,
+                phoneOtpLastPhone: true,
+              },
+            },
             profileLanguages: {
               select: {
                 option: {
@@ -4805,10 +4975,15 @@ export class OrdersService {
           typeof primaryNiche === 'string' && primaryNiche.trim()
             ? primaryNiche.trim()
             : null,
-        // Real address is needed so the brand can ship the product; the
-        // recipient name and phone are deliberately withheld to preserve the
-        // anonymized creator identity.
+        // Address + phone for courier; display name stays anonymized.
         shippingAddress: creator.shippingAddress ?? null,
+        phone:
+          creator.user?.phone?.trim() ||
+          creator.user?.phoneOtpLastPhone?.trim() ||
+          null,
+        phoneVerified:
+          Boolean(creator.user?.phoneVerified) &&
+          creator.user?.phoneOtpLastStatus === 'approved',
       },
     };
   }
@@ -4843,6 +5018,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         requiresPhysicalProductShipment: true,
         courierName: true,
         trackingId: true,
@@ -4851,7 +5027,9 @@ export class OrdersService {
         deliveryDueAt: true,
         deliveryGraceDeadlineAt: true,
         deliveredAt: true,
+        autoAcceptAt: true,
         acceptedAt: true,
+        acceptedBy: true,
         creatorPaidAt: true,
         revisionCount: true,
         refundedAt: true,
@@ -5199,6 +5377,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         requiresPhysicalProductShipment: true,
         courierName: true,
         trackingId: true,
@@ -5207,7 +5386,9 @@ export class OrdersService {
         deliveryDueAt: true,
         deliveryGraceDeadlineAt: true,
         deliveredAt: true,
+        autoAcceptAt: true,
         acceptedAt: true,
+        acceptedBy: true,
         creatorPaidAt: true,
         revisionCount: true,
         razorpayOrderId: true,
@@ -5420,6 +5601,7 @@ export class OrdersService {
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
           deliveredAt: true,
+          autoAcceptAt: true,
           revisionCount: true,
           createdAt: true,
           updatedAt: true,
@@ -5540,6 +5722,7 @@ export class OrdersService {
           deliveryDueAt: true,
           deliveryGraceDeadlineAt: true,
           deliveredAt: true,
+          autoAcceptAt: true,
           revisionCount: true,
           createdAt: true,
           updatedAt: true,
@@ -5675,6 +5858,7 @@ export class OrdersService {
             deliveryDueAt: true,
             deliveryGraceDeadlineAt: true,
             deliveredAt: true,
+            autoAcceptAt: true,
             revisionCount: true,
             createdAt: true,
             updatedAt: true,
@@ -5772,6 +5956,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         deliveryDaysSnapshot: true,
         requiresPhysicalProductShipment: true,
         deliveryDueAt: true,
@@ -5888,6 +6073,7 @@ export class OrdersService {
     return {
       orderId: order.id,
       briefSubmittedAt: order.briefSubmittedAt,
+      briefRevisedAt: order.briefRevisedAt ?? null,
       briefAcceptedAt: order.briefAcceptedAt,
       deliveryDaysSnapshot: order.deliveryDaysSnapshot,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
@@ -5952,19 +6138,10 @@ export class OrdersService {
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
     });
-    const owner = this.ownerCreateData(actor);
 
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: {
-        id: true,
-        brandId: true,
-        agencyId: true,
-        status: true,
-        acceptedAt: true,
-        expectedAmountPaise: true,
-        isFreeOrder: true,
-      },
+      select: ACCEPTANCE_SELECT,
     });
     if (!order) throw new NotFoundException('Order not found');
     this.brandAccess.assertOwnsOrder(order, actor);
@@ -5974,27 +6151,98 @@ export class OrdersService {
       throw new BadRequestException('Order is not awaiting acceptance');
     }
 
-    // Completion and its reward credit move together: one transaction, so the
-    // order can never end up ACCEPTED with the reward silently lost (nor the
-    // reward granted for an acceptance that rolled back).
-    await this.prisma.$transaction(async (tx) => {
-      await this.updateOrder(
-        {
-          where: { id: order.id },
-          data: { status: 'ACCEPTED', acceptedAt: new Date() },
-        },
-        tx,
-      );
-      await this.awardOrderCompletionCredit(order, tx);
-    });
+    const accepted = await this.claimAcceptance(order, 'BRAND');
+    // Lost the race — the auto-accept sweep, or a second click, got there
+    // first. The order is accepted either way, so this is success, not an
+    // error; what must not happen is a second round of credit and mail.
+    if (!accepted) return;
 
+    this.announceAcceptance(order.id);
+  }
+
+  /**
+   * Accept an order whose auto-accept deadline has passed, on nobody's behalf.
+   *
+   * Returns whether THIS call is the one that accepted it. Every guard is in
+   * the conditional write rather than in a prior read, because `@Cron` fires in
+   * the API process and the worker process (both load AppModule) and in every
+   * API replica: the sweep genuinely runs several times concurrently. A
+   * read-then-write would let two of them both see DELIVERED and both award the
+   * completion credit.
+   */
+  async autoAcceptDueOrder(orderId: string): Promise<boolean> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: ACCEPTANCE_SELECT,
+    });
+    if (!order) return false;
+
+    const accepted = await this.claimAcceptance(order, 'AUTO');
+    if (!accepted) return false;
+
+    this.logger.log(
+      `[auto-accept] order=${order.id} accepted automatically (deadline ${order.autoAcceptAt?.toISOString() ?? 'unknown'})`,
+    );
+    this.announceAcceptance(order.id);
+    return true;
+  }
+
+  /**
+   * Move an order to ACCEPTED, exactly once, and grant the completion credit
+   * with it.
+   *
+   * The status change and its reward move together in one transaction, so the
+   * order can never end up ACCEPTED with the reward silently lost (nor the
+   * reward granted for an acceptance that rolled back). The write is a
+   * conditional `updateMany` rather than an `update` by id: the WHERE carries
+   * the preconditions, so concurrent callers serialise on the row and exactly
+   * one sees `count === 1`.
+   */
+  private async claimAcceptance(
+    order: AcceptanceCandidate,
+    acceptedBy: 'BRAND' | 'AUTO',
+  ): Promise<boolean> {
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          acceptedAt: null,
+          status: { in: ['DELIVERED', 'REVISION_SUBMITTED'] },
+          // An order that auto-accepts must still have a clock running. The
+          // sweep selects on this too, but re-checking it inside the claim is
+          // what makes a revision requested mid-sweep win the race.
+          ...(acceptedBy === 'AUTO' ? { autoAcceptAt: { lte: now } } : {}),
+        },
+        data: {
+          status: 'ACCEPTED',
+          acceptedAt: now,
+          acceptedBy,
+          // The clock has done its job; leaving it set would keep the order in
+          // the sweep's result set forever.
+          autoAcceptAt: null,
+          // `updateMany` cannot go through `updateOrder`, so the inbox bump it
+          // would have applied is spelled out here: orders with no chat yet
+          // sort by their own activity.
+          ...(order.lastChatMessageId ? {} : { lastChatActivityAt: now }),
+        },
+      });
+      if (claim.count !== 1) return false;
+
+      await this.awardOrderCompletionCredit(order, tx);
+      return true;
+    });
+  }
+
+  /** The after-effects of an acceptance, identical however it was triggered. */
+  private announceAcceptance(orderId: string): void {
     // One legacy call mailed both sides; as events they are separate so an
     // admin can turn either off.
     void this.events.emit('order-content-accepted-for-creator', {
-      entityId: order.id,
+      entityId: orderId,
     });
     void this.events.emit('order-completed-for-brand', {
-      entityId: order.id,
+      entityId: orderId,
     });
 
     // Publish the approved final into the creator's portfolio as a Brand Collab.
@@ -6002,7 +6250,7 @@ export class OrdersService {
     // and the backfill/reconcile re-drives anything that fails here, so it must
     // never block acceptance.
     void this.orderPortfolioSync
-      .syncAcceptedOrder(order.id)
+      .syncAcceptedOrder(orderId)
       .catch(() => undefined);
   }
 
@@ -6080,7 +6328,14 @@ export class OrdersService {
           where: { id: order.id },
           // Remember where the order was so the dispute can be unwound to the
           // exact prior state on resolution / withdrawal.
-          data: { status: 'DISPUTED', preDisputeStatus: order.status },
+          data: {
+            status: 'DISPUTED',
+            preDisputeStatus: order.status,
+            // A dispute is the one case where the brand HAS engaged. Nothing
+            // may close the order under them while it is open; the clock is
+            // restored if the dispute resolves back into the delivery flow.
+            autoAcceptAt: null,
+          },
         },
         tx,
       );
@@ -6264,10 +6519,30 @@ export class OrdersService {
     preDisputeStatus: OrderStatus | null,
   ): Promise<void> {
     const restored = preDisputeStatus ?? 'DELIVERED';
+    // A restored order is awaiting the brand again, so the review clock starts
+    // again — from NOW, not from the original delivery. Recomputing from the
+    // delivery would hand back a deadline that expired during the dispute, and
+    // the next sweep would accept the order the moment the dispute closed.
+    const awaitingBrand =
+      restored === 'DELIVERED' || restored === 'REVISION_SUBMITTED';
     await this.updateOrder(
       {
         where: { id: orderId },
-        data: { status: restored, preDisputeStatus: null },
+        data: {
+          status: restored,
+          preDisputeStatus: null,
+          autoAcceptAt: awaitingBrand
+            ? computeAutoAcceptAt({
+                // A full window measured from now: `deliveredAt` is the clock
+                // start here, not the real delivery, which is the whole point.
+                deliveryDueAt: null,
+                deliveredAt: new Date(),
+                days: resolveAutoAcceptDays(
+                  this.config.get<string>('ORDER_AUTO_ACCEPT_DAYS'),
+                ),
+              })
+            : null,
+        },
       },
       tx,
     );

@@ -23,6 +23,8 @@ import {
   ImageIcon,
   Upload,
   MapPin,
+  Truck,
+  Undo2,
   type LucideIcon,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -48,6 +50,7 @@ import {
 } from "@/components/ui/select";
 import { useCreateBriefMutation } from "@/features/briefs/hooks/use-create-brief-mutation";
 import { useUpdateBriefMutation } from "@/features/briefs/hooks/use-update-brief-mutation";
+import { useReviseBriefForOrderMutation } from "@/features/briefs/hooks/use-revise-brief-for-order-mutation";
 import { useGetBriefQuery } from "@/features/briefs/hooks/use-get-brief-query";
 import { useActiveBrand } from "@/providers/active-brand-provider";
 import { useAgencyProfileMeQuery } from "@/features/agency/hooks/use-agency-profile-me-query";
@@ -83,8 +86,6 @@ import {
   BriefsDrawerButton,
 } from "@/features/briefs/components/existing-briefs-sidebar";
 import { SubmitBriefToOrdersDialog } from "@/features/briefs/components/submit-brief-to-orders-dialog";
-import styles from "@/features/briefs/components/brief-studio.module.css";
-
 const shootLocationKinds = [
   "CREATOR_OWN_SETUP",
   "OUTDOOR_PUBLIC_LOCATION",
@@ -759,6 +760,15 @@ function CreateBriefPageContent() {
     },
   });
 
+  const reviseBriefMutation = useReviseBriefForOrderMutation({
+    onSuccess: () => {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(draftStorageKey);
+      }
+      router.push(remapBuyerHref(`/brand/orders/${orderId}`, workspaceBase));
+    },
+  });
+
   const handleSubmitBrief = () => {
     if (!orderId || !savedBriefId) return;
     // The server enforces this too (every path into an order goes through it);
@@ -934,6 +944,22 @@ function CreateBriefPageContent() {
       ) {
         delete payload.productImageKey;
       }
+      if (isReviseMode && orderId) {
+        // Same gate as a first submit: the server enforces it too, this just
+        // saves a round trip and a red toast.
+        if (travelBlocksBriefSubmit) {
+          toast.error("Add the travel add-on first", {
+            description:
+              "This brief asks for an on-location shoot, so the order needs the creator's travel add-on.",
+          });
+          return;
+        }
+        reviseBriefMutation.mutate({
+          id: editBriefId,
+          payload: { ...payload, orderId },
+        });
+        return;
+      }
       updateBriefMutation.mutate({ id: editBriefId, payload });
       return;
     }
@@ -989,7 +1015,15 @@ function CreateBriefPageContent() {
   };
 
   const isSubmitting =
-    createBriefMutation.isPending || updateBriefMutation.isPending;
+    createBriefMutation.isPending ||
+    updateBriefMutation.isPending ||
+    reviseBriefMutation.isPending;
+
+  // Editing the brief of an order whose creator has not answered yet. The edit
+  // goes back to that order rather than to the saved-brief library, and the
+  // creator is shown the new version in place of the old one.
+  const isReviseMode =
+    isEditMode && isFromOrder && orderData?.status === "BRIEF_SUBMITTED";
   const isSubmittingBrief = submitBriefMutation.isPending;
   const isPronunciationUploadPending = uploadPronunciationMutation.isPending;
   const isProductImageUploadPending = uploadProductImageMutation.isPending;
@@ -1194,27 +1228,47 @@ function CreateBriefPageContent() {
           </div>
         )}
 
-        <div className={styles.studio} style={{ paddingTop: 0 }}>
-          
-          <section className={`${styles.panel} ${styles.leftPanel}`}>
-            <div className={styles.panelHead}>
-              <div className={styles.panelHeadIconPrimary}>
+        {isReviseMode && (
+          <div className="w-full px-0 lg:px-6 mb-6">
+            <div
+              className="flex items-start gap-3 rounded-xl border border-amber-500/35 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+              role="status"
+            >
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                <span className="font-semibold">
+                  {creatorName
+                    ? `${creatorName} hasn't accepted this brief yet.`
+                    : "The creator hasn't accepted this brief yet."}
+                </span>{" "}
+                Your changes replace the version they are looking at. Other
+                orders using this brief are not affected, and the saved brief in
+                your library stays as it is.
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="mx-auto flex w-full flex-col items-stretch gap-4 pb-8 pt-0 md:flex-row md:items-start md:gap-6 md:pb-6">
+          <section className="flex min-w-0 flex-[2] flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-white shadow-sm dark:bg-card">
+            <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+              <div className="grid size-[38px] shrink-0 place-items-center rounded-[11px] bg-primary/12 text-primary">
                 <Pen size={19} />
               </div>
               <div>
-                <h2 className={styles.panelHeadTitle}>
+                <h2 className="font-heading m-0 text-[17px] font-extrabold tracking-tight text-foreground">
                   {isEditMode ? "Edit brief" : "New brief"}
                 </h2>
-                <div className={styles.panelHeadSub}>
+                <div className="mt-0.5 text-[12.5px] font-medium text-muted-foreground">
                   {watchProductName?.trim() || "Untitled brief"} ·{" "}
-                  {isEditMode ? "editing" : "draft"}
+                  {isReviseMode ? "resubmitting" : isEditMode ? "editing" : "draft"}
                 </div>
               </div>
-              <div className={styles.panelHeadActions}>
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 <BriefsDrawerButton onSubmitBrief={handleSubmitExistingBrief} />
                 <button
                   type="button"
-                  className={styles.panelHeadAction}
+                  className="cursor-pointer rounded-full border-0 bg-muted px-3.5 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted-foreground/15 hover:text-foreground"
                   onClick={() => {
                     form.reset(createBriefDefaultValues);
                     toast.info("Form cleared");
@@ -1225,15 +1279,17 @@ function CreateBriefPageContent() {
               </div>
             </div>
 
-            <div className={styles.panelBody}>
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-[22px]">
               <form onSubmit={form.handleSubmit(onSubmit)} id="brief-form" className="space-y-0">
-                <div className={styles.formSection}>
+                <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
                   <BriefTypePicker
                     value={isProductBrief ? "product" : "service"}
                     onChange={handleBriefTypeChange}
                   />
-                  <div className={styles.formSectionTitle}>
-                    <span className={styles.formSectionNum}>1</span>
+                  <div className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                    <span className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">
+                      1
+                    </span>
                     {offerLabels.sectionTitle}
                   </div>
                   <div className="space-y-6">
@@ -1308,16 +1364,26 @@ function CreateBriefPageContent() {
                   </div>
 
                   {isProductBrief ? (
-                    <div className="space-y-3">
-                      <div className={styles.productTypeRow}>
-                        <div className="min-w-0">
+                    <div className="rounded-[14px] border border-border bg-muted/40 px-4.5 py-4">
+                      <h3 className="mb-3.5 text-sm font-bold tracking-tight text-foreground">
+                        Physical product &amp; shipping
+                      </h3>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3.5 py-1">
+                        <span
+                          className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
+                          aria-hidden
+                        >
+                          <Truck className="size-4" strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
                           <Label
                             htmlFor="willShipPhysicalProductToCreator"
-                            className={styles.productTypeRowLabel}
+                            className="m-0 text-[13px] font-semibold leading-snug text-foreground"
                           >
                             Will you ship a physical product to the creator?
                           </Label>
-                          <p className={styles.productTypeRowHint}>
+                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                             Enable if you&apos;ll send the product for the video.
                           </p>
                         </div>
@@ -1347,37 +1413,49 @@ function CreateBriefPageContent() {
                         />
                       </div>
 
-                      {watchWillShip ? (
-                        <div className={styles.productTypeRow}>
-                          <div className="min-w-0">
-                            <Label
-                              htmlFor="wantsPhysicalProductReturned"
-                              className={styles.productTypeRowLabel}
-                            >
-                              Do you want the physical product back?
-                            </Label>
-                            <p className={styles.productTypeRowHint}>
-                              Return shipping must be arranged from your side
-                              (brand/agency). The creator does not cover return
-                              shipping.
-                            </p>
-                          </div>
-                          <Switch
-                            id="wantsPhysicalProductReturned"
-                            checked={watchWantsReturned ?? false}
-                            onCheckedChange={(checked) => {
-                              form.setValue(
-                                "wantsPhysicalProductReturned",
-                                checked,
-                                {
-                                  shouldDirty: true,
-                                  shouldValidate: true,
-                                },
-                              );
-                            }}
-                          />
+                      <div className="my-3.5 h-px bg-border/90" />
+
+                      <div
+                        className={cn(
+                          "flex flex-wrap items-center justify-between gap-3.5 py-1",
+                          !watchWillShip && "opacity-55",
+                        )}
+                      >
+                        <span
+                          className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
+                          aria-hidden
+                        >
+                          <Undo2 className="size-4" strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <Label
+                            htmlFor="wantsPhysicalProductReturned"
+                            className="m-0 text-[13px] font-semibold leading-snug text-foreground"
+                          >
+                            Do you want the physical product back?
+                          </Label>
+                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                            Return shipping must be arranged from your side
+                            (brand/agency). The creator does not cover return
+                            shipping.
+                          </p>
                         </div>
-                      ) : null}
+                        <Switch
+                          id="wantsPhysicalProductReturned"
+                          checked={watchWantsReturned ?? false}
+                          disabled={!watchWillShip}
+                          onCheckedChange={(checked) => {
+                            form.setValue(
+                              "wantsPhysicalProductReturned",
+                              checked,
+                              {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              },
+                            );
+                          }}
+                        />
+                      </div>
                     </div>
                   ) : null}
 
@@ -1562,9 +1640,11 @@ function CreateBriefPageContent() {
                   </div>
                 </div>
 
-                <div className={styles.formSection}>
-                  <div className={styles.formSectionTitle}>
-                    <span className={styles.formSectionNum}>2</span>
+                <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                  <div className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                    <span className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">
+                      2
+                    </span>
                     What should the video include?
                   </div>
                   <div className="space-y-6">
@@ -1810,9 +1890,11 @@ function CreateBriefPageContent() {
                   </div>
                 </div>
 
-                <div className={styles.formSection}>
-                  <div className={styles.formSectionTitle}>
-                    <span className={styles.formSectionNum}>3</span>
+                <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                  <div className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                    <span className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">
+                      3
+                    </span>
                     Content Style & Tone
                   </div>
                   <div className="space-y-6">
@@ -1877,9 +1959,11 @@ function CreateBriefPageContent() {
                   </div>
                 </div>
 
-                <div className={styles.formSection}>
-                  <div className={styles.formSectionTitle}>
-                    <span className={styles.formSectionNum}>4</span>
+                <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                  <div className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                    <span className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">
+                      4
+                    </span>
                     References & Inspiration
                     <span className="text-[11px] font-600 text-muted-foreground ml-1">(optional)</span>
                   </div>
@@ -1948,9 +2032,11 @@ function CreateBriefPageContent() {
                   </div>
                 </div>
 
-                <div className={styles.formSection}>
-                  <div className={styles.formSectionTitle}>
-                    <span className={styles.formSectionNum}>5</span>
+                <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                  <div className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                    <span className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">
+                      5
+                    </span>
                     Script
                   </div>
                   <div className="space-y-6">
@@ -2030,9 +2116,11 @@ function CreateBriefPageContent() {
                   </div>
                 </div>
 
-                <div className={styles.formSection}>
-                  <div className={styles.formSectionTitle}>
-                    <span className={styles.formSectionNum}>6</span>
+                <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                  <div className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                    <span className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">
+                      6
+                    </span>
                     Any do&apos;s and don&apos;ts?
                   </div>
                   <div className="space-y-4">
@@ -2112,11 +2200,14 @@ function CreateBriefPageContent() {
               </form>
             </div>
 
-            <div className={styles.panelFoot}>
+            <div className="flex shrink-0 flex-col gap-3 border-t border-border bg-muted/40 px-4 py-4 sm:px-6">
               {missingRequiredFields ? (
-                <div className={styles.panelFootWarning} role="alert">
+                <div
+                  className="flex w-full items-start gap-2.5 rounded-xl border border-amber-500/35 bg-amber-50 px-3 py-2.5 text-[13px] font-semibold leading-snug text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+                  role="alert"
+                >
                   <AlertTriangle
-                    className={`${styles.panelFootWarningIcon} size-4`}
+                    className="mt-px size-4 shrink-0"
                     aria-hidden
                   />
                   <span>
@@ -2126,7 +2217,7 @@ function CreateBriefPageContent() {
                   </span>
                 </div>
               ) : null}
-              <div ref={formActionsRef} className={styles.panelFootActions}>
+              <div ref={formActionsRef} className="flex w-full items-center gap-3">
               {!isEditMode && (
                 <Button
                   type="button"
@@ -2143,7 +2234,7 @@ function CreateBriefPageContent() {
                   <FileText className="mr-2 size-4" /> Save as draft
                 </Button>
               )}
-              <div className={styles.panelFootSpacer} />
+              <div className="flex-1" />
               <Button
                 type="submit"
                 form="brief-form"
@@ -2172,11 +2263,13 @@ function CreateBriefPageContent() {
                   </>
                 ) : (
                   <>
-                    {isEditMode
-                      ? "Update brief"
-                      : savedBriefId
-                        ? "Brief Saved"
-                        : "Create brief"}
+                    {isReviseMode
+                      ? "Update & resubmit"
+                      : isEditMode
+                        ? "Update brief"
+                        : savedBriefId
+                          ? "Brief Saved"
+                          : "Create brief"}
                     {!savedBriefId && !isSubmitting && !isUploadPending && (
                       <ArrowRight className="ml-2 size-4" />
                     )}

@@ -251,7 +251,7 @@ describe('order-context buyer resolution', () => {
     );
 
     it('covers all of them', () => {
-      expect(buyerEvents).toHaveLength(13);
+      expect(buyerEvents).toHaveLength(14);
     });
 
     it.each(buyerEvents)(

@@ -25,7 +25,6 @@ import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.gu
 import { AgencyBrandLinkService } from './agency-brand-link.service';
 import {
   AgencyBrandLinkItemDto,
-  AgencyPartnerIdResponseDto,
   RevokeAgencyLinkDto,
 } from './dto/agency-brand-link.dto';
 
@@ -43,25 +42,6 @@ import {
 @UseGuards(JwtAuthGuard, WorkspacePermissionGuard)
 export class AgencyBrandLinksController {
   constructor(private readonly links: AgencyBrandLinkService) {}
-
-  @Get('partner-id')
-  @ApiOperation({
-    summary: 'The code this agency gives to brands (minted on first read)',
-  })
-  @ApiOkResponse({ type: AgencyPartnerIdResponseDto })
-  async partnerId(@Req() req: Request & { user: { id: string } }) {
-    return this.links.getOrIssuePartnerId(req.user.id);
-  }
-
-  @Post('partner-id/rotate')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Replace the code. Brands already accepted keep their link.',
-  })
-  @ApiOkResponse({ type: AgencyPartnerIdResponseDto })
-  async rotate(@Req() req: Request & { user: { id: string } }) {
-    return this.links.rotatePartnerId(req.user.id);
-  }
 
   @Get('brand-links')
   @ApiOperation({

@@ -77,12 +77,13 @@ export class BrandAgencyLinksController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  // Codes are short, so the submit endpoint is the one place guessing could be
-  // attempted at volume. Accepting is still required, but rate limiting keeps
-  // an agency's inbox from being used as an oracle.
+  // Submitting is the one place the endpoint could be asked, at volume,
+  // whether an address belongs to an agency. Accepting is still required
+  // before anything is granted, but rate limiting keeps it from being walked
+  // through a list of addresses.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({
-    summary: "Request a link by redeeming an agency's partner ID",
+    summary: "Request a link by naming the agency's sign-in email",
   })
   @ApiCreatedResponse({
     description: 'Request created and the agency notified',
@@ -98,7 +99,7 @@ export class BrandAgencyLinksController {
     await this.assertBrandItself(req);
     return this.links.requestLink({
       brandUserId: req.user.id,
-      rawPartnerId: dto.partnerId,
+      rawAgencyEmail: dto.agencyEmail,
     });
   }
 

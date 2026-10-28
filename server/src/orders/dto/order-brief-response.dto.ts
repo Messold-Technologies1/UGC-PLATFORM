@@ -10,6 +10,15 @@ export class OrderBriefResponseDto {
   @ApiPropertyOptional({ type: String, format: 'date-time', nullable: true })
   briefAcceptedAt?: Date | null;
 
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description:
+      'Set when the buyer edited and resubmitted the brief before the creator accepted it.',
+  })
+  briefRevisedAt?: Date | null;
+
   @ApiProperty({ example: 7 })
   deliveryDaysSnapshot!: number;
 

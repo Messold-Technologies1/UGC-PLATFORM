@@ -14,14 +14,17 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, Users } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useDebouncedCallback } from "@/hooks/use-debounce";
 import { usePublicAuthUser } from "@/features/auth/hooks/use-me-query";
 import { WishlistsProvider } from "@/features/wishlists/hooks/use-wishlists-data";
-import { BROWSE_LIST_LIMIT } from "@/features/creators/lib/browse-constants";
+import {
+  BRAND_CREATOR_MATCH_FORM_URL,
+  BROWSE_LIST_LIMIT,
+} from "@/features/creators/lib/browse-constants";
 import { cn } from "@/lib/utils";
 import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import { ProfileDrawer } from "./browse-creators/profile-drawer";
@@ -46,9 +49,6 @@ import {
 import { useFirstOrderFreeEligibility } from "../hooks/use-first-order-free-eligibility";
 
 const LANDING_PAGE_CREATOR_LIMIT = 12;
-
-const BRAND_CREATOR_MATCH_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSfr7KglvvfKo8qFIxp2OdBVIrwuVS5qHkoG9kbVHXs1slOSSA/viewform";
 
 const browseContentPaddingClass = "px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12";
 
@@ -152,15 +152,19 @@ function EmptyBrowseState({ filters }: { filters: Filters }) {
   const accent = "font-medium text-foreground";
 
   return (
-    <div className="flex min-h-[min(20rem,45vh)] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 px-6 py-12 lg:min-h-0">
-      <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-muted">
-        <Users className="size-6 text-muted-foreground" aria-hidden />
+    <div
+      className="flex min-h-[min(22rem,50vh)] flex-1 flex-col items-center justify-center rounded-2xl border border-[#ef3e51]/25 bg-linear-to-b from-[#fff5f6] via-[#fef0f2] to-white px-6 py-12 shadow-[0_8px_28px_rgba(239,62,81,0.08)] ring-1 ring-[#ef3e51]/10 lg:min-h-0"
+      role="status"
+      aria-label="No creators match your filters"
+    >
+      <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-[#ef3e51] text-white shadow-[0_4px_14px_rgba(239,62,81,0.35)]">
+        <Sparkles className="size-6" aria-hidden />
       </div>
-      <p className="text-center text-lg font-semibold text-foreground">
-        No matches found
+      <p className="text-center text-lg font-semibold text-foreground sm:text-xl">
+        Oops — no creators match right now
       </p>
-      <p className="mt-2 max-w-md text-center text-sm leading-relaxed text-muted-foreground">
-        We couldn&apos;t find creators matching your filters
+      <p className="mt-2 max-w-lg text-center text-sm leading-relaxed text-muted-foreground">
+        We don&apos;t currently have creators based on your filters
         {location ? (
           <>
             {" "}
@@ -173,8 +177,22 @@ function EmptyBrowseState({ filters }: { filters: Filters }) {
             in the <span className={accent}>{priceLabel}</span> range
           </>
         ) : null}
-        .
+        . But we&apos;re here — tell us what you need and we&apos;ll find a
+        better match for you.
       </p>
+      <Button
+        asChild
+        size="default"
+        className="mt-6 h-11 shrink-0 rounded-xl bg-[#ef3e51] px-6 text-sm font-bold text-white shadow-[0_6px_20px_rgba(239,62,81,0.35)] transition-colors hover:bg-[#d93548]"
+      >
+        <a
+          href={BRAND_CREATOR_MATCH_FORM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Can&apos;t find a fit? We&apos;ll match you →
+        </a>
+      </Button>
     </div>
   );
 }

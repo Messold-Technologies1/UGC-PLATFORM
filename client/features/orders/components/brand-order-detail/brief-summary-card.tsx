@@ -16,6 +16,7 @@ import {
   LocateFixed,
   MessageSquareQuote,
   Package,
+  Pencil,
   Sparkles,
   Video,
 } from "lucide-react";
@@ -42,6 +43,12 @@ interface BriefSummaryCardProps {
   briefHref?: string | null;
   /** Optional footer actions, e.g. Accept / Reject on the creator order page. */
   actions?: ReactNode;
+  /**
+   * Show the buyer an "Edit brief" link. Set on the brand/agency order views
+   * only; the link appears while the creator has not answered the brief, which
+   * is the whole window in which the brief can still be changed.
+   */
+  canEditBrief?: boolean;
 }
 
 function formatSubmittedDate(value?: string | null) {
@@ -151,11 +158,25 @@ export function BriefSummaryCard({
   briefId,
   briefHref,
   actions,
+  canEditBrief = false,
 }: Readonly<BriefSummaryCardProps>) {
   const workspaceBase = useBuyerWorkspaceBase();
   if (!brief) return null;
 
   const fullBriefHref = briefHref ?? (briefId ? remapBuyerHref(`/brand/briefs/${briefId}`, workspaceBase) : null);
+
+  // The brief is the buyer's to change right up until the creator accepts it;
+  // after that it is the deal the creator agreed to and the work they have
+  // started, so the link goes away.
+  const awaitingCreator = order.status === "BRIEF_SUBMITTED";
+  const editBriefHref =
+    canEditBrief && awaitingCreator && briefId
+      ? remapBuyerHref(
+          `/brand/briefs/create?briefId=${encodeURIComponent(briefId)}&orderId=${encodeURIComponent(order.id)}`,
+          workspaceBase,
+        )
+      : null;
+  const revisedOn = formatSubmittedDate(order.briefRevisedAt);
 
   const isProductBrief = brief.isProduct ?? true;
   const offerLabels = getBriefOfferLabels(isProductBrief);
@@ -213,12 +234,22 @@ export function BriefSummaryCard({
                     <h3 className="text-base font-semibold text-foreground sm:text-lg">
                       {title}
                     </h3>
-                    <span className="hidden rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 sm:inline-flex">
-                      Submitted
-                    </span>
+                    {revisedOn ? (
+                      <span className="hidden rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 sm:inline-flex dark:bg-amber-950/60 dark:text-amber-100">
+                        Brief updated
+                      </span>
+                    ) : (
+                      <span className="hidden rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 sm:inline-flex">
+                        Submitted
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {submittedOn ? `Submitted on ${submittedOn}` : "Submitted"}
+                    {revisedOn
+                      ? `Last updated on ${revisedOn}`
+                      : submittedOn
+                        ? `Submitted on ${submittedOn}`
+                        : "Submitted"}
                   </p>
                   {fullBriefHref ? (
                     <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
@@ -228,8 +259,17 @@ export function BriefSummaryCard({
                 </div>
               </div>
 
-              {fullBriefHref || actions ? (
+              {fullBriefHref || editBriefHref || actions ? (
                 <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                  {editBriefHref ? (
+                    <Link
+                      href={editBriefHref}
+                      className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted sm:h-11 sm:w-auto sm:gap-2 sm:rounded-2xl sm:px-5"
+                    >
+                      <Pencil className="size-4" />
+                      Edit Brief
+                    </Link>
+                  ) : null}
                   {fullBriefHref ? (
                     <Link
                       href={fullBriefHref}

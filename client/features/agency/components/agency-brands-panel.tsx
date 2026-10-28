@@ -8,7 +8,6 @@ import {
   Copy,
   Inbox,
   KeyRound,
-  RefreshCw,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,20 +15,20 @@ import { classifyPartnerLinkError } from "@/features/agency/api/agency-brand-lin
 import {
   useAcceptBrandLinkMutation,
   useAgencyBrandLinksQuery,
-  useAgencyPartnerIdQuery,
   useLeaveBrandLinkMutation,
   useRejectBrandLinkMutation,
-  useRotatePartnerIdMutation,
 } from "@/features/agency/hooks/use-agency-brand-links";
 import { AgencyBrandSpendReport } from "@/features/agency/components/agency-brand-spend-report";
+import { useAuth } from "@/providers/auth-provider";
 
 /**
- * The agency's side of the partner link: the code to hand out, the requests
- * waiting on a decision, and the brands already managed.
+ * The agency's side of the partner link: the address to hand out, the
+ * requests waiting on a decision, and the brands already managed.
  *
- * Laid out to match the credits page — a dark hero carrying the one figure
- * that matters, then equal cards below. The Partner ID earns the hero because
- * it is the thing an agency comes here to copy.
+ * Laid out to match the credits page — a dark hero carrying the one thing
+ * that matters, then equal cards below. The sign-in email earns the hero
+ * because it is what an agency comes here to copy; it needs no endpoint of
+ * its own, since /auth/me already carries it.
  *
  * Requests sit before the managed list: they are the only item on the page
  * that blocks someone else, since a brand sees nothing happen until the agency
@@ -58,12 +57,11 @@ function EmptyState({
 }
 
 export function AgencyBrandsPanel() {
-  const partnerId = useAgencyPartnerIdQuery();
+  const { user } = useAuth();
   const links = useAgencyBrandLinksQuery();
   const accept = useAcceptBrandLinkMutation();
   const reject = useRejectBrandLinkMutation();
   const leave = useLeaveBrandLinkMutation();
-  const rotate = useRotatePartnerIdMutation();
 
   const [copied, setCopied] = useState(false);
   // One spend report open at a time: each is its own fetch, and an agency
@@ -76,38 +74,40 @@ export function AgencyBrandsPanel() {
   const active = (links.data ?? []).filter((l) => l.status === "ACTIVE");
 
   /**
-   * A 404 here means the partner-link feature is switched off for this
-   * environment, not that something broke — the endpoints fail closed behind
-   * AGENCY_BRAND_PARTNER_LINKS_ENABLED. Saying so beats a generic error that
-   * sends someone hunting for a bug.
+   * A 404 from the link list means the partner-link feature is switched off
+   * for this environment, not that something broke — the endpoints fail
+   * closed behind AGENCY_BRAND_PARTNER_LINKS_ENABLED. Saying so beats a
+   * generic error that sends someone hunting for a bug.
    */
-  const featureDisabled =
-    classifyPartnerLinkError(partnerId.error) === "feature-disabled";
+  const failure = links.isError ? classifyPartnerLinkError(links.error) : null;
+  const featureDisabled = failure === "feature-disabled";
 
   /**
-   * The link list fails separately from the code above, and a failed load is
-   * not an empty one: claiming "no pending requests" when the request died
-   * tells the agency nothing is waiting on them, which may be false.
+   * A failed load is not an empty one: claiming "no pending requests" when
+   * the request died tells the agency nothing is waiting on them, which may
+   * be false.
    */
   const linksFailed = links.isError;
 
-  async function copyPartnerId() {
-    const code = partnerId.data?.partnerId;
-    if (!code) return;
+  /** What a brand types to reach this agency: the address it signs in with. */
+  const signInEmail = user?.email ?? "";
+
+  async function copySignInEmail() {
+    if (!signInEmail) return;
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(signInEmail);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard is blocked in some embedded browsers; the code is on screen
-      // and can still be read out or typed.
-      toast.error("Couldn't copy — select the code and copy it manually.");
+      // Clipboard is blocked in some embedded browsers; the address is on
+      // screen and can still be read out or typed.
+      toast.error("Couldn't copy — select the address and copy it manually.");
     }
   }
 
   return (
     <div className="w-full space-y-6 px-4 py-8 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-      {/* Partner ID hero */}
+      {/* What a brand needs from you */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#20242f] via-[#15181f] to-[#0c0e13] p-7 text-white shadow-xl sm:p-8">
         <KeyRound
           className="pointer-events-none absolute -right-8 -top-8 size-44 text-white/[0.06]"
@@ -115,65 +115,42 @@ export function AgencyBrandsPanel() {
         />
         <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white/60">Your Partner ID</p>
+            <p className="text-sm font-medium text-white/60">
+              Your sign-in email
+            </p>
 
-            {partnerId.isLoading ? (
-              <p className="mt-1.5 text-5xl font-extrabold tracking-tight">…</p>
-            ) : partnerId.data ? (
-              <p className="mt-1.5 break-all font-mono text-4xl font-extrabold tracking-[0.12em] sm:text-5xl">
-                {partnerId.data.partnerId}
+            {signInEmail ? (
+              <p className="mt-1.5 break-all text-2xl font-extrabold tracking-tight sm:text-3xl">
+                {signInEmail}
               </p>
             ) : (
               <p className="mt-1.5 text-2xl font-bold tracking-tight text-white/80">
-                {featureDisabled ? "Not enabled yet" : "Couldn't load"}
+                {featureDisabled ? "Not enabled yet" : "…"}
               </p>
             )}
 
             <p className="mt-4 max-w-md text-xs text-white/70">
               {featureDisabled
                 ? "Brand partnerships aren't switched on for this environment yet."
-                : partnerId.data
-                  ? "Share this with a brand. They enter it in their account, then you approve the request before getting any access."
-                  : "Reload the page to try again."}
+                : "Give this to a brand. They enter it in their account, and you approve the request before getting any access."}
             </p>
           </div>
 
-          {partnerId.data ? (
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#15181f] shadow-sm transition-colors hover:bg-white/90"
-                onClick={copyPartnerId}
-              >
-                <span className="inline-flex items-center gap-2">
-                  {copied ? (
-                    <Check className="size-4" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                  {copied ? "Copied" : "Copy"}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="rounded-xl border border-white/25 px-4 py-2.5 text-sm font-semibold text-white/90 transition-colors hover:bg-white/10 disabled:opacity-50"
-                disabled={rotate.isPending}
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Generate a new Partner ID? The old one stops working for new requests. Brands you already manage keep their access.",
-                    )
-                  ) {
-                    rotate.mutate();
-                  }
-                }}
-              >
-                <span className="inline-flex items-center gap-2">
-                  <RefreshCw className="size-4" />
-                  Rotate
-                </span>
-              </button>
-            </div>
+          {signInEmail ? (
+            <button
+              type="button"
+              className="shrink-0 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#15181f] shadow-sm transition-colors hover:bg-white/90"
+              onClick={copySignInEmail}
+            >
+              <span className="inline-flex items-center gap-2">
+                {copied ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
+                {copied ? "Copied" : "Copy"}
+              </span>
+            </button>
           ) : null}
         </div>
       </div>

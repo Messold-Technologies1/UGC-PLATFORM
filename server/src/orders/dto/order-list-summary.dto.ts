@@ -79,6 +79,14 @@ export class OrderListSummaryDto {
   })
   deliveredAt?: Date | null;
 
+  @ApiPropertyOptional({
+    description:
+      'When this order accepts itself if the brand never reviews the ' +
+      'content, so a list card can show the countdown. Null means no clock ' +
+      'is running.',
+  })
+  autoAcceptAt?: Date | null;
+
   @ApiProperty({
     example: 1,
     description: 'Revisions requested so far (0 for an order with none).',

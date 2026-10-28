@@ -8,10 +8,14 @@ export interface OrderCreatorSnapshot {
   avgRating?: string | null;
   reviewCount?: number;
   /**
-   * Creator's shipping address for physical-product orders. Recipient name and
-   * phone are intentionally omitted server-side to keep the creator anonymized.
+   * Creator's shipping address for physical-product orders. Display name stays
+   * anonymized; phone is included for courier contact.
    */
   shippingAddress?: string | null;
+  /** Creator phone for physical-product shipping. */
+  phone?: string | null;
+  /** True when the phone is OTP-verified. */
+  phoneVerified?: boolean;
 }
 
 export interface OrderBrandSnapshot {
@@ -44,6 +48,11 @@ export interface OrderListSummary {
   paidAt?: string | null;
   briefSubmittedAt?: string | null;
   briefAcceptedAt?: string | null;
+  /**
+   * Set when the buyer edited and resubmitted the brief before the creator
+   * accepted it. Null means the brief is the one first submitted.
+   */
+  briefRevisedAt?: string | null;
   hasBrief: boolean;
   requiresPhysicalProductShipment: boolean;
   courierName?: string | null;
@@ -55,6 +64,12 @@ export interface OrderListSummary {
   deliveryGraceDeadlineAt?: string | null;
   /** When the content was delivered — "Delivered on" for list cards. */
   deliveredAt?: string | null;
+  /**
+   * When this order accepts itself if the brand never reviews the content.
+   * Null means no clock is running — nothing delivered, a revision outstanding,
+   * a dispute open, or the order already closed.
+   */
+  autoAcceptAt?: string | null;
   /** Revisions requested so far. */
   revisionCount?: number;
   /**
@@ -132,6 +147,12 @@ export interface OrderDetailsPublic extends OrderListSummary {
   addOnsTotalSnapshot?: string | null;
   expectedAmountPaise: number;
   acceptedAt?: string | null;
+  /**
+   * How the order was accepted: "BRAND" if someone clicked Approve, "AUTO" if
+   * the review deadline passed. Null until the order is accepted — and worth
+   * checking before telling a brand they approved something.
+   */
+  acceptedBy?: "BRAND" | "AUTO" | null;
   creatorPaidAt?: string | null;
   revisionCount: number;
   /** Revisions granted by one paid extra-revisions purchase. */

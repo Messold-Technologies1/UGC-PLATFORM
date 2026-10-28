@@ -462,6 +462,55 @@ export const orderEvents = defineEvents({
     },
   },
 
+  /**
+   * The nudge before an order closes itself. Emitted by the auto-accept sweep,
+   * which already walks `autoAcceptAt` hourly — NOT by a `population` spec,
+   * because those only run when an admin presses the sweep button and a
+   * reminder nobody triggers is not a reminder.
+   *
+   * The sweep keys each emit on the deadline it is warning about, so a brand
+   * hears about it once and a clock restarted by a revision earns a new nudge.
+   */
+  'order-auto-accept-reminder-for-brand': {
+    label: 'Order approves itself soon — to brand',
+    description:
+      'Warns the brand that a delivered order will be approved automatically ' +
+      'unless they review it. Sent once per deadline, shortly before it falls.',
+    recipient: BRAND,
+    vars: {
+      ...commonVars,
+      ...creatorNameVar,
+      autoAcceptAt: { type: 'date', example: '15 Mar 2026, 9:00 am' },
+    },
+    resolve: async (ctx, id) => {
+      const order = await loadOrder(ctx, id);
+      if (!order) return null;
+      return toBrand(ctx, order, {
+        creatorName: creatorDisplayName(order),
+        packageName: order.packageNameSnapshot,
+        orderId: order.id,
+        autoAcceptAt: formatDate(order.autoAcceptAt),
+        actionUrl: brandOrderUrl(ctx, order),
+      });
+    },
+    /**
+     * Stop the moment the deadline is no longer running — the brand accepted,
+     * asked for a revision, or opened a dispute, all of which clear
+     * `autoAcceptAt`. Warning someone about a deadline that no longer exists
+     * is worse than silence: it tells them to act on a closed order.
+     */
+    stillRelevant: async (ctx, id) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id },
+        select: { autoAcceptAt: true },
+      });
+      // null, not false: a missing order means the worker cannot see it, which
+      // is a different thing from a brand who acted.
+      if (!order) return null;
+      return order.autoAcceptAt !== null;
+    },
+  },
+
   'order-content-accepted-for-creator': {
     label: 'Content accepted — to creator',
     recipient: CREATOR,

@@ -16,11 +16,15 @@ describe('OrderAutoAcceptService', () => {
     const prisma = { order: { findMany } };
     const autoAcceptDueOrder = jest.fn().mockResolvedValue(true);
     const orders = { autoAcceptDueOrder } as unknown as OrdersService;
+    const emit = jest.fn().mockResolvedValue(undefined);
 
     return {
-      service: new OrderAutoAcceptService(prisma as never, orders),
+      service: new OrderAutoAcceptService(prisma as never, orders, {
+        emit,
+      } as never),
       findMany,
       autoAcceptDueOrder,
+      emit,
     };
   }
 
@@ -92,6 +96,69 @@ describe('OrderAutoAcceptService', () => {
     await service.acceptOverdueOrders();
 
     expect(findMany).toHaveBeenCalledTimes(2);
+  });
+
+  describe('remindBeforeDeadline', () => {
+    function makeReminder(
+      rows: Array<{ id: string; autoAcceptAt: Date | null }>,
+    ) {
+      const findMany = jest.fn().mockResolvedValue(rows);
+      const emit = jest.fn().mockResolvedValue(undefined);
+      const service = new OrderAutoAcceptService(
+        { order: { findMany } } as never,
+        { autoAcceptDueOrder: jest.fn() } as unknown as OrdersService,
+        { emit } as never,
+      );
+      return { service, findMany, emit };
+    }
+
+    const deadline = new Date('2026-03-15T09:00:00.000Z');
+
+    /**
+     * The window is every order inside the lead time, not only the ones that
+     * crossed into it this hour, so a run missed to a deploy does not cost a
+     * brand its warning. That means re-emitting hourly, and the deadline as
+     * `occurrenceKey` is what collapses those repeats into one send.
+     */
+    it('keys the emit on the deadline it is warning about', async () => {
+      const { service, emit } = makeReminder([
+        { id: 'o-1', autoAcceptAt: deadline },
+      ]);
+
+      await service.remindBeforeDeadline();
+
+      expect(emit).toHaveBeenCalledWith(
+        'order-auto-accept-reminder-for-brand',
+        {
+          entityId: 'o-1',
+          occurrenceKey: deadline.toISOString(),
+        },
+      );
+    });
+
+    it('looks two days ahead of now', async () => {
+      const { service, findMany } = makeReminder([]);
+      const before = Date.now();
+
+      await service.remindBeforeDeadline();
+
+      const calls = findMany.mock.calls as Array<
+        [{ where: { autoAcceptAt: { lte: Date }; acceptedAt: null } }]
+      >;
+      const { lte } = calls[0][0].where.autoAcceptAt;
+      expect(lte.getTime()).toBeGreaterThanOrEqual(before + 2 * 86_400_000);
+      expect(calls[0][0].where.acceptedAt).toBeNull();
+    });
+
+    it('skips a row whose clock was cleared between the query and the loop', async () => {
+      const { service, emit } = makeReminder([
+        { id: 'o-1', autoAcceptAt: null },
+      ]);
+
+      await service.remindBeforeDeadline();
+
+      expect(emit).not.toHaveBeenCalled();
+    });
   });
 
   it('does not overlap itself within one process', async () => {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
 import { OrdersService } from './orders.service';
 
@@ -11,6 +12,16 @@ const AUTO_ACCEPT_BATCH = 25;
  * backfill, or if something keeps re-arming deadlines in the past.
  */
 const AUTO_ACCEPT_MAX_PER_RUN = 500;
+
+/**
+ * How far ahead of the deadline the brand is warned.
+ *
+ * Two days leaves room to actually watch the content and write revision notes;
+ * a warning that arrives the same morning is an announcement, not a chance.
+ */
+const REMINDER_LEAD_DAYS = 2;
+/** Orders warned per run. Generous — a reminder is one enqueue, not a send. */
+const REMINDER_MAX_PER_RUN = 500;
 
 /**
  * Closes orders whose brand never reviewed the delivered content.
@@ -36,9 +47,51 @@ export class OrderAutoAcceptService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
+    private readonly events: NotificationEventsService,
   ) {}
 
   @Cron(RECONCILE_BACKSTOP_CRON)
+  async run(): Promise<void> {
+    // Warn first, accept second. Within one tick that ordering only matters at
+    // the margin, but it is the one that cannot surprise anyone: an order can
+    // never be accepted by a run that had not yet reached the warning step.
+    await this.remindBeforeDeadline();
+    await this.acceptOverdueOrders();
+  }
+
+  /**
+   * Tell brands whose deadline is approaching, once per deadline.
+   *
+   * The window is every order inside the lead time, not just the ones that
+   * crossed into it this hour, so a run missed to a deploy or an outage does
+   * not silently cost a brand its warning. That means re-emitting hourly until
+   * the deadline falls; `occurrenceKey` is what makes that safe — it is the
+   * deadline being warned about, so the notification log's unique constraint
+   * collapses the repeats into one send, and a clock restarted by a revision
+   * gets a new key and therefore a fresh warning.
+   */
+  async remindBeforeDeadline(): Promise<void> {
+    const until = new Date(Date.now() + REMINDER_LEAD_DAYS * 86_400_000);
+    const soon = await this.prisma.order.findMany({
+      where: {
+        autoAcceptAt: { lte: until },
+        acceptedAt: null,
+        status: { in: ['DELIVERED', 'REVISION_SUBMITTED'] },
+      },
+      orderBy: { autoAcceptAt: 'asc' },
+      take: REMINDER_MAX_PER_RUN,
+      select: { id: true, autoAcceptAt: true },
+    });
+
+    for (const order of soon) {
+      if (!order.autoAcceptAt) continue;
+      await this.events.emit('order-auto-accept-reminder-for-brand', {
+        entityId: order.id,
+        occurrenceKey: order.autoAcceptAt.toISOString(),
+      });
+    }
+  }
+
   async acceptOverdueOrders(): Promise<void> {
     // Cheap guard against this process overlapping itself on a slow run. It is
     // NOT the correctness mechanism: @Cron fires in the API and the worker

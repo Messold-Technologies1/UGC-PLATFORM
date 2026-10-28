@@ -87,6 +87,7 @@ describe('notification event catalog', () => {
       'agency-link-requested',
       'creator-profile-completion-reminder',
       'creator-profile-resubmit-reminder',
+      'order-auto-accept-reminder-for-brand',
       'order-brief-accepted-for-brand',
       'order-brief-submitted-for-creator',
       'order-content-delivered-for-brand',

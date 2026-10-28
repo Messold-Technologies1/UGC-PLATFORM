@@ -14,6 +14,7 @@ export enum EmailTemplateKey {
   ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_BRAND = 'order-extra-usage-rights-purchased-for-brand',
   ORDER_EXTRA_USAGE_RIGHTS_PURCHASED_FOR_CREATOR = 'order-extra-usage-rights-purchased-for-creator',
   ORDER_CONTENT_DELIVERED_FOR_BRAND = 'order-content-delivered-for-brand',
+  ORDER_AUTO_ACCEPT_REMINDER_FOR_BRAND = 'order-auto-accept-reminder-for-brand',
   ORDER_CONTENT_ACCEPTED_FOR_CREATOR = 'order-content-accepted-for-creator',
   ORDER_COMPLETED_FOR_BRAND = 'order-completed-for-brand',
   ORDER_REJECTED_FOR_BRAND = 'order-rejected-for-brand',

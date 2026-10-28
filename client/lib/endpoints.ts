@@ -84,6 +84,8 @@ export const ENDPOINTS = {
       `/api/briefs/${encodeURIComponent(id)}/attach-to-order`,
     ATTACH_TO_ORDERS: (id: string) =>
       `/api/briefs/${encodeURIComponent(id)}/attach-to-orders`,
+    REVISE_FOR_ORDER: (id: string) =>
+      `/api/briefs/${encodeURIComponent(id)}/revise-for-order`,
   },
   ORDERS: {
     BRAND_LIST: "/api/orders/brand",

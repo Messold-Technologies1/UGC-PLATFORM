@@ -107,5 +107,12 @@ export class BriefDto {
 
   @ApiProperty()
   updatedAt!: Date;
+
+  @ApiPropertyOptional({
+    description:
+      'Set when this brief is a private copy made for one order by editing that order\u2019s brief. Such a copy is not a reusable template: it is hidden from the saved-brief list and cannot be attached to other orders.',
+    nullable: true,
+  })
+  orderScopedOrderId?: string | null;
 }
 

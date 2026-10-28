@@ -2368,6 +2368,128 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Check that this order will still accept the brief after an edit, without
+   * writing anything.
+   *
+   * Called by BriefsService before it forks the brief, so a rejected edit
+   * never leaves an orphan copy behind. The window is BRIEF_SUBMITTED and
+   * nothing else: before that there is no brief to revise, and from
+   * BRIEF_ACCEPTED on the creator has agreed to the brief as written and may
+   * already be shooting to it.
+   */
+  async assertBriefRevisable(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    orderId: string;
+    briefId: string;
+    isProduct: boolean;
+    productImageKey: string | null;
+    shootLocationKind: string | null;
+  }): Promise<void> {
+    const actor = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        id: true,
+        brandId: true,
+        agencyId: true,
+        creatorId: true,
+        status: true,
+        briefId: true,
+        addOnsSnapshot: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    this.brandAccess.assertOwnsOrder(order, actor);
+
+    if (String(order.status) !== 'BRIEF_SUBMITTED') {
+      throw new BadRequestException(
+        'The brief can only be edited while it is awaiting the creator\'s response.',
+      );
+    }
+    // Guards against revising a brief the order has since moved off — two
+    // tabs open on the same order, the first one saving last.
+    if (order.briefId !== params.briefId) {
+      throw new BadRequestException(
+        'This brief is no longer the one on this order. Reload the order and try again.',
+      );
+    }
+    if (params.isProduct && !params.productImageKey?.trim()) {
+      throw new BadRequestException(
+        'Brief must include a product image before it can be submitted to an order for product campaigns',
+      );
+    }
+    await this.assertTravelAddOnSatisfied({
+      creatorId: order.creatorId,
+      addOnsSnapshot: order.addOnsSnapshot,
+      shootLocationKind: params.shootLocationKind,
+    });
+  }
+
+  /**
+   * Point an order at the revised copy of its brief.
+   *
+   * The order stays in BRIEF_SUBMITTED — the creator has not acted, and this
+   * is still the same decision in front of them. `briefSubmittedAt` is reset
+   * so the unanswered-brief reminder counts from the version they are actually
+   * being asked to read, and `briefRevisedAt` is what the "Brief updated"
+   * badge shows on both sides.
+   *
+   * No notification fires: the creator has an unanswered brief either way, and
+   * a second email for the same decision is noise. The realtime event refreshes
+   * a page that is already open.
+   *
+   * `requiresPhysicalProductShipment` is re-snapshotted because it decides
+   * whether the delivery clock starts at acceptance or at product receipt, and
+   * the edit may have turned shipping on or off.
+   */
+  async resubmitBrief(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    orderId: string;
+    briefId: string;
+    requiresPhysicalProductShipment: boolean;
+  }): Promise<void> {
+    const actor = await this.resolveBrandActor({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: { id: true, brandId: true, agencyId: true, status: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    this.brandAccess.assertOwnsOrder(order, actor);
+    if (String(order.status) !== 'BRIEF_SUBMITTED') {
+      throw new BadRequestException(
+        'The brief can only be edited while it is awaiting the creator\'s response.',
+      );
+    }
+
+    const now = new Date();
+    await this.updateOrder({
+      where: { id: order.id },
+      data: {
+        briefId: params.briefId,
+        briefSubmittedAt: now,
+        briefRevisedAt: now,
+        requiresPhysicalProductShipment:
+          params.requiresPhysicalProductShipment,
+      },
+    });
+
+    await this.orderRealtime.emitOrderBriefSubmitted({
+      orderId: order.id,
+      briefSubmittedAt: now,
+    });
+  }
+
   async acceptBrief(params: {
     creatorUserId: string;
     orderId: string;
@@ -4475,6 +4597,7 @@ export class OrdersService {
     briefId: string | null;
     briefSubmittedAt: Date | null;
     briefAcceptedAt: Date | null;
+    briefRevisedAt?: Date | null;
     requiresPhysicalProductShipment: boolean;
     courierName: string | null;
     trackingId: string | null;
@@ -4533,6 +4656,7 @@ export class OrdersService {
       paidAt: order.paidAt,
       briefSubmittedAt: order.briefSubmittedAt,
       briefAcceptedAt: order.briefAcceptedAt,
+      briefRevisedAt: order.briefRevisedAt ?? null,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,
       courierName: order.courierName ?? null,
       trackingId: order.trackingId ?? null,
@@ -4689,6 +4813,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         requiresPhysicalProductShipment: true,
         courierName: true,
         trackingId: true,
@@ -4893,6 +5018,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         requiresPhysicalProductShipment: true,
         courierName: true,
         trackingId: true,
@@ -5251,6 +5377,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         requiresPhysicalProductShipment: true,
         courierName: true,
         trackingId: true,
@@ -5829,6 +5956,7 @@ export class OrdersService {
         briefId: true,
         briefSubmittedAt: true,
         briefAcceptedAt: true,
+        briefRevisedAt: true,
         deliveryDaysSnapshot: true,
         requiresPhysicalProductShipment: true,
         deliveryDueAt: true,
@@ -5945,6 +6073,7 @@ export class OrdersService {
     return {
       orderId: order.id,
       briefSubmittedAt: order.briefSubmittedAt,
+      briefRevisedAt: order.briefRevisedAt ?? null,
       briefAcceptedAt: order.briefAcceptedAt,
       deliveryDaysSnapshot: order.deliveryDaysSnapshot,
       requiresPhysicalProductShipment: order.requiresPhysicalProductShipment,

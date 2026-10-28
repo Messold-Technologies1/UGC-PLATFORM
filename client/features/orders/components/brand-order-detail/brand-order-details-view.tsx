@@ -238,7 +238,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
             <OrderSummaryCard order={order} creator={creator} />
 
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
           </div>
 
@@ -296,7 +301,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
           <OrderSummaryCard order={order} creator={creator} />
 
           {order.hasBrief && brief ? (
-            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
           ) : null}
         </div>
       </div>
@@ -353,7 +363,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
             <OrderSummaryCard order={order} creator={creator} />
 
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
           </div>
 
@@ -405,7 +420,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
             <OrderSummaryCard order={order} creator={creator} />
 
             {order.hasBrief && brief ? (
-              <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+              <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
             ) : null}
           </div>
 
@@ -456,7 +476,12 @@ export function BrandOrderDetailsView({ orderId }: Readonly<BrandOrderDetailsVie
           />
 
           {order.hasBrief && brief ? (
-            <BriefSummaryCard order={order} brief={brief} briefId={briefId} />
+            <BriefSummaryCard
+                order={order}
+                brief={brief}
+                briefId={briefId}
+                canEditBrief
+              />
           ) : null}
         </div>
 

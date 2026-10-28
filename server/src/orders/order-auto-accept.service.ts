@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { RECONCILE_BACKSTOP_CRON } from '../util/reconcile-schedule';
+import { resolveAutoAcceptDays } from './delivery-deadline.util';
 import { OrdersService } from './orders.service';
 
 /** Orders claimed per page while draining the due set. */
@@ -19,7 +21,7 @@ const AUTO_ACCEPT_MAX_PER_RUN = 500;
  * Two days leaves room to actually watch the content and write revision notes;
  * a warning that arrives the same morning is an announcement, not a chance.
  */
-const REMINDER_LEAD_DAYS = 2;
+const MAX_REMINDER_LEAD_DAYS = 2;
 /** Orders warned per run. Generous — a reminder is one enqueue, not a send. */
 const REMINDER_MAX_PER_RUN = 500;
 
@@ -48,7 +50,23 @@ export class OrderAutoAcceptService {
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
     private readonly events: NotificationEventsService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * How long before the deadline to warn, in days.
+   *
+   * Never more than half the window. `ORDER_AUTO_ACCEPT_DAYS` is tunable — and
+   * is deliberately set to minutes on test — so a fixed two-day lead would make
+   * every order due for its "closing soon" warning the instant it was
+   * delivered, which is not a warning about anything.
+   */
+  private reminderLeadDays(): number {
+    const window = resolveAutoAcceptDays(
+      this.config.get<string>('ORDER_AUTO_ACCEPT_DAYS'),
+    );
+    return Math.min(MAX_REMINDER_LEAD_DAYS, window / 2);
+  }
 
   @Cron(RECONCILE_BACKSTOP_CRON)
   async run(): Promise<void> {
@@ -69,9 +87,11 @@ export class OrderAutoAcceptService {
    * deadline being warned about, so the notification log's unique constraint
    * collapses the repeats into one send, and a clock restarted by a revision
    * gets a new key and therefore a fresh warning.
+   *
+   * See {@link reminderLeadDays} for why the lead is not simply two days.
    */
   async remindBeforeDeadline(): Promise<void> {
-    const until = new Date(Date.now() + REMINDER_LEAD_DAYS * 86_400_000);
+    const until = new Date(Date.now() + this.reminderLeadDays() * 86_400_000);
     const soon = await this.prisma.order.findMany({
       where: {
         autoAcceptAt: { lte: until },

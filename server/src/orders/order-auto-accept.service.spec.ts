@@ -19,9 +19,12 @@ describe('OrderAutoAcceptService', () => {
     const emit = jest.fn().mockResolvedValue(undefined);
 
     return {
-      service: new OrderAutoAcceptService(prisma as never, orders, {
-        emit,
-      } as never),
+      service: new OrderAutoAcceptService(
+        prisma as never,
+        orders,
+        { emit } as never,
+        { get: () => undefined } as never,
+      ),
       findMany,
       autoAcceptDueOrder,
       emit,
@@ -101,6 +104,7 @@ describe('OrderAutoAcceptService', () => {
   describe('remindBeforeDeadline', () => {
     function makeReminder(
       rows: Array<{ id: string; autoAcceptAt: Date | null }>,
+      env: Record<string, string> = {},
     ) {
       const findMany = jest.fn().mockResolvedValue(rows);
       const emit = jest.fn().mockResolvedValue(undefined);
@@ -108,6 +112,7 @@ describe('OrderAutoAcceptService', () => {
         { order: { findMany } } as never,
         { autoAcceptDueOrder: jest.fn() } as unknown as OrdersService,
         { emit } as never,
+        { get: (key: string) => env[key] } as never,
       );
       return { service, findMany, emit };
     }
@@ -136,7 +141,7 @@ describe('OrderAutoAcceptService', () => {
       );
     });
 
-    it('looks two days ahead of now', async () => {
+    it('looks two days ahead of now on the default window', async () => {
       const { service, findMany } = makeReminder([]);
       const before = Date.now();
 
@@ -148,6 +153,27 @@ describe('OrderAutoAcceptService', () => {
       const { lte } = calls[0][0].where.autoAcceptAt;
       expect(lte.getTime()).toBeGreaterThanOrEqual(before + 2 * 86_400_000);
       expect(calls[0][0].where.acceptedAt).toBeNull();
+    });
+
+    /**
+     * `ORDER_AUTO_ACCEPT_DAYS` is deliberately set to minutes on test. A fixed
+     * two-day lead would then make every order due for its "closing soon"
+     * warning the instant it was delivered, which warns about nothing.
+     */
+    it('never leads by more than half the configured window', async () => {
+      const { service, findMany } = makeReminder([], {
+        ORDER_AUTO_ACCEPT_DAYS: '1',
+      });
+      const before = Date.now();
+
+      await service.remindBeforeDeadline();
+
+      const calls = findMany.mock.calls as Array<
+        [{ where: { autoAcceptAt: { lte: Date } } }]
+      >;
+      const { lte } = calls[0][0].where.autoAcceptAt;
+      // Half a day, not two days.
+      expect(lte.getTime()).toBeLessThanOrEqual(before + 0.5 * 86_400_000 + 50);
     });
 
     it('skips a row whose clock was cleared between the query and the loop', async () => {

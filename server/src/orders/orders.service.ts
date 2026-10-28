@@ -57,10 +57,10 @@ import type {
   SubmitDeliveryResponseDto,
 } from './dto/submit-delivery.dto';
 import {
-  addCalendarDays,
-  AUTO_ACCEPT_DAYS,
+  computeAutoAcceptAt,
   computeDeliveryDeadlines,
   inGracePeriodWhere,
+  resolveAutoAcceptDays,
 } from './delivery-deadline.util';
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
@@ -6403,7 +6403,15 @@ export class OrdersService {
           status: restored,
           preDisputeStatus: null,
           autoAcceptAt: awaitingBrand
-            ? addCalendarDays(new Date(), AUTO_ACCEPT_DAYS)
+            ? computeAutoAcceptAt({
+                // A full window measured from now: `deliveredAt` is the clock
+                // start here, not the real delivery, which is the whole point.
+                deliveryDueAt: null,
+                deliveredAt: new Date(),
+                days: resolveAutoAcceptDays(
+                  this.config.get<string>('ORDER_AUTO_ACCEPT_DAYS'),
+                ),
+              })
             : null,
         },
       },

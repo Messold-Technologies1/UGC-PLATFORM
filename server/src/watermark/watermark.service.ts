@@ -10,7 +10,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import { OrderRealtimeNotifier } from '../realtime/order-realtime.notifier';
-import { computeAutoAcceptAt } from '../orders/delivery-deadline.util';
+import {
+  computeAutoAcceptAt,
+  resolveAutoAcceptDays,
+} from '../orders/delivery-deadline.util';
 import { assertEncodedVideoFrames } from './ffmpeg-output.util';
 
 // Prefer an explicit FFMPEG_PATH (set to the system ffmpeg in production —
@@ -116,6 +119,8 @@ export function describePreviewError(error: unknown): string {
 export class WatermarkService {
   private readonly logger = new Logger(WatermarkService.name);
   private readonly text: string;
+  /** Review window a delivery's auto-accept deadline is measured with. */
+  private readonly autoAcceptDays: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -125,6 +130,11 @@ export class WatermarkService {
     config: ConfigService,
   ) {
     this.text = config.get<string>('WATERMARK_TEXT', 'Go Collab');
+    // Resolved once, like the watermark text above: ConfigService reads the
+    // environment at boot, so a change needs a restart either way.
+    this.autoAcceptDays = resolveAutoAcceptDays(
+      config.get<string>('ORDER_AUTO_ACCEPT_DAYS'),
+    );
   }
 
   /**
@@ -284,6 +294,7 @@ export class WatermarkService {
         autoAcceptAt: computeAutoAcceptAt({
           deliveryDueAt: order.deliveryDueAt,
           deliveredAt,
+          days: this.autoAcceptDays,
         }),
       },
     });

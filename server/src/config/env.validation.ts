@@ -273,6 +273,17 @@ export const envValidationSchema = Joi.object({
   /** Set while testing to route server events to Events Manager > Test Events. */
   META_CAPI_TEST_EVENT_CODE: Joi.string().optional(),
 
+  /**
+   * How many days a brand has to review delivered content before the order
+   * accepts itself (see `resolveAutoAcceptDays` in
+   * `orders/delivery-deadline.util.ts`). Optional; 5 when unset.
+   *
+   * Fractional values are allowed so the flow can be exercised on test without
+   * waiting five days — `0.01` is about 15 minutes. Capped at 90 so a stray
+   * value cannot park an order past the point anyone would look for it.
+   */
+  ORDER_AUTO_ACCEPT_DAYS: Joi.number().positive().max(90).optional(),
+
   // AI (OpenRouter) — optional. When OPENROUTER_API_KEY is unset, AI features
   // short-circuit (e.g. bio generation responds 503 Service Unavailable) so the
   // app still boots and runs without an AI provider configured.

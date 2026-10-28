@@ -254,6 +254,7 @@ model User {
   orderChatReadStates         OrderChatReadState[]
   passwordResetTokens         PasswordResetToken[]
   contactMessagesRead         ContactMessage[]           @relation("ContactMessageReadBy")
+  pushSubscriptions           PushSubscription[]
 
   @@index([status])
   @@index([deletedAt])
@@ -438,6 +439,14 @@ model CreatorProfile {
   emailNotificationsEnabled    Boolean                     @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
   whatsappNotificationsEnabled Boolean                     @default(false)
+  /// Opt-in for browser push. Defaults TRUE, unlike the two above: an email
+  /// address or a phone number arrives with the account and is no evidence of
+  /// consent, whereas a push subscription exists only because the person
+  /// answered their browser's permission prompt with "Allow". The flag is
+  /// therefore a mute switch for someone who granted permission and wants the
+  /// notifications to stop without revoking it at the browser level. With no
+  /// subscription on file the send skips regardless.
+  pushNotificationsEnabled     Boolean                     @default(true)
   /// Meta (Facebook) attribution identifiers captured in the creator's browser
   /// at signup. Replayed via the Conversions API when the creator is listed so
   /// the (out-of-band, admin-triggered) conversion attributes to the ad the
@@ -713,7 +722,7 @@ model Order {
   /// brand disputes afterwards.
   acceptedBy              OrderAcceptedBy?
   creatorPaidAt           DateTime?
-  revisionCount           Int       @default(0)
+  revisionCount           Int              @default(0)
 
   /// Order status captured at the moment a dispute is opened, so an admin
   /// resolution ("continue") or an opener withdrawal can restore the order
@@ -782,8 +791,8 @@ model Order {
   /// originally clicked. Refreshed when a draft order is reused for a later
   /// checkout attempt. Both optional: tracking is best-effort, and an
   /// ad-blocked browser simply has no cookies to send.
-  metaFbp              String?
-  metaFbc              String?
+  metaFbp String?
+  metaFbc String?
 
   /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
   lastChatActivityAt          DateTime              @default(now())
@@ -880,14 +889,14 @@ model OrderCheckoutBatch {
   grossAmountPaise    Int     @default(0)
 
   /// Attribution only — see Order.placedByAgencyId.
-  placedByAgencyId    String? @db.Uuid
-  placedByUserId      String? @db.Uuid
+  placedByAgencyId String? @db.Uuid
+  placedByUserId   String? @db.Uuid
 
-  brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  placedByAgency Agency? @relation("CheckoutBatchPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
-  coupon Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  orders Order[]
+  brand          BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency         Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  placedByAgency Agency?       @relation("CheckoutBatchPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
+  coupon         Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  orders         Order[]
 
   @@index([brandId, createdAt])
   @@index([agencyId, createdAt])
@@ -1039,9 +1048,9 @@ enum BriefToneStyle {
 }
 
 model Brief {
-  id        String  @id @default(uuid()) @db.Uuid
-  brandId   String? @db.Uuid
-  agencyId  String? @db.Uuid
+  id       String  @id @default(uuid()) @db.Uuid
+  brandId  String? @db.Uuid
+  agencyId String? @db.Uuid
 
   /// Brand / campaign context (frontend can "auto pick" from BrandProfile)
   brandName                  String?
@@ -1065,7 +1074,7 @@ model Brief {
   willShipPhysicalProductToCreator Boolean @default(false)
   /// When shipping a physical product: buyer wants the item returned after the shoot.
   /// Return shipping is arranged by the brand/agency (not the creator).
-  wantsPhysicalProductReturned Boolean @default(false)
+  wantsPhysicalProductReturned     Boolean @default(false)
 
   /// Production guidance
   shootLocationKind    BriefShootLocationKind? @default(CREATOR_DECIDES)
@@ -1093,10 +1102,10 @@ model Brief {
   placedByAgencyId String? @db.Uuid
   placedByUserId   String? @db.Uuid
 
-  brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  placedByAgency Agency? @relation("BriefPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
-  orders Order[]
+  brand          BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency         Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  placedByAgency Agency?       @relation("BriefPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
+  orders         Order[]
 
   @@index([brandId, createdAt])
   @@index([agencyId, createdAt])
@@ -1390,51 +1399,59 @@ model CreatorRestrictionSuggestion {
 }
 
 model Agency {
-  id                   String   @id @default(uuid()) @db.Uuid
-  ownerUserId          String   @unique @db.Uuid
-  name                 String
-  logoKey              String?
-  logoUrl              String?
-  website              String?
-  contactFullName      String
-  contactEmail         String
-  contactPhone         String?
-  contactPhoneVerified Boolean  @default(false)
+  id                           String   @id @default(uuid()) @db.Uuid
+  ownerUserId                  String   @unique @db.Uuid
+  name                         String
+  logoKey                      String?
+  logoUrl                      String?
+  website                      String?
+  contactFullName              String
+  contactEmail                 String
+  contactPhone                 String?
+  contactPhoneVerified         Boolean  @default(false)
   /// Brand names collected from brief submissions (no BrandProfile linkage).
   /// LEGACY: no longer appended to. Agency-direct briefs now carry the agency's
   /// own name, and real client brands arrive as AgencyBrandLink rows. Kept so
   /// historical rows stay readable.
-  brandNames           String[] @default([])
+  brandNames                   String[] @default([])
   /// Opt-in for transactional/order emails. Set true at signup, like the brand
   /// and creator columns; agencies that predate these were backfilled true,
   /// since the gate used to let every agency through.
   emailNotificationsEnabled    Boolean  @default(false)
   /// Opt-in for WhatsApp notifications.
   whatsappNotificationsEnabled Boolean  @default(false)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  /// Opt-in for browser push. Defaults TRUE, unlike the two above: an email
+  /// address or a phone number arrives with the account and is no evidence of
+  /// consent, whereas a push subscription exists only because the person
+  /// answered their browser's permission prompt with "Allow". The flag is
+  /// therefore a mute switch for someone who granted permission and wants the
+  /// notifications to stop without revoking it at the browser level. With no
+  /// subscription on file the send skips regardless.
+  pushNotificationsEnabled     Boolean  @default(true)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
 
-  owner           User                 @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  briefs          Brief[]
-  orders          Order[]
-  checkoutBatches OrderCheckoutBatch[]
+  owner             User                  @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  briefs            Brief[]
+  orders            Order[]
+  checkoutBatches   OrderCheckoutBatch[]
   couponRedemptions CouponRedemption[]
-  wallet          BrandWallet?
+  wallet            BrandWallet?
   walletWithdrawals WalletWithdrawal[]
-  ratingReviews   CreatorRatingReview[]
-  wishlists       BrandWishlist[]
+  ratingReviews     CreatorRatingReview[]
+  wishlists         BrandWishlist[]
 
   /// Links to brands this agency manages on their behalf.
-  brandLinks      AgencyBrandLink[]
+  brandLinks AgencyBrandLink[]
 
   // Attribution back-relations: records OWNED by a brand that this agency
   // created while acting on that brand's behalf. Distinct from the ownership
   // relations above, which are the agency's own direct records.
-  ordersPlacedOnBehalf     Order[]               @relation("OrderPlacedByAgency")
-  checkoutBatchesOnBehalf  OrderCheckoutBatch[]  @relation("CheckoutBatchPlacedByAgency")
-  briefsOnBehalf           Brief[]               @relation("BriefPlacedByAgency")
-  wishlistsOnBehalf        BrandWishlist[]       @relation("WishlistCreatedByAgency")
-  ratingReviewsOnBehalf    CreatorRatingReview[] @relation("RatingReviewPlacedByAgency")
+  ordersPlacedOnBehalf    Order[]               @relation("OrderPlacedByAgency")
+  checkoutBatchesOnBehalf OrderCheckoutBatch[]  @relation("CheckoutBatchPlacedByAgency")
+  briefsOnBehalf          Brief[]               @relation("BriefPlacedByAgency")
+  wishlistsOnBehalf       BrandWishlist[]       @relation("WishlistCreatedByAgency")
+  ratingReviewsOnBehalf   CreatorRatingReview[] @relation("RatingReviewPlacedByAgency")
 
   @@index([ownerUserId])
 }
@@ -1459,20 +1476,28 @@ model BrandProfile {
   emailNotificationsEnabled    Boolean           @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
   whatsappNotificationsEnabled Boolean           @default(false)
+  /// Opt-in for browser push. Defaults TRUE, unlike the two above: an email
+  /// address or a phone number arrives with the account and is no evidence of
+  /// consent, whereas a push subscription exists only because the person
+  /// answered their browser's permission prompt with "Allow". The flag is
+  /// therefore a mute switch for someone who granted permission and wants the
+  /// notifications to stop without revoking it at the browser level. With no
+  /// subscription on file the send skips regardless.
+  pushNotificationsEnabled     Boolean           @default(true)
   createdAt                    DateTime          @default(now())
   updatedAt                    DateTime          @updatedAt
 
-  user                User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders              Order[]
-  checkoutBatches     OrderCheckoutBatch[]
-  briefs              Brief[]
-  wallet              BrandWallet?
-  wishlists           BrandWishlist[]
-  brandCategories     BrandProfileBrandCategory[]
-  ratingReviews       CreatorRatingReview[]
-  couponRedemptions   CouponRedemption[]
+  user              User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders            Order[]
+  checkoutBatches   OrderCheckoutBatch[]
+  briefs            Brief[]
+  wallet            BrandWallet?
+  wishlists         BrandWishlist[]
+  brandCategories   BrandProfileBrandCategory[]
+  ratingReviews     CreatorRatingReview[]
+  couponRedemptions CouponRedemption[]
   /// Agencies that manage (or have asked to manage) this brand.
-  agencyLinks         AgencyBrandLink[]
+  agencyLinks       AgencyBrandLink[]
 }
 
 /// Lifecycle of an agency↔brand partnership.
@@ -1494,27 +1519,27 @@ enum AgencyBrandLinkStatus {
 /// Only `status = ACTIVE` grants access. Everything the agency then does stays
 /// owned by the brand; see the `placedByAgencyId` columns for attribution.
 model AgencyBrandLink {
-  id                String                @id @default(uuid()) @db.Uuid
-  agencyId          String                @db.Uuid
-  brandId           String                @db.Uuid
-  status            AgencyBrandLinkStatus  @default(PENDING)
+  id       String                @id @default(uuid()) @db.Uuid
+  agencyId String                @db.Uuid
+  brandId  String                @db.Uuid
+  status   AgencyBrandLinkStatus @default(PENDING)
 
   /// The email the brand typed to reach this agency, kept verbatim as a record
   /// of how the relationship was opened. Nullable because rows created while
   /// the partner-code flow existed have no email to record.
   requestedViaEmail String?
   /// The BRAND user who asked.
-  requestedByUserId String                @db.Uuid
-  requestedAt       DateTime              @default(now())
+  requestedByUserId String    @db.Uuid
+  requestedAt       DateTime  @default(now())
   /// The AGENCY owner who accepted or rejected.
-  respondedByUserId String?               @db.Uuid
+  respondedByUserId String?   @db.Uuid
   respondedAt       DateTime?
   /// Whoever ended it — brand owner, agency owner, or an admin force-unlinking.
-  revokedByUserId   String?               @db.Uuid
+  revokedByUserId   String?   @db.Uuid
   revokedAt         DateTime?
   revokedReason     String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   agency Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   brand  BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
@@ -1541,10 +1566,10 @@ model BrandWishlist {
   createdByAgencyId String? @db.Uuid
   createdByUserId   String? @db.Uuid
 
-  brand    BrandProfile?          @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency   Agency?                @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  createdByAgency Agency?         @relation("WishlistCreatedByAgency", fields: [createdByAgencyId], references: [id], onDelete: SetNull)
-  creators BrandWishlistCreator[]
+  brand           BrandProfile?          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency          Agency?                @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  createdByAgency Agency?                @relation("WishlistCreatedByAgency", fields: [createdByAgencyId], references: [id], onDelete: SetNull)
+  creators        BrandWishlistCreator[]
 
   @@unique([brandId, name])
   @@unique([agencyId, name])
@@ -1617,11 +1642,11 @@ model CreatorRatingReview {
   placedByAgencyId String? @db.Uuid
   placedByUserId   String? @db.Uuid
 
-  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  brand   BrandProfile?  @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency  Agency?        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  placedByAgency Agency? @relation("RatingReviewPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
-  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brand          BrandProfile?  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency         Agency?        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  placedByAgency Agency?        @relation("RatingReviewPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
+  creator        CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@index([creatorId, createdAt])
   @@index([brandId, createdAt])
@@ -1978,18 +2003,18 @@ model Coupon {
 /// use a coupon only once". Created at payment capture, not at checkout, so
 /// abandoned checkouts do not burn a redemption.
 model CouponRedemption {
-  id                  String  @id @default(uuid()) @db.Uuid
-  couponId            String  @db.Uuid
-  brandId             String? @db.Uuid
-  agencyId            String? @db.Uuid
+  id                  String   @id @default(uuid()) @db.Uuid
+  couponId            String   @db.Uuid
+  brandId             String?  @db.Uuid
+  agencyId            String?  @db.Uuid
   /// The paid order that consumed the coupon (single checkout), if applicable.
-  orderId             String? @db.Uuid
+  orderId             String?  @db.Uuid
   /// The paid bulk batch that consumed the coupon (bulk checkout), if applicable.
-  checkoutBatchId     String? @db.Uuid
-  discountAmountPaise Int     @default(0)
+  checkoutBatchId     String?  @db.Uuid
+  discountAmountPaise Int      @default(0)
   redeemedAt          DateTime @default(now())
 
-  coupon Coupon       @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  coupon Coupon        @relation(fields: [couponId], references: [id], onDelete: Cascade)
   brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
   agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
@@ -2158,6 +2183,7 @@ model WalletWithdrawal {
 enum NotificationChannel {
   EMAIL
   WHATSAPP
+  PUSH
 }
 
 enum NotificationRecipientRole {
@@ -2326,8 +2352,9 @@ model NotificationLog {
   /// SES messageId or WhatsApp wamid — the join key for the delivery webhooks.
   providerMessageId String?
   errorMessage      String?
-  /// opted_out | suppressed | no_phone | not_relevant | event_inactive |
-  /// row_removed | entity_gone | no_recipient | user_inactive | superseded
+  /// opted_out | suppressed | no_address | no_phone | no_push_subscription |
+  /// not_relevant | event_inactive | row_removed | entity_gone | no_recipient |
+  /// user_inactive | superseded | sending_disabled
   skippedReason     String?
 
   queuedAt    DateTime  @default(now())
@@ -2344,6 +2371,48 @@ model NotificationLog {
   @@index([eventKey, queuedAt])
   @@index([status, queuedAt])
   @@index([status, claimedAt])
+}
+
+/// One browser, on one device, that agreed to receive push.
+///
+/// The unit is a browser profile rather than an account: a creator with a
+/// laptop and a phone has two rows, each with its own keys, and revoking
+/// permission on one must not silence the other. That is why the push send
+/// path addresses a *user* and fans out here, instead of carrying an address
+/// the way email and WhatsApp do.
+///
+/// Rows are pruned by the transport, not by a sweep: a push service answers
+/// 404 or 410 for an endpoint whose browser has uninstalled, cleared its data
+/// or revoked permission, and that answer is the only reliable signal that a
+/// subscription is dead. Nothing else deletes them.
+model PushSubscription {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The push service URL the payload is POSTed to. Unique because a browser
+  /// re-subscribing with the same endpoint is the same subscription: the write
+  /// must update the keys in place, never add a second row that would make one
+  /// notification arrive twice.
+  endpoint  String  @unique
+  /// Client public key and auth secret from the browser's PushSubscription,
+  /// both base64url. Required to encrypt the payload; useless without the
+  /// endpoint, and the server's VAPID private key is what proves the sender.
+  p256dh    String
+  auth      String
+  /// For telling a user's devices apart in support ("which browser stopped
+  /// getting these?"). Never parsed.
+  userAgent String?
+
+  createdAt     DateTime  @default(now())
+  /// Last push this endpoint accepted. Lets a cleanup job find subscriptions
+  /// that have gone quiet without ever returning 410.
+  lastSuccessAt DateTime?
+  /// Consecutive soft failures (timeouts, 5xx). Diagnostic only — it never
+  /// deletes a row, because a push service having a bad hour is not consent
+  /// being withdrawn.
+  failureCount  Int       @default(0)
+
+  @@index([userId])
 }
 
 /// A single WhatsApp OTP challenge for one phone number.

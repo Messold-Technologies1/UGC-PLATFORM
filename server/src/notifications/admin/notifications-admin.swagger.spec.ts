@@ -61,7 +61,7 @@ describe('NotificationsAdminController (swagger)', () => {
     }>;
     const byName = Object.fromEntries(params.map((p) => [p.name, p.schema]));
 
-    expect(byName.channel?.enum).toEqual(['EMAIL', 'WHATSAPP']);
+    expect(byName.channel?.enum).toEqual(['EMAIL', 'WHATSAPP', 'PUSH']);
     expect(byName.status?.enum).toContain('DELIVERED');
     // A plain string filter must stay a string, not become an enum.
     expect(byName.eventKey?.type).toBe('string');

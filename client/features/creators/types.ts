@@ -20,6 +20,13 @@ export interface Creator {
   available: boolean;
   storeVisit: boolean;
   travelAvailable: boolean;
+  /**
+   * The creator prices the catalog's on-location shoot add-on, so a brand can
+   * actually buy travel from them at checkout. Distinct from `travelAvailable`,
+   * which is the older "has a radius or says yes to on-location" flag and
+   * promises nothing purchasable.
+   */
+  onLocationShoot: boolean;
   gender: "male" | "female" | "other";
 
   category: string;

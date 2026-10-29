@@ -155,6 +155,16 @@ export class CreatorPublicListItemDto {
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
 
+  @ApiProperty({
+    example: true,
+    description:
+      "True when the creator prices the catalog's on-location shoot add-on " +
+      '(slug on_location_shoot) above zero — i.e. a brand can actually buy ' +
+      'travel from them at checkout. The card advertises it on that basis, so ' +
+      'it can never promise a shoot the order flow would refuse.',
+  })
+  onLocationShootAvailable!: boolean;
+
   @ApiPropertyOptional({
     example: true,
     description: "Creator's 'first order free' promo is enabled.",

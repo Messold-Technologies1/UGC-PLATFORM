@@ -333,7 +333,9 @@ export function buildCreatorListRelationsInclude(
       select: portfolioSelect,
     },
     stats: { select: { avgRating: true, reviewCount: true } },
-    addOns: { select: { name: true } },
+    // priceAmount comes along because an add-on priced at zero is one a brand
+    // cannot buy — see offersOnLocationShoot.
+    addOns: { select: { name: true, priceAmount: true } },
     unavailability: { select: { startsOn: true, endsOn: true } },
   };
 }

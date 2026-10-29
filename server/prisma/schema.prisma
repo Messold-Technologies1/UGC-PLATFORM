@@ -482,6 +482,7 @@ model CreatorProfile {
   wishlistEntries   BrandWishlistCreator[]
   unavailability    CreatorUnavailability?
   socialConnections SocialConnection[]
+  engagementDays    CreatorEngagementDaily[]
 
   @@index([city])
   @@index([countryName])
@@ -718,7 +719,7 @@ model Order {
   /// brand disputes afterwards.
   acceptedBy              OrderAcceptedBy?
   creatorPaidAt           DateTime?
-  revisionCount           Int       @default(0)
+  revisionCount           Int              @default(0)
 
   /// Order status captured at the moment a dispute is opened, so an admin
   /// resolution ("continue") or an opener withdrawal can restore the order
@@ -787,8 +788,8 @@ model Order {
   /// originally clicked. Refreshed when a draft order is reused for a later
   /// checkout attempt. Both optional: tracking is best-effort, and an
   /// ad-blocked browser simply has no cookies to send.
-  metaFbp              String?
-  metaFbc              String?
+  metaFbp String?
+  metaFbc String?
 
   /// Denormalized chat inbox: sort key (latest message time, or order activity when no messages).
   lastChatActivityAt          DateTime              @default(now())
@@ -885,14 +886,14 @@ model OrderCheckoutBatch {
   grossAmountPaise    Int     @default(0)
 
   /// Attribution only — see Order.placedByAgencyId.
-  placedByAgencyId    String? @db.Uuid
-  placedByUserId      String? @db.Uuid
+  placedByAgencyId String? @db.Uuid
+  placedByUserId   String? @db.Uuid
 
-  brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  placedByAgency Agency? @relation("CheckoutBatchPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
-  coupon Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  orders Order[]
+  brand          BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency         Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  placedByAgency Agency?       @relation("CheckoutBatchPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
+  coupon         Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  orders         Order[]
 
   @@index([brandId, createdAt])
   @@index([agencyId, createdAt])
@@ -1044,9 +1045,9 @@ enum BriefToneStyle {
 }
 
 model Brief {
-  id        String  @id @default(uuid()) @db.Uuid
-  brandId   String? @db.Uuid
-  agencyId  String? @db.Uuid
+  id       String  @id @default(uuid()) @db.Uuid
+  brandId  String? @db.Uuid
+  agencyId String? @db.Uuid
 
   /// Brand / campaign context (frontend can "auto pick" from BrandProfile)
   brandName                  String?
@@ -1070,7 +1071,7 @@ model Brief {
   willShipPhysicalProductToCreator Boolean @default(false)
   /// When shipping a physical product: buyer wants the item returned after the shoot.
   /// Return shipping is arranged by the brand/agency (not the creator).
-  wantsPhysicalProductReturned Boolean @default(false)
+  wantsPhysicalProductReturned     Boolean @default(false)
 
   /// Production guidance
   shootLocationKind    BriefShootLocationKind? @default(CREATOR_DECIDES)
@@ -1113,10 +1114,10 @@ model Brief {
   /// the previous fork, so a brief revised five times still points home.
   forkedFromBriefId  String? @db.Uuid
 
-  brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  placedByAgency Agency? @relation("BriefPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
-  orders Order[]
+  brand          BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency         Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  placedByAgency Agency?       @relation("BriefPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
+  orders         Order[]
 
   @@index([brandId, createdAt])
   @@index([agencyId, createdAt])
@@ -1411,51 +1412,51 @@ model CreatorRestrictionSuggestion {
 }
 
 model Agency {
-  id                   String   @id @default(uuid()) @db.Uuid
-  ownerUserId          String   @unique @db.Uuid
-  name                 String
-  logoKey              String?
-  logoUrl              String?
-  website              String?
-  contactFullName      String
-  contactEmail         String
-  contactPhone         String?
-  contactPhoneVerified Boolean  @default(false)
+  id                           String   @id @default(uuid()) @db.Uuid
+  ownerUserId                  String   @unique @db.Uuid
+  name                         String
+  logoKey                      String?
+  logoUrl                      String?
+  website                      String?
+  contactFullName              String
+  contactEmail                 String
+  contactPhone                 String?
+  contactPhoneVerified         Boolean  @default(false)
   /// Brand names collected from brief submissions (no BrandProfile linkage).
   /// LEGACY: no longer appended to. Agency-direct briefs now carry the agency's
   /// own name, and real client brands arrive as AgencyBrandLink rows. Kept so
   /// historical rows stay readable.
-  brandNames           String[] @default([])
+  brandNames                   String[] @default([])
   /// Opt-in for transactional/order emails. Set true at signup, like the brand
   /// and creator columns; agencies that predate these were backfilled true,
   /// since the gate used to let every agency through.
   emailNotificationsEnabled    Boolean  @default(false)
   /// Opt-in for WhatsApp notifications.
   whatsappNotificationsEnabled Boolean  @default(false)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
 
-  owner           User                 @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  briefs          Brief[]
-  orders          Order[]
-  checkoutBatches OrderCheckoutBatch[]
+  owner             User                  @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  briefs            Brief[]
+  orders            Order[]
+  checkoutBatches   OrderCheckoutBatch[]
   couponRedemptions CouponRedemption[]
-  wallet          BrandWallet?
+  wallet            BrandWallet?
   walletWithdrawals WalletWithdrawal[]
-  ratingReviews   CreatorRatingReview[]
-  wishlists       BrandWishlist[]
+  ratingReviews     CreatorRatingReview[]
+  wishlists         BrandWishlist[]
 
   /// Links to brands this agency manages on their behalf.
-  brandLinks      AgencyBrandLink[]
+  brandLinks AgencyBrandLink[]
 
   // Attribution back-relations: records OWNED by a brand that this agency
   // created while acting on that brand's behalf. Distinct from the ownership
   // relations above, which are the agency's own direct records.
-  ordersPlacedOnBehalf     Order[]               @relation("OrderPlacedByAgency")
-  checkoutBatchesOnBehalf  OrderCheckoutBatch[]  @relation("CheckoutBatchPlacedByAgency")
-  briefsOnBehalf           Brief[]               @relation("BriefPlacedByAgency")
-  wishlistsOnBehalf        BrandWishlist[]       @relation("WishlistCreatedByAgency")
-  ratingReviewsOnBehalf    CreatorRatingReview[] @relation("RatingReviewPlacedByAgency")
+  ordersPlacedOnBehalf    Order[]               @relation("OrderPlacedByAgency")
+  checkoutBatchesOnBehalf OrderCheckoutBatch[]  @relation("CheckoutBatchPlacedByAgency")
+  briefsOnBehalf          Brief[]               @relation("BriefPlacedByAgency")
+  wishlistsOnBehalf       BrandWishlist[]       @relation("WishlistCreatedByAgency")
+  ratingReviewsOnBehalf   CreatorRatingReview[] @relation("RatingReviewPlacedByAgency")
 
   @@index([ownerUserId])
 }
@@ -1483,17 +1484,17 @@ model BrandProfile {
   createdAt                    DateTime          @default(now())
   updatedAt                    DateTime          @updatedAt
 
-  user                User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders              Order[]
-  checkoutBatches     OrderCheckoutBatch[]
-  briefs              Brief[]
-  wallet              BrandWallet?
-  wishlists           BrandWishlist[]
-  brandCategories     BrandProfileBrandCategory[]
-  ratingReviews       CreatorRatingReview[]
-  couponRedemptions   CouponRedemption[]
+  user              User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders            Order[]
+  checkoutBatches   OrderCheckoutBatch[]
+  briefs            Brief[]
+  wallet            BrandWallet?
+  wishlists         BrandWishlist[]
+  brandCategories   BrandProfileBrandCategory[]
+  ratingReviews     CreatorRatingReview[]
+  couponRedemptions CouponRedemption[]
   /// Agencies that manage (or have asked to manage) this brand.
-  agencyLinks         AgencyBrandLink[]
+  agencyLinks       AgencyBrandLink[]
 }
 
 /// Lifecycle of an agency↔brand partnership.
@@ -1515,27 +1516,27 @@ enum AgencyBrandLinkStatus {
 /// Only `status = ACTIVE` grants access. Everything the agency then does stays
 /// owned by the brand; see the `placedByAgencyId` columns for attribution.
 model AgencyBrandLink {
-  id                String                @id @default(uuid()) @db.Uuid
-  agencyId          String                @db.Uuid
-  brandId           String                @db.Uuid
-  status            AgencyBrandLinkStatus  @default(PENDING)
+  id       String                @id @default(uuid()) @db.Uuid
+  agencyId String                @db.Uuid
+  brandId  String                @db.Uuid
+  status   AgencyBrandLinkStatus @default(PENDING)
 
   /// The email the brand typed to reach this agency, kept verbatim as a record
   /// of how the relationship was opened. Nullable because rows created while
   /// the partner-code flow existed have no email to record.
   requestedViaEmail String?
   /// The BRAND user who asked.
-  requestedByUserId String                @db.Uuid
-  requestedAt       DateTime              @default(now())
+  requestedByUserId String    @db.Uuid
+  requestedAt       DateTime  @default(now())
   /// The AGENCY owner who accepted or rejected.
-  respondedByUserId String?               @db.Uuid
+  respondedByUserId String?   @db.Uuid
   respondedAt       DateTime?
   /// Whoever ended it — brand owner, agency owner, or an admin force-unlinking.
-  revokedByUserId   String?               @db.Uuid
+  revokedByUserId   String?   @db.Uuid
   revokedAt         DateTime?
   revokedReason     String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   agency Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   brand  BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
@@ -1562,10 +1563,10 @@ model BrandWishlist {
   createdByAgencyId String? @db.Uuid
   createdByUserId   String? @db.Uuid
 
-  brand    BrandProfile?          @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency   Agency?                @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  createdByAgency Agency?         @relation("WishlistCreatedByAgency", fields: [createdByAgencyId], references: [id], onDelete: SetNull)
-  creators BrandWishlistCreator[]
+  brand           BrandProfile?          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency          Agency?                @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  createdByAgency Agency?                @relation("WishlistCreatedByAgency", fields: [createdByAgencyId], references: [id], onDelete: SetNull)
+  creators        BrandWishlistCreator[]
 
   @@unique([brandId, name])
   @@unique([agencyId, name])
@@ -1638,11 +1639,11 @@ model CreatorRatingReview {
   placedByAgencyId String? @db.Uuid
   placedByUserId   String? @db.Uuid
 
-  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  brand   BrandProfile?  @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  agency  Agency?        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  placedByAgency Agency? @relation("RatingReviewPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
-  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brand          BrandProfile?  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  agency         Agency?        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  placedByAgency Agency?        @relation("RatingReviewPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
+  creator        CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@index([creatorId, createdAt])
   @@index([brandId, createdAt])
@@ -1659,11 +1660,52 @@ model CreatorFeature {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  /// Set by the fortnightly reshuffle when it wrote this row's rank, and left
+  /// alone by an admin drag — so `featuredById` still means "a person put this
+  /// creator here" and this means "the ranking did". Null on a row no
+  /// reshuffle has touched. The newest value across the table is when the
+  /// board was last reshuffled, which is what the admin header reads.
+  autoRankedAt  DateTime?
+  /// The weighted engagement score the reshuffle ranked on, kept so an admin
+  /// can see why a creator sits where they do. Null until a reshuffle runs.
+  autoRankScore Int?
+
   creator    CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   featuredBy User?          @relation("CreatorFeaturedBy", fields: [featuredById], references: [id], onDelete: SetNull)
 
   @@index([rank])
   @@index([featuredUntil])
+}
+
+/// One row per creator per day, holding the engagement the platform has no
+/// other record of.
+///
+/// Orders and initiated checkouts are already `Order` rows and are counted
+/// from there. The three here were fire-and-forget pixel calls to Meta with
+/// nothing kept on our side: a profile view and an add-to-cart left no trace
+/// at all, and a wishlist save left only live membership, which un-saving
+/// deletes. Ranking over a 90-day window needs them dated, so they are
+/// bucketed by day rather than kept as lifetime counters.
+///
+/// Bucketed, not one row per event: a popular creator can draw thousands of
+/// profile views a month, and the ranking only ever reads a sum over a date
+/// range. Bounded at creators x days retained.
+model CreatorEngagementDaily {
+  id           String   @id @default(uuid()) @db.Uuid
+  creatorId    String   @db.Uuid
+  /// Midnight UTC of the day being counted.
+  day          DateTime @db.Date
+  profileViews Int      @default(0)
+  addToCarts   Int      @default(0)
+  wishlistAdds Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, day])
+  // Serves the ranking's window sum, and the retention sweep that drops old days.
+  @@index([day])
 }
 
 /// Scheduled time range when a creator is unavailable. Absence of a row (or a
@@ -1999,18 +2041,18 @@ model Coupon {
 /// use a coupon only once". Created at payment capture, not at checkout, so
 /// abandoned checkouts do not burn a redemption.
 model CouponRedemption {
-  id                  String  @id @default(uuid()) @db.Uuid
-  couponId            String  @db.Uuid
-  brandId             String? @db.Uuid
-  agencyId            String? @db.Uuid
+  id                  String   @id @default(uuid()) @db.Uuid
+  couponId            String   @db.Uuid
+  brandId             String?  @db.Uuid
+  agencyId            String?  @db.Uuid
   /// The paid order that consumed the coupon (single checkout), if applicable.
-  orderId             String? @db.Uuid
+  orderId             String?  @db.Uuid
   /// The paid bulk batch that consumed the coupon (bulk checkout), if applicable.
-  checkoutBatchId     String? @db.Uuid
-  discountAmountPaise Int     @default(0)
+  checkoutBatchId     String?  @db.Uuid
+  discountAmountPaise Int      @default(0)
   redeemedAt          DateTime @default(now())
 
-  coupon Coupon       @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  coupon Coupon        @relation(fields: [couponId], references: [id], onDelete: Cascade)
   brand  BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
   agency Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 

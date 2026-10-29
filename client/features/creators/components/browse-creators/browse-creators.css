@@ -8,13 +8,20 @@
   --radius-sm: 8px;
   --radius-lg: 18px;
   --radius-xl: 24px;
-  --card: #ffffff;
-  --muted: oklch(0.976 0.004 17.4);
-  --muted-foreground: oklch(0.56 0.012 17.1);
-  --foreground: oklch(0.19 0.01 17);
-  --border: oklch(0.928 0.005 17.22);
+  /* The card is a dark tile on a light page — the photo runs to the edges
+     and the panel under it carries on in the same key, so the two read as one
+     surface rather than a picture glued to a form. Only these tokens flip;
+     the grid and the page around them stay as they are. */
+  --card: #0e0e0e;
+  --muted: #1c1c1e;
+  --muted-foreground: #a1a1aa;
+  --foreground: #fafafa;
+  --border: #2a2a2d;
   --primary: oklch(0.596 0.235 18.49);
   --primary-foreground: oklch(0.978 0.014 17.35);
+  /* Placeholders belong to the dark card, not the light page behind it. */
+  --skeleton-color: #1f1f22;
+  --skeleton-dark-color: #1f1f22;
 }
 
 /* Use explicit column counts (not auto-fit) so VirtuosoGrid measures a
@@ -153,17 +160,24 @@
 .rcard .rbody {
   display: flex;
   flex-direction: column;
-  /* The rows every card carries: 23 padding + 24 gaps + 34 delivery + 36
-     actions. These sit last, so they hold the same distance off the bottom
-     edge on every card and line up across a row. */
-  --foot-fixed: 117px;
+  /* The photo is absolute inside this, so the card's own height is the only
+     thing that sets its size. */
+  position: relative;
+  /* The rows every card carries: 23 padding + 40 gaps (five, now that
+     languages and the travel pill have rows of their own) + 34 delivery + 36
+     actions. Delivery and the actions sit last, so they hold the same
+     distance off the bottom edge on every card and line up across a row. */
+  --foot-fixed: 177px;
   /* What the two self-sizing rows usually come to — three chip lines and a
      two-line stat pair. Budgeting the common case keeps the still near 4:5;
      cards either side of it simply run a little taller or shorter. */
   --foot-chips: 90px;
-  --foot-stats: 48px;
+  --foot-langs: 58px;
+  /* One line now that only "times saved" is left on it. */
+  --foot-stats: 20px;
   height: calc(
-    100cqw * 5 / 4 + var(--foot-fixed) + var(--foot-chips) + var(--foot-stats)
+    100cqw * 5 / 4 + var(--foot-fixed) + var(--foot-chips) + var(--foot-langs) +
+      var(--foot-stats)
   );
 }
 /* Wider cards fit the niches on fewer lines, so they budget less for them.
@@ -174,6 +188,10 @@
 @container (min-width: 226px) {
   .rcard .rbody {
     --foot-chips: 58px;
+    --foot-langs: 26px;
+    /* Both buttons on one line below this width; stacked above it, which is
+       one 36px row and an 8px gap more — see .factions. */
+    --foot-fixed: 133px;
   }
 }
 @container (min-width: 340px) {
@@ -181,20 +199,12 @@
     --foot-chips: 26px;
   }
 }
-/* Below 768px the two buttons stack, which costs another row. */
-@media (max-width: 767px) {
-  .rcard .rbody {
-    --foot-fixed: 159px;
-  }
-}
-
+/* The photo fills the whole card, top to bottom — the overlay below sits on
+   it rather than beside it, so the card is one image and not a picture with a
+   form stuck underneath. */
 .rcard .reel {
-  position: relative;
-  /* Takes whatever the footer leaves. Bounded without a floor: the footer's
-     tallest row is three chip lines, since each chip is nowrap and so can
-     never put more than one niche on a line. */
-  flex: 1 1 auto;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   background: #111;
   overflow: hidden;
 }
@@ -203,6 +213,10 @@
   inset: 0;
   display: grid;
   place-items: center;
+  /* Initials sit with the play button rather than behind the overlay. A real
+     photo is object-fit: cover and needs no such help; this is the fallback. */
+  align-content: center;
+  padding-bottom: 44%;
 }
 .rcard .reel .ip .mono {
   font-family: var(--font-heading);
@@ -222,17 +236,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.rcard .reel .scrim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.78) 0%,
-    rgba(0, 0, 0, 0.28) 26%,
-    rgba(0, 0, 0, 0) 48%
-  );
 }
 
 .rcard .reel .top {
@@ -289,9 +292,13 @@
   transition: opacity 0.2s ease;
 }
 
+/* Centred in the part of the photo the overlay does not cover, not in the
+   card — the overlay's height varies, so anything centred on the whole card
+   lands in the text. 56% is above the earliest the gradient starts to bite. */
 .rcard .reel .play {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
+  height: 56%;
   display: grid;
   place-items: center;
   opacity: 1;
@@ -316,18 +323,10 @@
   display: none;
 }
 
-.rcard .reel .who {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 11px;
-  z-index: 2;
+.rcard .who {
   color: #fff;
 }
-.rcard .reel.has-fof .who {
-  bottom: 44px;
-}
-.rcard .reel .who .nm {
+.rcard .who .nm {
   font-size: 15.5px;
   font-weight: 800;
   letter-spacing: -0.01em;
@@ -336,11 +335,11 @@
   gap: 5px;
   line-height: 1.12;
 }
-.rcard .reel .who .nm .vf {
+.rcard .who .nm .vf {
   color: #fff;
   flex-shrink: 0;
 }
-.rcard .reel .who .lc {
+.rcard .who .lc {
   font-size: 11.5px;
   color: rgba(255, 255, 255, 0.84);
   margin-top: 3px;
@@ -353,7 +352,7 @@
   white-space: nowrap;
   overflow: hidden;
 }
-.rcard .reel .who .lc .lc-item {
+.rcard .who .lc .lc-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -363,35 +362,53 @@
   flex: 0 1 auto;
 }
 
-.rcard .reel .who .lc .lc-item svg {
+.rcard .who .lc .lc-item svg {
   flex-shrink: 0;
 }
-.rcard .reel .who .lc .lc-text {
+.rcard .who .lc .lc-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rcard .reel .who .lc .lc-sep {
+.rcard .who .lc .lc-sep {
   width: 1px;
   height: 11px;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.4);
 }
 
+/**
+ * The overlay. Sits on the photo's lower half and fades up out of it, so there
+ * is no seam between picture and panel — the darkest stop is reached well
+ * before the first line of text, which is what keeps everything legible over
+ * whatever the creator's frame happens to be.
+ *
+ * Content-sized and pushed to the bottom: a creator with more to say takes
+ * more of the photo, one with less takes less, and the card is the same height
+ * either way.
+ */
 .rcard .foot {
-  padding: 11px 13px 12px;
+  position: relative;
+  z-index: 2;
+  margin-top: auto;
+  padding: 56px 13px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* Content-sized, so the video above is the one thing that stretches. */
   flex: 0 0 auto;
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 10, 11, 0) 0%,
+    rgba(10, 10, 11, 0.55) 22%,
+    rgba(10, 10, 11, 0.88) 42%,
+    rgba(10, 10, 11, 0.97) 60%,
+    rgb(10, 10, 11) 100%
+  );
 }
-.rcard .reel .fof-ribbon {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 3;
+/* Bleeds to the card's edges across the top of the overlay, cancelling the
+   padding around it. */
+.rcard .fof-ribbon {
+  margin: -56px -13px 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -403,7 +420,7 @@
   letter-spacing: 0.02em;
   background: linear-gradient(180deg, #f8e56a 0%, #e8c547 48%, #c9a017 100%);
 }
-.rcard .reel .fof-ribbon::before {
+.rcard .fof-ribbon::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -415,7 +432,7 @@
     rgba(255, 255, 255, 0) 58%
   );
 }
-.rcard .reel .fof-ribbon::after {
+.rcard .fof-ribbon::after {
   content: "";
   position: absolute;
   top: 0;
@@ -431,7 +448,7 @@
     transparent 100%
   );
 }
-.rcard .reel .fof-ribbon > span {
+.rcard .fof-ribbon > span {
   position: relative;
   z-index: 1;
   display: inline-flex;
@@ -439,9 +456,63 @@
   justify-content: center;
   gap: 6px;
 }
-.rcard .reel .fof-ribbon svg {
+.rcard .fof-ribbon svg {
   color: #1a1408;
 }
+/* Only shown when a brand can actually buy travel, so it reads as a feature
+   some creators have rather than a field every card fills in. */
+.rcard .fonloc {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0 10px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(16, 122, 87, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.rcard .fonloc svg {
+  flex-shrink: 0;
+}
+.rcard .fonloc b {
+  font-weight: 800;
+  color: #a7f3d0;
+}
+
+/* Languages a brand can brief in. Set apart from the niche chips above by
+   tone rather than shape: those carry the creator's own colours, these are
+   plain, so a glance tells the two rows apart without a label on either. */
+.rcard .flangs {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.rcard .flang {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 .rcard .ftags {
   display: flex;
   flex-wrap: wrap;
@@ -452,13 +523,22 @@
      video rather than leaving a gap. */
   flex: 0 0 auto;
 }
-/* Below the same threshold the fixed-height rows get tight, so the parts that
-   carry no information give way first — the second language, the "Guaranteed"
-   lead-in, the "completed"/"times" qualifiers. The number and the noun stay. */
-@container (max-width: 204.98px) {
-  .rcard .reel .who .lc .lc-lang-2,
+/* Below the same threshold the rows get tight, so the parts that carry no
+   information give way first — the "Guaranteed" lead-in and the
+   "completed"/"times" qualifiers. The number and the noun stay. */
+@container (max-width: 225.98px) {
   .rcard .fdelivery .fdelivery-lead,
   .rcard .fstat-label-tail {
+    display: none;
+  }
+  /* And the third language: at this width three pills wrap to three lines,
+     which costs more of the photo than the third language is worth. The
+     drawer lists them all. */
+  .rcard .flangs .flang:nth-child(n + 3) {
+    display: none;
+  }
+  /* And ": Available" — the badge only shows when it is. */
+  .rcard .fonloc .fonloc-tail {
     display: none;
   }
 }
@@ -610,11 +690,50 @@
   gap: 8px;
   width: 100%;
 }
+/* The wishlist button is as wide as its label needs; View takes the rest, so
+   the pair always fills the row and never crowds itself. */
 .rcard .factions .fwishlist {
+  flex: 0 0 auto;
+  justify-content: center;
+}
+.rcard .factions .fview {
   flex: 1;
   justify-content: center;
   min-width: 0;
-  overflow: hidden;
+}
+/* "Save" is the shorter of the two labels and is the one held back by
+   default; the rules below decide which is showing. */
+.rcard .fwishlist .fwishlist-label-short {
+  display: none;
+}
+
+/* Between these widths the pair fits side by side but "Add to wishlist" pushes
+   the heart off the end of its own button, so the short label stands in. */
+@container (min-width: 226px) and (max-width: 248.98px) {
+  .rcard .fwishlist .fwishlist-label-full {
+    display: none;
+  }
+  .rcard .fwishlist .fwishlist-label-short {
+    display: inline;
+  }
+}
+
+/* A phone-width card cannot hold both buttons on one line at any label length
+   worth reading, so they stack and take the full width each. The budget above
+   pays for the extra row. Placed after the rules it overrides, where at equal
+   specificity source order decides. */
+@container (max-width: 225.98px) {
+  .rcard .factions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .rcard .factions .fwishlist,
+  .rcard .factions .fview {
+    width: 100%;
+    flex: 0 0 auto;
+    padding: 0 14px;
+  }
 }
 .rcard .fwishlist {
   height: 36px;
@@ -674,9 +793,12 @@
   height: 36px;
   padding: 0 12px;
   border-radius: 9px;
-  border: 0;
-  background: var(--foreground);
-  color: #fff;
+  /* A filled button would need a light fill to sit on the dark panel, which
+     puts two light blocks side by side with the wishlist button. Outlined
+     instead: the dark panel shows through and the border carries the shape. */
+  border: 1px solid #6c6c6c;
+  background: transparent;
+  color: var(--foreground);
   font-weight: 700;
   font-size: 12.5px;
   display: inline-flex;
@@ -689,19 +811,8 @@
 }
 .rcard .fview:hover {
   background: var(--primary);
-}
-
-@media (max-width: 767px) {
-  .rcard .factions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-  .rcard .fwishlist,
-  .rcard .fview {
-    width: 100%;
-    justify-content: center;
-  }
+  border-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
 .browse-scrim {

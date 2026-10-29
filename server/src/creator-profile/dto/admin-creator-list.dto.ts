@@ -331,4 +331,21 @@ export class AdminBrowseOrderListResponseDto {
 
   @ApiProperty({ example: 50 })
   limit!: number;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    example: '2026-10-16T04:00:00.000Z',
+    description:
+      'When the fortnightly reshuffle last rewrote this order. Null before ' +
+      'the first run. Anything an admin drags after this is theirs until the ' +
+      'next one.',
+  })
+  lastReshuffledAt!: string | null;
+
+  @ApiProperty({
+    example: '2026-11-01T04:00:00.000Z',
+    description: 'When the next scheduled reshuffle will rewrite it.',
+  })
+  nextReshuffleAt!: string;
 }

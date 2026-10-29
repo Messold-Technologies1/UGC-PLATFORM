@@ -83,6 +83,11 @@ import {
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
 import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
+import { nextReshuffleAt } from './creator-ranking.constants';
+import {
+  ON_LOCATION_SHOOT_OPTION_SLUG,
+  offersOnLocationShoot,
+} from './on-location-shoot.util';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
@@ -1374,10 +1379,12 @@ export class CreatorProfileService {
       ...regularItems,
     ];
 
-    const [orderCountsByCreatorId, savedCountByCreatorId] = await Promise.all([
-      this.countCreatorOrdersBatch(items.map((profile) => profile.id)),
-      this.countCreatorWishlistSavesBatch(items.map((profile) => profile.id)),
-    ]);
+    const [orderCountsByCreatorId, savedCountByCreatorId, travelOptionName] =
+      await Promise.all([
+        this.countCreatorOrdersBatch(items.map((profile) => profile.id)),
+        this.countCreatorWishlistSavesBatch(items.map((profile) => profile.id)),
+        this.onLocationShootOptionName(),
+      ]);
 
     const viewerOwner = await this.resolveViewerOrderOwner(
       viewer?.actorUserId,
@@ -1395,6 +1402,7 @@ export class CreatorProfileService {
           orderCountsByCreatorId.get(p.id),
           viewerOwner ? eligibleFreeCreatorIds : undefined,
           savedCountByCreatorId.get(p.id),
+          travelOptionName,
         ),
       ),
       total,
@@ -1469,14 +1477,16 @@ export class CreatorProfileService {
       .map((id) => byId.get(id))
       .filter((profile): profile is (typeof profiles)[number] => !!profile);
 
-    const [orderCountsByCreatorId, savedCountByCreatorId] = await Promise.all([
-      this.countCreatorOrdersBatch(
-        orderedProfiles.map((profile) => profile.id),
-      ),
-      this.countCreatorWishlistSavesBatch(
-        orderedProfiles.map((profile) => profile.id),
-      ),
-    ]);
+    const [orderCountsByCreatorId, savedCountByCreatorId, travelOptionName] =
+      await Promise.all([
+        this.countCreatorOrdersBatch(
+          orderedProfiles.map((profile) => profile.id),
+        ),
+        this.countCreatorWishlistSavesBatch(
+          orderedProfiles.map((profile) => profile.id),
+        ),
+        this.onLocationShootOptionName(),
+      ]);
 
     return orderedProfiles.map((profile) =>
       this.mapCreatorPublicListItemDto(
@@ -1484,6 +1494,7 @@ export class CreatorProfileService {
         orderCountsByCreatorId.get(profile.id),
         undefined,
         savedCountByCreatorId.get(profile.id),
+        travelOptionName,
       ),
     );
   }
@@ -1624,11 +1635,27 @@ export class CreatorProfileService {
     };
   }
 
+  /**
+   * The catalog name behind the on-location shoot slug.
+   *
+   * One lookup per listing rather than one per card: `CreatorAddOn` carries no
+   * slug, so matching a creator's add-on to the catalog option means matching
+   * on name, and the name is the same for everyone on the page.
+   */
+  private async onLocationShootOptionName(): Promise<string | null> {
+    const option = await this.prisma.creatorAddOnOption.findUnique({
+      where: { slug: ON_LOCATION_SHOOT_OPTION_SLUG },
+      select: { name: true },
+    });
+    return option?.name ?? null;
+  }
+
   private mapCreatorPublicListItemDto(
     profile: any,
     orderCounts?: CreatorOrderCounts,
     eligibleFreeCreatorIds?: Set<string>,
     savedCount?: number,
+    onLocationShootOptionName?: string | null,
   ): CreatorPublicListItemDto {
     const portfolioVideos: CreatorPublicListPortfolioVideoDto[] = Array.isArray(
       profile.portfolioVideos,
@@ -1693,6 +1720,10 @@ export class CreatorProfileService {
       contentVolume: profile.contentVolume ?? null,
       collaborationCount: profile.collaborationCount ?? 0,
       onLocationAvailable: !!profile.onLocationAvailable,
+      onLocationShootAvailable: offersOnLocationShoot(
+        profile.addOns,
+        onLocationShootOptionName,
+      ),
       firstOrderFree: !!profile.firstOrderFreeEnabled,
       firstOrderFreeEligible: eligibleFreeCreatorIds
         ? eligibleFreeCreatorIds.has(profile.id)
@@ -2199,6 +2230,14 @@ export class CreatorProfileService {
       profiles.map((profile) => [profile.id, profile.displayName]),
     );
 
+    // What the board's header reads: when the ranking last rewrote this order,
+    // and when it will next. The newest stamp across the table is the last run,
+    // since a run stamps every row it writes.
+    const lastRun = await this.prisma.creatorFeature.aggregate({
+      _max: { autoRankedAt: true },
+    });
+    const now = new Date();
+
     return {
       items: listing.items.map((item) => ({
         ...item,
@@ -2207,6 +2246,8 @@ export class CreatorProfileService {
       total: listing.total,
       page: listing.page,
       limit: listing.limit,
+      lastReshuffledAt: lastRun._max.autoRankedAt?.toISOString() ?? null,
+      nextReshuffleAt: nextReshuffleAt(now).toISOString(),
     };
   }
 

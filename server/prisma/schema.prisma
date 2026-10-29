@@ -1666,9 +1666,6 @@ model CreatorFeature {
   /// reshuffle has touched. The newest value across the table is when the
   /// board was last reshuffled, which is what the admin header reads.
   autoRankedAt  DateTime?
-  /// The weighted engagement score the reshuffle ranked on, kept so an admin
-  /// can see why a creator sits where they do. Null until a reshuffle runs.
-  autoRankScore Int?
 
   creator    CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   featuredBy User?          @relation("CreatorFeaturedBy", fields: [featuredById], references: [id], onDelete: SetNull)

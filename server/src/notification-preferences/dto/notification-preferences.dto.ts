@@ -17,6 +17,15 @@ export class NotificationPreferencesDto {
 
   @ApiProperty({ example: true })
   whatsappNotificationsEnabled!: boolean;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether this account wants browser push. Defaults true, because the ' +
+      'browser permission prompt is the real opt-in and nobody should have to ' +
+      'say yes twice. Turning it off mutes push without revoking permission.',
+  })
+  pushNotificationsEnabled!: boolean;
 }
 
 /**
@@ -34,4 +43,9 @@ export class UpdateNotificationPreferencesDto {
   @IsOptional()
   @IsBoolean()
   whatsappNotificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  pushNotificationsEnabled?: boolean;
 }

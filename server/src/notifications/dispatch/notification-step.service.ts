@@ -165,6 +165,7 @@ export class NotificationStepService {
               event.whatsappTemplateName ??
               defaultWhatsAppTemplateName(job.eventKey),
             whatsappBodyVars: definition.whatsappBodyVars ?? [],
+            suppressWhenViewing: definition.suppressWhenViewing ?? false,
           }),
         );
       } catch (err) {
@@ -187,6 +188,8 @@ export class NotificationStepService {
       whatsappTemplateName: string;
       /** Keys of the event's vars to render after `{{1}}`. */
       whatsappBodyVars: readonly string[];
+      /** Let the service worker drop this one if its page is already open. */
+      suppressWhenViewing: boolean;
     },
   ): Promise<StepOutcome> {
     // Push is the odd one out: it has no address, it has an account with some
@@ -283,7 +286,9 @@ export class NotificationStepService {
                 opts.whatsappTemplateName,
                 opts.whatsappBodyVars,
               )
-            : await this.sendPush(job, recipient, opts.emailTemplateId);
+            : await this.sendPush(job, recipient, opts.emailTemplateId, {
+                suppressWhenViewing: opts.suppressWhenViewing,
+              });
 
       await this.log.markSent(claim.logId, {
         providerMessageId: providerMessageId.messageId,
@@ -377,6 +382,7 @@ export class NotificationStepService {
     job: StepJobData,
     recipient: ResolvedRecipient,
     templateId: string | null,
+    opts: { suppressWhenViewing: boolean },
   ): Promise<{
     messageId: string | null;
     subject: string;
@@ -414,6 +420,7 @@ export class NotificationStepService {
         // than stacking: the second telling you about this order replaces the
         // first, which is what the recipient would want anyway.
         tag: `${job.eventKey}:${job.entityId}`,
+        suppressIfVisible: opts.suppressWhenViewing,
       });
     } catch (err) {
       // Translate so the engine's retry decision keeps working: the transport

@@ -553,6 +553,19 @@ describe('NotificationStepService.deliver — the push channel', () => {
     );
   });
 
+  // Declared per event, because "you may already be looking at this" is true
+  // of a chat message and false of an order changing state.
+  it('passes the event’s suppress-when-viewing flag to the browser', async () => {
+    const { service, push } = build({ eventRow: pushEventRow() });
+
+    await service.deliver(pushJob);
+
+    expect(push.sendToUser).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ suppressIfVisible: false }),
+    );
+  });
+
   it('collapses repeats about one entity under a single tag', async () => {
     const { service, push } = build({ eventRow: pushEventRow() });
 

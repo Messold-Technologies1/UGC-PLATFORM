@@ -75,6 +75,10 @@ export const ENDPOINTS = {
   NOTIFICATION_PREFERENCES: {
     ME: "/api/notification-preferences/me",
   },
+  PUSH: {
+    VAPID_PUBLIC_KEY: "/api/push/vapid-public-key",
+    SUBSCRIPTIONS: "/api/push/subscriptions",
+  },
   BRIEFS: {
     LIST: "/api/briefs",
     FIELD_OPTIONS: "/api/briefs/field-options",

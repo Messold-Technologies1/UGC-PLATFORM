@@ -18,6 +18,8 @@ import { beginClientNavigation } from "@/lib/client-navigation-state";
 import { ENDPOINTS } from "@/lib/endpoints";
 import { disconnectSocket } from "@/lib/socket";
 import { getPostLogoutLoginHref } from "@/features/auth/lib/login-redirect";
+import { deletePushSubscription } from "@/features/push/api/push";
+import { forgetPushSubscriptionForSignOut } from "@/features/push/lib/push-support";
 import {
   parseLoginRole,
   setRememberedRole,
@@ -59,6 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoggingOut(true);
     void queryClient.cancelQueries();
     try {
+      // Before the logout call, while the session cookie still authorises the
+      // DELETE. Otherwise this browser keeps receiving the departing
+      // account's notifications until a send happens to get a 410.
+      await forgetPushSubscriptionForSignOut(deletePushSubscription);
       await api.post(ENDPOINTS.AUTH.LOGOUT, undefined, {
         timeout: 12_000,
       });

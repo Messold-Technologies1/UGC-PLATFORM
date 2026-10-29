@@ -168,6 +168,22 @@ export type EventDefinition = {
   whatsappBodyVars?: readonly string[];
 
   /**
+   * Drop the browser notification when the recipient is already looking at
+   * the page it would open.
+   *
+   * For events about something that is itself on screen — a chat message in
+   * the thread you are reading. The device being worked on stays quiet while
+   * the same person's other devices still buzz, because the check runs in each
+   * browser's own service worker rather than from any presence the server
+   * tracks.
+   *
+   * Off by default, and it should stay off for anything about a state change:
+   * having the order page open is no reason not to be told the content was
+   * delivered.
+   */
+  suppressWhenViewing?: boolean;
+
+  /**
    * Present when this event is swept rather than emitted. See
    * {@link PopulationSpec}.
    */

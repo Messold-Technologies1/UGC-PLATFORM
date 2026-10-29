@@ -8,11 +8,16 @@ import {
   useNotificationPreferencesQuery,
   useUpdateNotificationPreferences,
 } from "../hooks/use-notification-preferences";
+import { PushToggleRow } from "./push-toggle-row";
 
 /**
- * Email and WhatsApp opt-ins, shared by the creator, brand and agency settings
- * screens. The columns behind it are identical on all three and the send gates
- * read them the same way, so there is one card rather than three.
+ * Channel opt-ins, shared by the creator, brand and agency settings screens.
+ * The columns behind them are identical on all three and the send gates read
+ * them the same way, so there is one card rather than three.
+ *
+ * Email and WhatsApp are a column each. Browser push is a column *and* a
+ * per-device browser permission, so it lives in its own row component — see
+ * PushToggleRow.
  */
 export function NotificationPreferencesCard({
   enabled = true,
@@ -96,6 +101,16 @@ export function NotificationPreferencesCard({
               )}
             </div>
           ))}
+
+          <PushToggleRow
+            enabledForAccount={
+              isLoading || !data ? null : data.pushNotificationsEnabled
+            }
+            saving={mutation.isPending}
+            onChange={(pushNotificationsEnabled) =>
+              mutation.mutate({ pushNotificationsEnabled })
+            }
+          />
         </div>
       )}
     </Card>

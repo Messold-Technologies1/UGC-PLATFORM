@@ -242,6 +242,7 @@ export const orderChatEvents = defineEvents({
       });
     },
     stillRelevant: (ctx, id) => stillUnread(ctx, id, 'creator'),
+    suppressWhenViewing: true,
   },
 
   'order-chat-message-for-brand': {
@@ -270,5 +271,6 @@ export const orderChatEvents = defineEvents({
       });
     },
     stillRelevant: (ctx, id) => stillUnread(ctx, id, 'brand'),
+    suppressWhenViewing: true,
   },
 });

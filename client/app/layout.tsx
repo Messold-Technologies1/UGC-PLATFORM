@@ -89,6 +89,10 @@ export const metadata: Metadata = {
     shortcut: "/logo.png",
     apple: "/logo.png",
   },
+  // Required for web push on iOS, which only delivers to a site the user has
+  // added to their Home Screen — and that requires a manifest with a
+  // standalone display mode. Harmless everywhere else.
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({

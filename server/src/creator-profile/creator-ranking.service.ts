@@ -7,25 +7,29 @@ import {
   RANK_COMPLETED_ORDER_STATUSES,
   RANK_NEW_CREATOR_DAYS,
   RANK_NEW_CREATOR_PERCENTILE,
-  RANK_WEIGHTS,
+  RANK_SIGNAL_ORDER,
   RANK_WINDOW_DAYS,
 } from './creator-ranking.constants';
+
+/** The five counts a creator is ordered on, strongest first. */
+export type RankSignals = Record<(typeof RANK_SIGNAL_ORDER)[number], number>;
 
 /** One creator's standing, as the reshuffle worked it out. */
 export type CreatorRankEntry = {
   creatorId: string;
-  score: number;
+  /** What the creator actually drew in the window. */
+  signals: RankSignals;
+  /**
+   * The counts they were ordered on. The same as {@link signals} for everyone
+   * but a newcomer carried by the floor, who is ranked on the borrowed counts
+   * instead — keeping both means the board can say what a creator did as well
+   * as why they are where they are.
+   */
+  ranksAs: RankSignals;
   /** Listed recently enough to be carried by the new-creator floor. */
   isNew: boolean;
   /** Held in place by a featuredUntil that has not passed. */
   isPinned: boolean;
-  signals: {
-    completedOrders: number;
-    initiatedCheckouts: number;
-    addToCarts: number;
-    wishlistAdds: number;
-    profileViews: number;
-  };
 };
 
 export type ReshuffleResult = {
@@ -43,9 +47,24 @@ const dayStartUtc = (date: Date): Date =>
 const daysAgo = (from: Date, days: number): Date =>
   new Date(from.getTime() - days * 24 * 60 * 60 * 1000);
 
+const ZERO_SIGNALS: RankSignals = {
+  completedOrders: 0,
+  initiatedCheckouts: 0,
+  addToCarts: 0,
+  wishlistAdds: 0,
+  profileViews: 0,
+};
+
 /**
  * Recomputes the order brands see on Browse creators, every fortnight, from
  * what brands did with each creator over the last quarter.
+ *
+ * The five signals are read strictly in order — completed orders, then
+ * initiated checkouts, then add-to-carts, then wishlist saves, then profile
+ * views — and never traded off against each other. One completed order puts a
+ * creator above everyone with none, whatever the rest of their numbers say;
+ * the next signal only breaks a tie on the one above it. See
+ * {@link compareSignals}.
  *
  * The board an admin drags is the same ordering, so a reshuffle replaces what
  * was dragged — that is the intent, not a side effect. Dragging still works
@@ -87,7 +106,7 @@ export class CreatorRankingService {
   }
 
   /**
-   * Score every listed creator, then write the order out.
+   * Read every listed creator's standing, then write the order out.
    *
    * Exposed so an admin can trigger a run, and so the preview endpoint can
    * show what the next one would do without doing it.
@@ -98,7 +117,6 @@ export class CreatorRankingService {
     const ranked = entries.map((entry, index) => ({
       creatorId: entry.creatorId,
       rank: index + 1,
-      score: entry.score,
       isPinned: entry.isPinned,
     }));
 
@@ -106,12 +124,12 @@ export class CreatorRankingService {
       async (tx) => {
         for (const row of ranked) {
           // A pinned creator keeps the rank and the expiry they were given, so
-          // only their score is refreshed — writing `rank` here would move
-          // them, which is the one thing the pin exists to prevent.
+          // the run only stamps when it saw them — writing `rank` here would
+          // move them, which is the one thing the pin exists to prevent.
           if (row.isPinned) {
             await tx.creatorFeature.updateMany({
               where: { creatorId: row.creatorId },
-              data: { autoRankScore: row.score, autoRankedAt: now },
+              data: { autoRankedAt: now },
             });
             continue;
           }
@@ -120,12 +138,10 @@ export class CreatorRankingService {
             create: {
               creatorId: row.creatorId,
               rank: row.rank,
-              autoRankScore: row.score,
               autoRankedAt: now,
             },
             update: {
               rank: row.rank,
-              autoRankScore: row.score,
               autoRankedAt: now,
               // An expiry that has already passed is spent; clearing it keeps
               // the pinned check below reading only live promotions.
@@ -147,7 +163,7 @@ export class CreatorRankingService {
 
   /**
    * Every listed creator in the order the next reshuffle would put them in,
-   * best first. Pure: reads, scores, sorts, writes nothing.
+   * best first. Pure: reads, compares, sorts, writes nothing.
    */
   async rankListedCreators(now = new Date()): Promise<CreatorRankEntry[]> {
     const since = daysAgo(now, RANK_WINDOW_DAYS);
@@ -231,26 +247,29 @@ export class CreatorRankingService {
         creatorId: creator.id,
         createdAt: creator.createdAt,
         signals,
-        score: scoreOf(signals),
         isNew: creator.createdAt >= newSince,
         isPinned: pinnedRank.has(creator.id),
       };
     });
 
     // The floor is read off creators who are not themselves new, so a cohort
-    // of newcomers cannot lift each other: with nobody established to measure
-    // against there is nothing to be in the top quarter of, and the floor is 0.
-    const floor = percentile(
-      scored.filter((c) => !c.isNew).map((c) => c.score),
+    // of newcomers cannot lift each other: with nobody established to stand a
+    // quarter of the way down, there is nothing to be in the top quarter of
+    // and the floor is all zeroes, which lifts nobody.
+    const floor = benchmarkSignals(
+      scored.filter((c) => !c.isNew).map((c) => c.signals),
       RANK_NEW_CREATOR_PERCENTILE,
     );
 
     const entries: CreatorRankEntry[] = scored.map((c) => ({
       creatorId: c.creatorId,
-      score: c.isNew ? Math.max(c.score, floor) : c.score,
+      signals: c.signals,
+      // Lent the floor only where it is actually better; a newcomer who has
+      // already outdone it keeps their own counts and the position they bought.
+      ranksAs:
+        c.isNew && compareSignals(floor, c.signals) > 0 ? floor : c.signals,
       isNew: c.isNew,
       isPinned: c.isPinned,
-      signals: c.signals,
     }));
 
     const createdAtById = new Map(
@@ -267,9 +286,10 @@ export class CreatorRankingService {
           (pinnedRank.get(b.creatorId) ?? 0)
         );
       }
-      if (b.score !== a.score) return b.score - a.score;
-      // Two creators on the same score — the newer one goes first, which is
-      // what the board did for everyone before it was ranked.
+      const bySignal = compareSignals(b.ranksAs, a.ranksAs);
+      if (bySignal !== 0) return bySignal;
+      // Level on all five — the newer one goes first, which is what the board
+      // did for everyone before it was ranked.
       const aAt = createdAtById.get(a.creatorId)?.getTime() ?? 0;
       const bAt = createdAtById.get(b.creatorId)?.getTime() ?? 0;
       if (bAt !== aAt) return bAt - aAt;
@@ -291,21 +311,40 @@ export class CreatorRankingService {
   }
 }
 
-/** The weighted sum the board is ordered on. */
-export function scoreOf(signals: CreatorRankEntry['signals']): number {
-  return (
-    signals.completedOrders * RANK_WEIGHTS.completedOrder +
-    signals.initiatedCheckouts * RANK_WEIGHTS.initiatedCheckout +
-    signals.addToCarts * RANK_WEIGHTS.addToCart +
-    signals.wishlistAdds * RANK_WEIGHTS.wishlistAdd +
-    signals.profileViews * RANK_WEIGHTS.profileView
-  );
+/**
+ * Which of two creators the board puts first, read strictly down
+ * {@link RANK_SIGNAL_ORDER}: positive when `a` outranks `b`, 0 when the two are
+ * level on all five.
+ *
+ * No signal can be traded against another. More completed orders wins, full
+ * stop; the next line is consulted only on a tie, and so on down. That is the
+ * whole difference from a weighted score, where enough profile views could
+ * stand in for an order.
+ */
+export function compareSignals(a: RankSignals, b: RankSignals): number {
+  for (const signal of RANK_SIGNAL_ORDER) {
+    const diff = (a[signal] ?? 0) - (b[signal] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
-/** Nearest-rank percentile of `values`; 0 when there is nothing to measure. */
-export function percentile(values: number[], fraction: number): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.ceil(fraction * sorted.length) - 1;
-  return sorted[Math.min(Math.max(index, 0), sorted.length - 1)];
+/**
+ * The counts of whoever stands `fraction` of the way up `all`, which is what a
+ * newcomer is lent.
+ *
+ * The nearest-rank percentile, taken over the whole tuple rather than a number:
+ * the list is ordered by {@link compareSignals} and one creator's counts are
+ * read off it whole, so the floor is a position a real creator holds rather
+ * than a tuple assembled from five different people. All zeroes when there is
+ * nobody to measure against.
+ */
+export function benchmarkSignals(
+  all: RankSignals[],
+  fraction: number,
+): RankSignals {
+  if (all.length === 0) return ZERO_SIGNALS;
+  const ascending = [...all].sort(compareSignals);
+  const index = Math.ceil(fraction * ascending.length) - 1;
+  return ascending[Math.min(Math.max(index, 0), ascending.length - 1)];
 }

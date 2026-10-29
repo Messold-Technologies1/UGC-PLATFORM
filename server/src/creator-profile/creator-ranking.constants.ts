@@ -1,25 +1,32 @@
 import { OrderStatus } from '@prisma/client';
 
 /**
- * What each thing a brand does is worth when the browse order is recomputed.
+ * The five signals the browse order is decided on, strongest first.
  *
- * The order of the weights is the order of the funnel, and the gaps between
- * them are the point: one completed order outranks four initiated checkouts,
- * which outrank ten add-to-carts, and so on down to a profile view. A creator
- * can still climb on soft signals alone — a hundred profile views is worth one
- * order — but they have to earn a lot of them.
+ * Read strictly, in this order: completed orders decide it, and nothing below
+ * can make up for one. Only when two creators have the same number of orders
+ * does the next line get a say, and so on down. A creator with one order is
+ * ahead of a creator with none however many checkouts, carts, saves or views
+ * the second one has — the funnel is a ladder, not a pot to be filled from any
+ * direction.
  *
- * An order that completed also counted as a checkout and an add-to-cart on its
- * way through, and is deliberately paid for all three: getting further down the
- * funnel should be worth more than stopping short of it, not instead of it.
+ * An order that completed also counted as a checkout on its way through, and
+ * keeps that checkout: two creators level on orders are then separated by
+ * everything else they drew, completed or not.
+ *
+ * The array is the single definition of the order — {@link compareSignals}
+ * walks it, so adding a signal here is the whole change.
  */
-export const RANK_WEIGHTS = {
-  completedOrder: 100,
-  initiatedCheckout: 25,
-  addToCart: 10,
-  wishlistAdd: 5,
-  profileView: 1,
-} as const;
+export const RANK_SIGNAL_ORDER = [
+  'completedOrders',
+  'initiatedCheckouts',
+  'addToCarts',
+  'wishlistAdds',
+  'profileViews',
+] as const;
+
+/** One of the five counts the order is read from. */
+export type RankSignal = (typeof RANK_SIGNAL_ORDER)[number];
 
 /** The orders that count — the same pair the card's "orders completed" uses. */
 export const RANK_COMPLETED_ORDER_STATUSES: OrderStatus[] = [
@@ -46,12 +53,16 @@ export const RANK_WINDOW_DAYS = 90;
 export const RANK_NEW_CREATOR_DAYS = 30;
 
 /**
- * Where a new creator is placed, as a percentile of everyone else's score.
+ * Where a new creator is placed, as a percentile of the established board.
+ *
+ * They are lent the counts of whoever sits a quarter of the way down, and then
+ * ranked on those as if they were their own — so a newcomer enters the top
+ * quarter rather than at the very top, and is still ordered among the other
+ * newcomers by what little they have done.
  *
  * Expressed as a percentile rather than a slot count so it holds whether the
- * board has forty creators or four thousand: they start in the top quarter,
- * with a real position among their peers, and the next two reshuffles move
- * them on what they actually did with it.
+ * board has forty creators or four thousand: the next two reshuffles move them
+ * on what they actually did with the position.
  */
 export const RANK_NEW_CREATOR_PERCENTILE = 0.75;
 

@@ -25,16 +25,30 @@
   display: grid;
   gap: 12px;
   margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 380px) {
-  .reelgrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  /* One card per row on a phone. Two columns put a ~170px card on a 360px
+     screen, which is narrower than anything the card is built for: the niches
+     took three lines, the two facts stacked, the wishlist button lost its
+     label and the buttons stacked on top of each other. One column gives the
+     card ~330px — the same layout a desktop column gets — and the photo is
+     big enough to judge the creator from. The column is capped so a landscape
+     phone or a narrow window does not stretch one card across the fold; the
+     card is 1.45x as tall as it is wide, so width is height here. */
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 440px;
+  margin-inline: auto;
 }
 
 @media (min-width: 640px) {
+  .reelgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+
+/* Three only once two columns would be wider than the ~346px the widest grid
+   settles at — below that, three columns means three cramped cards. */
+@media (min-width: 900px) {
   .reelgrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -63,40 +77,10 @@
   }
 }
 
-/* Wishlist detail page: cap at 5 cards per row */
-.reelgrid.reelgrid-wishlist {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 380px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (min-width: 640px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1536px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
+/* The wishlist detail page carries .reelgrid-wishlist and used to restate this
+   same ladder under it. It was column-for-column identical, so it only gave
+   the two copies a chance to drift apart; the page now rides the ladder
+   above. */
 
 .rcard {
   display: block;
@@ -107,7 +91,7 @@
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   /* Queried by .rbody below for the card's own width. That width, not the
-     viewport's, is what the layout depends on: the grid runs 2 to 8 columns,
+     viewport's, is what the layout depends on: the grid runs 1 to 5 columns,
      so one viewport width yields very different cards on Browse, the wishlist
      page and the admin board. */
   container-type: inline-size;

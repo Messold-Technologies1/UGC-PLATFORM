@@ -439,7 +439,6 @@ export const CreatorCard = memo(function CreatorCard({
             <div className="fmeta">
               {languages.length ? (
                 <div className="fmeta-langs">
-                  <span className="fmeta-label">Languages</span>
                   <span className="fmeta-value">
                     {languages.map((language, index) => (
                       <span key={language}>

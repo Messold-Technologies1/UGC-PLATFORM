@@ -48,30 +48,18 @@
   }
 }
 
+/* Five across, and five is where it stops. Wider screens used to keep adding
+   columns — six, seven, eight — because otherwise the cards stretched past
+   400px and one row filled the fold. Capping the grid's own width does that
+   job instead: past ~1800px the columns hold at ~346px and the grid centres in
+   the page. That is also well past the ~300px the card needs to set its two
+   facts side by side and its niches on one line, so a wide screen gets the
+   full layout rather than the stacked fallback. */
 @media (min-width: 1280px) {
   .reelgrid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1536px) {
-  .reelgrid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-/* Ultra-wide desktops: keep adding columns instead of stretching the 9:16
-   cards, which otherwise grow past ~400px wide (≈700px tall) and push the
-   second row of results below the fold. */
-@media (min-width: 1800px) {
-  .reelgrid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 2200px) {
-  .reelgrid {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    max-width: 1800px;
+    margin-inline: auto;
   }
 }
 
@@ -167,8 +155,8 @@
   --foot-chips: 90px;
   /* The languages / times-saved row, when a creator has either. */
   --foot-meta: 41px;
-  /* Two facts stacked, each on its own line. */
-  --foot-info: 78px;
+  /* Two tinted fact boxes, stacked, with the gap between them. */
+  --foot-info: 104px;
   height: calc(
     100cqw * 29 / 20 + var(--foot-fixed) + var(--foot-chips) +
       var(--foot-meta) + var(--foot-info)
@@ -189,8 +177,8 @@
 }
 @container (min-width: 300px) {
   .rcard .rbody {
-    /* The two facts fit side by side again, so the row is one line. */
-    --foot-info: 41px;
+    /* The two boxes fit side by side again, so the row is one of them tall. */
+    --foot-info: 48px;
   }
 }
 @container (min-width: 340px) {
@@ -491,11 +479,14 @@
 .rcard .fmeta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 0 0 auto;
   min-width: 0;
-  /* Hairline above, so the three bands read as separate things rather than
-     one run of text. */
+}
+/* The facts are tinted boxes, so they separate themselves — only the meta row
+   below needs a rule drawn for it. */
+.rcard .fmeta {
+  gap: 12px;
   border-top: 1px solid var(--border);
   padding-top: 10px;
 }
@@ -506,12 +497,20 @@
   background: var(--border);
 }
 
+/* A tinted box each: the travel one green because it is the thing a brand
+   scans for, the delivery promise neutral because every card carries it. */
 .rcard .finfo-cell {
   display: flex;
   align-items: center;
   gap: 9px;
   flex: 1;
   min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--muted);
+}
+.rcard .finfo-cell-go {
+  background: #ecfdf5;
 }
 .rcard .finfo-cell > svg {
   flex-shrink: 0;
@@ -549,10 +548,12 @@
   text-overflow: ellipsis;
 }
 
+/* No label over it: three language names read as language names, and the row
+   is shorter without one. */
 .rcard .fmeta-langs {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
   flex: 1;
   min-width: 0;
 }

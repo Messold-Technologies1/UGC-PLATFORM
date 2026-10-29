@@ -25,16 +25,30 @@
   display: grid;
   gap: 12px;
   margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 380px) {
-  .reelgrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  /* One card per row on a phone. Two columns put a ~170px card on a 360px
+     screen, which is narrower than anything the card is built for: the niches
+     took three lines, the two facts stacked, the wishlist button lost its
+     label and the buttons stacked on top of each other. One column gives the
+     card ~330px — the same layout a desktop column gets — and the photo is
+     big enough to judge the creator from. The column is capped so a landscape
+     phone or a narrow window does not stretch one card across the fold; the
+     card is 1.45x as tall as it is wide, so width is height here. */
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 440px;
+  margin-inline: auto;
 }
 
 @media (min-width: 640px) {
+  .reelgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+
+/* Three only once two columns would be wider than the ~346px the widest grid
+   settles at — below that, three columns means three cramped cards. */
+@media (min-width: 900px) {
   .reelgrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -63,40 +77,10 @@
   }
 }
 
-/* Wishlist detail page: cap at 5 cards per row */
-.reelgrid.reelgrid-wishlist {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 380px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (min-width: 640px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1536px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
+/* The wishlist detail page carries .reelgrid-wishlist and used to restate this
+   same ladder under it. It was column-for-column identical, so it only gave
+   the two copies a chance to drift apart; the page now rides the ladder
+   above. */
 
 .rcard {
   display: block;
@@ -107,7 +91,7 @@
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   /* Queried by .rbody below for the card's own width. That width, not the
-     viewport's, is what the layout depends on: the grid runs 2 to 8 columns,
+     viewport's, is what the layout depends on: the grid runs 1 to 5 columns,
      so one viewport width yields very different cards on Browse, the wishlist
      page and the admin board. */
   container-type: inline-size;
@@ -153,10 +137,11 @@
      two-line stat pair. Budgeting the common case keeps the still near 4:5;
      cards either side of it simply run a little taller or shorter. */
   --foot-chips: 90px;
-  /* The languages / times-saved row, when a creator has either. */
-  --foot-meta: 41px;
-  /* Two tinted fact boxes, stacked, with the gap between them. */
-  --foot-info: 104px;
+  /* The languages / times-saved row. Three language names wrap to two lines
+     on a narrow card, which is still worth more than dropping one. */
+  --foot-meta: 58px;
+  /* The two tinted fact boxes, side by side at every width. */
+  --foot-info: 46px;
   height: calc(
     100cqw * 29 / 20 + var(--foot-fixed) + var(--foot-chips) +
       var(--foot-meta) + var(--foot-info)
@@ -175,10 +160,10 @@
     --foot-fixed: 95px;
   }
 }
-@container (min-width: 300px) {
+@container (min-width: 270px) {
   .rcard .rbody {
-    /* The two boxes fit side by side again, so the row is one of them tall. */
-    --foot-info: 48px;
+    /* Three language names fit on one line from about here. */
+    --foot-meta: 41px;
   }
 }
 @container (min-width: 340px) {
@@ -502,10 +487,12 @@
 .rcard .finfo-cell {
   display: flex;
   align-items: center;
-  gap: 9px;
   flex: 1;
   min-width: 0;
-  padding: 8px 10px;
+  /* Tight enough that both boxes fit a narrow card side by side: the text
+     gets (card - 34) / 2 - 38 after this padding, the icon and their gap. */
+  padding: 7px 8px;
+  gap: 7px;
   border-radius: 10px;
   background: var(--muted);
 }
@@ -532,7 +519,7 @@
   line-height: 1.25;
 }
 .rcard .finfo-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--muted-foreground);
   white-space: nowrap;
@@ -540,7 +527,7 @@
   text-overflow: ellipsis;
 }
 .rcard .finfo-value {
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 700;
   color: var(--foreground);
   white-space: nowrap;
@@ -614,25 +601,37 @@
 }
 
 /**
- * Below this the card is too narrow to set two labelled facts beside each
- * other: "On-location shoot" and "5-day delivery" both ellipsise to nonsense
- * long before they fit. They take a line each instead, where there is room
- * for the whole phrase — and the third language goes, since it wraps the
- * row rather than fitting on it. The drawer lists every language anyway.
+ * The two fact boxes sit side by side at every width — stacking them cost a
+ * whole row of the photo. What gives instead is the wording: below this the
+ * box is too narrow for "On-location shoot" and "5-day delivery", so those
+ * shorten to "On-location" and "5 days", which say the same thing in the room
+ * there is.
  *
- * Measured, not guessed: at 234px each column has ~65px for text that needs
- * ~95px.
+ * Measured, not guessed: each box gets (card - 34) / 2 - 38 for text, and the
+ * full phrase needs ~86px, so the pair fits from ~282px up.
  */
-@container (max-width: 299.98px) {
-  .rcard .finfo {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .rcard .finfo .finfo-rule {
+@container (max-width: 281.98px) {
+  .rcard .finfo .finfo-long {
     display: none;
   }
-  .rcard .fmeta-value > span:nth-child(n + 3) {
+}
+/* On a phone-width card even the short wording needs the icon's room, so the
+   icon goes rather than the pairing. The words say it without one. */
+@container (max-width: 209.98px) {
+  .rcard .finfo-cell > svg {
+    display: none;
+  }
+  /* And a notch off the padding and the label, which is what the last few
+     pixels of "On-location" need at the narrowest card the grid makes. */
+  .rcard .finfo-cell {
+    padding: 7px 6px;
+  }
+  .rcard .finfo-label {
+    font-size: 9.5px;
+  }
+}
+@container (min-width: 282px) {
+  .rcard .finfo .finfo-brief {
     display: none;
   }
 }

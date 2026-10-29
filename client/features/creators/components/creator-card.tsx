@@ -75,6 +75,7 @@ export const CreatorCard = memo(function CreatorCard({
   // Only creators a brand can actually buy travel from say so. The rest stay
   // quiet rather than carrying a "no" on every card.
   const showOnLocation = creator.onLocationShoot === true;
+  // At most three: a fourth wraps the row for a name few briefs need.
   const languages = creator.languages.slice(0, 3);
 
   const profileImage = isHttpUrl(creator.thumbnail) ? creator.thumbnail : "";
@@ -410,24 +411,31 @@ export const CreatorCard = memo(function CreatorCard({
               creator has, takes the whole row on its own when it does not. */}
           <div className="finfo">
             {showOnLocation ? (
-              <>
-                <div className="finfo-cell finfo-cell-go">
-                  <Camera size={17} />
-                  <div className="finfo-text">
-                    <span className="finfo-label">On-location shoot</span>
-                    <b className="finfo-value">Available</b>
-                  </div>
+              <div className="finfo-cell finfo-cell-go">
+                <Camera size={15} />
+                <div className="finfo-text">
+                  {/* "shoot" and "delivery" drop on a narrow card so the two
+                        boxes still sit side by side rather than stacking —
+                        the words they leave behind carry the meaning. */}
+                  <span className="finfo-label">
+                    On-location<span className="finfo-long"> shoot</span>
+                  </span>
+                  <b className="finfo-value">Available</b>
                 </div>
-                <i className="finfo-rule" />
-              </>
+              </div>
             ) : null}
 
             <div className="finfo-cell">
-              <Truck size={17} />
+              <Truck size={15} />
               <div className="finfo-text">
                 <span className="finfo-label">Guaranteed</span>
                 <b className="finfo-value">
-                  {creator.deliveryDays}-day delivery
+                  <span className="finfo-long">
+                    {creator.deliveryDays}-day delivery
+                  </span>
+                  <span className="finfo-brief">
+                    {creator.deliveryDays} days
+                  </span>
                 </b>
               </div>
             </div>

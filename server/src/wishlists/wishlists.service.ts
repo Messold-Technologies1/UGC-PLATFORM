@@ -31,7 +31,8 @@ import { PortfolioVisibilityStatus } from '@prisma/client';
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
 
 const creatorWithRelationsInclude = {
-  facetSelections: { include: { option: true } },
+  // Primary niche first (rank 0), then the secondaries — the card reads this order.
+  facetSelections: { include: { option: true }, orderBy: { rank: 'asc' } },
   profileLanguages: { include: { option: true } },
   restrictions: true,
   packages: true,
@@ -102,8 +103,10 @@ function mapCreatorToPublicListItem(
           dimension: row?.option?.dimension,
           slug: String(row?.option?.slug ?? ''),
           label: String(row?.option?.label ?? ''),
+          rank: typeof row?.rank === 'number' ? row.rank : 0,
         }))
         .filter((x: any) => x.slug && x.dimension)
+        .sort((a, b) => a.rank - b.rank)
     : [];
 
   const availability = mapUnavailabilityToPublicAvailability(
@@ -166,6 +169,9 @@ function mapCreatorToPublicListItem(
     reviewCount: profile.stats?.reviewCount ?? 0,
     totalOrders: 0,
     completedOrders: 0,
+    // Order and save counts are not resolved on this path, and the card hides
+    // a zero rather than claiming a creator has never been ordered or saved.
+    savedCount: 0,
     available: availability.available,
     unavailableFrom: availability.startsOn,
     unavailableTo: availability.endsOn,

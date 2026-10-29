@@ -129,6 +129,9 @@ describe('CreatorProfileService', () => {
       groupBy: jest.fn().mockResolvedValue([]),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    brandWishlistCreator: {
+      groupBy: jest.fn().mockResolvedValue([]),
+    },
     creatorProfile: {
       findUnique: txMock.creatorProfile.findUnique,
       count: jest.fn(),
@@ -235,6 +238,7 @@ describe('CreatorProfileService', () => {
     );
     prismaMock.order.groupBy.mockResolvedValue([]);
     prismaMock.order.findMany.mockResolvedValue([]);
+    prismaMock.brandWishlistCreator.groupBy.mockResolvedValue([]);
 
     const creatorReviewsMock = {
       listTopForCreator: jest.fn().mockResolvedValue([]),
@@ -602,6 +606,97 @@ describe('CreatorProfileService', () => {
         id: 'creator-1',
         name: 'ab12cd34',
       });
+    });
+
+    it('carries the wishlist save count onto each card', async () => {
+      const row = {
+        id: 'creator-1',
+        publicSlug: 'ab12cd34',
+        city: 'Bengaluru',
+        collaborationCount: 0,
+        onLocationAvailable: false,
+      };
+
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
+      prismaMock.brandWishlistCreator.groupBy.mockResolvedValueOnce([
+        { creatorId: 'creator-1', _count: { _all: 8 } },
+      ]);
+
+      const result = await service.listCreators({ page: 1, limit: 24 } as any);
+
+      expect(result.items[0].savedCount).toBe(8);
+    });
+
+    it('reports zero saves for a creator no wishlist holds', async () => {
+      const row = {
+        id: 'creator-1',
+        publicSlug: 'ab12cd34',
+        city: 'Bengaluru',
+        collaborationCount: 0,
+        onLocationAvailable: false,
+      };
+
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
+      prismaMock.brandWishlistCreator.groupBy.mockResolvedValueOnce([]);
+
+      const result = await service.listCreators({ page: 1, limit: 24 } as any);
+
+      expect(result.items[0].savedCount).toBe(0);
+    });
+
+    it('orders the niche facets primary first, whatever order they arrive in', async () => {
+      const row = {
+        id: 'creator-1',
+        publicSlug: 'ab12cd34',
+        city: 'Bengaluru',
+        collaborationCount: 0,
+        onLocationAvailable: false,
+        facetSelections: [
+          {
+            rank: 2,
+            option: {
+              dimension: 'CONTENT_CATEGORY',
+              slug: 'travel',
+              label: 'Travel',
+            },
+          },
+          {
+            rank: 0,
+            option: {
+              dimension: 'CONTENT_CATEGORY',
+              slug: 'beauty',
+              label: 'Beauty',
+            },
+          },
+          {
+            rank: 1,
+            option: {
+              dimension: 'CONTENT_CATEGORY',
+              slug: 'fashion',
+              label: 'Fashion',
+            },
+          },
+        ],
+      };
+
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
+
+      const result = await service.listCreators({ page: 1, limit: 24 } as any);
+
+      expect(result.items[0].facetSelections.map((f) => f.label)).toEqual([
+        'Beauty',
+        'Fashion',
+        'Travel',
+      ]);
     });
   });
 });

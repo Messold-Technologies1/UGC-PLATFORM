@@ -3,7 +3,7 @@
   --shadow-pop: 0 8px 30px -8px rgb(24 19 19 / 0.12);
   --shadow-sm: 0 1px 2px 0 rgb(24 19 19 / 0.05);
   --shadow-md: 0 6px 18px -8px rgb(24 19 19 / 0.12);
-  --shadow-lg: 0 24px 50px -22px rgb(24 19 19 / 0.30);
+  --shadow-lg: 0 24px 50px -22px rgb(24 19 19 / 0.3);
   --radius: 14px;
   --radius-sm: 8px;
   --radius-lg: 18px;
@@ -119,6 +119,12 @@
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
+  /* The niche row reserves however many chip lines the card is narrow enough
+     to need (see .ftags). That depends on the card's own width, not the
+     viewport's: the grid runs 2 to 8 columns, so the same viewport width
+     yields very different cards on Browse, the wishlist page and the admin
+     board. A container query asks the card itself. */
+  container-type: inline-size;
   transition:
     transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1),
     box-shadow 0.22s ease,
@@ -182,25 +188,10 @@
 
   gap: 4px;
 }
-.rcard .reel .vchip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(0, 0, 0, 0.46);
-  color: #fff;
-  font-weight: 700;
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-}
-
 .rcard .reel .availchip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
   font-weight: 700;
   font-size: 11px;
   padding: 4px 8px;
@@ -293,14 +284,43 @@
   margin-top: 3px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
+  /* One line, always: a long city or a third language must not push the
+     overlay taller on one card than on the next. */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rcard .reel .who .lc .lc-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  /* Both fields shrink together, so a long city ellipsises instead of
+     shouldering the languages off the card. */
+  flex: 0 1 auto;
+}
+
+.rcard .reel .who .lc .lc-item svg {
+  flex-shrink: 0;
+}
+.rcard .reel .who .lc .lc-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rcard .reel .who .lc .lc-sep {
+  width: 1px;
+  height: 11px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .rcard .foot {
   padding: 11px 13px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
 }
 .rcard .reel .fof-ribbon {
@@ -359,11 +379,45 @@
 .rcard .reel .fof-ribbon svg {
   color: #1a1408;
 }
+/* Every row below the media has a fixed height, so two cards differ only in
+   what they put inside those rows — never in how tall they are. The media is
+   a fixed aspect ratio on a grid-set width, so the whole card matches. */
 .rcard .ftags {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 5px;
-  min-height: 20px;
+  /* Three chip lines, the worst case for a primary plus two secondary niches
+     on the narrowest card the grid produces. Reserved rather than measured,
+     so a creator with one short niche and one with three long ones still get
+     cards of the same height. Wider cards need fewer lines — see below. */
+  height: 73px;
+  overflow: hidden;
+}
+/* 21px per chip line, 5px between. Both thresholds were measured against the
+   longest niche labels in the catalog ("Tech & Gadgets", "Home & Decor"),
+   with headroom — a card between two thresholds reserves the taller row and
+   simply leaves it part-empty, which costs space but never clips a niche. */
+@container (min-width: 205px) {
+  .rcard .ftags {
+    height: 47px;
+  }
+}
+@container (min-width: 330px) {
+  .rcard .ftags {
+    height: 21px;
+  }
+}
+
+/* Below the same threshold the fixed-height rows get tight, so the parts that
+   carry no information give way first — the second language, the "Guaranteed"
+   lead-in, the "completed"/"times" qualifiers. The number and the noun stay. */
+@container (max-width: 204.98px) {
+  .rcard .reel .who .lc .lc-lang-2,
+  .rcard .fdelivery .fdelivery-lead,
+  .rcard .fstat-label-tail {
+    display: none;
+  }
 }
 .rcard .ftag {
   font-size: 10.5px;
@@ -372,6 +426,88 @@
   border-radius: 7px;
   white-space: nowrap;
   flex-shrink: 0;
+  line-height: 15px;
+}
+/* The creator's primary niche, ringed so it reads ahead of the two
+   secondaries it sits beside. */
+.rcard .ftag-primary {
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.rcard .fdelivery {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rcard .fdelivery svg {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+.rcard .fdelivery span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rcard .fstats {
+  display: flex;
+  align-items: center;
+  /* Held even with nothing in it: a creator with no completed orders and no
+     saves yet leaves this blank rather than making their card shorter. */
+  height: 40px;
+  flex-shrink: 0;
+}
+.rcard .fstat {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+.rcard .fstat-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--foreground);
+}
+.rcard .fstat-value svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.rcard .fstat-value-saved svg {
+  color: #e11d48;
+  fill: #e11d48;
+}
+.rcard .fstat-value b {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 14.5px;
+  line-height: 1;
+}
+.rcard .fstat-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.rcard .fstat-rule {
+  width: 1px;
+  height: 26px;
+  flex-shrink: 0;
+  background: var(--border);
 }
 .rcard .fbottom {
   margin-top: auto;
@@ -382,6 +518,12 @@
   justify-content: flex-end;
   gap: 8px;
   width: 100%;
+}
+.rcard .factions .fwishlist {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
 }
 .rcard .fwishlist {
   height: 36px;
@@ -397,7 +539,9 @@
   gap: 6px;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 .rcard .fwishlist:hover {
   background: #ffe4e6;
@@ -607,7 +751,8 @@
 }
 .dr-reeltile.intro {
   width: 178px;
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent),
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent),
     var(--shadow-md);
 }
 .dr-reeltile .mono {
@@ -817,7 +962,10 @@
   white-space: nowrap;
   flex-shrink: 0;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent);
-  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 .dr-tabs-profile-link:hover {
   background: color-mix(in srgb, var(--primary) 88%, #000);
@@ -1211,7 +1359,6 @@
   }
 }
 
-
 @media (max-width: 768px) {
   .browse-drawer {
     top: 0;
@@ -1291,7 +1438,6 @@
     gap: 12px;
   }
 }
-
 
 @media (max-width: 375px) {
   .browse-drawer {

@@ -310,7 +310,12 @@ export function buildCreatorListRelationsInclude(
   };
 
   return {
-    facetSelections: { include: { option: { select: facetOptionSelect } } },
+    // rank asc so the CONTENT_CATEGORY picks arrive primary-first — the card
+    // leads with the primary niche and shows the secondaries behind it.
+    facetSelections: {
+      include: { option: { select: facetOptionSelect } },
+      orderBy: { rank: 'asc' },
+    },
     profileLanguages: { include: { option: { select: facetOptionSelect } } },
     restrictions: { select: { restriction: true } },
     packages: {

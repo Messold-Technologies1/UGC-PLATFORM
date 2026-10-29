@@ -467,6 +467,37 @@
   box-shadow: inset 0 0 0 1.5px currentColor;
 }
 
+/**
+ * Hairlines between the footer's bands — niches, then proof, then promise —
+ * so the rows read as separate things rather than one run of text.
+ *
+ * Drawn inside the 8px gap above each row rather than as a border on it: the
+ * delivery row is a rounded, tinted box, and a border there would hug the box
+ * instead of separating it. Being absolute, they also cost no height, so the
+ * card's budget stays as it is.
+ */
+.rcard .fstats,
+.rcard .fdelivery {
+  position: relative;
+}
+.rcard .fstats::before,
+.rcard .fdelivery::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  height: 1px;
+  background: var(--border);
+}
+/* The niche row above is what the first rule separates from. With no niches
+   at all there is nothing to separate, and a rule hard against the video
+   would read as a seam. */
+.rcard .ftags:empty + .fstats::before,
+.rcard .ftags:empty + .fdelivery::before {
+  display: none;
+}
+
 .rcard .fdelivery {
   display: flex;
   align-items: center;
@@ -497,10 +528,11 @@
   flex: 0 0 auto;
 }
 /* One number needs no column to itself and no second line: it reads as a
-   sentence, on one line, and hands the rest of the height back to the video. */
+   sentence, on one line from the left edge like every other row, and hands
+   the rest of the height back to the video. */
 .rcard .fstats-single {
   height: 20px;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .rcard .fstat {
   display: flex;
@@ -514,7 +546,8 @@
 .rcard .fstats-single .fstat {
   flex: 0 1 auto;
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
+  justify-content: flex-start;
   gap: 5px;
 }
 /* Read as a sentence rather than a caption, now that it shares the line. */

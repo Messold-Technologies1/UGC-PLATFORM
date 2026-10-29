@@ -58,6 +58,32 @@ describe('notification event catalog', () => {
     expect(bypassing).toEqual([]);
   });
 
+  // The seeder creates rows with every channel unless the event says
+  // otherwise, and it only ever creates — so a wrong default here is not a
+  // setting an admin discovers and fixes, it is mail that goes out once per
+  // chat message until somebody notices.
+  it('names the events that opt out of the default channels', () => {
+    const opted = NOTIFICATION_EVENT_KEYS.filter(
+      (k) => NOTIFICATION_EVENTS_BY_KEY[k].defaultChannels,
+    ).sort();
+
+    expect(opted).toEqual([
+      'order-chat-message-for-brand',
+      'order-chat-message-for-creator',
+    ]);
+  });
+
+  it('seeds order chat as push only', () => {
+    for (const key of [
+      'order-chat-message-for-brand',
+      'order-chat-message-for-creator',
+    ]) {
+      expect(`${key}:${NOTIFICATION_EVENTS_BY_KEY[key].defaultChannels?.join()}`).toBe(
+        `${key}:PUSH`,
+      );
+    }
+  });
+
   it('lets every event take a delayed row', () => {
     // supportsDelay is what the admin API checks before saving a row with an
     // offset, and it is simply "does this event declare stillRelevant". Every

@@ -1,4 +1,10 @@
-import { PUSH_BODY_MAX, pushClickUrl, truncateForPush } from './push-copy';
+import {
+  PUSH_BODY_MAX,
+  pushClickUrl,
+  pushTitleFrom,
+  stripGreeting,
+  truncateForPush,
+} from './push-copy';
 
 describe('truncateForPush', () => {
   it('leaves short copy alone', () => {
@@ -54,5 +60,70 @@ describe('pushClickUrl', () => {
     expect(pushClickUrl(null, base)).toBe(base);
     expect(pushClickUrl('   ', base)).toBe(base);
     expect(pushClickUrl(undefined, `${base}/`)).toBe(base);
+  });
+});
+
+describe('pushTitleFrom', () => {
+  const PLATFORM = 'Go Collab';
+
+  // 29 of the 40 subjects sign off this way. A lock screen already shows the
+  // site, so the tail is waste in a line the OS truncates.
+  it('drops the platform sign-off an email subject carries', () => {
+    expect(pushTitleFrom('📩 New brief from Acme — Go Collab', PLATFORM)).toBe(
+      '📩 New brief from Acme',
+    );
+    expect(
+      pushTitleFrom(
+        '🎬 The creator delivered content — review on Go Collab',
+        PLATFORM,
+      ),
+    ).toBe('🎬 The creator delivered content');
+  });
+
+  // The reason this matches on the platform name instead of "strip after the
+  // last dash": plenty of subjects use a dash to carry meaning.
+  it('keeps a dash that is part of the message', () => {
+    expect(pushTitleFrom('Dispute resolved — order rejected', PLATFORM)).toBe(
+      'Dispute resolved — order rejected',
+    );
+  });
+
+  it('leaves a subject with no sign-off alone', () => {
+    expect(pushTitleFrom('Your payout is on its way', PLATFORM)).toBe(
+      'Your payout is on its way',
+    );
+  });
+
+  it('never trims a title away to nothing', () => {
+    expect(pushTitleFrom('Go Collab', PLATFORM)).toBe('Go Collab');
+  });
+
+  it('does nothing without a platform name to match', () => {
+    expect(pushTitleFrom('📩 New brief — Go Collab', undefined)).toBe(
+      '📩 New brief — Go Collab',
+    );
+  });
+});
+
+describe('stripGreeting', () => {
+  // All 40 text templates open this way, and a notification has ~120
+  // characters before it is cut off.
+  it('drops the greeting an email opens with', () => {
+    expect(stripGreeting('Hi Ananya,\n\nYour content was accepted.')).toBe(
+      'Your content was accepted.',
+    );
+    expect(stripGreeting('Hello Rohit,\nThe creator accepted.')).toBe(
+      'The creator accepted.',
+    );
+  });
+
+  it('keeps an opening line that carries content', () => {
+    const text = 'Your order was cancelled.\n\nA refund is on its way.';
+
+    expect(stripGreeting(text)).toBe(text);
+  });
+
+  it('keeps a greeting that is the whole message', () => {
+    expect(stripGreeting('Hi Ananya,')).toBe('Hi Ananya,');
   });
 });

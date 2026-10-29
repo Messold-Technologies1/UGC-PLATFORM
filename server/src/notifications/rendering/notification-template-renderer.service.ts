@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import Handlebars from 'handlebars';
 import type { TemplateDelegate } from 'handlebars';
 import { deriveText } from './derive-text';
-import { truncateForPush } from './push-copy';
+import { pushTitleFrom, stripGreeting, truncateForPush } from './push-copy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TemplateRendererService } from '../../mail/template-renderer.service';
 import {
@@ -103,8 +103,14 @@ export class NotificationTemplateRenderer {
   async renderPush(req: RenderRequest): Promise<RenderedPush> {
     const rendered = await this.render(req);
     return {
-      title: rendered.subject.trim(),
-      body: truncateForPush(rendered.text),
+      // Both trims exist because the source is email copy: a subject signs off
+      // with the site name and a body opens by greeting the reader, and a
+      // notification has room for neither.
+      title: pushTitleFrom(
+        rendered.subject,
+        this.legacy.applyDefaults(req.context).platformName,
+      ),
+      body: truncateForPush(stripGreeting(rendered.text)),
       templateId: rendered.templateId,
     };
   }

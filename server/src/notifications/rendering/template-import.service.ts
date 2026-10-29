@@ -1,8 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { NotificationChannel } from '@prisma/client';
+
+/** What a schedule row seeds with when its event states no preference. */
+const ALL_CHANNELS = [
+  NotificationChannel.EMAIL,
+  NotificationChannel.WHATSAPP,
+  NotificationChannel.PUSH,
+] as const;
 import { PrismaService } from '../../prisma/prisma.service';
 import { resolveMailTemplatesDir } from '../../mail/templates-dir';
-import { NOTIFICATION_EVENT_KEYS } from '../catalog/event-catalog';
+import {
+  NOTIFICATION_EVENT_KEYS,
+  getEventDefinition,
+} from '../catalog/event-catalog';
 import {
   STAGE_OFFSETS,
   offsetSuffix,
@@ -97,6 +107,7 @@ export class NotificationTemplateImportService {
           // means the catalog changed under us, so leave it for the next boot.
           if (!event) continue;
 
+          const definition = getEventDefinition(key);
           const offsets = STAGE_OFFSETS[key] ?? [0];
           const isDrip = Boolean(STAGE_OFFSETS[key]);
 
@@ -126,13 +137,16 @@ export class NotificationTemplateImportService {
               data: {
                 eventKey: key,
                 offsetMinutes,
-                // Both channels, reproducing today's behaviour exactly: every
-                // email currently fires its WhatsApp twin via
-                // whatsapp-bridge.util.
-                channels: [
-                  NotificationChannel.EMAIL,
-                  NotificationChannel.WHATSAPP,
-                ],
+                // Every channel unless the event says otherwise. Email and
+                // WhatsApp reproduce the old lockstep, where each email fired
+                // its WhatsApp twin via whatsapp-bridge.util; push joins them
+                // because an event worth an email is worth a notification.
+                //
+                // An event opts out through `defaultChannels` — order chat
+                // does, because a mail per chat message is a mistake rather
+                // than a preference. Only ever applied on create: an admin's
+                // choices are never rewritten from here.
+                channels: [...(definition?.defaultChannels ?? ALL_CHANNELS)],
                 templateOverrideId: isDrip
                   ? (idsByName.get(`${key}-${offsetSuffix(offsetMinutes)}`) ??
                     null)

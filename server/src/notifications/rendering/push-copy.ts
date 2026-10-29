@@ -38,6 +38,57 @@ export function truncateForPush(text: string, max = PUSH_BODY_MAX): string {
 }
 
 /**
+ * Trim the email subject down to a notification title.
+ *
+ * Every subject in the catalog is written for an inbox, where naming the
+ * sender is the convention — 29 of the 40 end in "— Go Collab". A lock screen
+ * already shows which site the notification came from, so that tail is pure
+ * waste in a line the OS will truncate anyway.
+ *
+ * Matched against the rendered platform name rather than a general "strip
+ * what follows a dash", because plenty of subjects use a dash to carry
+ * meaning: "Dispute resolved — order rejected" must survive intact.
+ */
+export function pushTitleFrom(subject: string, platformName: unknown): string {
+  const title = subject.trim();
+  const name = typeof platformName === 'string' ? platformName.trim() : '';
+  if (!name) return title;
+
+  // Only the trailing segment, and only when that segment is about the
+  // platform rather than about the event.
+  const tail = /\s+[—–-]\s+([^—–]*)$/.exec(title);
+  if (!tail?.[1]?.includes(name)) return title;
+
+  const trimmed = title.slice(0, tail.index).trim();
+  // Never trim a title away to nothing: a subject that is only the platform
+  // name is worth more than an empty notification.
+  return trimmed || title;
+}
+
+/**
+ * Drop the greeting line an email opens with.
+ *
+ * All 40 text templates begin "Hi {{recipientName}}," because that is how an
+ * email opens. A notification has about 120 characters before it is cut off,
+ * and spending the first fifteen greeting someone who can already see the
+ * message is on their own device is the difference between a body that says
+ * what happened and one that does not.
+ *
+ * Narrow on purpose: a short opening line that is only a greeting. Anything
+ * carrying content stays.
+ */
+export function stripGreeting(text: string): string {
+  const [first, ...rest] = text.split(/\r?\n/);
+  if (rest.length === 0) return text;
+  if (!/^(hi|hello|hey|dear)\b[^.!?]{0,40},?\s*$/i.test(first.trim())) {
+    return text;
+  }
+  const remainder = rest.join('\n').trim();
+  // If the greeting was the whole message, keep it rather than send nothing.
+  return remainder || text;
+}
+
+/**
  * The URL the notification opens.
  *
  * Every event in the catalog builds `actionUrl` from `frontendBaseUrl`, so it

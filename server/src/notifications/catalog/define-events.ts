@@ -1,5 +1,8 @@
 import type { ConfigService } from '@nestjs/config';
-import type { NotificationRecipientRole } from '@prisma/client';
+import type {
+  NotificationChannel,
+  NotificationRecipientRole,
+} from '@prisma/client';
 import type { BrandAccessService } from '../../brand-access/brand-access.service';
 import type { PrismaService } from '../../prisma/prisma.service';
 
@@ -166,6 +169,21 @@ export type EventDefinition = {
    * carries the full detail either way, and it costs nothing to change.
    */
   whatsappBodyVars?: readonly string[];
+
+  /**
+   * Channels the seeder puts on this event's first schedule row.
+   *
+   * Only ever read when a row is CREATED — the admin owns channels after
+   * that, and nothing here rewrites a row that already exists. The default is
+   * every channel, matching the lockstep the engine replaced.
+   *
+   * Set it where every channel would be wrong rather than merely
+   * unconfigured. Order chat is the case it exists for: an email and a
+   * WhatsApp message per chat message is not a preference an admin should
+   * have to discover and switch off, it is a mistake, and the seeder would
+   * otherwise make it on the first deploy after the event is added.
+   */
+  defaultChannels?: readonly NotificationChannel[];
 
   /**
    * Drop the browser notification when the recipient is already looking at

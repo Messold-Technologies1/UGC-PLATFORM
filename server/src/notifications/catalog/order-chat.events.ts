@@ -1,4 +1,5 @@
 import {
+  NotificationChannel,
   NotificationRecipientRole,
   OrderChatMessageType,
 } from '@prisma/client';
@@ -14,6 +15,16 @@ import {
 } from './order-context';
 
 const { CREATOR, BRAND } = NotificationRecipientRole;
+
+/**
+ * Chat seeds as push only.
+ *
+ * The other two are a deliberate no, not an omission. A mailbox with one
+ * email per chat message is worse than no notification at all, and WhatsApp
+ * would charge per message for the privilege. An admin can still tick them;
+ * the point is that nobody has to discover and untick them first.
+ */
+const PUSH_ONLY = [NotificationChannel.PUSH] as const;
 
 /**
  * How long one notification speaks for.
@@ -243,6 +254,7 @@ export const orderChatEvents = defineEvents({
     },
     stillRelevant: (ctx, id) => stillUnread(ctx, id, 'creator'),
     suppressWhenViewing: true,
+    defaultChannels: PUSH_ONLY,
   },
 
   'order-chat-message-for-brand': {
@@ -272,5 +284,6 @@ export const orderChatEvents = defineEvents({
     },
     stillRelevant: (ctx, id) => stillUnread(ctx, id, 'brand'),
     suppressWhenViewing: true,
+    defaultChannels: PUSH_ONLY,
   },
 });

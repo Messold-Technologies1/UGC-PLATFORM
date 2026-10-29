@@ -1,6 +1,6 @@
 Hi {{recipientName}},
 
-{{senderName}} sent you a message. You have {{unreadCount}} unread message(s) on order {{orderId}}.
+You have {{#if unreadCount}}{{unreadCount}} unread message(s){{else}}a message{{/if}} from {{senderName}} about your order {{orderId}}.
 {{#if messagePreview}}
 
 "{{messagePreview}}"

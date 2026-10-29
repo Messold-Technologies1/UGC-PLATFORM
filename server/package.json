@@ -55,6 +55,8 @@
     "notifications:import-templates:dev": "node -r ts-node/register/transpile-only src/scripts/import-notification-templates.ts",
     "prisma:seed:notification-templates": "npm run notifications:import-templates",
     "notifications:backfill-drip-log": "node dist/scripts/backfill-notification-drip-log.js",
+    "notifications:backfill-push": "node dist/scripts/backfill-push-channel.js",
+    "notifications:backfill-push:dev": "node -r ts-node/register/transpile-only src/scripts/backfill-push-channel.ts",
     "notifications:backfill-drip-log:dev": "node -r ts-node/register/transpile-only src/scripts/backfill-notification-drip-log.ts",
     "prisma:backfill:notification-drip-log": "npm run notifications:backfill-drip-log",
     "start:worker": "node dist/main.worker.js",

@@ -54,6 +54,13 @@ export class CreatorPublicListFacetDto {
 
   @ApiProperty()
   label!: string;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Niche ordering (CONTENT_CATEGORY only): 0 = primary, 1..2 = secondary. Always 0 on the single-select dimensions.',
+  })
+  rank!: number;
 }
 
 export class CreatorPublicListLanguageDto {
@@ -138,8 +145,25 @@ export class CreatorPublicListItemDto {
   })
   completedOrders!: number;
 
+  @ApiProperty({
+    example: 8,
+    description:
+      'Wishlists this creator is currently saved to, across every brand and agency. A live count, not a lifetime tally: un-saving deletes the row.',
+  })
+  savedCount!: number;
+
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;
+
+  @ApiProperty({
+    example: true,
+    description:
+      "True when the creator prices the catalog's on-location shoot add-on " +
+      '(slug on_location_shoot) above zero — i.e. a brand can actually buy ' +
+      'travel from them at checkout. The card advertises it on that basis, so ' +
+      'it can never promise a shoot the order flow would refuse.',
+  })
+  onLocationShootAvailable!: boolean;
 
   @ApiPropertyOptional({
     example: true,

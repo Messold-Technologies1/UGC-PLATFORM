@@ -15,11 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   extendCreatorCardNavigationSuppress,
   registerWishlistOverlayClose,
@@ -113,7 +109,10 @@ export function SaveToWishlistButton({
   const removeMutation = useRemoveWishlistCreatorMutation();
   const createMutation = useCreateWishlistMutation();
 
-  const isTriggerBusy = addMutation.isPending || removeMutation.isPending || createMutation.isPending;
+  const isTriggerBusy =
+    addMutation.isPending ||
+    removeMutation.isPending ||
+    createMutation.isPending;
 
   useEffect(() => {
     if (!open) return;
@@ -149,7 +148,10 @@ export function SaveToWishlistButton({
     extendCreatorCardNavigationSuppress();
     if (isInWishlist(wishlist)) {
       try {
-        await removeMutation.mutateAsync({ wishlistId: wishlist.id, creatorId });
+        await removeMutation.mutateAsync({
+          wishlistId: wishlist.id,
+          creatorId,
+        });
         toast.success(`Removed from "${wishlist.name}"`);
       } catch {
         toast.error("Failed to remove from wishlist");
@@ -214,7 +216,9 @@ export function SaveToWishlistButton({
         ) : (
           <Heart
             size={13}
-            className={isSaved ? "fill-rose-500 text-rose-500" : "text-gray-500"}
+            className={
+              isSaved ? "fill-rose-500 text-rose-500" : "text-gray-500"
+            }
           />
         )}
       </button>
@@ -235,10 +239,20 @@ export function SaveToWishlistButton({
         ) : (
           <Heart
             size={14}
-            className={isSaved ? "fill-rose-500 text-rose-500" : "text-rose-500"}
+            className={
+              isSaved ? "fill-rose-500 text-rose-500" : "text-rose-500"
+            }
           />
         )}
-        Add to wishlist
+        {/* Two labels, one shown at a time: the card sits the buttons side by
+            side wherever they fit, and between ~226px and ~266px wide the
+            full phrase crowds the heart out. See .fwishlist-label in
+            browse-creators.css; aria-label above carries the meaning either
+            way. */}
+        <span className="fwishlist-label fwishlist-label-full">
+          Add to wishlist
+        </span>
+        <span className="fwishlist-label fwishlist-label-short">Save</span>
       </button>
     ) : (
       <button
@@ -335,7 +349,11 @@ export function SaveToWishlistButton({
                   onClick={handleCreate}
                   disabled={!newName.trim() || createMutation.isPending}
                 >
-                  {createMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  {createMutation.isPending ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Check size={13} />
+                  )}
                 </Button>
               </div>
             ) : (
@@ -347,7 +365,9 @@ export function SaveToWishlistButton({
                 <div className="size-7 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
                   <Plus size={14} />
                 </div>
-                <span className="font-medium text-sm">Create a new wishlist</span>
+                <span className="font-medium text-sm">
+                  Create a new wishlist
+                </span>
               </button>
             )}
           </div>
@@ -356,25 +376,32 @@ export function SaveToWishlistButton({
           <div className="px-5 pb-3 space-y-1 max-h-64 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                <Loader2
+                  size={16}
+                  className="animate-spin text-muted-foreground"
+                />
               </div>
             ) : wishlists.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-2">No wishlists yet</p>
+              <p className="text-sm text-muted-foreground text-center py-2">
+                No wishlists yet
+              </p>
             ) : (
               wishlists.map((w, i) => {
                 const saved = isInWishlist(w);
                 const color = ACCENT_COLORS[i % ACCENT_COLORS.length]!;
                 const isAddingThis =
-                  addMutation.isPending && addMutation.variables?.wishlistId === w.id;
+                  addMutation.isPending &&
+                  addMutation.variables?.wishlistId === w.id;
                 const isRemovingThis =
-                  removeMutation.isPending && removeMutation.variables?.wishlistId === w.id;
+                  removeMutation.isPending &&
+                  removeMutation.variables?.wishlistId === w.id;
                 const isRowBusy = isAddingThis || isRemovingThis;
                 return (
                   <div
                     key={w.id}
                     className={cn(
                       "flex items-center gap-3 p-3 rounded-xl transition-colors",
-                      saved ? "bg-rose-50" : "hover:bg-gray-50"
+                      saved ? "bg-rose-50" : "hover:bg-gray-50",
                     )}
                   >
                     <div
@@ -384,7 +411,8 @@ export function SaveToWishlistButton({
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{w.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {w.creatorCount} creator{w.creatorCount !== 1 ? "s" : ""}
+                        {w.creatorCount} creator
+                        {w.creatorCount !== 1 ? "s" : ""}
                       </p>
                     </div>
                     {saved ? (
@@ -394,7 +422,11 @@ export function SaveToWishlistButton({
                             size="icon"
                             className="bg-rose-500 hover:bg-rose-600 text-white rounded-full size-8 shrink-0"
                             onClick={() => handleToggle(w)}
-                            disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
+                            disabled={
+                              isRowBusy ||
+                              addMutation.isPending ||
+                              removeMutation.isPending
+                            }
                             aria-label={`Remove from ${w.name}`}
                           >
                             {isRemovingThis ? (
@@ -416,7 +448,11 @@ export function SaveToWishlistButton({
                             variant="outline"
                             className="rounded-full size-8 shrink-0"
                             onClick={() => handleToggle(w)}
-                            disabled={isRowBusy || addMutation.isPending || removeMutation.isPending}
+                            disabled={
+                              isRowBusy ||
+                              addMutation.isPending ||
+                              removeMutation.isPending
+                            }
                             aria-label={`Add to ${w.name}`}
                           >
                             {isAddingThis ? (

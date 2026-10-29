@@ -491,6 +491,7 @@ model CreatorProfile {
   wishlistEntries   BrandWishlistCreator[]
   unavailability    CreatorUnavailability?
   socialConnections SocialConnection[]
+  engagementDays    CreatorEngagementDaily[]
 
   @@index([city])
   @@index([countryName])
@@ -696,6 +697,11 @@ model Order {
   /// on their behalf) the admin user. Resolve their role to tell which. Null
   /// until the brief is accepted.
   briefAcceptedByUserId String?   @db.Uuid
+  /// Set every time the buyer edits and resubmits the brief before the creator
+  /// accepts it. Null means the brief on this order is the one first submitted.
+  /// Drives the "Brief updated" badge both sides see; `briefSubmittedAt` is
+  /// reset alongside it, so the creator's reminder nudge starts over.
+  briefRevisedAt        DateTime?
 
   /// Snapshot from Brief at brief submit; when true, creator must confirm receipt before first delivery
   requiresPhysicalProductShipment Boolean   @default(false)
@@ -1102,6 +1108,21 @@ model Brief {
   placedByAgencyId String? @db.Uuid
   placedByUserId   String? @db.Uuid
 
+  /// Set when this brief is a private copy made for one order, by a buyer
+  /// editing the brief after submitting it. A saved brief is reusable — the
+  /// same row can sit on many orders — so editing it in place would rewrite
+  /// the brief under every other creator already working from it. Editing
+  /// from an order forks instead: this copy belongs to that order alone, and
+  /// the original stays the library brief it was.
+  ///
+  /// Forks are hidden from the brand's saved-brief list (they are not
+  /// reusable templates) but stay readable by id, which is what the order
+  /// page and the creator's brief view ask for.
+  orderScopedOrderId String? @db.Uuid
+  /// The library brief this copy was forked from. Always the root brief, never
+  /// the previous fork, so a brief revised five times still points home.
+  forkedFromBriefId  String? @db.Uuid
+
   brand          BrandProfile? @relation(fields: [brandId], references: [id], onDelete: Cascade)
   agency         Agency?       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   placedByAgency Agency?       @relation("BriefPlacedByAgency", fields: [placedByAgencyId], references: [id], onDelete: SetNull)
@@ -1110,6 +1131,7 @@ model Brief {
   @@index([brandId, createdAt])
   @@index([agencyId, createdAt])
   @@index([placedByAgencyId, createdAt])
+  @@index([orderScopedOrderId])
 }
 
 enum OrderChatMessageType {
@@ -1663,11 +1685,49 @@ model CreatorFeature {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  /// Set by the fortnightly reshuffle when it wrote this row's rank, and left
+  /// alone by an admin drag — so `featuredById` still means "a person put this
+  /// creator here" and this means "the ranking did". Null on a row no
+  /// reshuffle has touched. The newest value across the table is when the
+  /// board was last reshuffled, which is what the admin header reads.
+  autoRankedAt DateTime?
+
   creator    CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   featuredBy User?          @relation("CreatorFeaturedBy", fields: [featuredById], references: [id], onDelete: SetNull)
 
   @@index([rank])
   @@index([featuredUntil])
+}
+
+/// One row per creator per day, holding the engagement the platform has no
+/// other record of.
+///
+/// Orders and initiated checkouts are already `Order` rows and are counted
+/// from there. The three here were fire-and-forget pixel calls to Meta with
+/// nothing kept on our side: a profile view and an add-to-cart left no trace
+/// at all, and a wishlist save left only live membership, which un-saving
+/// deletes. Ranking over a 90-day window needs them dated, so they are
+/// bucketed by day rather than kept as lifetime counters.
+///
+/// Bucketed, not one row per event: a popular creator can draw thousands of
+/// profile views a month, and the ranking only ever reads a sum over a date
+/// range. Bounded at creators x days retained.
+model CreatorEngagementDaily {
+  id           String   @id @default(uuid()) @db.Uuid
+  creatorId    String   @db.Uuid
+  /// Midnight UTC of the day being counted.
+  day          DateTime @db.Date
+  profileViews Int      @default(0)
+  addToCarts   Int      @default(0)
+  wishlistAdds Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, day])
+  // Serves the ranking's window sum, and the retention sweep that drops old days.
+  @@index([day])
 }
 
 /// Scheduled time range when a creator is unavailable. Absence of a row (or a

@@ -43,9 +43,6 @@ import {
 } from "../lib/format-enums";
 import { useSubmitBriefMutation } from "@/features/orders/hooks/use-submit-brief-mutation";
 import { SubmitBriefToOrdersDialog } from "@/features/briefs/components/submit-brief-to-orders-dialog";
-import styles from "@/features/briefs/components/brief-studio.module.css";
-import { cn } from "@/lib/utils";
-
 function formatDate(value: string | null | undefined) {
   if (!value) return "N/A";
   return new Intl.DateTimeFormat("en-US", {
@@ -80,6 +77,10 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
   const isFromOrder = !!orderId;
 
   const { data: brief, isLoading, isError, error } = useGetBriefQuery(briefId);
+
+  // A copy made by editing one order's brief. It is not a reusable template,
+  // so it is never offered up for submitting to other orders.
+  const isOrderScopedCopy = !!brief?.orderScopedOrderId;
 
   const { data: listBriefsData, isLoading: isLoadingBriefs } =
     useListBriefsQuery();
@@ -145,26 +146,26 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
   return (
     <>
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 sm:py-6 md:py-8 flex-1 flex flex-col min-w-0">
-        <div className={styles.studio} style={{ paddingTop: 0 }}>
-          <section className={cn(styles.panel, styles.leftPanel)}>
-            <div className={styles.panelHead}>
-              <div className={styles.panelHeadIconPrimary}>
+        <div className="mx-auto flex w-full flex-col items-stretch gap-4 pb-8 pt-0 md:flex-row md:items-start md:gap-6 md:pb-6">
+          <section className="flex min-w-0 flex-[2] flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-white shadow-sm dark:bg-card">
+            <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+              <div className="grid size-[38px] shrink-0 place-items-center rounded-[11px] bg-primary/12 text-primary">
                 <FileText size={19} />
               </div>
               <div className="min-w-0">
-                <h2 className={styles.panelHeadTitle}>
+                <h2 className="font-heading m-0 text-[17px] font-extrabold tracking-tight text-foreground">
                   {brief.productName || "Untitled Project"}
                 </h2>
-                <div className={styles.panelHeadSub}>
+                <div className="mt-0.5 text-[12.5px] font-medium text-muted-foreground">
                   Created on {formatDate(brief.createdAt)}
                 </div>
               </div>
             </div>
 
-            <div className={styles.panelBody}>
-              <div className={styles.formSection}>
-                <h3 className={styles.formSectionTitle}>
-                  <div className={styles.formSectionNum}>1</div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-[22px]">
+              <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                <h3 className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                  <div className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">1</div>
                   Brand Details
                 </h3>
                 <div className="grid gap-6 md:grid-cols-2">
@@ -207,9 +208,9 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </div>
               </div>
 
-              <div className={styles.formSection}>
-                <h3 className={styles.formSectionTitle}>
-                  <div className={styles.formSectionNum}>2</div>
+              <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                <h3 className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                  <div className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">2</div>
                   {offerLabels.sectionInfoTitle}
                 </h3>
                 <div className="grid gap-6 md:grid-cols-2">
@@ -264,9 +265,9 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </div>
               </div>
 
-              <div className={styles.formSection}>
-                <h3 className={styles.formSectionTitle}>
-                  <div className={styles.formSectionNum}>3</div>
+              <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                <h3 className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                  <div className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">3</div>
                   Creative Needs
                 </h3>
                 <div className="grid gap-6 md:grid-cols-2">
@@ -296,9 +297,9 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </div>
               </div>
 
-              <div className={styles.formSection}>
-                <h3 className={styles.formSectionTitle}>
-                  <div className={styles.formSectionNum}>4</div>
+              <div className="mb-[22px] border-b border-dashed border-border pb-[22px] last:mb-0 last:border-b-0 last:pb-1">
+                <h3 className="font-heading mb-4 flex items-center gap-2.5 text-[13px] font-extrabold tracking-wide text-foreground">
+                  <div className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-foreground text-[11px] font-extrabold leading-none text-[#c6ff3d]">4</div>
                   References & Notes
                 </h3>
                 <div className="space-y-6">
@@ -374,17 +375,17 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
           </section>
 
           {isFromOrder && (
-            <section className={cn(styles.panel, styles.rightPanel)}>
-              <div className={styles.panelHead}>
-                <div className={styles.panelHeadIconPrimary}>
+            <section className="sticky top-6 flex max-h-[calc(100vh-120px)] min-w-[320px] flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-white shadow-sm dark:bg-card max-md:static max-md:max-h-none">
+              <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+                <div className="grid size-[38px] shrink-0 place-items-center rounded-[11px] bg-primary/12 text-primary">
                   <Package size={19} />
                 </div>
                 <div>
-                  <h2 className={styles.panelHeadTitle}>Brief Review</h2>
-                  <div className={styles.panelHeadSub}>Submit to order</div>
+                  <h2 className="font-heading m-0 text-[17px] font-extrabold tracking-tight text-foreground">Brief Review</h2>
+                  <div className="mt-0.5 text-[12.5px] font-medium text-muted-foreground">Submit to order</div>
                 </div>
               </div>
-              <div className={styles.panelBody}>
+              <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-[22px]">
                 <Button
                   onClick={() => setIsConfirmOpen(true)}
                   disabled={isSubmitting}
@@ -404,7 +405,9 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
                 </Button>
 
                 <div>
-                  <h3 className="text-[13px] font-bold text-foreground mb-1 font-[family-name:var(--bs-font-heading)] tracking-wide">Existing Briefs</h3>
+                  <h3 className="font-heading mb-1 text-[13px] font-bold tracking-wide text-foreground">
+                    Existing Briefs
+                  </h3>
                   <p className="text-xs text-muted-foreground mb-4">
                     Reference your previous campaign briefs.
                   </p>
@@ -463,18 +466,18 @@ export function SavedBriefDetails({ briefId }: { briefId: string }) {
             </section>
           )}
 
-          {!isFromOrder && (
-            <section className={cn(styles.panel, styles.rightPanel)}>
-              <div className={styles.panelHead}>
-                <div className={styles.panelHeadIconPrimary}>
+          {!isFromOrder && !isOrderScopedCopy && (
+            <section className="sticky top-6 flex max-h-[calc(100vh-120px)] min-w-[320px] flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-white shadow-sm dark:bg-card max-md:static max-md:max-h-none">
+              <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+                <div className="grid size-[38px] shrink-0 place-items-center rounded-[11px] bg-primary/12 text-primary">
                   <Package size={19} />
                 </div>
                 <div>
-                  <h2 className={styles.panelHeadTitle}>Submit brief</h2>
-                  <div className={styles.panelHeadSub}>Send to your orders</div>
+                  <h2 className="font-heading m-0 text-[17px] font-extrabold tracking-tight text-foreground">Submit brief</h2>
+                  <div className="mt-0.5 text-[12.5px] font-medium text-muted-foreground">Send to your orders</div>
                 </div>
               </div>
-              <div className={styles.panelBody}>
+              <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-[22px]">
                 <p className="text-xs text-muted-foreground mb-4">
                   Submit this brief to one or more orders that are awaiting a
                   brief.

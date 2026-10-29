@@ -29,9 +29,15 @@ import type { CreatorPublicListItemDto } from '../creator-profile/dto/creator-pu
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import { PortfolioVisibilityStatus } from '@prisma/client';
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
+import { CreatorEngagementService } from '../creator-profile/creator-engagement.service';
+import {
+  ON_LOCATION_SHOOT_OPTION_SLUG,
+  offersOnLocationShoot,
+} from '../creator-profile/on-location-shoot.util';
 
 const creatorWithRelationsInclude = {
-  facetSelections: { include: { option: true } },
+  // Primary niche first (rank 0), then the secondaries — the card reads this order.
+  facetSelections: { include: { option: true }, orderBy: { rank: 'asc' } },
   profileLanguages: { include: { option: true } },
   restrictions: true,
   packages: true,
@@ -76,6 +82,7 @@ function mapCreatorAddOns(addOns: any): Array<{
 function mapCreatorToPublicListItem(
   profile: any,
   eligibleFreeCreatorIds?: Set<string>,
+  onLocationShootOptionName?: string | null,
 ): CreatorPublicListItemDto {
   const portfolioVideos = Array.isArray(profile.portfolioVideos)
     ? profile.portfolioVideos.map((v: any) => ({
@@ -102,8 +109,10 @@ function mapCreatorToPublicListItem(
           dimension: row?.option?.dimension,
           slug: String(row?.option?.slug ?? ''),
           label: String(row?.option?.label ?? ''),
+          rank: typeof row?.rank === 'number' ? row.rank : 0,
         }))
         .filter((x: any) => x.slug && x.dimension)
+        .sort((a, b) => a.rank - b.rank)
     : [];
 
   const availability = mapUnavailabilityToPublicAvailability(
@@ -129,6 +138,10 @@ function mapCreatorToPublicListItem(
     contentVolume: profile.contentVolume ?? null,
     collaborationCount: profile.collaborationCount ?? 0,
     onLocationAvailable: !!profile.onLocationAvailable,
+    onLocationShootAvailable: offersOnLocationShoot(
+      profile.addOns,
+      onLocationShootOptionName,
+    ),
     firstOrderFree: !!profile.firstOrderFreeEnabled,
     firstOrderFreeEligible: eligibleFreeCreatorIds
       ? eligibleFreeCreatorIds.has(profile.id)
@@ -166,6 +179,9 @@ function mapCreatorToPublicListItem(
     reviewCount: profile.stats?.reviewCount ?? 0,
     totalOrders: 0,
     completedOrders: 0,
+    // Order and save counts are not resolved on this path, and the card hides
+    // a zero rather than claiming a creator has never been ordered or saved.
+    savedCount: 0,
     available: availability.available,
     unavailableFrom: availability.startsOn,
     unavailableTo: availability.endsOn,
@@ -185,7 +201,21 @@ export class WishlistsService {
     private readonly prisma: PrismaService,
     private readonly brandAccess: BrandAccessService,
     private readonly metaCapi: MetaCapiService,
+    private readonly engagement: CreatorEngagementService,
   ) {}
+
+  /**
+   * The catalog name behind the on-location shoot slug — one lookup per
+   * listing, since `CreatorAddOn` carries no slug and the name is the same for
+   * every creator on the page. Mirrors the browse listing's own helper.
+   */
+  private async onLocationShootOptionName(): Promise<string | null> {
+    const option = await this.prisma.creatorAddOnOption.findUnique({
+      where: { slug: ON_LOCATION_SHOOT_OPTION_SLUG },
+      select: { name: true },
+    });
+    return option?.name ?? null;
+  }
 
   /**
    * Send the Meta "AddToWishlist" conversion via the Conversions API,
@@ -378,6 +408,7 @@ export class WishlistsService {
       });
       // A wishlist created around a creator is still that creator being saved.
       for (const creatorId of params.dto.creatorIds ?? []) {
+        void this.engagement.record(creatorId, 'wishlist_add');
         void this.fireAddToWishlistMetaEvent({
           actor,
           wishlistId: wishlist.id,
@@ -420,13 +451,20 @@ export class WishlistsService {
     if (!wishlist) throw new NotFoundException('Wishlist not found');
     this.assertOwnsWishlist(wishlist, actor);
 
-    const eligibleFreeCreatorIds = await this.firstOrderFreeEligibleForOwner(
-      this.brandAccess.orderOwnerWhere(actor),
-      wishlist.creators.map((wc: { creatorId: string }) => wc.creatorId),
-    );
+    const [eligibleFreeCreatorIds, travelOptionName] = await Promise.all([
+      this.firstOrderFreeEligibleForOwner(
+        this.brandAccess.orderOwnerWhere(actor),
+        wishlist.creators.map((wc: { creatorId: string }) => wc.creatorId),
+      ),
+      this.onLocationShootOptionName(),
+    ]);
 
     const creators = wishlist.creators.map((wc: any) => ({
-      ...mapCreatorToPublicListItem(wc.creator, eligibleFreeCreatorIds),
+      ...mapCreatorToPublicListItem(
+        wc.creator,
+        eligibleFreeCreatorIds,
+        travelOptionName,
+      ),
       addOns: mapCreatorAddOns(wc.creator?.addOns),
       selectedAddOnIds: Array.isArray(wc.selectedAddOnIds)
         ? wc.selectedAddOnIds
@@ -577,6 +615,11 @@ export class WishlistsService {
       wishlistName: wishlist.name,
       meta: params.meta,
     });
+
+    // Our own dated copy of the save. The join row alone cannot serve the
+    // browse ranking: un-saving deletes it, so a creator saved and dropped a
+    // hundred times reads as never saved at all.
+    void this.engagement.record(params.creatorId, 'wishlist_add');
   }
 
   async removeCreator(params: {
@@ -677,8 +720,9 @@ export class WishlistsService {
     if (!wishlist)
       throw new NotFoundException('Wishlist not found or sharing is disabled');
 
+    const travelOptionName = await this.onLocationShootOptionName();
     const creators = wishlist.creators.map((wc: any) =>
-      mapCreatorToPublicListItem(wc.creator),
+      mapCreatorToPublicListItem(wc.creator, undefined, travelOptionName),
     );
 
     const ownerBrand = wishlist.brand

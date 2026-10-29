@@ -129,6 +129,12 @@ describe('CreatorProfileService', () => {
       groupBy: jest.fn().mockResolvedValue([]),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    brandWishlistCreator: {
+      groupBy: jest.fn().mockResolvedValue([]),
+    },
+    creatorAddOnOption: {
+      findUnique: jest.fn().mockResolvedValue({ name: 'Travel within City' }),
+    },
     creatorProfile: {
       findUnique: txMock.creatorProfile.findUnique,
       count: jest.fn(),
@@ -235,6 +241,10 @@ describe('CreatorProfileService', () => {
     );
     prismaMock.order.groupBy.mockResolvedValue([]);
     prismaMock.order.findMany.mockResolvedValue([]);
+    prismaMock.brandWishlistCreator.groupBy.mockResolvedValue([]);
+    prismaMock.creatorAddOnOption.findUnique.mockResolvedValue({
+      name: 'Travel within City',
+    });
 
     const creatorReviewsMock = {
       listTopForCreator: jest.fn().mockResolvedValue([]),
@@ -602,6 +612,134 @@ describe('CreatorProfileService', () => {
         id: 'creator-1',
         name: 'ab12cd34',
       });
+    });
+
+    it('carries the wishlist save count onto each card', async () => {
+      const row = {
+        id: 'creator-1',
+        publicSlug: 'ab12cd34',
+        city: 'Bengaluru',
+        collaborationCount: 0,
+        onLocationAvailable: false,
+      };
+
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
+      prismaMock.brandWishlistCreator.groupBy.mockResolvedValueOnce([
+        { creatorId: 'creator-1', _count: { _all: 8 } },
+      ]);
+
+      const result = await service.listCreators({ page: 1, limit: 24 } as any);
+
+      expect(result.items[0].savedCount).toBe(8);
+    });
+
+    it('reports zero saves for a creator no wishlist holds', async () => {
+      const row = {
+        id: 'creator-1',
+        publicSlug: 'ab12cd34',
+        city: 'Bengaluru',
+        collaborationCount: 0,
+        onLocationAvailable: false,
+      };
+
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
+      prismaMock.brandWishlistCreator.groupBy.mockResolvedValueOnce([]);
+
+      const result = await service.listCreators({ page: 1, limit: 24 } as any);
+
+      expect(result.items[0].savedCount).toBe(0);
+    });
+
+    it('advertises an on-location shoot only when the add-on is priced', async () => {
+      const base = {
+        publicSlug: 'ab12cd34',
+        city: 'Bengaluru',
+        collaborationCount: 0,
+        onLocationAvailable: false,
+      };
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([
+        {
+          ...base,
+          id: 'travels',
+          addOns: [{ name: 'Travel within City', priceAmount: '1500' }],
+        },
+        {
+          ...base,
+          id: 'listed-but-free',
+          addOns: [{ name: 'Travel within City', priceAmount: '0' }],
+        },
+        { ...base, id: 'studio-only', addOns: [{ name: 'Rush delivery' }] },
+      ]);
+
+      const result = await service.listCreators({ page: 1, limit: 24 } as any);
+
+      expect(
+        result.items.map((item) => [item.id, item.onLocationShootAvailable]),
+      ).toEqual([
+        ['travels', true],
+        // Priced at zero is nothing a brand can buy, so the card must not
+        // promise it — the same rule the order flow applies.
+        ['listed-but-free', false],
+        ['studio-only', false],
+      ]);
+    });
+
+    it('orders the niche facets primary first, whatever order they arrive in', async () => {
+      const row = {
+        id: 'creator-1',
+        publicSlug: 'ab12cd34',
+        city: 'Bengaluru',
+        collaborationCount: 0,
+        onLocationAvailable: false,
+        facetSelections: [
+          {
+            rank: 2,
+            option: {
+              dimension: 'CONTENT_CATEGORY',
+              slug: 'travel',
+              label: 'Travel',
+            },
+          },
+          {
+            rank: 0,
+            option: {
+              dimension: 'CONTENT_CATEGORY',
+              slug: 'beauty',
+              label: 'Beauty',
+            },
+          },
+          {
+            rank: 1,
+            option: {
+              dimension: 'CONTENT_CATEGORY',
+              slug: 'fashion',
+              label: 'Fashion',
+            },
+          },
+        ],
+      };
+
+      prismaMock.creatorProfile.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([row]);
+
+      const result = await service.listCreators({ page: 1, limit: 24 } as any);
+
+      expect(result.items[0].facetSelections.map((f) => f.label)).toEqual([
+        'Beauty',
+        'Fashion',
+        'Travel',
+      ]);
     });
   });
 });

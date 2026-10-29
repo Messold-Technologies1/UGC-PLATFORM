@@ -1,6 +1,6 @@
-.studio,
 .briefCard,
-.briefsDrawer {
+.briefsDrawer,
+.panel {
   --bs-font-heading: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
   --bs-lime: #c6ff3d;
   --bs-grape: #8b5cf6;
@@ -11,15 +11,6 @@
   --bs-shadow-md: 0 6px 18px -8px rgb(24 19 19 / 0.14);
 }
 
-.studio {
-  display: flex;
-  align-items: flex-start;
-  gap: 24px;
-  width: 100%;
-  margin: 0 auto;
-  padding-bottom: 24px;
-}
-
 .panel {
   background: #fff;
   border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
@@ -28,11 +19,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.leftPanel {
-  flex: 2;
-  min-width: 0;
 }
 
 .rightPanel {
@@ -64,12 +50,6 @@
 .panelHeadIcon svg {
   width: 19px;
   height: 19px;
-}
-
-.panelHeadIconPrimary {
-  composes: panelHeadIcon;
-  background: color-mix(in oklab, var(--primary) 12%, transparent);
-  color: var(--primary);
 }
 
 .panelHeadIconGrape {
@@ -105,27 +85,6 @@
   flex-shrink: 0;
 }
 
-.panelHeadAction {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted-foreground);
-  background: var(--muted);
-  padding: 5px 14px;
-  border-radius: 999px;
-  border: 0;
-  cursor: pointer;
-  transition:
-    background 0.14s,
-    color 0.14s;
-  flex-shrink: 0;
-}
-
-.panelHeadAction:hover {
-  background: color-mix(in oklab, var(--muted-foreground) 15%, transparent);
-  color: var(--foreground);
-}
-
 .panelBody {
   padding: 22px 24px;
   overflow-y: auto;
@@ -144,217 +103,6 @@
 
 .panelBody::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklab, var(--foreground) 24%, transparent);
-}
-
-.panelFoot {
-  padding: 16px 24px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex-shrink: 0;
-  background: color-mix(in oklab, var(--muted) 40%, white);
-}
-
-.panelFootActions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
-
-.panelFootWarning {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
-  background: color-mix(in srgb, #fef3c7 80%, white);
-  color: #92400e;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.panelFootWarningIcon {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.panelFootSpacer {
-  flex: 1;
-}
-
-.formSection {
-  padding-bottom: 22px;
-  margin-bottom: 22px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--border) 100%, transparent);
-}
-
-.formSection:last-child {
-  border-bottom: 0;
-  margin-bottom: 0;
-  padding-bottom: 4px;
-}
-
-.formSectionTitle {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--bs-font-heading);
-  font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  margin-bottom: 16px;
-  color: var(--foreground);
-}
-
-.formSectionNum {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: var(--foreground);
-  color: var(--bs-lime);
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  font-weight: 800;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.briefTypeSwitch {
-  margin-bottom: 22px;
-}
-
-.briefTypeQuestion {
-  margin: 0 0 14px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #3f3f46;
-}
-
-.briefTypeCards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.briefTypeCard {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 18px 44px 18px 16px;
-  border: 1.5px solid #e4e4e7;
-  border-radius: 16px;
-  background: #fff;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.16s,
-    border-color 0.16s;
-}
-
-.briefTypeCard:hover {
-  border-color: #d4d4d8;
-}
-
-.briefTypeCardSelected {
-  border-color: #fda4af;
-  background: #fff1f2;
-}
-
-.briefTypeCardCheck {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: #fb7185;
-  color: #fff;
-}
-
-.briefTypeCardArt {
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-  object-fit: contain;
-  mix-blend-mode: multiply;
-}
-
-.briefTypeCardCopy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 0;
-}
-
-.briefTypeCardTitle {
-  font-size: 15px;
-  font-weight: 800;
-  color: #18181b;
-  line-height: 1.2;
-}
-
-.briefTypeCardBlurb {
-  font-size: 12px;
-  line-height: 1.45;
-  color: #71717a;
-}
-
-.briefTypePanel {
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: #fff1f2;
-}
-
-.briefTypeCopyTitle {
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #18181b;
-}
-
-.briefTypePanel p:last-child {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: #52525b;
-}
-
-.productTypeRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border-radius: var(--bs-radius);
-  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
-  background: color-mix(in oklab, var(--muted) 30%, white);
-}
-
-.productTypeRowLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--foreground);
-  margin: 0;
-}
-
-.productTypeRowHint {
-  margin-top: 2px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--muted-foreground);
 }
 
 .briefList {
@@ -621,14 +369,6 @@
   }
 }
 
-.panelHeadActions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
 .briefsMenuBtn {
   position: relative;
   display: none;
@@ -704,12 +444,6 @@
 }
 
 @media (max-width: 767px) {
-  .studio {
-    flex-direction: column;
-    align-items: stretch;
-    padding-bottom: 40px;
-  }
-
   .rightPanel {
     display: none;
   }
@@ -728,11 +462,6 @@
 }
 
 @media (max-width: 640px) {
-  .studio {
-    padding-bottom: 32px;
-    gap: 16px;
-  }
-
   .panelHead {
     padding: 16px 16px;
   }
@@ -741,30 +470,14 @@
     padding: 16px 16px;
   }
 
-  .panelFoot {
-    padding: 14px 16px;
-    flex-wrap: wrap;
-  }
-
   .briefCard {
     padding: 14px;
-  }
-
-  .briefTypeCards {
-    grid-template-columns: 1fr;
-  }
-
-  .productTypeRow {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .briefCard,
   .useTemplateBtn,
-  .panelHeadAction,
   .briefsMenuBtn {
     transition-duration: 0.01ms !important;
   }

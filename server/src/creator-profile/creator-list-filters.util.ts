@@ -310,7 +310,12 @@ export function buildCreatorListRelationsInclude(
   };
 
   return {
-    facetSelections: { include: { option: { select: facetOptionSelect } } },
+    // rank asc so the CONTENT_CATEGORY picks arrive primary-first — the card
+    // leads with the primary niche and shows the secondaries behind it.
+    facetSelections: {
+      include: { option: { select: facetOptionSelect } },
+      orderBy: { rank: 'asc' },
+    },
     profileLanguages: { include: { option: { select: facetOptionSelect } } },
     restrictions: { select: { restriction: true } },
     packages: {
@@ -328,7 +333,9 @@ export function buildCreatorListRelationsInclude(
       select: portfolioSelect,
     },
     stats: { select: { avgRating: true, reviewCount: true } },
-    addOns: { select: { name: true } },
+    // priceAmount comes along because an add-on priced at zero is one a brand
+    // cannot buy — see offersOnLocationShoot.
+    addOns: { select: { name: true, priceAmount: true } },
     unavailability: { select: { startsOn: true, endsOn: true } },
   };
 }

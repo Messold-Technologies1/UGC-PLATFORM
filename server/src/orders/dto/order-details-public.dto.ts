@@ -79,6 +79,12 @@ export class OrderDetailsPublicDto {
   @ApiPropertyOptional()
   briefAcceptedAt?: Date | null;
 
+  @ApiPropertyOptional({
+    description:
+      'Set when the buyer edited and resubmitted the brief before the creator accepted it. Null means the brief is the one first submitted.',
+  })
+  briefRevisedAt?: Date | null;
+
   @ApiProperty({
     description:
       'True when the linked brief required physical shipment to the creator (snapshot at brief submit)',

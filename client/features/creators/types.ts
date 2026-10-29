@@ -6,6 +6,11 @@ export interface Creator {
   reviewCount: number;
   startingPrice: number;
   ordersCompleted: number;
+  /**
+   * Wishlists this creator is currently saved to. A live count — un-saving
+   * removes the row — so the card shows it only when it is above zero.
+   */
+  savedCount: number;
   collaborationCount: number;
   thumbnail: string;
   previewVideoUrl?: string | null;
@@ -15,10 +20,22 @@ export interface Creator {
   available: boolean;
   storeVisit: boolean;
   travelAvailable: boolean;
+  /**
+   * The creator prices the catalog's on-location shoot add-on, so a brand can
+   * actually buy travel from them at checkout. Distinct from `travelAvailable`,
+   * which is the older "has a radius or says yes to on-location" flag and
+   * promises nothing purchasable.
+   */
+  onLocationShoot: boolean;
   gender: "male" | "female" | "other";
 
   category: string;
 
+  /**
+   * Content niches, primary first. The creator ranks these themselves
+   * (rank 0 = primary, 1..2 = secondary), and the card leads with the
+   * primary one.
+   */
   categories: string[];
   languages: string[];
   deliveryDays: number;

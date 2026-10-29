@@ -2,7 +2,17 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Play, MapPin, ArrowRight, Gift, Volume2, VolumeX } from "lucide-react";
+import {
+  Play,
+  MapPin,
+  ArrowRight,
+  Gift,
+  Volume2,
+  VolumeX,
+  Truck,
+  Heart,
+  Camera,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Creator } from "../types";
@@ -47,14 +57,26 @@ export const CreatorCard = memo(function CreatorCard({
   showName = false,
 }: CreatorCardProps) {
   const [g1, g2] = posterColor(index);
-  const tags = (
+  // The creator ranks their own niches, so the list arrives primary-first and
+  // simply reads left to right — one primary, then two secondaries, none of
+  // them marked out. `tags` is the fallback for records that predate the
+  // ranked facets.
+  const niches = (
     creator.categories?.length ? creator.categories : creator.tags
-  ).slice(0, 2);
+  ).slice(0, 3);
   const initials = getInitials(creator.name);
   const locationLabel = creator.location || "Location not set";
   const priceLabel = `₹${creator.startingPrice.toLocaleString("en-IN")}`;
-  const deliveryLabel = `Guaranteed ${creator.deliveryDays}-day delivery`;
   const isAvailable = creator.available !== false;
+  // Earned, not guaranteed: a creator nobody has saved yet shows nothing
+  // rather than a zero.
+  const savedCount = creator.savedCount ?? 0;
+  const showSaved = savedCount > 0;
+  // Only creators a brand can actually buy travel from say so. The rest stay
+  // quiet rather than carrying a "no" on every card.
+  const showOnLocation = creator.onLocationShoot === true;
+  // At most three: a fourth wraps the row for a name few briefs need.
+  const languages = creator.languages.slice(0, 3);
 
   const profileImage = isHttpUrl(creator.thumbnail) ? creator.thumbnail : "";
   const videoThumbnail = isHttpUrl(creator.previewVideoThumbnail)
@@ -76,10 +98,11 @@ export const CreatorCard = memo(function CreatorCard({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [imageSrc, setImageSrc] = useState(stillImageSrc);
-  // `srcAttached` latches true on the first hover and stays true so the loaded
-  // media (and its buffer) is retained across hovers — a second hover replays
-  // instantly instead of re-fetching from the CDN. `playing` drives the
-  // poster/video crossfade per hover.
+  // `srcAttached` latches true on the first hover and stays true: it both
+  // mounts the <video> and keeps it mounted, so the loaded media (and its
+  // buffer) is retained across hovers — a second hover replays instantly
+  // instead of re-fetching from the CDN. `playing` drives the poster/video
+  // crossfade per hover.
   const [srcAttached, setSrcAttached] = useState(false);
   const [playing, setPlaying] = useState(false);
   // Previews autoplay muted on hover — browsers block unmuted autoplay without a
@@ -124,23 +147,27 @@ export const CreatorCard = memo(function CreatorCard({
   const queryClient = useQueryClient();
 
   const handleMouseEnter = useCallback(() => {
-    // Warm the profile-drawer data so the Overview tab is (usually) already
-    // cached by the time the card is clicked, instead of starting the fetch on
-    // open. `prefetchQuery` is a no-op when the data is still fresh.
-    void queryClient.prefetchQuery({
-      queryKey: creatorProfileQueryKey(creator.id),
-      queryFn: () => getCreatorProfileClient(creator.id),
-      staleTime: 2 * 60_000,
-    });
-
-    if (!hasVideo) return;
-    // Wait out a brief hover-intent window before attaching the source and
-    // starting playback. Its src is attached lazily (see the <video> element),
-    // so we can't call play() synchronously here; the effect below starts
-    // playback once the source is actually attached.
+    // Everything here waits out the hover-intent window, the profile prefetch
+    // included. It used to fire on the bare mouseenter, so a pointer crossing
+    // the grid queued one profile request per card it passed over — twenty-odd
+    // requests the viewer never asked for, competing with the images that were
+    // still loading.
     clearHoverTimer();
     hoverTimerRef.current = window.setTimeout(() => {
       hoverTimerRef.current = null;
+
+      // Warm the profile-drawer data so the Overview tab is (usually) already
+      // cached by the time the card is clicked, instead of starting the fetch
+      // on open. `prefetchQuery` is a no-op when the data is still fresh.
+      void queryClient.prefetchQuery({
+        queryKey: creatorProfileQueryKey(creator.id),
+        queryFn: () => getCreatorProfileClient(creator.id),
+        staleTime: 2 * 60_000,
+      });
+
+      if (!hasVideo) return;
+      // The <video> is only mounted from here on, so we cannot call play()
+      // synchronously; the effect below starts it once the element exists.
       setSrcAttached(true);
       setPlaying(true);
     }, HOVER_INTENT_MS);
@@ -256,144 +283,229 @@ export const CreatorCard = memo(function CreatorCard({
       aria-label={`View ${creator.name}'s profile`}
       onKeyDown={handleKeyDown}
     >
-      <div className={cn("reel", creator.firstOrderFreeEligible && "has-fof")}>
-        {imageSrc ? (
-          <Image
-            src={imageSrc}
-            alt={`${creator.name}'s content`}
-            fill
-            className={cn("real-media", hasVideo && playing && "opacity-0")}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 214px"
-            onError={handleImageError}
-          />
-        ) : (
-          <div
-            className="ip"
-            style={{
-              background: `linear-gradient(155deg, ${g1}, ${g2})`,
-            }}
-          >
-            <span className="mono">{initials}</span>
-          </div>
-        )}
-
-        {hasVideo ? (
-          <video
-            ref={videoRef}
-            // Once attached on first hover, the src stays put so the buffer is
-            // retained for instant replay on later hovers.
-            src={srcAttached ? activeVideoUrl! : undefined}
-            poster={videoThumbnail || profileImage || undefined}
-            className={cn("real-media", !playing && "opacity-0")}
-            muted={muted}
-            loop
-            playsInline
-            // metadata (not none): once the src is attached the browser fetches
-            // the moov/first frame, so playback can begin promptly on hover.
-            preload="metadata"
-            onCanPlay={handleCanPlay}
-            onLoadedData={handleCanPlay}
-            onError={handleVideoError}
-          />
-        ) : null}
-
-        {hasVideo && playing ? (
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            aria-label={muted ? "Unmute preview" : "Mute preview"}
-            className="absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/75"
-          >
-            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-        ) : null}
-
-        <div className="scrim" />
-
-        <div className="scrubline">
-          <i />
-        </div>
-        <div className="top">
-          <span className="vchip">{deliveryLabel}</span>
-          {isAvailable ? (
-            <span className="availchip online">
-              <i /> Online
-            </span>
+      {/* The height lives here rather than on <article>: it is derived from the
+          card's own width (100cqw), and an element cannot query itself. See
+          .rbody in browse-creators.css. */}
+      <div className="rbody">
+        <div
+          className={cn("reel", creator.firstOrderFreeEligible && "has-fof")}
+        >
+          {imageSrc ? (
+            <Image
+              src={imageSrc}
+              alt={`${creator.name}'s content`}
+              fill
+              className={cn("real-media", hasVideo && playing && "opacity-0")}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 214px"
+              onError={handleImageError}
+            />
           ) : (
-            <span className="availchip offline">
-              <i /> Offline
-            </span>
+            <div
+              className="ip"
+              style={{
+                background: `linear-gradient(155deg, ${g1}, ${g2})`,
+              }}
+            >
+              <span className="mono">{initials}</span>
+            </div>
           )}
-        </div>
 
-        <div className="play">
-          <div className="pb">
-            <Play size={18} />
-          </div>
-        </div>
+          {/* Mounted on the first hover, not on render. A <video> carrying a
+              `poster` downloads that poster the moment it exists, even with no
+              src attached — so every card in the grid was pulling its still
+              twice over, once for the <Image> the viewer can see and once for
+              a hidden video they may never hover. Mounting it late also keeps
+              N video elements out of the document while scrolling. */}
+          {hasVideo && srcAttached ? (
+            <video
+              ref={videoRef}
+              // Once attached on first hover, the src stays put so the buffer is
+              // retained for instant replay on later hovers.
+              src={activeVideoUrl!}
+              poster={videoThumbnail || profileImage || undefined}
+              className={cn("real-media", !playing && "opacity-0")}
+              muted={muted}
+              loop
+              playsInline
+              // metadata (not none): once the src is attached the browser fetches
+              // the moov/first frame, so playback can begin promptly on hover.
+              preload="metadata"
+              onCanPlay={handleCanPlay}
+              onLoadedData={handleCanPlay}
+              onError={handleVideoError}
+            />
+          ) : null}
 
-        <div className="who">
-          <div className="nm">{priceLabel}</div>
-          <div className="lc">
-            <MapPin size={11} /> {locationLabel}
-            <span style={{ opacity: 0.5 }}>·</span>
-            {creator.languages.slice(0, 2).join(", ")}
-          </div>
-        </div>
-        {creator.firstOrderFreeEligible ? (
-          <div className="fof-ribbon">
-            <span>
-              <Gift size={14} /> First order free
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="foot">
-        <div className="ftags">
-          {tags.map((tag) => {
-            const [bg, fg] = tagColor(tag);
-            return (
-              <span
-                key={tag}
-                className="ftag"
-                style={{ background: bg, color: fg }}
-              >
-                {tag}
-              </span>
-            );
-          })}
-        </div>
-
-        <div className="fbottom">
-          <div className="factions">
-            {showName ? (
-              <span
-                className="min-w-0 flex-1 truncate text-left text-[12.5px] font-bold text-foreground"
-                title={creator.name}
-              >
-                {creator.name}
-              </span>
-            ) : null}
-            {isBrand ? (
-              <SaveToWishlistButton
-                creatorId={creator.id}
-                creatorName={creator.name}
-                creatorImageUrl={creator.thumbnail}
-                creatorCategory={
-                  creator.categories?.[0] || creator.category || null
-                }
-                creatorCity={
-                  creator.location !== "Location not set"
-                    ? creator.location
-                    : null
-                }
-                variant="card"
-              />
-            ) : null}
-            <button type="button" className="fview" onClick={handleViewClick}>
-              View <ArrowRight size={14} />
+          {hasVideo && playing ? (
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              aria-label={muted ? "Unmute preview" : "Mute preview"}
+              className="absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/75"
+            >
+              {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </button>
+          ) : null}
+
+          <div className="scrim" />
+
+          <div className="scrubline">
+            <i />
+          </div>
+          <div className="top">
+            {isAvailable ? (
+              <span className="availchip online">
+                <i /> Online
+              </span>
+            ) : (
+              <span className="availchip offline">
+                <i /> Offline
+              </span>
+            )}
+          </div>
+
+          <div className="play">
+            <div className="pb">
+              <Play size={18} />
+            </div>
+          </div>
+          <div className="who">
+            <div className="nm">{priceLabel}</div>
+            {/* The city alone — languages have a row of their own below, so
+                this no longer has two fields fighting over one line. */}
+            <div className="lc">
+              <span className="lc-item" title={locationLabel}>
+                <MapPin size={11} />
+                <span className="lc-text">{locationLabel}</span>
+              </span>
+            </div>
+          </div>
+          {creator.firstOrderFreeEligible ? (
+            <div className="fof-ribbon">
+              <span>
+                <Gift size={14} /> First order free
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="foot">
+          <div className="ftags">
+            {niches.map((niche) => {
+              const [bg, fg] = tagColor(niche);
+              return (
+                <span
+                  key={niche}
+                  className="ftag"
+                  style={{ background: bg, color: fg }}
+                >
+                  {niche}
+                </span>
+              );
+            })}
+          </div>
+
+          {/* What the creator will do for you. The travel column shows only
+              for creators a brand can actually buy travel from — the add-on
+              priced above zero — and the delivery promise, which every
+              creator has, takes the whole row on its own when it does not. */}
+          <div className="finfo">
+            {showOnLocation ? (
+              <div className="finfo-cell finfo-cell-go">
+                <Camera size={15} />
+                <div className="finfo-text">
+                  {/* "shoot" and "delivery" drop on a narrow card so the two
+                        boxes still sit side by side rather than stacking —
+                        the words they leave behind carry the meaning. */}
+                  <span className="finfo-label">
+                    On-location<span className="finfo-long"> shoot</span>
+                  </span>
+                  <b className="finfo-value">Available</b>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="finfo-cell">
+              <Truck size={15} />
+              <div className="finfo-text">
+                <span className="finfo-label">Guaranteed</span>
+                <b className="finfo-value">
+                  <span className="finfo-long">
+                    {creator.deliveryDays}-day delivery
+                  </span>
+                  <span className="finfo-brief">
+                    {creator.deliveryDays} days
+                  </span>
+                </b>
+              </div>
+            </div>
+          </div>
+
+          {/* Who they can brief, and how many buyers have kept them. Both are
+              conditional, and the row goes entirely when neither is there. */}
+          {languages.length || showSaved ? (
+            <div className="fmeta">
+              {languages.length ? (
+                <div className="fmeta-langs">
+                  <span className="fmeta-value">
+                    {languages.map((language, index) => (
+                      <span key={language}>
+                        {index > 0 ? <i className="fmeta-dot" /> : null}
+                        {language}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              ) : null}
+
+              {languages.length && showSaved ? (
+                <i className="finfo-rule" />
+              ) : null}
+
+              {showSaved ? (
+                <div className="fmeta-saved">
+                  <span className="fmeta-saved-count">
+                    <Heart size={15} />
+                    <b>{savedCount.toLocaleString("en-IN")}</b>
+                  </span>
+                  <span className="fmeta-label">
+                    {savedCount === 1 ? "time saved" : "times saved"}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="fbottom">
+            <div className="factions">
+              {showName ? (
+                <span
+                  className="min-w-0 flex-1 truncate text-left text-[12.5px] font-bold text-foreground"
+                  title={creator.name}
+                >
+                  {creator.name}
+                </span>
+              ) : null}
+              {isBrand ? (
+                <SaveToWishlistButton
+                  creatorId={creator.id}
+                  creatorName={creator.name}
+                  creatorImageUrl={creator.thumbnail}
+                  creatorCategory={
+                    creator.categories?.[0] || creator.category || null
+                  }
+                  creatorCity={
+                    creator.location !== "Location not set"
+                      ? creator.location
+                      : null
+                  }
+                  variant="card"
+                />
+              ) : null}
+              <button type="button" className="fview" onClick={handleViewClick}>
+                View profile <ArrowRight size={14} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -409,27 +521,24 @@ export function CreatorCardSkeleton({
   if (appearance === "browse") {
     return (
       <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card">
-        <Skeleton className="aspect-4/5 w-full rounded-none" />
-        <div className="flex flex-1 flex-col p-3">
-          <div className="flex items-center justify-between gap-2">
-            <Skeleton className="h-5 w-32 rounded-full" />
-            <Skeleton className="h-4 w-12 rounded-full" />
+        {/* Mirrors the card's own rows so the grid doesn't reflow when the
+            real cards land: 9/16 media, two chip rows, delivery, stats,
+            actions. */}
+        <Skeleton className="aspect-9/16 w-full rounded-none" />
+        <div className="flex flex-1 flex-col gap-2 p-[11px_13px_12px]">
+          <div className="flex h-[47px] flex-wrap content-start gap-[5px]">
+            <Skeleton className="h-5 w-16 rounded-md" />
+            <Skeleton className="h-5 w-14 rounded-md" />
+            <Skeleton className="h-5 w-16 rounded-md" />
           </div>
-          <div className="mt-1 space-y-2">
-            <Skeleton className="h-3 w-24 rounded-full" />
-            <Skeleton className="h-3 w-36 rounded-full" />
+          <Skeleton className="h-[34px] w-full rounded-[9px]" />
+          <div className="flex h-10 items-center gap-3">
+            <Skeleton className="h-6 flex-1 rounded-md" />
+            <Skeleton className="h-6 flex-1 rounded-md" />
           </div>
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            <Skeleton className="h-5 w-14 rounded-full" />
-            <Skeleton className="h-5 w-16 rounded-full" />
-            <Skeleton className="h-5 w-20 rounded-full" />
-          </div>
-          <div className="mt-auto flex items-center justify-between pt-3">
-            <div className="space-y-1">
-              <Skeleton className="h-2 w-16 rounded-full" />
-              <Skeleton className="h-5 w-20 rounded-full" />
-            </div>
-            <Skeleton className="h-7 w-20 rounded-full" />
+          <div className="mt-auto flex items-center gap-2">
+            <Skeleton className="h-9 flex-1 rounded-[9px]" />
+            <Skeleton className="h-9 w-[72px] rounded-[9px]" />
           </div>
         </div>
       </div>

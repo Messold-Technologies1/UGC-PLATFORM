@@ -79,6 +79,7 @@ function mapBriefRow(b: {
   finalNotes: string | null;
   createdAt: Date;
   updatedAt: Date;
+  orderScopedOrderId?: string | null;
 }): BriefDto {
   return {
     id: b.id,
@@ -108,6 +109,7 @@ function mapBriefRow(b: {
     finalNotes: b.finalNotes ?? null,
     createdAt: b.createdAt,
     updatedAt: b.updatedAt,
+    orderScopedOrderId: b.orderScopedOrderId ?? null,
   };
 }
 
@@ -130,10 +132,53 @@ export class BriefsService {
     throw new ForbiddenException('Not your brief');
   }
 
+  /**
+   * Refuse to hand a per-order copy to another order.
+   *
+   * A fork exists so that one order's brief can change without touching
+   * anyone else's. Attaching it to a second order would put two creators back
+   * on one row and undo exactly that.
+   */
+  private assertBriefIsReusable(brief: {
+    orderScopedOrderId: string | null;
+  }): void {
+    if (brief.orderScopedOrderId) {
+      throw new BadRequestException(
+        'This brief is a copy belonging to a single order and cannot be submitted to another. Use the saved brief it was created from.',
+      );
+    }
+  }
+
   private briefListWhere(ctx: ResolvedBrandContext) {
-    if (ctx.agency) return { agencyId: ctx.agency.id };
-    if (ctx.brand) return { brandId: ctx.brand.id };
-    throw new ForbiddenException('Not allowed to list briefs');
+    // Forks made by editing a submitted brief belong to one order, not to the
+    // library: offering them as reusable templates would fill the picker with
+    // near-identical copies of the same campaign.
+    const owner = (() => {
+      if (ctx.agency) return { agencyId: ctx.agency.id };
+      if (ctx.brand) return { brandId: ctx.brand.id };
+      throw new ForbiddenException('Not allowed to list briefs');
+    })();
+    return { ...owner, orderScopedOrderId: null };
+  }
+
+  /**
+   * Refuse an edit once any order carrying this brief has been accepted.
+   *
+   * A brief is reusable, so one row can sit on several orders at once. The
+   * moment a creator accepts, that brief is the deal they agreed to and the
+   * work they have started; rewriting it underneath them would change the job
+   * after the handshake. Before acceptance the buyer is free to revise.
+   */
+  private async assertBriefNotAcceptedAnywhere(briefId: string): Promise<void> {
+    const accepted = await this.prisma.order.findFirst({
+      where: { briefId, briefAcceptedAt: { not: null } },
+      select: { id: true },
+    });
+    if (accepted) {
+      throw new BadRequestException(
+        'This brief can no longer be edited — a creator has already accepted it. Briefs are editable only until the creator accepts.',
+      );
+    }
   }
 
   private assertTempBriefProductImageKeyOwner(
@@ -387,6 +432,112 @@ export class BriefsService {
     if (!existing) throw new NotFoundException('Brief not found');
     this.assertBriefOwnedByContext(existing, ctx);
 
+    // A fork belongs to one order and is edited through reviseBriefForOrder,
+    // which resets the creator's clock and flags the brief as revised. Editing
+    // it here would change what the creator is reading with no sign of it.
+    if (existing.orderScopedOrderId) {
+      throw new BadRequestException(
+        'This brief belongs to a single order. Edit it from that order instead.',
+      );
+    }
+    await this.assertBriefNotAcceptedAnywhere(existing.id);
+
+    const { data, finalizeImageKey, clearsProductImage } =
+      await this.resolveBriefEdit({
+        actorUserId: params.actorUserId,
+        ctx,
+        existing,
+        dto: params.dto,
+      });
+
+    // Switching to a service brief clears any existing product image.
+    if (clearsProductImage && existing.productImageKey) {
+      await this.storage.deleteObjectIfExists(existing.productImageKey);
+    }
+
+    await this.prisma.brief.update({
+      where: { id: existing.id },
+      data: data as any,
+    });
+
+    if (finalizeImageKey) {
+      const finalKey = await this.storage.finalizeBriefProductImageKey({
+        tempKey: finalizeImageKey,
+        briefId: existing.id,
+        deleteTemp: true,
+      });
+      await this.prisma.brief.update({
+        where: { id: existing.id },
+        data: {
+          productImageKey: finalKey,
+          productImageUrl: this.storage.buildCdnUrl(finalKey),
+        },
+      });
+      if (existing.productImageKey && existing.productImageKey !== finalKey) {
+        await this.storage.deleteObjectIfExists(existing.productImageKey);
+      }
+    }
+
+    await this.recordAgencyBrandName(ctx, params.dto.brandName);
+
+    const updated = await this.prisma.brief.findUnique({
+      where: { id: existing.id },
+    });
+    if (!updated) throw new NotFoundException('Brief not found');
+    return mapBriefRow(updated);
+  }
+
+  /**
+   * Agencies have no BrandProfile for the clients they buy for, so the client
+   * brand is only ever a name typed into a brief. Collect it as they type so
+   * the agency's own brand filter has something to offer next time.
+   */
+  private async recordAgencyBrandName(
+    ctx: ResolvedBrandContext,
+    brandName: string | null | undefined,
+  ): Promise<void> {
+    const name = brandName?.trim();
+    if (!ctx.isAgencyWorkspace || !ctx.agency || !name) return;
+    await this.agencyService.recordBrandNameFromBrief(ctx.agency.id, name);
+  }
+
+  /**
+   * Validate an edit against the brief it is changing and turn it into a
+   * Prisma `data` payload.
+   *
+   * Shared by the library edit (updateBrief) and the per-order revise
+   * (reviseBriefForOrder) so the two can never disagree about what a valid
+   * brief looks like. Deliberately free of side effects: it neither writes nor
+   * deletes, it only reports what the caller should write (`data`), which
+   * temp upload still needs finalizing (`finalizeImageKey`), whether the old
+   * product image is now orphaned (`clearsProductImage`), and the field values
+   * the edit settles on (`merged`), which the order path re-validates against
+   * the order before committing anything.
+   */
+  private async resolveBriefEdit(params: {
+    actorUserId: string;
+    ctx: ResolvedBrandContext;
+    existing: {
+      isProduct: boolean;
+      willShipPhysicalProductToCreator: boolean;
+      wantsPhysicalProductReturned: boolean;
+      productImageKey: string | null;
+      shootLocationKind: BriefShootLocationKind | null;
+    };
+    dto: UpdateBriefDto;
+  }): Promise<{
+    data: Record<string, unknown>;
+    finalizeImageKey: string | null;
+    clearsProductImage: boolean;
+    merged: {
+      isProduct: boolean;
+      willShipPhysicalProductToCreator: boolean;
+      shootLocationKind: BriefShootLocationKind | null;
+      /** The key the brief ends up with: a pending temp upload, or the one it already had. */
+      productImageKey: string | null;
+    };
+  }> {
+    const { existing } = params;
     const dto = params.dto;
     const isProduct = dto.isProduct ?? existing.isProduct;
     const shipsPhysical =
@@ -459,53 +610,29 @@ export class BriefsService {
       data.script = script as unknown;
     }
 
-    if (
-      ctx.isAgencyWorkspace &&
-      ctx.agency &&
-      dto.brandName !== undefined &&
-      dto.brandName?.trim()
-    ) {
-      await this.agencyService.recordBrandNameFromBrief(
-        ctx.agency.id,
-        dto.brandName.trim(),
-      );
-    }
-
     // Switching to a service brief clears any existing product image.
-    if (dto.isProduct === false && existing.productImageKey) {
+    const clearsProductImage = dto.isProduct === false;
+    if (clearsProductImage) {
       data.productImageKey = null;
       data.productImageUrl = null;
-      await this.storage.deleteObjectIfExists(existing.productImageKey);
     }
 
-    await this.prisma.brief.update({
-      where: { id: existing.id },
-      data: data as any,
-    });
-
-    if (finalizeImageKey) {
-      const finalKey = await this.storage.finalizeBriefProductImageKey({
-        tempKey: finalizeImageKey,
-        briefId: existing.id,
-        deleteTemp: true,
-      });
-      await this.prisma.brief.update({
-        where: { id: existing.id },
-        data: {
-          productImageKey: finalKey,
-          productImageUrl: this.storage.buildCdnUrl(finalKey),
-        },
-      });
-      if (existing.productImageKey && existing.productImageKey !== finalKey) {
-        await this.storage.deleteObjectIfExists(existing.productImageKey);
-      }
-    }
-
-    const updated = await this.prisma.brief.findUnique({
-      where: { id: existing.id },
-    });
-    if (!updated) throw new NotFoundException('Brief not found');
-    return mapBriefRow(updated);
+    return {
+      data,
+      finalizeImageKey,
+      clearsProductImage,
+      merged: {
+        isProduct,
+        willShipPhysicalProductToCreator: shipsPhysical,
+        shootLocationKind:
+          dto.shootLocationKind !== undefined
+            ? (dto.shootLocationKind as BriefShootLocationKind | null)
+            : existing.shootLocationKind,
+        productImageKey: clearsProductImage
+          ? null
+          : (finalizeImageKey ?? existing.productImageKey),
+      },
+    };
   }
 
   async deleteBrief(params: {
@@ -549,6 +676,123 @@ export class BriefsService {
     }
   }
 
+  /**
+   * Edit the brief sitting on an order and resubmit it, while the creator has
+   * still not accepted.
+   *
+   * The brief is forked rather than edited in place. A saved brief is a
+   * reusable template — `attachBriefToOrders` puts one row on a whole batch of
+   * orders — and the creator reads it live through `Order.briefId`, so an
+   * in-place edit would rewrite the brief under every other creator working
+   * from the same row, including ones who already accepted. The fork belongs
+   * to this order alone, and the library brief is left exactly as it was.
+   *
+   * Everything is validated before anything is written: an edit that the order
+   * cannot accept (a product brief that lost its image, an on-location shoot
+   * the creator was never paid to travel to) leaves no orphan fork behind.
+   */
+  async reviseBriefForOrder(params: {
+    actorUserId: string;
+    brandProfileId?: string | null;
+    briefId: string;
+    orderId: string;
+    dto: UpdateBriefDto;
+  }): Promise<BriefDto> {
+    const ctx = await this.brandAccess.resolveBrandContext({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+    });
+
+    const existing = await this.prisma.brief.findUnique({
+      where: { id: params.briefId },
+    });
+    if (!existing) throw new NotFoundException('Brief not found');
+    this.assertBriefOwnedByContext(existing, ctx);
+
+    const { data, finalizeImageKey, merged } = await this.resolveBriefEdit({
+      actorUserId: params.actorUserId,
+      ctx,
+      existing,
+      dto: params.dto,
+    });
+
+    // Ownership of the order, its status, and whether the edited brief is one
+    // this order can actually run on — all settled before the fork exists.
+    await this.ordersService.assertBriefRevisable({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+      orderId: params.orderId,
+      briefId: existing.id,
+      isProduct: merged.isProduct,
+      productImageKey: merged.productImageKey,
+      shootLocationKind: merged.shootLocationKind,
+    });
+
+    // A revision of a revision still points at the library brief it came from,
+    // so the chain never has to be walked to find the original.
+    const rootBriefId = existing.forkedFromBriefId ?? existing.id;
+    const {
+      id: _id,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      ...carriedOver
+    } = existing;
+
+    const fork = await this.prisma.brief.create({
+      data: {
+        ...carriedOver,
+        ...data,
+        referenceLinks: (data.referenceLinks ??
+          existing.referenceLinks) as never,
+        script: (data.script ?? existing.script) as never,
+        orderScopedOrderId: params.orderId,
+        forkedFromBriefId: rootBriefId,
+      } as never,
+    });
+
+    // The fork starts out pointing at the original's image object. Give it its
+    // own copy so that later deleting or replacing the image on either brief
+    // cannot blank it on the other.
+    const imageKey = finalizeImageKey
+      ? await this.storage.finalizeBriefProductImageKey({
+          tempKey: finalizeImageKey,
+          briefId: fork.id,
+          deleteTemp: true,
+        })
+      : merged.productImageKey
+        ? await this.storage.copyBriefProductImageToBrief({
+            sourceKey: merged.productImageKey,
+            briefId: fork.id,
+          })
+        : null;
+
+    if (imageKey !== fork.productImageKey) {
+      await this.prisma.brief.update({
+        where: { id: fork.id },
+        data: {
+          productImageKey: imageKey,
+          productImageUrl: imageKey ? this.storage.buildCdnUrl(imageKey) : null,
+        },
+      });
+    }
+
+    await this.ordersService.resubmitBrief({
+      actorUserId: params.actorUserId,
+      brandProfileId: params.brandProfileId,
+      orderId: params.orderId,
+      briefId: fork.id,
+      requiresPhysicalProductShipment: merged.willShipPhysicalProductToCreator,
+    });
+
+    await this.recordAgencyBrandName(ctx, params.dto.brandName);
+
+    const saved = await this.prisma.brief.findUnique({
+      where: { id: fork.id },
+    });
+    if (!saved) throw new NotFoundException('Brief not found');
+    return mapBriefRow(saved);
+  }
+
   async attachBriefToOrder(params: {
     actorUserId: string;
     brandProfileId?: string | null;
@@ -565,10 +809,16 @@ export class BriefsService {
 
     const brief = await this.prisma.brief.findUnique({
       where: { id: params.briefId },
-      select: { id: true, brandId: true, agencyId: true },
+      select: {
+        id: true,
+        brandId: true,
+        agencyId: true,
+        orderScopedOrderId: true,
+      },
     });
     if (!brief) throw new NotFoundException('Brief not found');
     this.assertBriefOwnedByContext(brief, ctx);
+    this.assertBriefIsReusable(brief);
 
     await this.ordersService.submitBrief({
       actorUserId: params.actorUserId,
@@ -607,9 +857,15 @@ export class BriefsService {
           ...(ctx.agencyId ? [{ agencyId: ctx.agencyId }] : []),
         ],
       },
-      select: { id: true, isProduct: true, productImageKey: true },
+      select: {
+        id: true,
+        isProduct: true,
+        productImageKey: true,
+        orderScopedOrderId: true,
+      },
     });
     if (!brief) throw new NotFoundException('Brief not found');
+    this.assertBriefIsReusable(brief);
     if (brief.isProduct && !brief.productImageKey?.trim()) {
       throw new BadRequestException(
         'Brief must include a product image before it can be submitted to orders for product campaigns',

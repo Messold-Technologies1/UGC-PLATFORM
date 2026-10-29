@@ -34,9 +34,15 @@ function getProfileLanguages(profile: ListingProfileApi): string[] {
 }
 
 function getContentCategoryLabels(profile: ListingProfileApi): string[] {
+  // rank is the creator's own ordering — 0 is their primary niche, 1..2 the
+  // secondaries — so the card can lead with one category and show two behind
+  // it. Sorted here rather than trusting arrival order, since not every
+  // endpoint orders the rows.
   const fromFacets = trimStringArray(
     (profile.facetSelections ?? [])
       .filter((facet) => facet.dimension === "CONTENT_CATEGORY")
+      .slice()
+      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
       .map((facet) => facet.label),
   );
   if (fromFacets.length > 0) return fromFacets;
@@ -51,6 +57,14 @@ function getContentCategoryLabels(profile: ListingProfileApi): string[] {
 
 function getProfileCategories(profile: ListingProfileApi): string[] {
   return getContentCategoryLabels(profile);
+}
+
+/**
+ * Only the public list carries the wishlist save count. The full profile
+ * shape feeds the drawer rather than a card, so nothing there reads it.
+ */
+function getSavedCount(profile: ListingProfileApi): number {
+  return isCreatorProfileItemApi(profile) ? 0 : (profile.savedCount ?? 0);
 }
 
 function getFirstPortfolioVideo(profile: ListingProfileApi) {
@@ -149,6 +163,7 @@ export function mapProfileToListingCreator(
     reviewCount: profile.reviewCount ?? 0,
     startingPrice: Math.round(minPackagePrice(profile.packages)),
     ordersCompleted: profile.completedOrders ?? 0,
+    savedCount: getSavedCount(profile),
     collaborationCount: profile.collaborationCount ?? 0,
     thumbnail,
     previewVideoUrl,
@@ -160,6 +175,10 @@ export function mapProfileToListingCreator(
     unavailableTo: profile.unavailableTo ?? null,
     firstOrderFree: profile.firstOrderFree ?? false,
     firstOrderFreeEligible: profile.firstOrderFreeEligible ?? false,
+    onLocationShoot:
+      ("onLocationShootAvailable" in profile &&
+        profile.onLocationShootAvailable) ||
+      false,
     storeVisit: profile.onLocationAvailable ?? false,
     travelAvailable:
       (travelRadius != null && travelRadius > 0) ||

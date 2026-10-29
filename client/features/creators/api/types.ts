@@ -88,7 +88,11 @@ export type CreatorPublicListItemApi = {
   reviewCount: number;
   completedOrders?: number;
   totalOrders?: number;
+  /** Wishlists this creator is currently saved to, across every buyer. */
+  savedCount?: number;
   onLocationAvailable: boolean;
+  /** The creator prices the on-location shoot add-on, so a brand can buy travel. */
+  onLocationShootAvailable?: boolean;
   firstOrderFree?: boolean;
   firstOrderFreeEligible?: boolean;
   languages: string[];

@@ -175,6 +175,10 @@ export function mapProfileToListingCreator(
     unavailableTo: profile.unavailableTo ?? null,
     firstOrderFree: profile.firstOrderFree ?? false,
     firstOrderFreeEligible: profile.firstOrderFreeEligible ?? false,
+    onLocationShoot:
+      ("onLocationShootAvailable" in profile &&
+        profile.onLocationShootAvailable) ||
+      false,
     storeVisit: profile.onLocationAvailable ?? false,
     travelAvailable:
       (travelRadius != null && travelRadius > 0) ||

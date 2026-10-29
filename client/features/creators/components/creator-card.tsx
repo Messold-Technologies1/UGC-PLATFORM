@@ -10,9 +10,8 @@ import {
   Volume2,
   VolumeX,
   Truck,
-  Package,
   Heart,
-  Languages,
+  MapPinned,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,13 +68,14 @@ export const CreatorCard = memo(function CreatorCard({
   const locationLabel = creator.location || "Location not set";
   const priceLabel = `₹${creator.startingPrice.toLocaleString("en-IN")}`;
   const isAvailable = creator.available !== false;
-  // Both counts are earned, not guaranteed: a creator nobody has ordered from
-  // or saved yet shows neither rather than a row of zeros.
-  const ordersCompleted = creator.ordersCompleted ?? 0;
+  // Earned, not guaranteed: a creator nobody has saved yet shows nothing
+  // rather than a zero.
   const savedCount = creator.savedCount ?? 0;
-  const showOrders = ordersCompleted > 0;
   const showSaved = savedCount > 0;
-  const bothStats = showOrders && showSaved;
+  // Only creators a brand can actually buy travel from say so. The rest stay
+  // quiet rather than carrying a "no" on every card.
+  const showOnLocation = creator.onLocationShoot === true;
+  const languages = creator.languages.slice(0, 3);
 
   const profileImage = isHttpUrl(creator.thumbnail) ? creator.thumbnail : "";
   const videoThumbnail = isHttpUrl(creator.previewVideoThumbnail)
@@ -371,31 +371,13 @@ export const CreatorCard = memo(function CreatorCard({
 
           <div className="who">
             <div className="nm">{priceLabel}</div>
-            {/* One line. A long city ellipsises rather than shouldering the
-              languages off the card — see .lc in browse-creators.css. */}
+            {/* The city alone now — languages have a row of their own below,
+                so this no longer has two fields fighting over one line. */}
             <div className="lc">
               <span className="lc-item" title={locationLabel}>
                 <MapPin size={11} />
                 <span className="lc-text">{locationLabel}</span>
               </span>
-              {creator.languages.length ? (
-                <>
-                  <span className="lc-sep" />
-                  {/* Each language is its own node so a narrow card can drop the
-                    second one outright rather than ellipsising both fields
-                    into uselessness ("Dun… · Hindi · En…"). */}
-                  <span className="lc-item">
-                    <Languages size={11} />
-                    <span className="lc-text">{creator.languages[0]}</span>
-                    {creator.languages[1] ? (
-                      <span className="lc-text lc-lang-2">
-                        {" · "}
-                        {creator.languages[1]}
-                      </span>
-                    ) : null}
-                  </span>
-                </>
-              ) : null}
             </div>
           </div>
           {creator.firstOrderFreeEligible ? (
@@ -408,6 +390,24 @@ export const CreatorCard = memo(function CreatorCard({
         </div>
 
         <div className="foot">
+          {/* Only creators a brand can actually buy travel from — the add-on
+              priced above zero. A creator who shoots at their own setup says
+              nothing rather than carrying a "no". */}
+          {showOnLocation ? (
+            <div className="fonloc">
+              <MapPinned size={12} />
+              <span>
+                On-location shoot
+                {/* Dropped on a narrow card, where the full phrase does not
+                    fit. The badge only appears when it is available, so the
+                    shorter form says the same thing. */}
+                <span className="fonloc-tail">
+                  : <b>Available</b>
+                </span>
+              </span>
+            </div>
+          ) : null}
+
           <div className="ftags">
             {niches.map((niche) => {
               const [bg, fg] = tagColor(niche);
@@ -423,41 +423,34 @@ export const CreatorCard = memo(function CreatorCard({
             })}
           </div>
 
-          {/* Left out entirely when a creator has earned neither number, and
-            laid out on one line when they have earned only one — the video
-            above takes back whatever this row does not use, so none of it
-            leaves a hole. */}
-          {showOrders || showSaved ? (
-            <div className={cn("fstats", !bothStats && "fstats-single")}>
-              {showOrders ? (
-                <div className="fstat">
-                  <span className="fstat-value">
-                    <Package size={14} />
-                    <b>{ordersCompleted.toLocaleString("en-IN")}</b>
-                  </span>
-                  <span className="fstat-label">
-                    {ordersCompleted === 1 ? "order" : "orders"}
-                    <span className="fstat-label-tail"> completed</span>
-                  </span>
-                </div>
-              ) : null}
+          {/* Languages a brand can brief in, as their own row rather than
+              squeezed onto the city's line where the third one never fit. */}
+          {languages.length ? (
+            <div className="flangs">
+              {languages.map((language) => (
+                <span key={language} className="flang">
+                  {language}
+                </span>
+              ))}
+            </div>
+          ) : null}
 
-              {bothStats ? <i className="fstat-rule" /> : null}
-
-              {showSaved ? (
-                <div className="fstat">
-                  <span className="fstat-value fstat-value-saved">
-                    <Heart size={14} />
-                    <b>{savedCount.toLocaleString("en-IN")}</b>
+          {/* Left out entirely until a creator has been saved — the video
+              above takes back the space, so it leaves no hole. */}
+          {showSaved ? (
+            <div className="fstats fstats-single">
+              <div className="fstat">
+                <span className="fstat-value fstat-value-saved">
+                  <Heart size={14} />
+                  <b>{savedCount.toLocaleString("en-IN")}</b>
+                </span>
+                <span className="fstat-label">
+                  <span className="fstat-label-tail">
+                    {savedCount === 1 ? "time " : "times "}
                   </span>
-                  <span className="fstat-label">
-                    <span className="fstat-label-tail">
-                      {savedCount === 1 ? "time " : "times "}
-                    </span>
-                    saved
-                  </span>
-                </div>
-              ) : null}
+                  saved
+                </span>
+              </div>
             </div>
           ) : null}
 

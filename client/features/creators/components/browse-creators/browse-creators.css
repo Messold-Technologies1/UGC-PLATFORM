@@ -8,13 +8,20 @@
   --radius-sm: 8px;
   --radius-lg: 18px;
   --radius-xl: 24px;
-  --card: #ffffff;
-  --muted: oklch(0.976 0.004 17.4);
-  --muted-foreground: oklch(0.56 0.012 17.1);
-  --foreground: oklch(0.19 0.01 17);
-  --border: oklch(0.928 0.005 17.22);
+  /* The card is a dark tile on a light page — the photo runs to the edges
+     and the panel under it carries on in the same key, so the two read as one
+     surface rather than a picture glued to a form. Only these tokens flip;
+     the grid and the page around them stay as they are. */
+  --card: #0e0e0e;
+  --muted: #1c1c1e;
+  --muted-foreground: #a1a1aa;
+  --foreground: #fafafa;
+  --border: #2a2a2d;
   --primary: oklch(0.596 0.235 18.49);
   --primary-foreground: oklch(0.978 0.014 17.35);
+  /* Placeholders belong to the dark card, not the light page behind it. */
+  --skeleton-color: #1f1f22;
+  --skeleton-dark-color: #1f1f22;
 }
 
 /* Use explicit column counts (not auto-fit) so VirtuosoGrid measures a
@@ -153,17 +160,21 @@
 .rcard .rbody {
   display: flex;
   flex-direction: column;
-  /* The rows every card carries: 23 padding + 24 gaps + 34 delivery + 36
-     actions. These sit last, so they hold the same distance off the bottom
-     edge on every card and line up across a row. */
-  --foot-fixed: 117px;
+  /* The rows every card carries: 23 padding + 40 gaps (five, now that
+     languages and the travel pill have rows of their own) + 34 delivery + 36
+     actions. Delivery and the actions sit last, so they hold the same
+     distance off the bottom edge on every card and line up across a row. */
+  --foot-fixed: 133px;
   /* What the two self-sizing rows usually come to — three chip lines and a
      two-line stat pair. Budgeting the common case keeps the still near 4:5;
      cards either side of it simply run a little taller or shorter. */
   --foot-chips: 90px;
-  --foot-stats: 48px;
+  --foot-langs: 58px;
+  /* One line now that only "times saved" is left on it. */
+  --foot-stats: 20px;
   height: calc(
-    100cqw * 5 / 4 + var(--foot-fixed) + var(--foot-chips) + var(--foot-stats)
+    100cqw * 5 / 4 + var(--foot-fixed) + var(--foot-chips) + var(--foot-langs) +
+      var(--foot-stats)
   );
 }
 /* Wider cards fit the niches on fewer lines, so they budget less for them.
@@ -174,6 +185,7 @@
 @container (min-width: 226px) {
   .rcard .rbody {
     --foot-chips: 58px;
+    --foot-langs: 26px;
   }
 }
 @container (min-width: 340px) {
@@ -442,6 +454,60 @@
 .rcard .reel .fof-ribbon svg {
   color: #1a1408;
 }
+/* Only shown when a brand can actually buy travel, so it reads as a feature
+   some creators have rather than a field every card fills in. */
+.rcard .fonloc {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0 10px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(16, 122, 87, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.rcard .fonloc svg {
+  flex-shrink: 0;
+}
+.rcard .fonloc b {
+  font-weight: 800;
+  color: #a7f3d0;
+}
+
+/* Languages a brand can brief in. Set apart from the niche chips above by
+   tone rather than shape: those carry the creator's own colours, these are
+   plain, so a glance tells the two rows apart without a label on either. */
+.rcard .flangs {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.rcard .flang {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 .rcard .ftags {
   display: flex;
   flex-wrap: wrap;
@@ -452,13 +518,22 @@
      video rather than leaving a gap. */
   flex: 0 0 auto;
 }
-/* Below the same threshold the fixed-height rows get tight, so the parts that
-   carry no information give way first — the second language, the "Guaranteed"
-   lead-in, the "completed"/"times" qualifiers. The number and the noun stay. */
-@container (max-width: 204.98px) {
-  .rcard .reel .who .lc .lc-lang-2,
+/* Below the same threshold the rows get tight, so the parts that carry no
+   information give way first — the "Guaranteed" lead-in and the
+   "completed"/"times" qualifiers. The number and the noun stay. */
+@container (max-width: 225.98px) {
   .rcard .fdelivery .fdelivery-lead,
   .rcard .fstat-label-tail {
+    display: none;
+  }
+  /* And the third language: at this width three pills wrap to three lines,
+     which costs more of the photo than the third language is worth. The
+     drawer lists them all. */
+  .rcard .flangs .flang:nth-child(n + 3) {
+    display: none;
+  }
+  /* And ": Available" — the badge only shows when it is. */
+  .rcard .fonloc .fonloc-tail {
     display: none;
   }
 }
@@ -674,9 +749,12 @@
   height: 36px;
   padding: 0 12px;
   border-radius: 9px;
-  border: 0;
-  background: var(--foreground);
-  color: #fff;
+  /* A filled button would need a light fill to sit on the dark panel, which
+     puts two light blocks side by side with the wishlist button. Outlined
+     instead: the dark panel shows through and the border carries the shape. */
+  border: 1px solid #6c6c6c;
+  background: transparent;
+  color: var(--foreground);
   font-weight: 700;
   font-size: 12.5px;
   display: inline-flex;
@@ -689,6 +767,8 @@
 }
 .rcard .fview:hover {
   background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
 @media (max-width: 767px) {

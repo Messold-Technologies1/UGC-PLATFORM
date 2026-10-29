@@ -1,5 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreatorCardSkeleton } from "@/features/creators/components/creator-card";
+// The scope class below is defined there, and this shell renders before
+// anything else has pulled the stylesheet in.
+import "@/features/creators/components/browse-creators/browse-creators.css";
 
 export function DashboardPageHeaderSkeleton() {
   return (
@@ -25,20 +28,21 @@ export function CreatorsBrowserLoadingShell() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <Skeleton className="h-[46px] w-full max-w-2xl rounded-lg" />
           <div className="flex items-center gap-4 shrink-0">
-             <Skeleton className="h-5 w-32 hidden sm:block" />
-             <Skeleton className="h-7 w-24 rounded-lg" />
+            <Skeleton className="h-5 w-32 hidden sm:block" />
+            <Skeleton className="h-7 w-24 rounded-lg" />
           </div>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <Skeleton className="h-8 w-48 rounded-md" />
           <div className="flex items-center gap-4 shrink-0">
-             <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-5 w-32" />
           </div>
         </div>
 
         <div className="min-h-[min(22rem,50vh)]">
-          <div className="grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+          {/* Scoped so the placeholders are the dark cards the route lands on. */}
+          <div className="browse-redesign-scope grid w-full gap-x-5 gap-y-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="min-w-0 h-full">
                 <CreatorCardSkeleton appearance="browse" />

@@ -346,8 +346,6 @@ export const CreatorCard = memo(function CreatorCard({
             </button>
           ) : null}
 
-          <div className="scrim" />
-
           <div className="scrubline">
             <i />
           </div>
@@ -368,18 +366,13 @@ export const CreatorCard = memo(function CreatorCard({
               <Play size={18} />
             </div>
           </div>
+        </div>
 
-          <div className="who">
-            <div className="nm">{priceLabel}</div>
-            {/* The city alone now — languages have a row of their own below,
-                so this no longer has two fields fighting over one line. */}
-            <div className="lc">
-              <span className="lc-item" title={locationLabel}>
-                <MapPin size={11} />
-                <span className="lc-text">{locationLabel}</span>
-              </span>
-            </div>
-          </div>
+        {/* Not a panel below the photo — an overlay on it. The photo fills the
+            whole card and this sits over its lower half, fading up out of it,
+            so the card reads as one image rather than a picture glued to a
+            form. Everything the brand reads lives in here. */}
+        <div className="foot">
           {creator.firstOrderFreeEligible ? (
             <div className="fof-ribbon">
               <span>
@@ -387,9 +380,19 @@ export const CreatorCard = memo(function CreatorCard({
               </span>
             </div>
           ) : null}
-        </div>
 
-        <div className="foot">
+          <div className="who">
+            <div className="nm">{priceLabel}</div>
+            {/* The city alone — languages have a row of their own below, so
+                this no longer has two fields fighting over one line. */}
+            <div className="lc">
+              <span className="lc-item" title={locationLabel}>
+                <MapPin size={11} />
+                <span className="lc-text">{locationLabel}</span>
+              </span>
+            </div>
+          </div>
+
           {/* Only creators a brand can actually buy travel from — the add-on
               priced above zero. A creator who shoots at their own setup says
               nothing rather than carrying a "no". */}

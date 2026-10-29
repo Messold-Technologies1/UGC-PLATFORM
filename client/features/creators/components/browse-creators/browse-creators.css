@@ -111,19 +111,17 @@
 }
 
 .rcard {
-  display: flex;
-  flex-direction: column;
+  display: block;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  /* The niche row reserves however many chip lines the card is narrow enough
-     to need (see .ftags). That depends on the card's own width, not the
-     viewport's: the grid runs 2 to 8 columns, so the same viewport width
-     yields very different cards on Browse, the wishlist page and the admin
-     board. A container query asks the card itself. */
+  /* Queried by .rbody below for the card's own width. That width, not the
+     viewport's, is what the layout depends on: the grid runs 2 to 8 columns,
+     so one viewport width yields very different cards on Browse, the wishlist
+     page and the admin board. */
   container-type: inline-size;
   transition:
     transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1),
@@ -135,9 +133,60 @@
   box-shadow: var(--shadow-pop);
 }
 
+/**
+ * Every card at a given width is this tall, whatever the creator has filled it
+ * with — and the video, not a blank gap, is what takes up the slack.
+ *
+ * The height is one 9:16 video plus a budget for the rows beneath it. The
+ * footer is then left to size itself: a creator with one niche and one stat
+ * builds a short footer and gets a taller video; a creator with three long
+ * niches and both stats builds a tall one and gets a shorter video. Since the
+ * total is fixed by width alone, the cards still line up.
+ *
+ * 100cqw is the card's own width, which is why this lives on a child: an
+ * element cannot query itself.
+ */
+.rcard .rbody {
+  display: flex;
+  flex-direction: column;
+  /* The rows every card carries: 23 padding + 24 gaps + 34 delivery + 36
+     actions. These sit last, so they hold the same distance off the bottom
+     edge on every card and line up across a row. */
+  --foot-fixed: 117px;
+  /* What the two self-sizing rows usually come to — three chip lines and a
+     two-line stat pair. Budgeting the common case keeps the video near 9:16;
+     cards either side of it simply run a little taller or shorter. */
+  --foot-chips: 73px;
+  --foot-stats: 48px;
+  height: calc(
+    100cqw * 16 / 9 + var(--foot-fixed) + var(--foot-chips) + var(--foot-stats)
+  );
+}
+/* Wider cards fit the niches on fewer lines, so they budget less for them. */
+@container (min-width: 205px) {
+  .rcard .rbody {
+    --foot-chips: 47px;
+  }
+}
+@container (min-width: 330px) {
+  .rcard .rbody {
+    --foot-chips: 21px;
+  }
+}
+/* Below 768px the two buttons stack, which costs another row. */
+@media (max-width: 767px) {
+  .rcard .rbody {
+    --foot-fixed: 159px;
+  }
+}
+
 .rcard .reel {
   position: relative;
-  aspect-ratio: 9 / 16;
+  /* Takes whatever the footer leaves. Bounded without a floor: the footer's
+     tallest row is three chip lines, since each chip is nowrap and so can
+     never put more than one niche on a line. */
+  flex: 1 1 auto;
+  min-height: 0;
   background: #111;
   overflow: hidden;
 }
@@ -321,7 +370,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
+  /* Content-sized, so the video above is the one thing that stretches. */
+  flex: 0 0 auto;
 }
 .rcard .reel .fof-ribbon {
   position: absolute;
@@ -387,28 +437,11 @@
   flex-wrap: wrap;
   align-content: flex-start;
   gap: 5px;
-  /* Three chip lines, the worst case for a primary plus two secondary niches
-     on the narrowest card the grid produces. Reserved rather than measured,
-     so a creator with one short niche and one with three long ones still get
-     cards of the same height. Wider cards need fewer lines — see below. */
-  height: 73px;
-  overflow: hidden;
+  /* Sized by its contents — one line or three. The video above gives back
+     whatever this row does not take, so a short niche list buys a taller
+     video rather than leaving a gap. */
+  flex: 0 0 auto;
 }
-/* 21px per chip line, 5px between. Both thresholds were measured against the
-   longest niche labels in the catalog ("Tech & Gadgets", "Home & Decor"),
-   with headroom — a card between two thresholds reserves the taller row and
-   simply leaves it part-empty, which costs space but never clips a niche. */
-@container (min-width: 205px) {
-  .rcard .ftags {
-    height: 47px;
-  }
-}
-@container (min-width: 330px) {
-  .rcard .ftags {
-    height: 21px;
-  }
-}
-
 /* Below the same threshold the fixed-height rows get tight, so the parts that
    carry no information give way first — the second language, the "Guaranteed"
    lead-in, the "completed"/"times" qualifiers. The number and the noun stay. */
@@ -460,10 +493,14 @@
 .rcard .fstats {
   display: flex;
   align-items: center;
-  /* Held even with nothing in it: a creator with no completed orders and no
-     saves yet leaves this blank rather than making their card shorter. */
   height: 40px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+}
+/* One number needs no column to itself and no second line: it reads as a
+   sentence, on one line, and hands the rest of the height back to the video. */
+.rcard .fstats-single {
+  height: 20px;
+  justify-content: center;
 }
 .rcard .fstat {
   display: flex;
@@ -473,6 +510,16 @@
   align-items: center;
   justify-content: center;
   gap: 1px;
+}
+.rcard .fstats-single .fstat {
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 5px;
+}
+/* Read as a sentence rather than a caption, now that it shares the line. */
+.rcard .fstats-single .fstat-label {
+  font-size: 11.5px;
 }
 .rcard .fstat-value {
   display: inline-flex;
@@ -510,7 +557,7 @@
   background: var(--border);
 }
 .rcard .fbottom {
-  margin-top: auto;
+  margin-top: 0;
 }
 .rcard .factions {
   display: flex;

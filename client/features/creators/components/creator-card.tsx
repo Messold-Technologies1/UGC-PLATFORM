@@ -69,12 +69,12 @@ export const CreatorCard = memo(function CreatorCard({
   const priceLabel = `₹${creator.startingPrice.toLocaleString("en-IN")}`;
   const isAvailable = creator.available !== false;
   // Both counts are earned, not guaranteed: a creator nobody has ordered from
-  // or saved yet shows neither rather than a row of zeros. The row keeps its
-  // height either way so every card in the grid is the same height.
+  // or saved yet shows neither rather than a row of zeros.
   const ordersCompleted = creator.ordersCompleted ?? 0;
   const savedCount = creator.savedCount ?? 0;
   const showOrders = ordersCompleted > 0;
   const showSaved = savedCount > 0;
+  const bothStats = showOrders && showSaved;
 
   const profileImage = isHttpUrl(creator.thumbnail) ? creator.thumbnail : "";
   const videoThumbnail = isHttpUrl(creator.previewVideoThumbnail)
@@ -276,209 +276,223 @@ export const CreatorCard = memo(function CreatorCard({
       aria-label={`View ${creator.name}'s profile`}
       onKeyDown={handleKeyDown}
     >
-      <div className={cn("reel", creator.firstOrderFreeEligible && "has-fof")}>
-        {imageSrc ? (
-          <Image
-            src={imageSrc}
-            alt={`${creator.name}'s content`}
-            fill
-            className={cn("real-media", hasVideo && playing && "opacity-0")}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 214px"
-            onError={handleImageError}
-          />
-        ) : (
-          <div
-            className="ip"
-            style={{
-              background: `linear-gradient(155deg, ${g1}, ${g2})`,
-            }}
-          >
-            <span className="mono">{initials}</span>
-          </div>
-        )}
-
-        {hasVideo ? (
-          <video
-            ref={videoRef}
-            // Once attached on first hover, the src stays put so the buffer is
-            // retained for instant replay on later hovers.
-            src={srcAttached ? activeVideoUrl! : undefined}
-            poster={videoThumbnail || profileImage || undefined}
-            className={cn("real-media", !playing && "opacity-0")}
-            muted={muted}
-            loop
-            playsInline
-            // metadata (not none): once the src is attached the browser fetches
-            // the moov/first frame, so playback can begin promptly on hover.
-            preload="metadata"
-            onCanPlay={handleCanPlay}
-            onLoadedData={handleCanPlay}
-            onError={handleVideoError}
-          />
-        ) : null}
-
-        {hasVideo && playing ? (
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            aria-label={muted ? "Unmute preview" : "Mute preview"}
-            className="absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/75"
-          >
-            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-        ) : null}
-
-        <div className="scrim" />
-
-        <div className="scrubline">
-          <i />
-        </div>
-        <div className="top">
-          {isAvailable ? (
-            <span className="availchip online">
-              <i /> Online
-            </span>
+      {/* The height lives here rather than on <article>: it is derived from the
+          card's own width (100cqw), and an element cannot query itself. See
+          .rbody in browse-creators.css. */}
+      <div className="rbody">
+        <div
+          className={cn("reel", creator.firstOrderFreeEligible && "has-fof")}
+        >
+          {imageSrc ? (
+            <Image
+              src={imageSrc}
+              alt={`${creator.name}'s content`}
+              fill
+              className={cn("real-media", hasVideo && playing && "opacity-0")}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 214px"
+              onError={handleImageError}
+            />
           ) : (
-            <span className="availchip offline">
-              <i /> Offline
-            </span>
+            <div
+              className="ip"
+              style={{
+                background: `linear-gradient(155deg, ${g1}, ${g2})`,
+              }}
+            >
+              <span className="mono">{initials}</span>
+            </div>
           )}
-        </div>
 
-        <div className="play">
-          <div className="pb">
-            <Play size={18} />
+          {hasVideo ? (
+            <video
+              ref={videoRef}
+              // Once attached on first hover, the src stays put so the buffer is
+              // retained for instant replay on later hovers.
+              src={srcAttached ? activeVideoUrl! : undefined}
+              poster={videoThumbnail || profileImage || undefined}
+              className={cn("real-media", !playing && "opacity-0")}
+              muted={muted}
+              loop
+              playsInline
+              // metadata (not none): once the src is attached the browser fetches
+              // the moov/first frame, so playback can begin promptly on hover.
+              preload="metadata"
+              onCanPlay={handleCanPlay}
+              onLoadedData={handleCanPlay}
+              onError={handleVideoError}
+            />
+          ) : null}
+
+          {hasVideo && playing ? (
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              aria-label={muted ? "Unmute preview" : "Mute preview"}
+              className="absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition hover:bg-black/75"
+            >
+              {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+          ) : null}
+
+          <div className="scrim" />
+
+          <div className="scrubline">
+            <i />
           </div>
-        </div>
+          <div className="top">
+            {isAvailable ? (
+              <span className="availchip online">
+                <i /> Online
+              </span>
+            ) : (
+              <span className="availchip offline">
+                <i /> Offline
+              </span>
+            )}
+          </div>
 
-        <div className="who">
-          <div className="nm">{priceLabel}</div>
-          {/* One line. A long city ellipsises rather than shouldering the
+          <div className="play">
+            <div className="pb">
+              <Play size={18} />
+            </div>
+          </div>
+
+          <div className="who">
+            <div className="nm">{priceLabel}</div>
+            {/* One line. A long city ellipsises rather than shouldering the
               languages off the card — see .lc in browse-creators.css. */}
-          <div className="lc">
-            <span className="lc-item" title={locationLabel}>
-              <MapPin size={11} />
-              <span className="lc-text">{locationLabel}</span>
-            </span>
-            {creator.languages.length ? (
-              <>
-                <span className="lc-sep" />
-                {/* Each language is its own node so a narrow card can drop the
+            <div className="lc">
+              <span className="lc-item" title={locationLabel}>
+                <MapPin size={11} />
+                <span className="lc-text">{locationLabel}</span>
+              </span>
+              {creator.languages.length ? (
+                <>
+                  <span className="lc-sep" />
+                  {/* Each language is its own node so a narrow card can drop the
                     second one outright rather than ellipsising both fields
                     into uselessness ("Dun… · Hindi · En…"). */}
-                <span className="lc-item">
-                  <Languages size={11} />
-                  <span className="lc-text">{creator.languages[0]}</span>
-                  {creator.languages[1] ? (
-                    <span className="lc-text lc-lang-2">
-                      {" · "}
-                      {creator.languages[1]}
-                    </span>
-                  ) : null}
-                </span>
-              </>
-            ) : null}
+                  <span className="lc-item">
+                    <Languages size={11} />
+                    <span className="lc-text">{creator.languages[0]}</span>
+                    {creator.languages[1] ? (
+                      <span className="lc-text lc-lang-2">
+                        {" · "}
+                        {creator.languages[1]}
+                      </span>
+                    ) : null}
+                  </span>
+                </>
+              ) : null}
+            </div>
           </div>
+          {creator.firstOrderFreeEligible ? (
+            <div className="fof-ribbon">
+              <span>
+                <Gift size={14} /> First order free
+              </span>
+            </div>
+          ) : null}
         </div>
-        {creator.firstOrderFreeEligible ? (
-          <div className="fof-ribbon">
+
+        <div className="foot">
+          <div className="ftags">
+            {niches.map((niche, nicheIndex) => {
+              const [bg, fg] = tagColor(niche);
+              return (
+                <span
+                  key={niche}
+                  className={cn("ftag", nicheIndex === 0 && "ftag-primary")}
+                  style={{ background: bg, color: fg }}
+                  title={nicheIndex === 0 ? `Primary niche: ${niche}` : niche}
+                >
+                  {niche}
+                </span>
+              );
+            })}
+          </div>
+
+          {/* Left out entirely when a creator has earned neither number, and
+            laid out on one line when they have earned only one — the video
+            above takes back whatever this row does not use, so none of it
+            leaves a hole. */}
+          {showOrders || showSaved ? (
+            <div className={cn("fstats", !bothStats && "fstats-single")}>
+              {showOrders ? (
+                <div className="fstat">
+                  <span className="fstat-value">
+                    <Package size={14} />
+                    <b>{ordersCompleted.toLocaleString("en-IN")}</b>
+                  </span>
+                  <span className="fstat-label">
+                    {ordersCompleted === 1 ? "order" : "orders"}
+                    <span className="fstat-label-tail"> completed</span>
+                  </span>
+                </div>
+              ) : null}
+
+              {bothStats ? <i className="fstat-rule" /> : null}
+
+              {showSaved ? (
+                <div className="fstat">
+                  <span className="fstat-value fstat-value-saved">
+                    <Heart size={14} />
+                    <b>{savedCount.toLocaleString("en-IN")}</b>
+                  </span>
+                  <span className="fstat-label">
+                    <span className="fstat-label-tail">
+                      {savedCount === 1 ? "time " : "times "}
+                    </span>
+                    saved
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Delivery and the buttons are on every card, so they come last
+              and hold the same distance off the bottom edge whatever the
+              video above has done — they line up across a row. */}
+          <div className="fdelivery">
+            <Truck size={14} />
             <span>
-              <Gift size={14} /> First order free
+              {/* Narrow cards drop the lead-in and keep the part that carries
+                the promise: "5-day delivery". */}
+              <span className="fdelivery-lead">Guaranteed </span>
+              {creator.deliveryDays}-day delivery
             </span>
           </div>
-        ) : null}
-      </div>
 
-      <div className="foot">
-        <div className="ftags">
-          {niches.map((niche, nicheIndex) => {
-            const [bg, fg] = tagColor(niche);
-            return (
-              <span
-                key={niche}
-                className={cn("ftag", nicheIndex === 0 && "ftag-primary")}
-                style={{ background: bg, color: fg }}
-                title={nicheIndex === 0 ? `Primary niche: ${niche}` : niche}
-              >
-                {niche}
-              </span>
-            );
-          })}
-        </div>
-
-        <div className="fdelivery">
-          <Truck size={14} />
-          <span>
-            {/* Narrow cards drop the lead-in and keep the part that carries
-                the promise: "5-day delivery". */}
-            <span className="fdelivery-lead">Guaranteed </span>
-            {creator.deliveryDays}-day delivery
-          </span>
-        </div>
-
-        {/* Rendered even when empty: the reserved height is what keeps every
-            card in the grid the same height, whatever a creator has earned. */}
-        <div className="fstats">
-          {showOrders ? (
-            <div className="fstat">
-              <span className="fstat-value">
-                <Package size={14} />
-                <b>{ordersCompleted.toLocaleString("en-IN")}</b>
-              </span>
-              <span className="fstat-label">
-                {ordersCompleted === 1 ? "order" : "orders"}
-                <span className="fstat-label-tail"> completed</span>
-              </span>
-            </div>
-          ) : null}
-
-          {showOrders && showSaved ? <i className="fstat-rule" /> : null}
-
-          {showSaved ? (
-            <div className="fstat">
-              <span className="fstat-value fstat-value-saved">
-                <Heart size={14} />
-                <b>{savedCount.toLocaleString("en-IN")}</b>
-              </span>
-              <span className="fstat-label">
-                <span className="fstat-label-tail">
-                  {savedCount === 1 ? "time " : "times "}
+          <div className="fbottom">
+            <div className="factions">
+              {showName ? (
+                <span
+                  className="min-w-0 flex-1 truncate text-left text-[12.5px] font-bold text-foreground"
+                  title={creator.name}
+                >
+                  {creator.name}
                 </span>
-                saved
-              </span>
+              ) : null}
+              {isBrand ? (
+                <SaveToWishlistButton
+                  creatorId={creator.id}
+                  creatorName={creator.name}
+                  creatorImageUrl={creator.thumbnail}
+                  creatorCategory={
+                    creator.categories?.[0] || creator.category || null
+                  }
+                  creatorCity={
+                    creator.location !== "Location not set"
+                      ? creator.location
+                      : null
+                  }
+                  variant="card"
+                />
+              ) : null}
+              <button type="button" className="fview" onClick={handleViewClick}>
+                View <ArrowRight size={14} />
+              </button>
             </div>
-          ) : null}
-        </div>
-
-        <div className="fbottom">
-          <div className="factions">
-            {showName ? (
-              <span
-                className="min-w-0 flex-1 truncate text-left text-[12.5px] font-bold text-foreground"
-                title={creator.name}
-              >
-                {creator.name}
-              </span>
-            ) : null}
-            {isBrand ? (
-              <SaveToWishlistButton
-                creatorId={creator.id}
-                creatorName={creator.name}
-                creatorImageUrl={creator.thumbnail}
-                creatorCategory={
-                  creator.categories?.[0] || creator.category || null
-                }
-                creatorCity={
-                  creator.location !== "Location not set"
-                    ? creator.location
-                    : null
-                }
-                variant="card"
-              />
-            ) : null}
-            <button type="button" className="fview" onClick={handleViewClick}>
-              View <ArrowRight size={14} />
-            </button>
           </div>
         </div>
       </div>

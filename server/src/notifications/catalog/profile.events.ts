@@ -89,7 +89,6 @@ export const profileEvents = defineEvents({
         type: 'string',
         example: 'Portfolio videos are too low resolution.',
       },
-      profileFirstMode: { type: 'string', example: 'true' },
       actionUrl: { type: 'url', example: '/creator/settings/profile' },
     },
     resolve: async (ctx, id) => {
@@ -100,15 +99,17 @@ export const profileEvents = defineEvents({
         where: { creatorId: id },
         select: { rejectionReason: true },
       });
+      // The email copy reads the same whichever onboarding mode is on, so no
+      // mode flag goes out with it. actionUrl stays because the WhatsApp
+      // bridge uses it as the button target, and only profile-first
+      // onboarding has a route back into editing to point it at.
       const profileFirst = isProfileFirstOnboardingMode(
         ctx.config.get<string>('CREATOR_ONBOARDING_MODE'),
       );
       return toCreatorProfile(
         p,
         omitBlank({
-          profileFirstMode: profileFirst,
           rejectionReason: approval?.rejectionReason?.trim() ?? '',
-          // Only profile-first onboarding offers a route back into editing.
           actionUrl: profileFirst ? creatorSettingsUrl(ctx) : '',
         }),
       );

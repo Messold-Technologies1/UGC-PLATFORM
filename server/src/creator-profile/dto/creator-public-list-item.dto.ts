@@ -54,6 +54,13 @@ export class CreatorPublicListFacetDto {
 
   @ApiProperty()
   label!: string;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Niche ordering (CONTENT_CATEGORY only): 0 = primary, 1..2 = secondary. Always 0 on the single-select dimensions.',
+  })
+  rank!: number;
 }
 
 export class CreatorPublicListLanguageDto {
@@ -137,6 +144,13 @@ export class CreatorPublicListItemDto {
       'Orders successfully completed (ACCEPTED or CREATOR_PAYMENT_DONE)',
   })
   completedOrders!: number;
+
+  @ApiProperty({
+    example: 8,
+    description:
+      'Wishlists this creator is currently saved to, across every brand and agency. A live count, not a lifetime tally: un-saving deletes the row.',
+  })
+  savedCount!: number;
 
   @ApiProperty({ example: true })
   onLocationAvailable!: boolean;

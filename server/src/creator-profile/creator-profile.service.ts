@@ -154,7 +154,8 @@ const creatorProfileWithRelationsInclude = {
   user: {
     select: { phone: true, phoneVerified: true, phoneOtpLastStatus: true },
   },
-  facetSelections: { include: { option: true } },
+  // Primary niche first (rank 0), then the secondaries.
+  facetSelections: { include: { option: true }, orderBy: { rank: 'asc' } },
   profileLanguages: { include: { option: true } },
   restrictions: true,
   packages: true,
@@ -751,6 +752,41 @@ export class CreatorProfileService {
     return counts;
   }
 
+  /**
+   * How many wishlists each creator is currently saved to, across every brand
+   * and agency.
+   *
+   * A live count rather than a lifetime tally: un-saving deletes the join row,
+   * so the number can go down. Grouped in one query over the `creatorId` index
+   * instead of a per-card count, which would be one query per card on a page
+   * of twenty.
+   */
+  private async countCreatorWishlistSavesBatch(
+    creatorProfileIds: string[],
+  ): Promise<Map<string, number>> {
+    const uniqueIds = [...new Set(creatorProfileIds.filter(Boolean))];
+    const counts = new Map<string, number>(uniqueIds.map((id) => [id, 0]));
+    if (uniqueIds.length === 0) {
+      return counts;
+    }
+
+    const rows = await this.prisma.brandWishlistCreator.groupBy({
+      by: ['creatorId'],
+      where: { creatorId: { in: uniqueIds } },
+      _count: { _all: true },
+      orderBy: { creatorId: 'asc' },
+    });
+
+    for (const row of rows) {
+      counts.set(
+        row.creatorId,
+        typeof row._count === 'object' ? (row._count._all ?? 0) : 0,
+      );
+    }
+
+    return counts;
+  }
+
   private async isAdminUser(userId: string): Promise<boolean> {
     return this.isAdmin(
       userId,
@@ -1338,9 +1374,10 @@ export class CreatorProfileService {
       ...regularItems,
     ];
 
-    const orderCountsByCreatorId = await this.countCreatorOrdersBatch(
-      items.map((profile) => profile.id),
-    );
+    const [orderCountsByCreatorId, savedCountByCreatorId] = await Promise.all([
+      this.countCreatorOrdersBatch(items.map((profile) => profile.id)),
+      this.countCreatorWishlistSavesBatch(items.map((profile) => profile.id)),
+    ]);
 
     const viewerOwner = await this.resolveViewerOrderOwner(
       viewer?.actorUserId,
@@ -1357,6 +1394,7 @@ export class CreatorProfileService {
           p,
           orderCountsByCreatorId.get(p.id),
           viewerOwner ? eligibleFreeCreatorIds : undefined,
+          savedCountByCreatorId.get(p.id),
         ),
       ),
       total,
@@ -1431,14 +1469,21 @@ export class CreatorProfileService {
       .map((id) => byId.get(id))
       .filter((profile): profile is (typeof profiles)[number] => !!profile);
 
-    const orderCountsByCreatorId = await this.countCreatorOrdersBatch(
-      orderedProfiles.map((profile) => profile.id),
-    );
+    const [orderCountsByCreatorId, savedCountByCreatorId] = await Promise.all([
+      this.countCreatorOrdersBatch(
+        orderedProfiles.map((profile) => profile.id),
+      ),
+      this.countCreatorWishlistSavesBatch(
+        orderedProfiles.map((profile) => profile.id),
+      ),
+    ]);
 
     return orderedProfiles.map((profile) =>
       this.mapCreatorPublicListItemDto(
         profile,
         orderCountsByCreatorId.get(profile.id),
+        undefined,
+        savedCountByCreatorId.get(profile.id),
       ),
     );
   }
@@ -1583,6 +1628,7 @@ export class CreatorProfileService {
     profile: any,
     orderCounts?: CreatorOrderCounts,
     eligibleFreeCreatorIds?: Set<string>,
+    savedCount?: number,
   ): CreatorPublicListItemDto {
     const portfolioVideos: CreatorPublicListPortfolioVideoDto[] = Array.isArray(
       profile.portfolioVideos,
@@ -1611,14 +1657,20 @@ export class CreatorProfileService {
           .filter((x: any) => x.slug)
       : [];
 
+    // rank carries the creator's own niche ordering (0 = primary), which the
+    // card reads to lead with one category and show two behind it. Sorted here
+    // as well as in the query so a caller whose include forgot the orderBy
+    // still gets primary-first.
     const facetSelections = Array.isArray(profile.facetSelections)
       ? profile.facetSelections
           .map((row: any) => ({
             dimension: row?.option?.dimension,
             slug: String(row?.option?.slug ?? ''),
             label: String(row?.option?.label ?? ''),
+            rank: typeof row?.rank === 'number' ? row.rank : 0,
           }))
           .filter((x: any) => x.slug && x.dimension)
+          .sort((a, b) => a.rank - b.rank)
       : [];
 
     const availability = mapUnavailabilityToPublicAvailability(
@@ -1677,6 +1729,7 @@ export class CreatorProfileService {
       reviewCount: profile.stats?.reviewCount ?? 0,
       totalOrders: orderCounts?.totalOrders ?? 0,
       completedOrders: orderCounts?.completedOrders ?? 0,
+      savedCount: savedCount ?? 0,
       available: availability.available,
       unavailableFrom: availability.startsOn,
       unavailableTo: availability.endsOn,

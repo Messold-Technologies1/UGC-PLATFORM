@@ -6,6 +6,11 @@ export interface Creator {
   reviewCount: number;
   startingPrice: number;
   ordersCompleted: number;
+  /**
+   * Wishlists this creator is currently saved to. A live count — un-saving
+   * removes the row — so the card shows it only when it is above zero.
+   */
+  savedCount: number;
   collaborationCount: number;
   thumbnail: string;
   previewVideoUrl?: string | null;
@@ -19,6 +24,11 @@ export interface Creator {
 
   category: string;
 
+  /**
+   * Content niches, primary first. The creator ranks these themselves
+   * (rank 0 = primary, 1..2 = secondary), and the card leads with the
+   * primary one.
+   */
   categories: string[];
   languages: string[];
   deliveryDays: number;

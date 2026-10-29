@@ -88,6 +88,8 @@ export type CreatorPublicListItemApi = {
   reviewCount: number;
   completedOrders?: number;
   totalOrders?: number;
+  /** Wishlists this creator is currently saved to, across every buyer. */
+  savedCount?: number;
   onLocationAvailable: boolean;
   firstOrderFree?: boolean;
   firstOrderFreeEligible?: boolean;

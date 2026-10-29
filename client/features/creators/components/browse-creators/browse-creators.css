@@ -137,11 +137,15 @@
  * Every card at a given width is this tall, whatever the creator has filled it
  * with — and the video, not a blank gap, is what takes up the slack.
  *
- * The height is one 9:16 video plus a budget for the rows beneath it. The
+ * The height is one 4:5 still plus a budget for the rows beneath it. The
  * footer is then left to size itself: a creator with one niche and one stat
  * builds a short footer and gets a taller video; a creator with three long
  * niches and both stats builds a tall one and gets a shorter video. Since the
  * total is fixed by width alone, the cards still line up.
+ *
+ * 4:5 rather than the reel's own 9:16: a full-height vertical frame made the
+ * card tall enough that a five-column grid showed barely a row per screen.
+ * object-fit: cover crops to the middle, which is where the face is.
  *
  * 100cqw is the card's own width, which is why this lives on a child: an
  * element cannot query itself.
@@ -154,23 +158,27 @@
      edge on every card and line up across a row. */
   --foot-fixed: 117px;
   /* What the two self-sizing rows usually come to — three chip lines and a
-     two-line stat pair. Budgeting the common case keeps the video near 9:16;
+     two-line stat pair. Budgeting the common case keeps the still near 4:5;
      cards either side of it simply run a little taller or shorter. */
-  --foot-chips: 73px;
+  --foot-chips: 90px;
   --foot-stats: 48px;
   height: calc(
-    100cqw * 16 / 9 + var(--foot-fixed) + var(--foot-chips) + var(--foot-stats)
+    100cqw * 5 / 4 + var(--foot-fixed) + var(--foot-chips) + var(--foot-stats)
   );
 }
-/* Wider cards fit the niches on fewer lines, so they budget less for them. */
-@container (min-width: 205px) {
+/* Wider cards fit the niches on fewer lines, so they budget less for them.
+   Measured against the longest niche labels in the catalog with the 26px
+   pills: three lines are needed up to 216px and two up to 330px, so these
+   carry some headroom. Getting one wrong costs nothing but a still a little
+   off 4:5 — the footer sizes itself either way. */
+@container (min-width: 226px) {
   .rcard .rbody {
-    --foot-chips: 47px;
+    --foot-chips: 58px;
   }
 }
-@container (min-width: 330px) {
+@container (min-width: 340px) {
   .rcard .rbody {
-    --foot-chips: 21px;
+    --foot-chips: 26px;
   }
 }
 /* Below 768px the two buttons stack, which costs another row. */
@@ -234,9 +242,16 @@
   right: 11px;
   display: flex;
   align-items: flex-start;
+  /* Availability sits in the top-right corner. */
+  justify-content: flex-end;
 
   gap: 4px;
 }
+/* No backdrop-filter here or on the play button below. Every card on screen
+   carried two blurred layers, and the compositor re-samples what is behind
+   each one on every scrolled frame — with twenty-odd cards mounted that is
+   the single biggest thing between this grid and a smooth scroll. The tints
+   below are opaque enough to read over any frame without it. */
 .rcard .reel .availchip {
   display: inline-flex;
   align-items: center;
@@ -245,7 +260,6 @@
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 999px;
-  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.16);
   white-space: nowrap;
 }
@@ -256,7 +270,7 @@
   flex-shrink: 0;
 }
 .rcard .reel .availchip.online {
-  background: rgba(6, 95, 70, 0.72);
+  background: rgba(6, 95, 70, 0.88);
   color: #ecfdf5;
 }
 .rcard .reel .availchip.online i {
@@ -264,7 +278,7 @@
   box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35);
 }
 .rcard .reel .availchip.offline {
-  background: rgba(127, 29, 29, 0.72);
+  background: rgba(127, 29, 29, 0.88);
   color: #fef2f2;
 }
 .rcard .reel .availchip.offline i {
@@ -291,9 +305,8 @@
   width: 50px;
   height: 50px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(17, 17, 17, 0.38);
   border: 1.5px solid rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(7px);
   display: grid;
   place-items: center;
   color: #fff;
@@ -429,14 +442,11 @@
 .rcard .reel .fof-ribbon svg {
   color: #1a1408;
 }
-/* Every row below the media has a fixed height, so two cards differ only in
-   what they put inside those rows — never in how tall they are. The media is
-   a fixed aspect ratio on a grid-set width, so the whole card matches. */
 .rcard .ftags {
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 5px;
+  gap: 6px;
   /* Sized by its contents — one line or three. The video above gives back
      whatever this row does not take, so a short niche list buys a taller
      video rather than leaving a gap. */
@@ -452,19 +462,20 @@
     display: none;
   }
 }
+/* 26px tall, which with the 6px gap is what --foot-chips budgets in multiples
+   of. Pill-shaped and set at reading size: at 10.5px in a 7px box the three
+   niches read as one dense cluster rather than three separate things. */
 .rcard .ftag {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 7px;
+  padding: 0 10px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
   white-space: nowrap;
   flex-shrink: 0;
-  line-height: 15px;
-}
-/* The creator's primary niche, ringed so it reads ahead of the two
-   secondaries it sits beside. */
-.rcard .ftag-primary {
-  box-shadow: inset 0 0 0 1.5px currentColor;
+  line-height: 1;
 }
 
 /**

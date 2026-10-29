@@ -58,9 +58,10 @@ export const CreatorCard = memo(function CreatorCard({
   showName = false,
 }: CreatorCardProps) {
   const [g1, g2] = posterColor(index);
-  // The creator ranks their own niches, so the list arrives primary-first:
-  // one primary chip and up to two secondaries. `tags` is the fallback for
-  // records that predate the ranked facets.
+  // The creator ranks their own niches, so the list arrives primary-first and
+  // simply reads left to right — one primary, then two secondaries, none of
+  // them marked out. `tags` is the fallback for records that predate the
+  // ranked facets.
   const niches = (
     creator.categories?.length ? creator.categories : creator.tags
   ).slice(0, 3);
@@ -96,10 +97,11 @@ export const CreatorCard = memo(function CreatorCard({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [imageSrc, setImageSrc] = useState(stillImageSrc);
-  // `srcAttached` latches true on the first hover and stays true so the loaded
-  // media (and its buffer) is retained across hovers — a second hover replays
-  // instantly instead of re-fetching from the CDN. `playing` drives the
-  // poster/video crossfade per hover.
+  // `srcAttached` latches true on the first hover and stays true: it both
+  // mounts the <video> and keeps it mounted, so the loaded media (and its
+  // buffer) is retained across hovers — a second hover replays instantly
+  // instead of re-fetching from the CDN. `playing` drives the poster/video
+  // crossfade per hover.
   const [srcAttached, setSrcAttached] = useState(false);
   const [playing, setPlaying] = useState(false);
   // Previews autoplay muted on hover — browsers block unmuted autoplay without a
@@ -144,23 +146,27 @@ export const CreatorCard = memo(function CreatorCard({
   const queryClient = useQueryClient();
 
   const handleMouseEnter = useCallback(() => {
-    // Warm the profile-drawer data so the Overview tab is (usually) already
-    // cached by the time the card is clicked, instead of starting the fetch on
-    // open. `prefetchQuery` is a no-op when the data is still fresh.
-    void queryClient.prefetchQuery({
-      queryKey: creatorProfileQueryKey(creator.id),
-      queryFn: () => getCreatorProfileClient(creator.id),
-      staleTime: 2 * 60_000,
-    });
-
-    if (!hasVideo) return;
-    // Wait out a brief hover-intent window before attaching the source and
-    // starting playback. Its src is attached lazily (see the <video> element),
-    // so we can't call play() synchronously here; the effect below starts
-    // playback once the source is actually attached.
+    // Everything here waits out the hover-intent window, the profile prefetch
+    // included. It used to fire on the bare mouseenter, so a pointer crossing
+    // the grid queued one profile request per card it passed over — twenty-odd
+    // requests the viewer never asked for, competing with the images that were
+    // still loading.
     clearHoverTimer();
     hoverTimerRef.current = window.setTimeout(() => {
       hoverTimerRef.current = null;
+
+      // Warm the profile-drawer data so the Overview tab is (usually) already
+      // cached by the time the card is clicked, instead of starting the fetch
+      // on open. `prefetchQuery` is a no-op when the data is still fresh.
+      void queryClient.prefetchQuery({
+        queryKey: creatorProfileQueryKey(creator.id),
+        queryFn: () => getCreatorProfileClient(creator.id),
+        staleTime: 2 * 60_000,
+      });
+
+      if (!hasVideo) return;
+      // The <video> is only mounted from here on, so we cannot call play()
+      // synchronously; the effect below starts it once the element exists.
       setSrcAttached(true);
       setPlaying(true);
     }, HOVER_INTENT_MS);
@@ -303,12 +309,18 @@ export const CreatorCard = memo(function CreatorCard({
             </div>
           )}
 
-          {hasVideo ? (
+          {/* Mounted on the first hover, not on render. A <video> carrying a
+              `poster` downloads that poster the moment it exists, even with no
+              src attached — so every card in the grid was pulling its still
+              twice over, once for the <Image> the viewer can see and once for
+              a hidden video they may never hover. Mounting it late also keeps
+              N video elements out of the document while scrolling. */}
+          {hasVideo && srcAttached ? (
             <video
               ref={videoRef}
               // Once attached on first hover, the src stays put so the buffer is
               // retained for instant replay on later hovers.
-              src={srcAttached ? activeVideoUrl! : undefined}
+              src={activeVideoUrl!}
               poster={videoThumbnail || profileImage || undefined}
               className={cn("real-media", !playing && "opacity-0")}
               muted={muted}
@@ -397,14 +409,13 @@ export const CreatorCard = memo(function CreatorCard({
 
         <div className="foot">
           <div className="ftags">
-            {niches.map((niche, nicheIndex) => {
+            {niches.map((niche) => {
               const [bg, fg] = tagColor(niche);
               return (
                 <span
                   key={niche}
-                  className={cn("ftag", nicheIndex === 0 && "ftag-primary")}
+                  className="ftag"
                   style={{ background: bg, color: fg }}
-                  title={nicheIndex === 0 ? `Primary niche: ${niche}` : niche}
                 >
                   {niche}
                 </span>

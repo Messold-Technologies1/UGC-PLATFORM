@@ -11,7 +11,7 @@ import {
   VolumeX,
   Truck,
   Heart,
-  MapPinned,
+  Camera,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -346,6 +346,8 @@ export const CreatorCard = memo(function CreatorCard({
             </button>
           ) : null}
 
+          <div className="scrim" />
+
           <div className="scrubline">
             <i />
           </div>
@@ -366,21 +368,6 @@ export const CreatorCard = memo(function CreatorCard({
               <Play size={18} />
             </div>
           </div>
-        </div>
-
-        {/* Not a panel below the photo — an overlay on it. The photo fills the
-            whole card and this sits over its lower half, fading up out of it,
-            so the card reads as one image rather than a picture glued to a
-            form. Everything the brand reads lives in here. */}
-        <div className="foot">
-          {creator.firstOrderFreeEligible ? (
-            <div className="fof-ribbon">
-              <span>
-                <Gift size={14} /> First order free
-              </span>
-            </div>
-          ) : null}
-
           <div className="who">
             <div className="nm">{priceLabel}</div>
             {/* The city alone — languages have a row of their own below, so
@@ -392,25 +379,16 @@ export const CreatorCard = memo(function CreatorCard({
               </span>
             </div>
           </div>
-
-          {/* Only creators a brand can actually buy travel from — the add-on
-              priced above zero. A creator who shoots at their own setup says
-              nothing rather than carrying a "no". */}
-          {showOnLocation ? (
-            <div className="fonloc">
-              <MapPinned size={12} />
+          {creator.firstOrderFreeEligible ? (
+            <div className="fof-ribbon">
               <span>
-                On-location shoot
-                {/* Dropped on a narrow card, where the full phrase does not
-                    fit. The badge only appears when it is available, so the
-                    shorter form says the same thing. */}
-                <span className="fonloc-tail">
-                  : <b>Available</b>
-                </span>
+                <Gift size={14} /> First order free
               </span>
             </div>
           ) : null}
+        </div>
 
+        <div className="foot">
           <div className="ftags">
             {niches.map((niche) => {
               const [bg, fg] = tagColor(niche);
@@ -426,49 +404,69 @@ export const CreatorCard = memo(function CreatorCard({
             })}
           </div>
 
-          {/* Languages a brand can brief in, as their own row rather than
-              squeezed onto the city's line where the third one never fit. */}
-          {languages.length ? (
-            <div className="flangs">
-              {languages.map((language) => (
-                <span key={language} className="flang">
-                  {language}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          {/* What the creator will do for you. The travel column shows only
+              for creators a brand can actually buy travel from — the add-on
+              priced above zero — and the delivery promise, which every
+              creator has, takes the whole row on its own when it does not. */}
+          <div className="finfo">
+            {showOnLocation ? (
+              <>
+                <div className="finfo-cell finfo-cell-go">
+                  <Camera size={17} />
+                  <div className="finfo-text">
+                    <span className="finfo-label">On-location shoot</span>
+                    <b className="finfo-value">Available</b>
+                  </div>
+                </div>
+                <i className="finfo-rule" />
+              </>
+            ) : null}
 
-          {/* Left out entirely until a creator has been saved — the video
-              above takes back the space, so it leaves no hole. */}
-          {showSaved ? (
-            <div className="fstats fstats-single">
-              <div className="fstat">
-                <span className="fstat-value fstat-value-saved">
-                  <Heart size={14} />
-                  <b>{savedCount.toLocaleString("en-IN")}</b>
-                </span>
-                <span className="fstat-label">
-                  <span className="fstat-label-tail">
-                    {savedCount === 1 ? "time " : "times "}
-                  </span>
-                  saved
-                </span>
+            <div className="finfo-cell">
+              <Truck size={17} />
+              <div className="finfo-text">
+                <span className="finfo-label">Guaranteed</span>
+                <b className="finfo-value">
+                  {creator.deliveryDays}-day delivery
+                </b>
               </div>
             </div>
-          ) : null}
-
-          {/* Delivery and the buttons are on every card, so they come last
-              and hold the same distance off the bottom edge whatever the
-              video above has done — they line up across a row. */}
-          <div className="fdelivery">
-            <Truck size={14} />
-            <span>
-              {/* Narrow cards drop the lead-in and keep the part that carries
-                the promise: "5-day delivery". */}
-              <span className="fdelivery-lead">Guaranteed </span>
-              {creator.deliveryDays}-day delivery
-            </span>
           </div>
+
+          {/* Who they can brief, and how many buyers have kept them. Both are
+              conditional, and the row goes entirely when neither is there. */}
+          {languages.length || showSaved ? (
+            <div className="fmeta">
+              {languages.length ? (
+                <div className="fmeta-langs">
+                  <span className="fmeta-value">
+                    {languages.map((language, index) => (
+                      <span key={language}>
+                        {index > 0 ? <i className="fmeta-dot" /> : null}
+                        {language}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              ) : null}
+
+              {languages.length && showSaved ? (
+                <i className="finfo-rule" />
+              ) : null}
+
+              {showSaved ? (
+                <div className="fmeta-saved">
+                  <span className="fmeta-saved-count">
+                    <Heart size={15} />
+                    <b>{savedCount.toLocaleString("en-IN")}</b>
+                  </span>
+                  <span className="fmeta-label">
+                    {savedCount === 1 ? "time saved" : "times saved"}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="fbottom">
             <div className="factions">
@@ -497,7 +495,7 @@ export const CreatorCard = memo(function CreatorCard({
                 />
               ) : null}
               <button type="button" className="fview" onClick={handleViewClick}>
-                View <ArrowRight size={14} />
+                View profile <ArrowRight size={14} />
               </button>
             </div>
           </div>

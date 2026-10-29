@@ -8,20 +8,13 @@
   --radius-sm: 8px;
   --radius-lg: 18px;
   --radius-xl: 24px;
-  /* The card is a dark tile on a light page — the photo runs to the edges
-     and the panel under it carries on in the same key, so the two read as one
-     surface rather than a picture glued to a form. Only these tokens flip;
-     the grid and the page around them stay as they are. */
-  --card: #0e0e0e;
-  --muted: #1c1c1e;
-  --muted-foreground: #a1a1aa;
-  --foreground: #fafafa;
-  --border: #2a2a2d;
+  --card: #ffffff;
+  --muted: oklch(0.976 0.004 17.4);
+  --muted-foreground: oklch(0.56 0.012 17.1);
+  --foreground: oklch(0.19 0.01 17);
+  --border: oklch(0.928 0.005 17.22);
   --primary: oklch(0.596 0.235 18.49);
   --primary-foreground: oklch(0.978 0.014 17.35);
-  /* Placeholders belong to the dark card, not the light page behind it. */
-  --skeleton-color: #1f1f22;
-  --skeleton-dark-color: #1f1f22;
 }
 
 /* Use explicit column counts (not auto-fit) so VirtuosoGrid measures a
@@ -55,30 +48,18 @@
   }
 }
 
+/* Five across, and five is where it stops. Wider screens used to keep adding
+   columns — six, seven, eight — because otherwise the cards stretched past
+   400px and one row filled the fold. Capping the grid's own width does that
+   job instead: past ~1800px the columns hold at ~346px and the grid centres in
+   the page. That is also well past the ~300px the card needs to set its two
+   facts side by side and its niches on one line, so a wide screen gets the
+   full layout rather than the stacked fallback. */
 @media (min-width: 1280px) {
   .reelgrid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1536px) {
-  .reelgrid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-/* Ultra-wide desktops: keep adding columns instead of stretching the 9:16
-   cards, which otherwise grow past ~400px wide (≈700px tall) and push the
-   second row of results below the fold. */
-@media (min-width: 1800px) {
-  .reelgrid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 2200px) {
-  .reelgrid {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    max-width: 1800px;
+    margin-inline: auto;
   }
 }
 
@@ -167,17 +148,18 @@
      languages and the travel pill have rows of their own) + 34 delivery + 36
      actions. Delivery and the actions sit last, so they hold the same
      distance off the bottom edge on every card and line up across a row. */
-  --foot-fixed: 177px;
+  --foot-fixed: 139px;
   /* What the two self-sizing rows usually come to — three chip lines and a
      two-line stat pair. Budgeting the common case keeps the still near 4:5;
      cards either side of it simply run a little taller or shorter. */
   --foot-chips: 90px;
-  --foot-langs: 58px;
-  /* One line now that only "times saved" is left on it. */
-  --foot-stats: 20px;
+  /* The languages / times-saved row, when a creator has either. */
+  --foot-meta: 41px;
+  /* Two tinted fact boxes, stacked, with the gap between them. */
+  --foot-info: 104px;
   height: calc(
-    100cqw * 5 / 4 + var(--foot-fixed) + var(--foot-chips) + var(--foot-langs) +
-      var(--foot-stats)
+    100cqw * 29 / 20 + var(--foot-fixed) + var(--foot-chips) +
+      var(--foot-meta) + var(--foot-info)
   );
 }
 /* Wider cards fit the niches on fewer lines, so they budget less for them.
@@ -188,10 +170,15 @@
 @container (min-width: 226px) {
   .rcard .rbody {
     --foot-chips: 58px;
-    --foot-langs: 26px;
-    /* Both buttons on one line below this width; stacked above it, which is
-       one 36px row and an 8px gap more — see .factions. */
-    --foot-fixed: 133px;
+    /* Both buttons on one line at this width; stacked below it, which is one
+       36px row and an 8px gap more — see .factions. */
+    --foot-fixed: 95px;
+  }
+}
+@container (min-width: 300px) {
+  .rcard .rbody {
+    /* The two boxes fit side by side again, so the row is one of them tall. */
+    --foot-info: 48px;
   }
 }
 @container (min-width: 340px) {
@@ -199,24 +186,34 @@
     --foot-chips: 26px;
   }
 }
-/* The photo fills the whole card, top to bottom — the overlay below sits on
-   it rather than beside it, so the card is one image and not a picture with a
-   form stuck underneath. */
 .rcard .reel {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  /* Takes whatever the panel below leaves, so a creator with more to say has
+     a shorter photo and the card is the same height either way. Bounded
+     without a floor: the panel's tallest row is three chip lines, since each
+     chip is nowrap and so can never put more than one niche on a line. */
+  flex: 1 1 auto;
+  min-height: 0;
   background: #111;
   overflow: hidden;
+}
+
+/* Darkens the foot of the photo so the price and city sit on it legibly. */
+.rcard .reel .scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.72) 0%,
+    rgba(0, 0, 0, 0.26) 24%,
+    rgba(0, 0, 0, 0) 46%
+  );
 }
 .rcard .reel .ip {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  /* Initials sit with the play button rather than behind the overlay. A real
-     photo is object-fit: cover and needs no such help; this is the fallback. */
-  align-content: center;
-  padding-bottom: 44%;
 }
 .rcard .reel .ip .mono {
   font-family: var(--font-heading);
@@ -292,13 +289,9 @@
   transition: opacity 0.2s ease;
 }
 
-/* Centred in the part of the photo the overlay does not cover, not in the
-   card — the overlay's height varies, so anything centred on the whole card
-   lands in the text. 56% is above the earliest the gradient starts to bite. */
 .rcard .reel .play {
   position: absolute;
-  inset: 0 0 auto;
-  height: 56%;
+  inset: 0;
   display: grid;
   place-items: center;
   opacity: 1;
@@ -323,10 +316,18 @@
   display: none;
 }
 
-.rcard .who {
+.rcard .reel .who {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 11px;
+  z-index: 2;
   color: #fff;
 }
-.rcard .who .nm {
+.rcard .reel.has-fof .who {
+  bottom: 44px;
+}
+.rcard .reel .who .nm {
   font-size: 15.5px;
   font-weight: 800;
   letter-spacing: -0.01em;
@@ -335,11 +336,11 @@
   gap: 5px;
   line-height: 1.12;
 }
-.rcard .who .nm .vf {
+.rcard .reel .who .nm .vf {
   color: #fff;
   flex-shrink: 0;
 }
-.rcard .who .lc {
+.rcard .reel .who .lc {
   font-size: 11.5px;
   color: rgba(255, 255, 255, 0.84);
   margin-top: 3px;
@@ -352,7 +353,7 @@
   white-space: nowrap;
   overflow: hidden;
 }
-.rcard .who .lc .lc-item {
+.rcard .reel .who .lc .lc-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -362,53 +363,37 @@
   flex: 0 1 auto;
 }
 
-.rcard .who .lc .lc-item svg {
+.rcard .reel .who .lc .lc-item svg {
   flex-shrink: 0;
 }
-.rcard .who .lc .lc-text {
+.rcard .reel .who .lc .lc-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rcard .who .lc .lc-sep {
+.rcard .reel .who .lc .lc-sep {
   width: 1px;
   height: 11px;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.4);
 }
 
-/**
- * The overlay. Sits on the photo's lower half and fades up out of it, so there
- * is no seam between picture and panel — the darkest stop is reached well
- * before the first line of text, which is what keeps everything legible over
- * whatever the creator's frame happens to be.
- *
- * Content-sized and pushed to the bottom: a creator with more to say takes
- * more of the photo, one with less takes less, and the card is the same height
- * either way.
- */
+/* Content-sized, so the photo above is the one thing that stretches. */
 .rcard .foot {
   position: relative;
-  z-index: 2;
-  margin-top: auto;
-  padding: 56px 13px 12px;
+  padding: 12px 13px 13px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 0 0 auto;
-  background: linear-gradient(
-    to bottom,
-    rgba(10, 10, 11, 0) 0%,
-    rgba(10, 10, 11, 0.55) 22%,
-    rgba(10, 10, 11, 0.88) 42%,
-    rgba(10, 10, 11, 0.97) 60%,
-    rgb(10, 10, 11) 100%
-  );
+  background: var(--card);
 }
-/* Bleeds to the card's edges across the top of the overlay, cancelling the
-   padding around it. */
-.rcard .fof-ribbon {
-  margin: -56px -13px 0;
+.rcard .reel .fof-ribbon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -420,7 +405,7 @@
   letter-spacing: 0.02em;
   background: linear-gradient(180deg, #f8e56a 0%, #e8c547 48%, #c9a017 100%);
 }
-.rcard .fof-ribbon::before {
+.rcard .reel .fof-ribbon::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -432,7 +417,7 @@
     rgba(255, 255, 255, 0) 58%
   );
 }
-.rcard .fof-ribbon::after {
+.rcard .reel .fof-ribbon::after {
   content: "";
   position: absolute;
   top: 0;
@@ -448,7 +433,7 @@
     transparent 100%
   );
 }
-.rcard .fof-ribbon > span {
+.rcard .reel .fof-ribbon > span {
   position: relative;
   z-index: 1;
   display: inline-flex;
@@ -456,63 +441,9 @@
   justify-content: center;
   gap: 6px;
 }
-.rcard .fof-ribbon svg {
+.rcard .reel .fof-ribbon svg {
   color: #1a1408;
 }
-/* Only shown when a brand can actually buy travel, so it reads as a feature
-   some creators have rather than a field every card fills in. */
-.rcard .fonloc {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  gap: 6px;
-  max-width: 100%;
-  padding: 0 10px;
-  height: 24px;
-  border-radius: 999px;
-  background: rgba(16, 122, 87, 0.22);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  color: #6ee7b7;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  flex: 0 0 auto;
-}
-.rcard .fonloc svg {
-  flex-shrink: 0;
-}
-.rcard .fonloc b {
-  font-weight: 800;
-  color: #a7f3d0;
-}
-
-/* Languages a brand can brief in. Set apart from the niche chips above by
-   tone rather than shape: those carry the creator's own colours, these are
-   plain, so a glance tells the two rows apart without a label on either. */
-.rcard .flangs {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 6px;
-  flex: 0 0 auto;
-}
-.rcard .flang {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--muted);
-  border: 1px solid var(--border);
-  color: var(--foreground);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
 .rcard .ftags {
   display: flex;
   flex-wrap: wrap;
@@ -522,25 +453,6 @@
      whatever this row does not take, so a short niche list buys a taller
      video rather than leaving a gap. */
   flex: 0 0 auto;
-}
-/* Below the same threshold the rows get tight, so the parts that carry no
-   information give way first — the "Guaranteed" lead-in and the
-   "completed"/"times" qualifiers. The number and the noun stay. */
-@container (max-width: 225.98px) {
-  .rcard .fdelivery .fdelivery-lead,
-  .rcard .fstat-label-tail {
-    display: none;
-  }
-  /* And the third language: at this width three pills wrap to three lines,
-     which costs more of the photo than the third language is worth. The
-     drawer lists them all. */
-  .rcard .flangs .flang:nth-child(n + 3) {
-    display: none;
-  }
-  /* And ": Available" — the badge only shows when it is. */
-  .rcard .fonloc .fonloc-tail {
-    display: none;
-  }
 }
 /* 26px tall, which with the 6px gap is what --foot-chips budgets in multiples
    of. Pill-shaped and set at reading size: at 10.5px in a 7px box the three
@@ -559,127 +471,172 @@
 }
 
 /**
- * Hairlines between the footer's bands — niches, then proof, then promise —
- * so the rows read as separate things rather than one run of text.
- *
- * Drawn inside the 8px gap above each row rather than as a border on it: the
- * delivery row is a rounded, tinted box, and a border there would hug the box
- * instead of separating it. Being absolute, they also cost no height, so the
- * card's budget stays as it is.
+ * Two columns of plain fact, split by a rule: what the creator will do, then
+ * who they can do it for. A column that has nothing to say is simply absent
+ * and its neighbour takes the row — no empty halves, no placeholder dashes.
  */
-.rcard .fstats,
-.rcard .fdelivery {
-  position: relative;
-}
-.rcard .fstats::before,
-.rcard .fdelivery::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -4px;
-  height: 1px;
-  background: var(--border);
-}
-/* The niche row above is what the first rule separates from. With no niches
-   at all there is nothing to separate, and a rule hard against the video
-   would read as a seam. */
-.rcard .ftags:empty + .fstats::before,
-.rcard .ftags:empty + .fdelivery::before {
-  display: none;
-}
-
-.rcard .fdelivery {
+.rcard .finfo,
+.rcard .fmeta {
   display: flex;
   align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 10px;
-  border-radius: 9px;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* The facts are tinted boxes, so they separate themselves — only the meta row
+   below needs a rule drawn for it. */
+.rcard .fmeta {
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.rcard .finfo-rule {
+  width: 1px;
+  align-self: stretch;
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+/* A tinted box each: the travel one green because it is the thing a brand
+   scans for, the delivery promise neutral because every card carries it. */
+.rcard .finfo-cell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
   background: var(--muted);
+}
+.rcard .finfo-cell-go {
+  background: #ecfdf5;
+}
+.rcard .finfo-cell > svg {
+  flex-shrink: 0;
   color: var(--muted-foreground);
-  font-size: 11.5px;
+}
+/* The travel column is the one a brand is scanning for, so it carries the
+   colour; the delivery promise beside it is on every card and stays quiet. */
+.rcard .finfo-cell-go > svg {
+  color: #047857;
+}
+.rcard .finfo-cell-go .finfo-label,
+.rcard .finfo-cell-go .finfo-value {
+  color: #047857;
+}
+.rcard .finfo-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.rcard .finfo-label {
+  font-size: 11px;
   font-weight: 600;
+  color: var(--muted-foreground);
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
-.rcard .fdelivery svg {
-  flex-shrink: 0;
-  color: var(--primary);
-}
-.rcard .fdelivery span {
+.rcard .finfo-value {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.rcard .fstats {
+/* No label over it: three language names read as language names, and the row
+   is shorter without one. */
+.rcard .fmeta-langs {
   display: flex;
-  align-items: center;
-  height: 40px;
-  flex: 0 0 auto;
-}
-/* One number needs no column to itself and no second line: it reads as a
-   sentence, on one line from the left edge like every other row, and hands
-   the rest of the height back to the video. */
-.rcard .fstats-single {
-  height: 20px;
-  justify-content: flex-start;
-}
-.rcard .fstat {
-  display: flex;
+  flex-direction: column;
+  justify-content: center;
   flex: 1;
   min-width: 0;
+}
+.rcard .fmeta-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.rcard .fmeta-value {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--foreground);
+  min-width: 0;
+}
+.rcard .fmeta-value > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.rcard .fmeta-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.rcard .fmeta-saved {
+  display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 1px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
-.rcard .fstats-single .fstat {
-  flex: 0 1 auto;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 5px;
-}
-/* Read as a sentence rather than a caption, now that it shares the line. */
-.rcard .fstats-single .fstat-label {
-  font-size: 11.5px;
-}
-.rcard .fstat-value {
+.rcard .fmeta-saved-count {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   color: var(--foreground);
 }
-.rcard .fstat-value svg {
-  flex-shrink: 0;
-  color: var(--muted-foreground);
-}
-.rcard .fstat-value-saved svg {
+.rcard .fmeta-saved-count svg {
   color: #e11d48;
   fill: #e11d48;
+  flex-shrink: 0;
 }
-.rcard .fstat-value b {
+.rcard .fmeta-saved-count b {
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1;
 }
-.rcard .fstat-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+
+/**
+ * Below this the card is too narrow to set two labelled facts beside each
+ * other: "On-location shoot" and "5-day delivery" both ellipsise to nonsense
+ * long before they fit. They take a line each instead, where there is room
+ * for the whole phrase — and the third language goes, since it wraps the
+ * row rather than fitting on it. The drawer lists every language anyway.
+ *
+ * Measured, not guessed: at 234px each column has ~65px for text that needs
+ * ~95px.
+ */
+@container (max-width: 299.98px) {
+  .rcard .finfo {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .rcard .finfo .finfo-rule {
+    display: none;
+  }
+  .rcard .fmeta-value > span:nth-child(n + 3) {
+    display: none;
+  }
 }
-.rcard .fstat-rule {
-  width: 1px;
-  height: 26px;
-  flex-shrink: 0;
-  background: var(--border);
-}
+
 .rcard .fbottom {
   margin-top: 0;
 }
@@ -709,7 +666,7 @@
 
 /* Between these widths the pair fits side by side but "Add to wishlist" pushes
    the heart off the end of its own button, so the short label stands in. */
-@container (min-width: 226px) and (max-width: 248.98px) {
+@container (min-width: 226px) and (max-width: 264.98px) {
   .rcard .fwishlist .fwishlist-label-full {
     display: none;
   }
@@ -737,7 +694,7 @@
 }
 .rcard .fwishlist {
   height: 36px;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 9px;
   border: 1.5px solid #fecdd3;
   background: #fff5f5;
@@ -793,12 +750,9 @@
   height: 36px;
   padding: 0 12px;
   border-radius: 9px;
-  /* A filled button would need a light fill to sit on the dark panel, which
-     puts two light blocks side by side with the wishlist button. Outlined
-     instead: the dark panel shows through and the border carries the shape. */
-  border: 1px solid #6c6c6c;
-  background: transparent;
-  color: var(--foreground);
+  border: 0;
+  background: var(--foreground);
+  color: #fff;
   font-weight: 700;
   font-size: 12.5px;
   display: inline-flex;
@@ -811,8 +765,6 @@
 }
 .rcard .fview:hover {
   background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-foreground);
 }
 
 .browse-scrim {

@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { CreatorCard, CreatorCardSkeleton } from "./creator-card";
 import { ProfileDrawer } from "./browse-creators/profile-drawer";
 import { trackViewCreator } from "@/features/analytics/lib/buyer-pixel-events";
+import { recordCreatorEngagement } from "../api/record-creator-engagement";
 import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import type { Creator } from "../types";
 import { CreatorFilterBar } from "./creator-filter-bar";
@@ -232,6 +233,9 @@ export function CreatorListing({
       setSelectedCreator(creator);
       setDrawerCreatorId(creator.id);
       setDrawerOpen(true);
+      // Our own copy of the same step. The pixel call below reports it to
+      // Meta, where the fortnightly browse reshuffle cannot read it back.
+      recordCreatorEngagement(creator.id, "profile_view");
       void resolveBuyerIdentity().then((identity) => {
         if (!identity) return;
         trackViewCreator(identity, {
@@ -464,136 +468,137 @@ export function CreatorListing({
 
   return (
     <WishlistsProvider enabled={isBrand}>
-    <div className="flex flex-1 w-full min-w-0 flex-col">
-      <CreatorFilterBar
-        filters={filters}
-        onChange={handleFiltersChange}
-        total={displayedCount}
-        isPending={isPending && !data}
-        onClear={handleResetFilters}
-        landingPage={landingPage}
-      />
+      <div className="flex flex-1 w-full min-w-0 flex-col">
+        <CreatorFilterBar
+          filters={filters}
+          onChange={handleFiltersChange}
+          total={displayedCount}
+          isPending={isPending && !data}
+          onClear={handleResetFilters}
+          landingPage={landingPage}
+        />
 
-      <div
-        className={cn(
-          "flex flex-1 flex-col",
-          landingPage
-            ? "pb-10 pt-4"
-            : cn(browseContentPaddingClass, "bg-[#f4f4f5] pb-10 pt-6"),
-        )}
-        {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
-      >
-        {isPending && !data ? (
-          <div
-            className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 min-[2200px]:grid-cols-8"
-            aria-label="Loading creators"
-          >
-            {Array.from(
-              { length: landingPage ? LANDING_PAGE_CREATOR_LIMIT : 10 },
-              (_, index) => (
-              <div key={index} className="min-w-0 h-full">
-                <CreatorCardSkeleton appearance="browse" />
-              </div>
-            ))}
-          </div>
-        ) : visibleCreators.length > 0 ? (
-          <div className="flex flex-col gap-4">
-            <VirtuosoGrid
-              useWindowScroll
-              totalCount={visibleCreators.length}
-              components={virtuosoGridComponents}
-              endReached={landingPage ? undefined : handleEndReached}
-              // Kept small on purpose: each mounted card can carry a <video
-              // preload="metadata"> that fires its own network request just
-              // from being mounted (see CreatorCard). A large overscan window
-              // means many off-screen videos issuing metadata requests
-              // simultaneously during fast scroll — this is the main scroll
-              // jank/slow-thumbnail complaint. 300/600 still avoids blank
-              // flashes on scroll while keeping fewer cards mounted at once.
-              increaseViewportBy={{ top: 300, bottom: 600 }}
-              computeItemKey={(index) =>
-                visibleCreators[index]?.id
-                  ? `${visibleCreators[index].id}-${index}`
-                  : index
-              }
-              itemContent={(index) => {
-                const creator = creatorsForCards[index];
-                if (!creator) return null;
-
-                return (
-                  <CreatorCard
-                    creator={creator}
-                    index={index}
-                    onOpen={openDrawer}
-                    isBrand={isBrand}
-                  />
-                );
-              }}
-            />
-
-            {showCreatorMatchFooter ? (
-              <CreatorMatchEndPrompt />
-            ) : (
-              <div className="flex min-h-16 w-full items-center justify-center pb-4 pt-2">
-                {landingPage ? (
-                  showLandingLoadMore ? (
-                    <Button
-                      asChild
-                      size="lg"
-                      className="min-w-[180px] rounded-xl mt-6"
-                    >
-                      <Link href="/register">Load more</Link>
-                    </Button>
-                  ) : null
-                ) : isFetchingNextPage ? (
-                  <div
-                    className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 min-[2200px]:grid-cols-8"
-                    aria-label="Loading more creators"
-                  >
-                    {Array.from({ length: 4 }, (_, index) => (
-                      <CreatorCardSkeleton key={index} appearance="browse" />
-                    ))}
+        <div
+          className={cn(
+            "flex flex-1 flex-col",
+            landingPage
+              ? "pb-10 pt-4"
+              : cn(browseContentPaddingClass, "bg-[#f4f4f5] pb-10 pt-6"),
+          )}
+          {...(!landingPage ? { "data-tour": "brand-creators-grid" } : {})}
+        >
+          {isPending && !data ? (
+            <div
+              className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 min-[2200px]:grid-cols-8"
+              aria-label="Loading creators"
+            >
+              {Array.from(
+                { length: landingPage ? LANDING_PAGE_CREATOR_LIMIT : 10 },
+                (_, index) => (
+                  <div key={index} className="min-w-0 h-full">
+                    <CreatorCardSkeleton appearance="browse" />
                   </div>
-                ) : isError && data ? (
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      Could not load more creators
-                    </p>
-                    <p className="max-w-md text-xs text-muted-foreground">
-                      {error instanceof Error
-                        ? error.message
-                        : "Something went wrong."}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void fetchNextPage()}
-                      className="text-xs font-medium text-primary underline underline-offset-2"
+                ),
+              )}
+            </div>
+          ) : visibleCreators.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <VirtuosoGrid
+                useWindowScroll
+                totalCount={visibleCreators.length}
+                components={virtuosoGridComponents}
+                endReached={landingPage ? undefined : handleEndReached}
+                // Kept small on purpose: each mounted card can carry a <video
+                // preload="metadata"> that fires its own network request just
+                // from being mounted (see CreatorCard). A large overscan window
+                // means many off-screen videos issuing metadata requests
+                // simultaneously during fast scroll — this is the main scroll
+                // jank/slow-thumbnail complaint. 300/600 still avoids blank
+                // flashes on scroll while keeping fewer cards mounted at once.
+                increaseViewportBy={{ top: 300, bottom: 600 }}
+                computeItemKey={(index) =>
+                  visibleCreators[index]?.id
+                    ? `${visibleCreators[index].id}-${index}`
+                    : index
+                }
+                itemContent={(index) => {
+                  const creator = creatorsForCards[index];
+                  if (!creator) return null;
+
+                  return (
+                    <CreatorCard
+                      creator={creator}
+                      index={index}
+                      onOpen={openDrawer}
+                      isBrand={isBrand}
+                    />
+                  );
+                }}
+              />
+
+              {showCreatorMatchFooter ? (
+                <CreatorMatchEndPrompt />
+              ) : (
+                <div className="flex min-h-16 w-full items-center justify-center pb-4 pt-2">
+                  {landingPage ? (
+                    showLandingLoadMore ? (
+                      <Button
+                        asChild
+                        size="lg"
+                        className="min-w-[180px] rounded-xl mt-6"
+                      >
+                        <Link href="/register">Load more</Link>
+                      </Button>
+                    ) : null
+                  ) : isFetchingNextPage ? (
+                    <div
+                      className="grid w-full gap-3 sm:gap-4 md:gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 min-[2200px]:grid-cols-8"
+                      aria-label="Loading more creators"
                     >
-                      Try again
-                    </button>
-                  </div>
-                ) : hasNextPage ? (
-                  <p className="text-xs text-muted-foreground">
-                    Showing {loadedCount.toLocaleString()} of{" "}
-                    {displayedCount.toLocaleString()} creators
-                  </p>
-                ) : null}
-              </div>
-            )}
-          </div>
-        ) : (
-          <EmptyBrowseState filters={filters} />
-        )}
+                      {Array.from({ length: 4 }, (_, index) => (
+                        <CreatorCardSkeleton key={index} appearance="browse" />
+                      ))}
+                    </div>
+                  ) : isError && data ? (
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <p className="text-sm font-medium text-foreground">
+                        Could not load more creators
+                      </p>
+                      <p className="max-w-md text-xs text-muted-foreground">
+                        {error instanceof Error
+                          ? error.message
+                          : "Something went wrong."}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void fetchNextPage()}
+                        className="text-xs font-medium text-primary underline underline-offset-2"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  ) : hasNextPage ? (
+                    <p className="text-xs text-muted-foreground">
+                      Showing {loadedCount.toLocaleString()} of{" "}
+                      {displayedCount.toLocaleString()} creators
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          ) : (
+            <EmptyBrowseState filters={filters} />
+          )}
+        </div>
+
+        <ProfileDrawer
+          creatorId={drawerCreatorId}
+          open={drawerOpen}
+          onClose={closeDrawer}
+          creator={selectedCreator}
+          landingPage={landingPage}
+        />
       </div>
-
-      <ProfileDrawer
-        creatorId={drawerCreatorId}
-        open={drawerOpen}
-        onClose={closeDrawer}
-        creator={selectedCreator}
-        landingPage={landingPage}
-      />
-    </div>
     </WishlistsProvider>
   );
 }

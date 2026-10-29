@@ -76,6 +76,8 @@ import {
   ResolveFacetOtherDto,
   FacetOtherResolveResponseDto,
 } from './dto/resolve-facet-other.dto';
+import { CreatorEngagementService } from './creator-engagement.service';
+import { RecordCreatorEngagementDto } from './dto/record-creator-engagement.dto';
 
 @ApiTags('Creators')
 @ApiBearerAuth()
@@ -89,7 +91,30 @@ export class CreatorProfileController {
     private readonly creatorDemoVideosService: CreatorDemoVideosService,
     private readonly creatorBioGeneratorService: CreatorBioGeneratorService,
     private readonly facetOtherResolverService: FacetOtherResolverService,
+    private readonly creatorEngagementService: CreatorEngagementService,
   ) {}
+
+  @Post(':id/engagement')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  // Generous, because it is one call per profile opened and the browse grid is
+  // meant to be clicked through — but bounded, because the route is public and
+  // the count it feeds decides where a creator sits on the board.
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Record a profile view or an add-to-cart against a creator',
+    description:
+      'Both already go to the Meta pixel; this keeps our own dated copy, ' +
+      'which is what the fortnightly browse reshuffle is ranked on. ' +
+      'Fire-and-forget: it answers 204 whether or not the count landed, so a ' +
+      'drawer never fails to open because a counter did.',
+  })
+  @ApiNoContentResponse({ description: 'Recorded, or quietly dropped' })
+  async recordEngagement(
+    @Param('id') id: string,
+    @Body() dto: RecordCreatorEngagementDto,
+  ): Promise<void> {
+    await this.creatorEngagementService.record(id, dto.kind);
+  }
 
   @Post('facets/resolve-other')
   @UseGuards(JwtAuthGuard)

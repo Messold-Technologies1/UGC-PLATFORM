@@ -29,6 +29,7 @@ import type { CreatorPublicListItemDto } from '../creator-profile/dto/creator-pu
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import { PortfolioVisibilityStatus } from '@prisma/client';
 import { playableAssetWhere } from '../creator-portfolio/portfolio-video-asset.util';
+import { CreatorEngagementService } from '../creator-profile/creator-engagement.service';
 
 const creatorWithRelationsInclude = {
   // Primary niche first (rank 0), then the secondaries — the card reads this order.
@@ -191,6 +192,7 @@ export class WishlistsService {
     private readonly prisma: PrismaService,
     private readonly brandAccess: BrandAccessService,
     private readonly metaCapi: MetaCapiService,
+    private readonly engagement: CreatorEngagementService,
   ) {}
 
   /**
@@ -384,6 +386,7 @@ export class WishlistsService {
       });
       // A wishlist created around a creator is still that creator being saved.
       for (const creatorId of params.dto.creatorIds ?? []) {
+        void this.engagement.record(creatorId, 'wishlist_add');
         void this.fireAddToWishlistMetaEvent({
           actor,
           wishlistId: wishlist.id,
@@ -583,6 +586,11 @@ export class WishlistsService {
       wishlistName: wishlist.name,
       meta: params.meta,
     });
+
+    // Our own dated copy of the save. The join row alone cannot serve the
+    // browse ranking: un-saving deletes it, so a creator saved and dropped a
+    // hundred times reads as never saved at all.
+    void this.engagement.record(params.creatorId, 'wishlist_add');
   }
 
   async removeCreator(params: {

@@ -28,7 +28,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, Search, X, Shuffle } from "lucide-react";
 import {
   CreatorCard,
   CreatorCardSkeleton,
@@ -40,6 +40,7 @@ import type { Creator } from "@/features/creators/types";
 import { useSaveCreatorBrowseOrderMutation } from "@/features/admin/hooks/use-save-creator-browse-order-mutation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { reshuffleBrowseOrder } from "@/features/admin/api/reshuffle-browse-order";
 
 /** The public list endpoint caps a page at 50. */
 const PAGE_SIZE = 50;
@@ -131,6 +132,104 @@ function SortableBoardCard({
   );
 }
 
+const RESHUFFLE_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+};
+
+function formatReshuffleDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toLocaleDateString("en-IN", RESHUFFLE_DATE_FORMAT);
+}
+
+/**
+ * Says that this order rewrites itself, and when.
+ *
+ * Without it the board looks like it rearranges on its own every fortnight,
+ * and an admin who spent an afternoon dragging it has no way to know their
+ * work has a shelf life.
+ */
+function ReshuffleBanner({
+  lastReshuffledAt,
+  nextReshuffleAt,
+  onDone,
+}: {
+  lastReshuffledAt: string | null;
+  nextReshuffleAt: string | null;
+  onDone: () => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const last = formatReshuffleDate(lastReshuffledAt);
+  const next = formatReshuffleDate(nextReshuffleAt);
+
+  const run = async () => {
+    setRunning(true);
+    setFailed(false);
+    setResult(null);
+    try {
+      const outcome = await reshuffleBrowseOrder();
+      setResult(
+        `Reordered ${outcome.ranked} creators` +
+          (outcome.pinned ? `, ${outcome.pinned} left pinned` : "") +
+          (outcome.newCreators ? `, ${outcome.newCreators} new` : ""),
+      );
+      onDone();
+    } catch {
+      setFailed(true);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 text-xs text-muted-foreground">
+        <p className="font-semibold text-foreground">
+          This order reshuffles itself every fortnight
+        </p>
+        <p className="mt-0.5">
+          Ranked on the last 90 days — completed orders first, then checkouts,
+          add-to-carts, wishlist saves and profile views.
+          {last ? ` Last run ${last}.` : " Not run yet."}
+          {next ? ` Next ${next}.` : ""} Anything you drag until then is yours;
+          the next run replaces it.
+        </p>
+        {result ? (
+          <p className="mt-1 font-medium text-foreground">{result}</p>
+        ) : null}
+        {failed ? (
+          <p className="mt-1 font-medium text-destructive">
+            Could not reshuffle. Try again.
+          </p>
+        ) : null}
+      </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="shrink-0 gap-1.5"
+        disabled={running}
+        onClick={() => void run()}
+      >
+        {running ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Shuffle className="size-3.5" />
+        )}
+        {running ? "Reshuffling\u2026" : "Reshuffle now"}
+      </Button>
+    </div>
+  );
+}
+
 /**
  * Every listed creator, as the card brands see, in the order brands see them —
  * dragged into place. The list comes from the public browse endpoint itself,
@@ -165,6 +264,8 @@ export function AdminCreatorBrowseOrderBoard() {
       });
   }, [data]);
   const total = data?.pages?.[0]?.total ?? 0;
+  const lastReshuffledAt = data?.pages?.[0]?.lastReshuffledAt ?? null;
+  const nextReshuffleAt = data?.pages?.[0]?.nextReshuffleAt ?? null;
 
   // Only the dragged-into order is held locally; the cards themselves still
   // come from the server. Deriving the list (rather than copying it into state
@@ -175,7 +276,9 @@ export function AdminCreatorBrowseOrderBoard() {
 
   const creators = useMemo(() => {
     if (!localOrder) return serverCreators;
-    const byId = new Map(serverCreators.map((creator) => [creator.id, creator]));
+    const byId = new Map(
+      serverCreators.map((creator) => [creator.id, creator]),
+    );
     const ordered = localOrder
       .map((id) => byId.get(id))
       .filter((creator): creator is Creator => !!creator);
@@ -223,7 +326,9 @@ export function AdminCreatorBrowseOrderBoard() {
   const [notFound, setNotFound] = useState(false);
   // The nonce makes searching the same name twice scroll again, which a bare
   // id would not (the value would not change).
-  const [match, setMatch] = useState<{ id: string; nonce: number } | null>(null);
+  const [match, setMatch] = useState<{ id: string; nonce: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!match) return;
@@ -256,7 +361,11 @@ export function AdminCreatorBrowseOrderBoard() {
         setIsSearching(true);
         try {
           let more = true;
-          for (let page = 0; !found && more && page < MAX_SEARCH_PAGES; page++) {
+          for (
+            let page = 0;
+            !found && more && page < MAX_SEARCH_PAGES;
+            page++
+          ) {
             const result = await fetchNextPage();
             found = (result.data?.pages ?? [])
               .flatMap((item) => item.creators)
@@ -311,7 +420,9 @@ export function AdminCreatorBrowseOrderBoard() {
   const activeCreator = activeId
     ? creators.find((creator) => creator.id === activeId)
     : null;
-  const activePosition = activeCreator ? creators.indexOf(activeCreator) + 1 : 1;
+  const activePosition = activeCreator
+    ? creators.indexOf(activeCreator) + 1
+    : 1;
 
   if (isLoading) {
     return (
@@ -351,6 +462,12 @@ export function AdminCreatorBrowseOrderBoard() {
 
   return (
     <div className="space-y-3">
+      <ReshuffleBanner
+        lastReshuffledAt={lastReshuffledAt}
+        nextReshuffleAt={nextReshuffleAt}
+        onDone={() => void refetch()}
+      />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
           Every listed creator, in the order brands and agencies see them on
@@ -365,7 +482,10 @@ export function AdminCreatorBrowseOrderBoard() {
             </span>
           ) : null}
 
-          <form onSubmit={runSearch} className="relative w-full sm:w-96 lg:w-[28rem]">
+          <form
+            onSubmit={runSearch}
+            className="relative w-full sm:w-96 lg:w-[28rem]"
+          >
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"

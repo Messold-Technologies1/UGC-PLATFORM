@@ -83,6 +83,7 @@ import {
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
 import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
+import { nextReshuffleAt } from './creator-ranking.constants';
 import { computeAgeGroup, computeAgeYears } from './creator-age.util';
 import {
   GO_LIVE_REQUIREMENTS,
@@ -2199,6 +2200,14 @@ export class CreatorProfileService {
       profiles.map((profile) => [profile.id, profile.displayName]),
     );
 
+    // What the board's header reads: when the ranking last rewrote this order,
+    // and when it will next. The newest stamp across the table is the last run,
+    // since a run stamps every row it writes.
+    const lastRun = await this.prisma.creatorFeature.aggregate({
+      _max: { autoRankedAt: true },
+    });
+    const now = new Date();
+
     return {
       items: listing.items.map((item) => ({
         ...item,
@@ -2207,6 +2216,8 @@ export class CreatorProfileService {
       total: listing.total,
       page: listing.page,
       limit: listing.limit,
+      lastReshuffledAt: lastRun._max.autoRankedAt?.toISOString() ?? null,
+      nextReshuffleAt: nextReshuffleAt(now).toISOString(),
     };
   }
 

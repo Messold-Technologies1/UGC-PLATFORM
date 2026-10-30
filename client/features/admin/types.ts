@@ -297,6 +297,17 @@ export interface AdminBrowseOrderListResponseDto {
   total: number;
   page: number;
   limit: number;
+  /** When the fortnightly reshuffle last rewrote this order; null before the first run. */
+  lastReshuffledAt: string | null;
+  /** When the next scheduled reshuffle will rewrite it. */
+  nextReshuffleAt: string;
+}
+
+export interface AdminReshuffleResultDto {
+  ranked: number;
+  pinned: number;
+  newCreators: number;
+  ranAt: string;
 }
 
 export interface RejectedCreatorApprovalListItemDto extends PendingCreatorApprovalListItemDto {

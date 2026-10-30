@@ -59,6 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoggingOut(true);
     void queryClient.cancelQueries();
     try {
+      // The push subscription deliberately SURVIVES sign-out. It belongs to
+      // the browser, not to the session, and keeping it is what lets a
+      // notification be the thing that brings someone back — which is most of
+      // the point of having it. Clicking one lands on the login page.
+      //
+      // The subscription is re-pointed, not duplicated, when somebody else
+      // signs in on this browser and turns notifications on: the server
+      // upserts on the endpoint. Until that happens this browser still shows
+      // the previous account's notifications, which is the cost of the
+      // behaviour above and the reason not to keep message text in them.
       await api.post(ENDPOINTS.AUTH.LOGOUT, undefined, {
         timeout: 12_000,
       });

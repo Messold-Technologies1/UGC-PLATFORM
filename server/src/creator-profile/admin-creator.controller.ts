@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   StreamableFile,
@@ -29,6 +30,8 @@ import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { PendingCreatorsListResponseDto } from './dto/pending-creators-list-response.dto';
 import { RejectedCreatorsListResponseDto } from './dto/rejected-creators-list-response.dto';
+import { AdminReshuffleResultDto } from './dto/admin-reshuffle-result.dto';
+import { CreatorRankingService } from './creator-ranking.service';
 import {
   PendingApprovalsQueryDto,
   RejectCreatorProfileDto,
@@ -61,6 +64,7 @@ export class AdminCreatorController {
   constructor(
     private readonly creatorProfileService: CreatorProfileService,
     private readonly creatorPayoutDetailsService: CreatorPayoutDetailsService,
+    private readonly creatorRankingService: CreatorRankingService,
   ) {}
 
   @Get('segment-counts')
@@ -189,6 +193,27 @@ export class AdminCreatorController {
     @Query() query: AdminBrowseOrderQueryDto,
   ): Promise<AdminBrowseOrderListResponseDto> {
     return this.creatorProfileService.listCreatorsForBrowseOrderBoard(query);
+  }
+
+  @Post('browse-order/reshuffle')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Run the fortnightly browse reshuffle now',
+    description:
+      'Does exactly what the scheduled run does: scores every listed creator ' +
+      'on the last 90 days and rewrites the board. Anything an admin dragged ' +
+      'since the last run is replaced, which is the point of the reshuffle. ' +
+      'A creator with a featuredUntil still in the future keeps their place.',
+  })
+  @ApiOkResponse({ type: AdminReshuffleResultDto })
+  async reshuffleBrowseOrder(): Promise<AdminReshuffleResultDto> {
+    const result = await this.creatorRankingService.reshuffleBrowseOrder();
+    return {
+      ranked: result.ranked,
+      pinned: result.pinned,
+      newCreators: result.newCreators,
+      ranAt: result.ranAt.toISOString(),
+    };
   }
 
   @Patch('browse-order')

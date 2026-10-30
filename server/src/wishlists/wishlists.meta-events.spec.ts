@@ -60,10 +60,14 @@ describe('WishlistsService AddToWishlist Meta event', () => {
       enabledFor: jest.fn(() => options?.capiEnabled ?? true),
       sendEvent,
     };
+    // The engagement tally is fire-and-forget and these tests are about what
+    // the wishlist itself persists, so it is stubbed to a no-op.
+    const engagement = { record: jest.fn().mockResolvedValue(undefined) };
     const service = new WishlistsService(
       prisma as any,
       brandAccess as any,
       metaCapi as any,
+      engagement as any,
     );
     return { service, sendEvent, metaCapi, prisma };
   }

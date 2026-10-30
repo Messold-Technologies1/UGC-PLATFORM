@@ -2,6 +2,7 @@ import { Global, Module, forwardRef } from '@nestjs/common';
 import { AuthGuardsModule } from '../auth/auth-guards.module';
 import { BrandAccessModule } from '../brand-access/brand-access.module';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { PushModule } from '../push/push.module';
 import { NotificationBootstrapService } from './notifications-bootstrap.service';
 import { NotificationRegistrySyncService } from './catalog/registry-sync.service';
 import { NotificationDispatchService } from './dispatch/notification-dispatch.service';
@@ -39,9 +40,13 @@ import { NotificationsAdminService } from './admin/notifications-admin.service';
   // AuthGuardsModule supplies JwtAuthGuard and AdminGuard for the admin
   // controller; forwardRef mirrors how the other admin modules take it.
   // RealtimeModule supplies the gateway the delivery-log feed emits through.
+  // PushModule supplies the web-push transport the PUSH channel delivers on.
   imports: [
     BrandAccessModule,
     RealtimeModule,
+    // The PUSH channel's transport and subscription store. One-way: nothing in
+    // push/ knows this module exists.
+    PushModule,
     forwardRef(() => AuthGuardsModule),
   ],
   controllers: [NotificationsAdminController],

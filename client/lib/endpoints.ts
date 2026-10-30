@@ -75,6 +75,10 @@ export const ENDPOINTS = {
   NOTIFICATION_PREFERENCES: {
     ME: "/api/notification-preferences/me",
   },
+  PUSH: {
+    VAPID_PUBLIC_KEY: "/api/push/vapid-public-key",
+    SUBSCRIPTIONS: "/api/push/subscriptions",
+  },
   BRIEFS: {
     LIST: "/api/briefs",
     FIELD_OPTIONS: "/api/briefs/field-options",
@@ -244,6 +248,7 @@ export const ENDPOINTS = {
       SEND_FOR_REVIEW: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/send-for-review`,
       BROWSE_ORDER: "/api/admin/creators/browse-order",
+      BROWSE_ORDER_RESHUFFLE: "/api/admin/creators/browse-order/reshuffle",
       FIRST_ORDER_FREE: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/first-order-free`,
       FIRST_ORDER_FREE_LIST: "/api/admin/creators/first-order-free",
@@ -404,6 +409,10 @@ export function creatorPortfolioPublicVideosPath(creatorId: string): string {
 
 export function creatorsByIdPath(id: string): string {
   return `/api/creators/${encodeURIComponent(id)}`;
+}
+
+export function creatorEngagementPath(id: string): string {
+  return `/api/creators/${encodeURIComponent(id)}/engagement`;
 }
 
 export function creatorsByPublicSlugPath(slug: string): string {

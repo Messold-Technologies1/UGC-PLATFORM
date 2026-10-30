@@ -1,5 +1,6 @@
 import { agencyLinkEvents } from './agency-link.events';
 import type { EventDefinition } from './define-events';
+import { orderChatEvents } from './order-chat.events';
 import { orderEvents } from './order.events';
 import { EVENTS_NOT_IN_CATALOG, profileEvents } from './profile.events';
 
@@ -16,6 +17,7 @@ import { EVENTS_NOT_IN_CATALOG, profileEvents } from './profile.events';
  */
 export const NOTIFICATION_EVENTS = {
   ...orderEvents,
+  ...orderChatEvents,
   ...profileEvents,
   ...agencyLinkEvents,
 } satisfies Record<string, EventDefinition>;

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { OrderChatMessageType } from '@prisma/client';
 import { OrderChatService } from './order-chat.service';
 import { createBrandAccessMock } from '../brand-access/brand-access.test-util';
+import { chatOccurrenceKey } from '../notifications/catalog/order-chat.events';
 
 describe('OrderChatService', () => {
   const orderId = 'order-1';
@@ -39,6 +40,8 @@ describe('OrderChatService', () => {
     brandActorUserId: brandUserId,
   });
 
+  const notifications = { emit: jest.fn().mockResolvedValue(undefined) };
+
   let service: OrderChatService;
 
   beforeEach(() => {
@@ -51,26 +54,30 @@ describe('OrderChatService', () => {
       creator: { userId: creatorUserId },
     });
     prisma.order.update.mockResolvedValue({});
-    prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => unknown) =>
-      fn(prisma),
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof prisma) => unknown) => fn(prisma),
     );
     service = new OrderChatService(
       prisma as any,
       storage as any,
       realtime as any,
       brandAccess as any,
+      notifications as any,
     );
   });
 
   describe('presignVoiceUpload', () => {
     it('returns presigned upload for order participant', async () => {
-      storage.buildObjectKey.mockReturnValue('order-chat-voice/order-1/brand-user/a.webm');
+      storage.buildObjectKey.mockReturnValue(
+        'order-chat-voice/order-1/brand-user/a.webm',
+      );
       storage.createPresignedPutUpload.mockResolvedValue({
         key: 'order-chat-voice/order-1/brand-user/a.webm',
         uploadUrl: 'https://signed',
         headers: { 'Content-Type': 'audio/webm' },
         expiresInSeconds: 900,
-        cdnUrl: 'https://cdn.example.com/order-chat-voice/order-1/brand-user/a.webm',
+        cdnUrl:
+          'https://cdn.example.com/order-chat-voice/order-1/brand-user/a.webm',
       });
 
       const result = await service.presignVoiceUpload({
@@ -144,7 +151,9 @@ describe('OrderChatService', () => {
 
       expect(result.type).toBe(OrderChatMessageType.VOICE);
       expect(result.text).toBeNull();
-      expect(result.audioUrl).toBe(`https://cdn.example.com/${voiceRow.audioKey}`);
+      expect(result.audioUrl).toBe(
+        `https://cdn.example.com/${voiceRow.audioKey}`,
+      );
       expect(result.audioDurationMs).toBe(5000);
       expect(prisma.order.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -257,6 +266,151 @@ describe('OrderChatService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(prisma.orderChatMessage.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('chat notifications', () => {
+    const sentAt = new Date('2026-05-19T10:00:00.000Z');
+
+    function messageFrom(senderUserId: string) {
+      return {
+        id: 'msg-1',
+        orderId,
+        senderUserId,
+        type: OrderChatMessageType.TEXT,
+        text: 'Hello',
+        audioKey: null,
+        audioDurationMs: null,
+        audioMimeType: null,
+        clientMessageId: null,
+        createdAt: sentAt,
+      };
+    }
+
+    const emitted = () =>
+      notifications.emit.mock.calls.map((c: unknown[]) => c[0] as string);
+
+    it('tells the creator when the brand writes, and not the brand', async () => {
+      prisma.orderChatMessage.create.mockResolvedValue(
+        messageFrom(brandUserId),
+      );
+
+      await service.sendMessage({
+        orderId,
+        senderUserId: brandUserId,
+        text: 'Hello',
+      });
+
+      expect(emitted()).toEqual([
+        'order-chat-message-for-creator',
+        'order-chat-message-for-admin',
+      ]);
+    });
+
+    it('tells the brand when the creator writes, and not the creator', async () => {
+      prisma.orderChatMessage.create.mockResolvedValue(
+        messageFrom(creatorUserId),
+      );
+
+      await service.sendMessage({
+        orderId,
+        senderUserId: creatorUserId,
+        text: 'Hello',
+      });
+
+      expect(emitted()).toEqual([
+        'order-chat-message-for-brand',
+        'order-chat-message-for-admin',
+      ]);
+    });
+
+    // Support writes into this same thread during a dispute. Being neither
+    // party, it is absent from both tests, so both sides hear about it — the
+    // admin case falls out of the rule rather than needing one of its own.
+    it('tells both sides when support writes', async () => {
+      prisma.orderChatMessage.create.mockResolvedValue(
+        messageFrom('admin-user'),
+      );
+      prisma.order.findUnique.mockResolvedValue({
+        status: 'DISPUTED',
+        briefAcceptedAt: new Date('2026-05-01T00:00:00.000Z'),
+        brandId: 'brand-profile-1',
+        agencyId: null,
+        brand: { id: 'brand-profile-1' },
+        creator: { userId: creatorUserId },
+      });
+
+      await service.sendMessageAsAdmin({
+        orderId,
+        adminUserId: 'admin-user',
+        text: 'Looking into this',
+      });
+
+      expect(emitted().sort()).toEqual([
+        'order-chat-message-for-admin',
+        'order-chat-message-for-brand',
+        'order-chat-message-for-creator',
+      ]);
+    });
+
+    // Emitted for every message, disputed or not: whether support hears about
+    // it is the catalog's call at SEND time, so a dispute resolved during the
+    // collapsing window silences a message posted a minute before it closed.
+    it('always emits the support event, leaving the dispute check to send time', async () => {
+      prisma.orderChatMessage.create.mockResolvedValue(
+        messageFrom(brandUserId),
+      );
+
+      await service.sendMessage({
+        orderId,
+        senderUserId: brandUserId,
+        text: 'Hello',
+      });
+
+      expect(notifications.emit).toHaveBeenCalledWith(
+        'order-chat-message-for-admin',
+        expect.objectContaining({ entityId: orderId }),
+      );
+    });
+
+    // The bucket must come from the row's own timestamp, so two app servers
+    // handling one conversation agree on which window a message belongs to.
+    it('buckets the occurrence key by the stored timestamp', async () => {
+      prisma.orderChatMessage.create.mockResolvedValue(
+        messageFrom(brandUserId),
+      );
+
+      await service.sendMessage({
+        orderId,
+        senderUserId: brandUserId,
+        text: 'Hello',
+      });
+
+      expect(notifications.emit).toHaveBeenCalledWith(
+        'order-chat-message-for-creator',
+        expect.objectContaining({
+          entityId: orderId,
+          occurrenceKey: chatOccurrenceKey(orderId, sentAt),
+          occurredAt: sentAt,
+        }),
+      );
+    });
+
+    // The message is already written and already on the socket. Failing to
+    // announce it must not turn a delivered message into an error.
+    it('still returns the message when notifying throws', async () => {
+      prisma.orderChatMessage.create.mockResolvedValue(
+        messageFrom(brandUserId),
+      );
+      notifications.emit.mockRejectedValueOnce(new Error('queue is down'));
+
+      await expect(
+        service.sendMessage({
+          orderId,
+          senderUserId: brandUserId,
+          text: 'Hello',
+        }),
+      ).resolves.toMatchObject({ id: 'msg-1' });
     });
   });
 

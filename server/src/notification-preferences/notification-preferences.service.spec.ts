@@ -5,6 +5,7 @@ type Row = {
   id: string;
   emailNotificationsEnabled: boolean;
   whatsappNotificationsEnabled: boolean;
+  pushNotificationsEnabled: boolean;
 } | null;
 
 function build(rows: {
@@ -23,6 +24,10 @@ function build(rows: {
         whatsappNotificationsEnabled:
           data.whatsappNotificationsEnabled ??
           row?.whatsappNotificationsEnabled ??
+          false,
+        pushNotificationsEnabled:
+          data.pushNotificationsEnabled ??
+          row?.pushNotificationsEnabled ??
           false,
       }),
     ),
@@ -43,6 +48,7 @@ const row = {
   id: 'p1',
   emailNotificationsEnabled: true,
   whatsappNotificationsEnabled: true,
+  pushNotificationsEnabled: true,
 };
 
 describe('NotificationPreferencesService', () => {
@@ -53,6 +59,7 @@ describe('NotificationPreferencesService', () => {
         profileType: 'creator',
         emailNotificationsEnabled: true,
         whatsappNotificationsEnabled: true,
+        pushNotificationsEnabled: true,
       });
     });
 
@@ -107,7 +114,26 @@ describe('NotificationPreferencesService', () => {
         profileType: 'creator',
         emailNotificationsEnabled: true,
         whatsappNotificationsEnabled: false,
+        pushNotificationsEnabled: true,
       });
+    });
+
+    // The browser permission is the real opt-in; this column only mutes it.
+    // Muting push must not disturb the two channels beside it.
+    it('mutes push without touching the other channels', async () => {
+      const { service, prisma } = build({ creatorProfile: row });
+
+      await expect(
+        service.updateForUser('u1', { pushNotificationsEnabled: false }),
+      ).resolves.toEqual({
+        profileType: 'creator',
+        emailNotificationsEnabled: true,
+        whatsappNotificationsEnabled: true,
+        pushNotificationsEnabled: false,
+      });
+      expect(prisma.creatorProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { pushNotificationsEnabled: false } }),
+      );
     });
 
     it('writes to the table the caller actually owns', async () => {

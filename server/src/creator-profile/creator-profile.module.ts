@@ -11,6 +11,8 @@ import { CreatorDemoVideosModule } from '../creator-demo-videos/creator-demo-vid
 import { AiModule } from '../ai/ai.module';
 import { CreatorBioGeneratorService } from './creator-bio-generator.service';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
+import { CreatorEngagementService } from './creator-engagement.service';
+import { CreatorRankingService } from './creator-ranking.service';
 import { PreviewVideoModule } from '../preview-video/preview-video.module';
 import { MediaNormalizeModule } from '../media-normalize/media-normalize.module';
 import { CitiesModule } from '../cities/cities.module';
@@ -33,7 +35,9 @@ import { CitiesModule } from '../cities/cities.module';
     CreatorUnavailabilityService,
     CreatorBioGeneratorService,
     FacetOtherResolverService,
+    CreatorEngagementService,
+    CreatorRankingService,
   ],
-  exports: [CreatorProfileService],
+  exports: [CreatorProfileService, CreatorEngagementService],
 })
 export class CreatorProfileModule {}

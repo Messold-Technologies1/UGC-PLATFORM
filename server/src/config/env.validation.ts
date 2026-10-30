@@ -233,6 +233,23 @@ export const envValidationSchema = Joi.object({
   /** Dev only: skip SNS signature verification on POST /api/webhooks/ses */
   SES_SNS_SKIP_SIGNATURE_VERIFY: Joi.string().valid('true', 'false').optional(),
 
+  // Browser push (Web Push / VAPID) — optional until the keys are generated,
+  // so a deploy that predates them still boots and simply records the PUSH
+  // channel as skipped. Generate with `npx web-push generate-vapid-keys`; see
+  // docs/BROWSER_PUSH_PLAN.md §3.3.
+  //
+  // The lengths are exact, not minimums: a VAPID keypair is an ECDSA P-256
+  // key, so the public half is always 87 base64url characters and the private
+  // half 43. Checking them here turns a truncated paste into a boot failure
+  // that names the variable, rather than an encryption error on the first send
+  // hours later.
+  VAPID_PUBLIC_KEY: Joi.string().length(87).optional(),
+  VAPID_PRIVATE_KEY: Joi.string().length(43).optional(),
+  /** Contact a push service can reach about this sender's traffic. */
+  VAPID_SUBJECT: Joi.string()
+    .pattern(/^(mailto:|https:\/\/)/)
+    .optional(),
+
   // WhatsApp (Meta Cloud API) — optional until outbound WhatsApp is enabled.
   // With these unset the WhatsApp service no-ops (like mail without SES).
   WHATSAPP_ENABLED: Joi.string().valid('true', 'false').optional(),

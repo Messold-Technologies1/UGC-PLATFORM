@@ -3,7 +3,7 @@
   --shadow-pop: 0 8px 30px -8px rgb(24 19 19 / 0.12);
   --shadow-sm: 0 1px 2px 0 rgb(24 19 19 / 0.05);
   --shadow-md: 0 6px 18px -8px rgb(24 19 19 / 0.12);
-  --shadow-lg: 0 24px 50px -22px rgb(24 19 19 / 0.30);
+  --shadow-lg: 0 24px 50px -22px rgb(24 19 19 / 0.3);
   --radius: 14px;
   --radius-sm: 8px;
   --radius-lg: 18px;
@@ -25,16 +25,30 @@
   display: grid;
   gap: 12px;
   margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 380px) {
-  .reelgrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  /* One card per row on a phone. Two columns put a ~170px card on a 360px
+     screen, which is narrower than anything the card is built for: the niches
+     took three lines, the two facts stacked, the wishlist button lost its
+     label and the buttons stacked on top of each other. One column gives the
+     card ~330px — the same layout a desktop column gets — and the photo is
+     big enough to judge the creator from. The column is capped so a landscape
+     phone or a narrow window does not stretch one card across the fold; the
+     card is 1.45x as tall as it is wide, so width is height here. */
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 440px;
+  margin-inline: auto;
 }
 
 @media (min-width: 640px) {
+  .reelgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+
+/* Three only once two columns would be wider than the ~346px the widest grid
+   settles at — below that, three columns means three cramped cards. */
+@media (min-width: 900px) {
   .reelgrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -48,77 +62,39 @@
   }
 }
 
+/* Five across, and five is where it stops. Wider screens used to keep adding
+   columns — six, seven, eight — because otherwise the cards stretched past
+   400px and one row filled the fold. Capping the grid's own width does that
+   job instead: past ~1800px the columns hold at ~346px and the grid centres in
+   the page. That is also well past the ~300px the card needs to set its two
+   facts side by side and its niches on one line, so a wide screen gets the
+   full layout rather than the stacked fallback. */
 @media (min-width: 1280px) {
   .reelgrid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    max-width: 1800px;
+    margin-inline: auto;
   }
 }
 
-@media (min-width: 1536px) {
-  .reelgrid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-/* Ultra-wide desktops: keep adding columns instead of stretching the 9:16
-   cards, which otherwise grow past ~400px wide (≈700px tall) and push the
-   second row of results below the fold. */
-@media (min-width: 1800px) {
-  .reelgrid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 2200px) {
-  .reelgrid {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-  }
-}
-
-/* Wishlist detail page: cap at 5 cards per row */
-.reelgrid.reelgrid-wishlist {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 380px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (min-width: 640px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1536px) {
-  .reelgrid.reelgrid-wishlist {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
+/* The wishlist detail page carries .reelgrid-wishlist and used to restate this
+   same ladder under it. It was column-for-column identical, so it only gave
+   the two copies a chance to drift apart; the page now rides the ladder
+   above. */
 
 .rcard {
-  display: flex;
-  flex-direction: column;
+  display: block;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
+  /* Queried by .rbody below for the card's own width. That width, not the
+     viewport's, is what the layout depends on: the grid runs 1 to 5 columns,
+     so one viewport width yields very different cards on Browse, the wishlist
+     page and the admin board. */
+  container-type: inline-size;
   transition:
     transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1),
     box-shadow 0.22s ease,
@@ -129,11 +105,94 @@
   box-shadow: var(--shadow-pop);
 }
 
+/**
+ * Every card at a given width is this tall, whatever the creator has filled it
+ * with — and the video, not a blank gap, is what takes up the slack.
+ *
+ * The height is one 4:5 still plus a budget for the rows beneath it. The
+ * footer is then left to size itself: a creator with one niche and one stat
+ * builds a short footer and gets a taller video; a creator with three long
+ * niches and both stats builds a tall one and gets a shorter video. Since the
+ * total is fixed by width alone, the cards still line up.
+ *
+ * 4:5 rather than the reel's own 9:16: a full-height vertical frame made the
+ * card tall enough that a five-column grid showed barely a row per screen.
+ * object-fit: cover crops to the middle, which is where the face is.
+ *
+ * 100cqw is the card's own width, which is why this lives on a child: an
+ * element cannot query itself.
+ */
+.rcard .rbody {
+  display: flex;
+  flex-direction: column;
+  /* The photo is absolute inside this, so the card's own height is the only
+     thing that sets its size. */
+  position: relative;
+  /* The rows every card carries: 23 padding + 40 gaps (five, now that
+     languages and the travel pill have rows of their own) + 34 delivery + 36
+     actions. Delivery and the actions sit last, so they hold the same
+     distance off the bottom edge on every card and line up across a row. */
+  --foot-fixed: 139px;
+  /* What the two self-sizing rows usually come to — three chip lines and a
+     two-line stat pair. Budgeting the common case keeps the still near 4:5;
+     cards either side of it simply run a little taller or shorter. */
+  --foot-chips: 90px;
+  /* The languages / times-saved row. Three language names wrap to two lines
+     on a narrow card, which is still worth more than dropping one. */
+  --foot-meta: 58px;
+  /* The two tinted fact boxes, side by side at every width. */
+  --foot-info: 46px;
+  height: calc(
+    100cqw * 29 / 20 + var(--foot-fixed) + var(--foot-chips) +
+      var(--foot-meta) + var(--foot-info)
+  );
+}
+/* Wider cards fit the niches on fewer lines, so they budget less for them.
+   Measured against the longest niche labels in the catalog with the 26px
+   pills: three lines are needed up to 216px and two up to 330px, so these
+   carry some headroom. Getting one wrong costs nothing but a still a little
+   off 4:5 — the footer sizes itself either way. */
+@container (min-width: 226px) {
+  .rcard .rbody {
+    --foot-chips: 58px;
+    /* Both buttons on one line at this width; stacked below it, which is one
+       36px row and an 8px gap more — see .factions. */
+    --foot-fixed: 95px;
+  }
+}
+@container (min-width: 270px) {
+  .rcard .rbody {
+    /* Three language names fit on one line from about here. */
+    --foot-meta: 41px;
+  }
+}
+@container (min-width: 340px) {
+  .rcard .rbody {
+    --foot-chips: 26px;
+  }
+}
 .rcard .reel {
   position: relative;
-  aspect-ratio: 9 / 16;
+  /* Takes whatever the panel below leaves, so a creator with more to say has
+     a shorter photo and the card is the same height either way. Bounded
+     without a floor: the panel's tallest row is three chip lines, since each
+     chip is nowrap and so can never put more than one niche on a line. */
+  flex: 1 1 auto;
+  min-height: 0;
   background: #111;
   overflow: hidden;
+}
+
+/* Darkens the foot of the photo so the price and city sit on it legibly. */
+.rcard .reel .scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.72) 0%,
+    rgba(0, 0, 0, 0.26) 24%,
+    rgba(0, 0, 0, 0) 46%
+  );
 }
 .rcard .reel .ip {
   position: absolute;
@@ -161,17 +220,6 @@
   object-fit: cover;
 }
 
-.rcard .reel .scrim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.78) 0%,
-    rgba(0, 0, 0, 0.28) 26%,
-    rgba(0, 0, 0, 0) 48%
-  );
-}
-
 .rcard .reel .top {
   position: absolute;
   top: 11px;
@@ -179,33 +227,24 @@
   right: 11px;
   display: flex;
   align-items: flex-start;
+  /* Availability sits in the top-right corner. */
+  justify-content: flex-end;
 
   gap: 4px;
 }
-.rcard .reel .vchip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(0, 0, 0, 0.46);
-  color: #fff;
-  font-weight: 700;
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-}
-
+/* No backdrop-filter here or on the play button below. Every card on screen
+   carried two blurred layers, and the compositor re-samples what is behind
+   each one on every scrolled frame — with twenty-odd cards mounted that is
+   the single biggest thing between this grid and a smooth scroll. The tints
+   below are opaque enough to read over any frame without it. */
 .rcard .reel .availchip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
   font-weight: 700;
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 999px;
-  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.16);
   white-space: nowrap;
 }
@@ -216,7 +255,7 @@
   flex-shrink: 0;
 }
 .rcard .reel .availchip.online {
-  background: rgba(6, 95, 70, 0.72);
+  background: rgba(6, 95, 70, 0.88);
   color: #ecfdf5;
 }
 .rcard .reel .availchip.online i {
@@ -224,7 +263,7 @@
   box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35);
 }
 .rcard .reel .availchip.offline {
-  background: rgba(127, 29, 29, 0.72);
+  background: rgba(127, 29, 29, 0.88);
   color: #fef2f2;
 }
 .rcard .reel .availchip.offline i {
@@ -251,9 +290,8 @@
   width: 50px;
   height: 50px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(17, 17, 17, 0.38);
   border: 1.5px solid rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(7px);
   display: grid;
   place-items: center;
   color: #fff;
@@ -293,15 +331,47 @@
   margin-top: 3px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
+  /* One line, always: a long city or a third language must not push the
+     overlay taller on one card than on the next. */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rcard .reel .who .lc .lc-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  /* Both fields shrink together, so a long city ellipsises instead of
+     shouldering the languages off the card. */
+  flex: 0 1 auto;
 }
 
+.rcard .reel .who .lc .lc-item svg {
+  flex-shrink: 0;
+}
+.rcard .reel .who .lc .lc-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rcard .reel .who .lc .lc-sep {
+  width: 1px;
+  height: 11px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Content-sized, so the photo above is the one thing that stretches. */
 .rcard .foot {
-  padding: 11px 13px 12px;
+  position: relative;
+  padding: 12px 13px 13px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1;
+  flex: 0 0 auto;
+  background: var(--card);
 }
 .rcard .reel .fof-ribbon {
   position: absolute;
@@ -362,19 +432,212 @@
 .rcard .ftags {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  min-height: 20px;
+  align-content: flex-start;
+  gap: 6px;
+  /* Sized by its contents — one line or three. The video above gives back
+     whatever this row does not take, so a short niche list buys a taller
+     video rather than leaving a gap. */
+  flex: 0 0 auto;
 }
+/* 26px tall, which with the 6px gap is what --foot-chips budgets in multiples
+   of. Pill-shaped and set at reading size: at 10.5px in a 7px box the three
+   niches read as one dense cluster rather than three separate things. */
 .rcard .ftag {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 7px;
+  padding: 0 10px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
   white-space: nowrap;
   flex-shrink: 0;
+  line-height: 1;
 }
+
+/**
+ * Two columns of plain fact, split by a rule: what the creator will do, then
+ * who they can do it for. A column that has nothing to say is simply absent
+ * and its neighbour takes the row — no empty halves, no placeholder dashes.
+ */
+.rcard .finfo,
+.rcard .fmeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* The facts are tinted boxes, so they separate themselves — only the meta row
+   below needs a rule drawn for it. */
+.rcard .fmeta {
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.rcard .finfo-rule {
+  width: 1px;
+  align-self: stretch;
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+/* A tinted box each: the travel one green because it is the thing a brand
+   scans for, the delivery promise neutral because every card carries it. */
+.rcard .finfo-cell {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  /* Tight enough that both boxes fit a narrow card side by side: the text
+     gets (card - 34) / 2 - 38 after this padding, the icon and their gap. */
+  padding: 7px 8px;
+  gap: 7px;
+  border-radius: 10px;
+  background: var(--muted);
+}
+.rcard .finfo-cell-go {
+  background: #ecfdf5;
+}
+.rcard .finfo-cell > svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+/* The travel column is the one a brand is scanning for, so it carries the
+   colour; the delivery promise beside it is on every card and stays quiet. */
+.rcard .finfo-cell-go > svg {
+  color: #047857;
+}
+.rcard .finfo-cell-go .finfo-label,
+.rcard .finfo-cell-go .finfo-value {
+  color: #047857;
+}
+.rcard .finfo-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.rcard .finfo-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rcard .finfo-value {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* No label over it: three language names read as language names, and the row
+   is shorter without one. */
+.rcard .fmeta-langs {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+.rcard .fmeta-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.rcard .fmeta-value {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--foreground);
+  min-width: 0;
+}
+.rcard .fmeta-value > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.rcard .fmeta-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.rcard .fmeta-saved {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.rcard .fmeta-saved-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--foreground);
+}
+.rcard .fmeta-saved-count svg {
+  color: #e11d48;
+  fill: #e11d48;
+  flex-shrink: 0;
+}
+.rcard .fmeta-saved-count b {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/**
+ * The two fact boxes sit side by side at every width — stacking them cost a
+ * whole row of the photo. What gives instead is the wording: below this the
+ * box is too narrow for "On-location shoot" and "5-day delivery", so those
+ * shorten to "On-location" and "5 days", which say the same thing in the room
+ * there is.
+ *
+ * Measured, not guessed: each box gets (card - 34) / 2 - 38 for text, and the
+ * full phrase needs ~86px, so the pair fits from ~282px up.
+ */
+@container (max-width: 281.98px) {
+  .rcard .finfo .finfo-long {
+    display: none;
+  }
+}
+/* On a phone-width card even the short wording needs the icon's room, so the
+   icon goes rather than the pairing. The words say it without one. */
+@container (max-width: 209.98px) {
+  .rcard .finfo-cell > svg {
+    display: none;
+  }
+  /* And a notch off the padding and the label, which is what the last few
+     pixels of "On-location" need at the narrowest card the grid makes. */
+  .rcard .finfo-cell {
+    padding: 7px 6px;
+  }
+  .rcard .finfo-label {
+    font-size: 9.5px;
+  }
+}
+@container (min-width: 282px) {
+  .rcard .finfo .finfo-brief {
+    display: none;
+  }
+}
+
 .rcard .fbottom {
-  margin-top: auto;
+  margin-top: 0;
 }
 .rcard .factions {
   display: flex;
@@ -383,9 +646,54 @@
   gap: 8px;
   width: 100%;
 }
+/* The wishlist button is as wide as its label needs; View takes the rest, so
+   the pair always fills the row and never crowds itself. */
+.rcard .factions .fwishlist {
+  flex: 0 0 auto;
+  justify-content: center;
+}
+.rcard .factions .fview {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+/* "Save" is the shorter of the two labels and is the one held back by
+   default; the rules below decide which is showing. */
+.rcard .fwishlist .fwishlist-label-short {
+  display: none;
+}
+
+/* Between these widths the pair fits side by side but "Add to wishlist" pushes
+   the heart off the end of its own button, so the short label stands in. */
+@container (min-width: 226px) and (max-width: 264.98px) {
+  .rcard .fwishlist .fwishlist-label-full {
+    display: none;
+  }
+  .rcard .fwishlist .fwishlist-label-short {
+    display: inline;
+  }
+}
+
+/* A phone-width card cannot hold both buttons on one line at any label length
+   worth reading, so they stack and take the full width each. The budget above
+   pays for the extra row. Placed after the rules it overrides, where at equal
+   specificity source order decides. */
+@container (max-width: 225.98px) {
+  .rcard .factions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .rcard .factions .fwishlist,
+  .rcard .factions .fview {
+    width: 100%;
+    flex: 0 0 auto;
+    padding: 0 14px;
+  }
+}
 .rcard .fwishlist {
   height: 36px;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 9px;
   border: 1.5px solid #fecdd3;
   background: #fff5f5;
@@ -397,7 +705,9 @@
   gap: 6px;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 .rcard .fwishlist:hover {
   background: #ffe4e6;
@@ -454,19 +764,6 @@
 }
 .rcard .fview:hover {
   background: var(--primary);
-}
-
-@media (max-width: 767px) {
-  .rcard .factions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-  .rcard .fwishlist,
-  .rcard .fview {
-    width: 100%;
-    justify-content: center;
-  }
 }
 
 .browse-scrim {
@@ -607,7 +904,8 @@
 }
 .dr-reeltile.intro {
   width: 178px;
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent),
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent),
     var(--shadow-md);
 }
 .dr-reeltile .mono {
@@ -817,7 +1115,10 @@
   white-space: nowrap;
   flex-shrink: 0;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent);
-  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 .dr-tabs-profile-link:hover {
   background: color-mix(in srgb, var(--primary) 88%, #000);
@@ -1211,7 +1512,6 @@
   }
 }
 
-
 @media (max-width: 768px) {
   .browse-drawer {
     top: 0;
@@ -1291,7 +1591,6 @@
     gap: 12px;
   }
 }
-
 
 @media (max-width: 375px) {
   .browse-drawer {

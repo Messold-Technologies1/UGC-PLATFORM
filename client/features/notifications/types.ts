@@ -1,4 +1,4 @@
-export type NotificationChannel = "EMAIL" | "WHATSAPP";
+export type NotificationChannel = "EMAIL" | "WHATSAPP" | "PUSH";
 export type NotificationRecipientRole = "CREATOR" | "BRAND" | "USER";
 
 export type NotificationLogStatus =

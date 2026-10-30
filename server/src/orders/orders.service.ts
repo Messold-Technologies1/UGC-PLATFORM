@@ -63,6 +63,7 @@ import {
   resolveAutoAcceptDays,
 } from './delivery-deadline.util';
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
+import { ON_LOCATION_SHOOT_OPTION_SLUG } from '../creator-profile/on-location-shoot.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
 import type { OrderDeliveryItemDto } from './dto/order-delivery-item.dto';
 import type { OrderDeliveryAssetDto } from './dto/order-delivery-asset.dto';
@@ -251,11 +252,10 @@ export const BASE_USAGE_RIGHTS_DAYS = 30;
 const EXTRA_USAGE_RIGHTS_OPTION_SLUG = 'paid_ads_usage_30_days';
 
 /**
- * Catalog slug for the creator's optional "Travel within City" add-on: the
- * creator comes to a location the brand picks instead of shooting at their own
- * setup. Resolved by name like the other two (`CreatorAddOn` has no slug).
+ * Catalog slug for the creator's optional "Travel within City" add-on.
+ * Shared with the browse card, which advertises the same thing — see
+ * on-location-shoot.util.
  */
-const ON_LOCATION_SHOOT_OPTION_SLUG = 'on_location_shoot';
 
 /**
  * Shoot locations that put the creator on the road. A brief asking for one of
@@ -2409,7 +2409,7 @@ export class OrdersService {
 
     if (String(order.status) !== 'BRIEF_SUBMITTED') {
       throw new BadRequestException(
-        'The brief can only be edited while it is awaiting the creator\'s response.',
+        "The brief can only be edited while it is awaiting the creator's response.",
       );
     }
     // Guards against revising a brief the order has since moved off — two
@@ -2468,7 +2468,7 @@ export class OrdersService {
     this.brandAccess.assertOwnsOrder(order, actor);
     if (String(order.status) !== 'BRIEF_SUBMITTED') {
       throw new BadRequestException(
-        'The brief can only be edited while it is awaiting the creator\'s response.',
+        "The brief can only be edited while it is awaiting the creator's response.",
       );
     }
 
@@ -2479,8 +2479,7 @@ export class OrdersService {
         briefId: params.briefId,
         briefSubmittedAt: now,
         briefRevisedAt: now,
-        requiresPhysicalProductShipment:
-          params.requiresPhysicalProductShipment,
+        requiresPhysicalProductShipment: params.requiresPhysicalProductShipment,
       },
     });
 

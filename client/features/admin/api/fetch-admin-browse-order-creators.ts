@@ -9,6 +9,8 @@ export type AdminBrowseOrderPage = {
   total: number;
   page: number;
   limit: number;
+  lastReshuffledAt: string | null;
+  nextReshuffleAt: string;
 };
 
 /**
@@ -35,5 +37,7 @@ export async function fetchAdminBrowseOrderCreators(
     total: data.total,
     page: data.page,
     limit: data.limit,
+    lastReshuffledAt: data.lastReshuffledAt ?? null,
+    nextReshuffleAt: data.nextReshuffleAt,
   };
 }

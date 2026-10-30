@@ -2,33 +2,45 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { removeWishlistCreator } from "../api/remove-wishlist-creator";
 import { wishlistsQueryKey } from "./use-wishlists-query";
 import { wishlistDetailQueryKey } from "./use-wishlist-detail-query";
+import { bumpCreatorSavedCount } from "../lib/bump-creator-saved-count";
 import type { WishlistDetail, ListWishlistsResponse } from "../api/types";
 
 export function useRemoveWishlistCreatorMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ wishlistId, creatorId }: { wishlistId: string; creatorId: string }) =>
-      removeWishlistCreator(wishlistId, creatorId),
+    mutationFn: ({
+      wishlistId,
+      creatorId,
+    }: {
+      wishlistId: string;
+      creatorId: string;
+    }) => removeWishlistCreator(wishlistId, creatorId),
 
     onMutate: async ({ wishlistId, creatorId }) => {
       // Cancel any in-flight refetches so they don't overwrite our optimistic update
-      await queryClient.cancelQueries({ queryKey: wishlistDetailQueryKey(wishlistId) });
+      await queryClient.cancelQueries({
+        queryKey: wishlistDetailQueryKey(wishlistId),
+      });
       await queryClient.cancelQueries({ queryKey: wishlistsQueryKey });
 
       // Snapshot previous values for rollback
       const prevDetail = queryClient.getQueryData<WishlistDetail>(
         wishlistDetailQueryKey(wishlistId),
       );
-      const prevList = queryClient.getQueryData<ListWishlistsResponse>(wishlistsQueryKey);
+      const prevList =
+        queryClient.getQueryData<ListWishlistsResponse>(wishlistsQueryKey);
 
       // Optimistically remove from detail cache
       if (prevDetail) {
-        queryClient.setQueryData<WishlistDetail>(wishlistDetailQueryKey(wishlistId), {
-          ...prevDetail,
-          creators: prevDetail.creators.filter((c) => c.id !== creatorId),
-          creatorCount: Math.max(0, prevDetail.creatorCount - 1),
-          creatorIds: prevDetail.creatorIds.filter((id) => id !== creatorId),
-        });
+        queryClient.setQueryData<WishlistDetail>(
+          wishlistDetailQueryKey(wishlistId),
+          {
+            ...prevDetail,
+            creators: prevDetail.creators.filter((c) => c.id !== creatorId),
+            creatorCount: Math.max(0, prevDetail.creatorCount - 1),
+            creatorIds: prevDetail.creatorIds.filter((id) => id !== creatorId),
+          },
+        );
       }
 
       // Optimistically update creator count in list cache
@@ -53,16 +65,27 @@ export function useRemoveWishlistCreatorMutation() {
     onError: (_err, { wishlistId }, context) => {
       // Roll back on failure
       if (context?.prevDetail) {
-        queryClient.setQueryData(wishlistDetailQueryKey(wishlistId), context.prevDetail);
+        queryClient.setQueryData(
+          wishlistDetailQueryKey(wishlistId),
+          context.prevDetail,
+        );
       }
       if (context?.prevList) {
         queryClient.setQueryData(wishlistsQueryKey, context.prevList);
       }
     },
 
+    onSuccess: (_data, { creatorId }) => {
+      // Mirror of the add mutation: keep the browse card's "times saved" in
+      // step with the heart, rather than waiting out the list's stale time.
+      bumpCreatorSavedCount(queryClient, creatorId, -1);
+    },
+
     onSettled: (_data, _err, { wishlistId }) => {
       // Reconcile with server truth after mutation settles
-      queryClient.invalidateQueries({ queryKey: wishlistDetailQueryKey(wishlistId) });
+      queryClient.invalidateQueries({
+        queryKey: wishlistDetailQueryKey(wishlistId),
+      });
       queryClient.invalidateQueries({ queryKey: wishlistsQueryKey });
     },
   });

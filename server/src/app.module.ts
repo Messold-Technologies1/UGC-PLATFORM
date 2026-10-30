@@ -37,6 +37,7 @@ import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
 import { NotificationsModule } from './notifications/notifications.module';
 import { NotificationPreferencesModule } from './notification-preferences/notification-preferences.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { NotificationPreferencesModule } from './notification-preferences/notifi
     AgencyModule,
     AgencyBrandLinkModule,
     NotificationPreferencesModule,
+    PushModule,
     OrdersModule,
     CouponsModule,
     WalletModule,

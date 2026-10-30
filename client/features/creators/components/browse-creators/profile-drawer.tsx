@@ -16,6 +16,7 @@ import React, {
 import { OrderModal } from "./order-modal";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import { trackBeginCheckout } from "@/features/analytics/lib/buyer-pixel-events";
+import { recordCreatorEngagement } from "../../api/record-creator-engagement";
 import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import {
   X,
@@ -729,11 +730,7 @@ const InstagramTab = React.memo(function InstagramTab({
 
   return (
     <div className="dr-section" style={{ paddingTop: 18 }}>
-      <InstagramInsights
-        insights={data}
-        variant="compact"
-        showHeader={false}
-      />
+      <InstagramInsights insights={data} variant="compact" showHeader={false} />
     </div>
   );
 });
@@ -945,6 +942,10 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
    * profile load, or the landing page's redirect to sign up.
    */
   async function reportBeginCheckout(creatorId: string, startingPrice: number) {
+    // Our own copy first, and unconditionally: the pixel call below needs a
+    // resolved buyer identity, while the browse reshuffle only needs to know
+    // the step happened.
+    recordCreatorEngagement(creatorId, "add_to_cart");
     const identity = await resolveBuyerIdentity();
     if (!identity) return;
     trackBeginCheckout(identity, { creatorId, startingPrice });
@@ -1152,7 +1153,10 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
               if (landingPage) {
                 router.push(
                   isBrand && activeId
-                    ? remapBuyerHref(`/brand/creators?creatorId=${activeId}`, workspaceBase)
+                    ? remapBuyerHref(
+                        `/brand/creators?creatorId=${activeId}`,
+                        workspaceBase,
+                      )
                     : "/register",
                 );
                 return;

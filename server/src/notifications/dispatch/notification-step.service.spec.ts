@@ -4,6 +4,7 @@ import {
   PermanentSendError,
   sanitizeBodyVar,
 } from './notification-step.service';
+import { PermanentPushError } from '../../push/web-push.transport';
 import type { StepJobData } from '../queues/notification-queues';
 import { getEventDefinition } from '../catalog/event-catalog';
 
@@ -35,6 +36,10 @@ type Options = {
   whatsappBodyVars?: string[];
   /** Extra values the stubbed resolve() returns, for those placeholders. */
   extraVars?: Record<string, string>;
+  /** How many browsers the recipient has granted push on. */
+  pushSubscriptions?: number;
+  /** Return a group rather than one person, as a staff event does. */
+  recipients?: Array<Record<string, unknown>> | null;
 };
 
 function build(opts: Options = {}) {
@@ -46,12 +51,25 @@ function build(opts: Options = {}) {
   };
   const ses = { send: jest.fn().mockResolvedValue('ses-msg-1') };
   const whatsapp = { send: jest.fn().mockResolvedValue('wamid.1') };
+  const push = {
+    sendToUser: jest
+      .fn()
+      .mockResolvedValue({ delivered: 1, pruned: 0, failed: 0 }),
+  };
+  const pushSubscriptions = {
+    countForUser: jest.fn().mockResolvedValue(opts.pushSubscriptions ?? 1),
+  };
   const renderer = {
     render: jest.fn().mockResolvedValue({
       subject: opts.subject ?? 'Your content is ready',
       html: '<p>hi</p>',
       text: 'hi',
       source: 'db',
+      templateId: 't1',
+    }),
+    renderPush: jest.fn().mockResolvedValue({
+      title: opts.subject ?? 'Your content is ready',
+      body: 'hi',
       templateId: 't1',
     }),
   };
@@ -85,6 +103,7 @@ function build(opts: Options = {}) {
       findUnique: jest.fn().mockResolvedValue({
         emailNotificationsEnabled: opts.optedIn ?? true,
         whatsappNotificationsEnabled: opts.optedIn ?? true,
+        pushNotificationsEnabled: opts.optedIn ?? true,
       }),
     },
     creatorProfile: { findUnique: jest.fn() },
@@ -92,6 +111,7 @@ function build(opts: Options = {}) {
       findUnique: jest.fn().mockResolvedValue({
         emailNotificationsEnabled: opts.optedIn ?? true,
         whatsappNotificationsEnabled: opts.optedIn ?? true,
+        pushNotificationsEnabled: opts.optedIn ?? true,
       }),
     },
     user: {
@@ -124,6 +144,8 @@ function build(opts: Options = {}) {
     suppression as never,
     ses as never,
     whatsapp as never,
+    push as never,
+    pushSubscriptions as never,
   );
 
   mockGetEventDefinition.mockReturnValue(
@@ -137,20 +159,22 @@ function build(opts: Options = {}) {
             ? { whatsappBodyVars: opts.whatsappBodyVars }
             : {}),
           resolve: jest.fn().mockResolvedValue(
-            opts.resolveNull
-              ? null
-              : {
-                  userId: 'u1',
-                  profileType: opts.buyer ?? 'brand',
-                  profileId: opts.buyer === 'agency' ? 'a1' : 'b1',
-                  email: 'brand@example.com',
-                  phone: '919812345678',
-                  vars: {
-                    recipientName: 'Rohit',
-                    actionUrl: 'https://app.gocollab.io/brand/orders/ord_1',
-                    ...(opts.extraVars ?? {}),
+            opts.recipients !== undefined
+              ? opts.recipients
+              : opts.resolveNull
+                ? null
+                : {
+                    userId: 'u1',
+                    profileType: opts.buyer ?? 'brand',
+                    profileId: opts.buyer === 'agency' ? 'a1' : 'b1',
+                    email: 'brand@example.com',
+                    phone: '919812345678',
+                    vars: {
+                      recipientName: 'Rohit',
+                      actionUrl: 'https://app.gocollab.io/brand/orders/ord_1',
+                      ...(opts.extraVars ?? {}),
+                    },
                   },
-                },
           ),
           stillRelevant: jest
             .fn()
@@ -160,7 +184,17 @@ function build(opts: Options = {}) {
         } as never),
   );
 
-  return { service, log, ses, whatsapp, renderer, prisma, suppression };
+  return {
+    service,
+    log,
+    ses,
+    whatsapp,
+    push,
+    pushSubscriptions,
+    renderer,
+    prisma,
+    suppression,
+  };
 }
 
 const job: StepJobData = {
@@ -457,5 +491,330 @@ describe('one channel failing', () => {
     await expect(service.deliver(job)).rejects.toBeInstanceOf(
       PermanentSendError,
     );
+  });
+});
+
+describe('NotificationStepService.deliver — the push channel', () => {
+  const pushJob: StepJobData = {
+    ...job,
+    channels: [NotificationChannel.PUSH],
+  };
+
+  function pushEventRow() {
+    return {
+      isActive: true,
+      deprecated: false,
+      alwaysSend: false,
+      emailTemplateId: 't1',
+      whatsappTemplateName: null,
+      schedule: [
+        {
+          isActive: true,
+          channels: [NotificationChannel.PUSH],
+          templateOverrideId: null,
+          whatsappTemplateOverride: null,
+        },
+      ],
+    };
+  }
+
+  it('fans the event out to the account rather than to an address', async () => {
+    const { service, push, log } = build({ eventRow: pushEventRow() });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes).toEqual([
+      { channel: NotificationChannel.PUSH, result: 'sent' },
+    ]);
+    expect(push.sendToUser).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({
+        title: 'Your content is ready',
+        body: 'hi',
+        url: 'https://app.gocollab.io/brand/orders/ord_1',
+      }),
+    );
+    // No provider id: a push touches N services and none of them hands back an
+    // identifier a webhook will later quote.
+    expect(log.markSent).toHaveBeenCalledWith(
+      'log1',
+      expect.objectContaining({ providerMessageId: null }),
+    );
+  });
+
+  // The log's identity has to stay one row per user per event per offset, the
+  // way it is for the channels that do have an address.
+  it('claims under a synthetic per-user address', async () => {
+    const { service, log } = build({ eventRow: pushEventRow() });
+
+    await service.deliver(pushJob);
+
+    expect(log.claim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toAddress: 'push:u1',
+        channel: NotificationChannel.PUSH,
+      }),
+    );
+  });
+
+  // Declared per event, because "you may already be looking at this" is true
+  // of a chat message and false of an order changing state.
+  it('passes the event’s suppress-when-viewing flag to the browser', async () => {
+    const { service, push } = build({ eventRow: pushEventRow() });
+
+    await service.deliver(pushJob);
+
+    expect(push.sendToUser).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ suppressIfVisible: false }),
+    );
+  });
+
+  it('collapses repeats about one entity under a single tag', async () => {
+    const { service, push } = build({ eventRow: pushEventRow() });
+
+    await service.deliver(pushJob);
+
+    expect(push.sendToUser).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ tag: `${EVENT}:ord_1` }),
+    );
+  });
+
+  // Recorded as its own reason, not as a generic failure: the rate of this
+  // skip is the permission-grant funnel.
+  it('skips, without claiming, when the account has granted push nowhere', async () => {
+    const { service, log, push } = build({
+      eventRow: pushEventRow(),
+      pushSubscriptions: 0,
+    });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes).toEqual([
+      {
+        channel: NotificationChannel.PUSH,
+        result: 'skipped',
+        reason: 'no_push_subscription',
+      },
+    ]);
+    expect(log.recordSkip).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedReason: 'no_push_subscription' }),
+    );
+    // Not claimed, so granting permission later is not refused as a duplicate.
+    expect(log.claim).not.toHaveBeenCalled();
+    expect(push.sendToUser).not.toHaveBeenCalled();
+  });
+
+  it('respects the per-profile push opt-out', async () => {
+    const { service, log, push } = build({
+      eventRow: pushEventRow(),
+      optedIn: false,
+    });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes[0]).toMatchObject({
+      result: 'skipped',
+      reason: 'opted_out',
+    });
+    expect(log.recordSkip).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedReason: 'opted_out' }),
+    );
+    expect(push.sendToUser).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing in shadow mode', async () => {
+    const { service, push } = build({
+      eventRow: pushEventRow(),
+      sendingEnabled: false,
+    });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes[0]).toMatchObject({ reason: 'sending_disabled' });
+    expect(push.sendToUser).not.toHaveBeenCalled();
+  });
+
+  // The transport raises its own permanent type; the engine only knows about
+  // this module's, so a failed translation would cost three attempts instead
+  // of one on an error no retry can fix.
+  it('translates a permanent transport failure into the engine’s own', async () => {
+    const { service, push, log } = build({ eventRow: pushEventRow() });
+    push.sendToUser.mockRejectedValue(
+      new PermanentPushError('payload too large'),
+    );
+
+    await expect(service.deliver(pushJob)).rejects.toBeInstanceOf(
+      PermanentSendError,
+    );
+    expect(log.markFailed).toHaveBeenCalled();
+  });
+
+  it('retries a transport failure that is worth retrying', async () => {
+    const { service, push } = build({ eventRow: pushEventRow() });
+    push.sendToUser.mockRejectedValue(new Error('ETIMEDOUT'));
+
+    await expect(service.deliver(pushJob)).rejects.toThrow('ETIMEDOUT');
+  });
+
+  // A notification with no title shows the site name and nothing else, which
+  // tells the recipient less than not sending would.
+  it('refuses a template that renders an empty title', async () => {
+    const { service, renderer, push } = build({ eventRow: pushEventRow() });
+    renderer.renderPush.mockResolvedValue({
+      title: '   ',
+      body: 'hi',
+      templateId: 't1',
+    });
+
+    await expect(service.deliver(pushJob)).rejects.toBeInstanceOf(
+      PermanentSendError,
+    );
+    expect(push.sendToUser).not.toHaveBeenCalled();
+  });
+
+  // A WhatsApp outage must not cost the push, and vice versa — the same
+  // independence the other two channels already have between them.
+  it('delivers push even when another channel on the row fails', async () => {
+    const { service, push, ses } = build({
+      eventRow: {
+        isActive: true,
+        deprecated: false,
+        alwaysSend: false,
+        emailTemplateId: 't1',
+        whatsappTemplateName: null,
+        schedule: [
+          {
+            isActive: true,
+            channels: [NotificationChannel.EMAIL, NotificationChannel.PUSH],
+            templateOverrideId: null,
+            whatsappTemplateOverride: null,
+          },
+        ],
+      },
+    });
+    ses.send.mockRejectedValue(new Error('SES is down'));
+
+    await expect(
+      service.deliver({
+        ...job,
+        channels: [NotificationChannel.EMAIL, NotificationChannel.PUSH],
+      }),
+    ).rejects.toThrow('SES is down');
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('NotificationStepService.deliver — a group of recipients', () => {
+  const pushJob: StepJobData = { ...job, channels: [NotificationChannel.PUSH] };
+
+  function groupEventRow() {
+    return {
+      isActive: true,
+      deprecated: false,
+      alwaysSend: false,
+      emailTemplateId: 't1',
+      whatsappTemplateName: null,
+      schedule: [
+        {
+          isActive: true,
+          channels: [NotificationChannel.PUSH],
+          templateOverrideId: null,
+          whatsappTemplateOverride: null,
+        },
+      ],
+    };
+  }
+
+  const staff = (id: string) => ({
+    userId: id,
+    email: `${id}@example.com`,
+    phone: null,
+    bypassProfileOptIn: true,
+    vars: { recipientName: id, actionUrl: 'https://app.gocollab.io/admin/x' },
+  });
+
+  it('delivers to each member of the group', async () => {
+    const { service, push } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1'), staff('admin-2')],
+    });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes.map((o) => o.result)).toEqual(['sent', 'sent']);
+    expect(push.sendToUser).toHaveBeenCalledWith('admin-1', expect.anything());
+    expect(push.sendToUser).toHaveBeenCalledWith('admin-2', expect.anything());
+  });
+
+  // The log's identity already includes the recipient, so each claim is its
+  // own row — which is what keeps one admin's state from affecting another's.
+  it('claims separately for each member', async () => {
+    const { service, log } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1'), staff('admin-2')],
+    });
+
+    await service.deliver(pushJob);
+
+    expect(log.claim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: 'admin-1',
+        toAddress: 'push:admin-1',
+      }),
+    );
+    expect(log.claim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: 'admin-2',
+        toAddress: 'push:admin-2',
+      }),
+    );
+  });
+
+  it('skips one inactive member without silencing the rest', async () => {
+    const { service, push, prisma } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1'), staff('admin-2')],
+    });
+    prisma.user.findUnique
+      .mockResolvedValueOnce({ status: UserStatus.SUSPENDED })
+      .mockResolvedValueOnce({ status: UserStatus.ACTIVE });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes.map((o) => o.result)).toEqual(['skipped', 'sent']);
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(push.sendToUser).toHaveBeenCalledWith('admin-2', expect.anything());
+  });
+
+  // An audience that turned out to be empty is not a missing entity, and the
+  // log must not say it was: a wall of entity_gone should mean something.
+  it('records an empty group as no_recipient, not entity_gone', async () => {
+    const { service, log } = build({
+      eventRow: groupEventRow(),
+      recipients: [],
+    });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes[0]).toMatchObject({ reason: 'no_recipient' });
+    expect(log.recordSkip).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedReason: 'no_recipient' }),
+    );
+  });
+
+  // Staff have no workspace profile, so the opt-in columns would refuse them.
+  it('sends to staff without consulting the profile opt-ins', async () => {
+    const { service, push, prisma } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1')],
+      optedIn: false,
+    });
+
+    await service.deliver(pushJob);
+
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(prisma.brandProfile.findUnique).not.toHaveBeenCalled();
   });
 });

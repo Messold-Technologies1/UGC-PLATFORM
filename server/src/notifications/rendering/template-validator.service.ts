@@ -57,7 +57,7 @@ const AMBIENT_VARS = new Set([
 ]);
 
 export type TemplateIssue = {
-  part: 'subject' | 'html' | 'text';
+  part: 'subject' | 'html' | 'text' | 'pushTitle' | 'pushBody';
   kind:
     | 'syntax'
     | 'unknown-variable'
@@ -78,6 +78,11 @@ export type TemplateParts = {
   subjectHbs: string;
   htmlHbs: string;
   textHbs?: string | null;
+  /** Browser-notification overrides. Checked like any other part: a typo'd
+   * variable renders an empty string at send time, which on a lock screen is
+   * a notification that says nothing. */
+  pushTitleHbs?: string | null;
+  pushBodyHbs?: string | null;
 };
 
 /**
@@ -106,6 +111,8 @@ export class TemplateValidatorService {
       ['subject', parts.subjectHbs],
       ['html', parts.htmlHbs],
       ['text', parts.textHbs],
+      ['pushTitle', parts.pushTitleHbs],
+      ['pushBody', parts.pushBodyHbs],
     ];
 
     for (const [part, source] of sources) {

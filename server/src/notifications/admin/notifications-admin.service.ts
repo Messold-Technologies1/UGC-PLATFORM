@@ -320,6 +320,8 @@ export class NotificationsAdminService {
         htmlHbs: true,
         bodyDoc: true,
         textHbs: true,
+        pushTitleHbs: true,
+        pushBodyHbs: true,
         referencedVars: true,
         isActive: true,
         version: true,
@@ -459,9 +461,12 @@ export class NotificationsAdminService {
       // otherwise drift, and the stale document would silently win next time
       // the visual editor opened.
       bodyDoc: (dto.bodyDoc ?? null) as
-        | Prisma.InputJsonValue
-        | typeof Prisma.DbNull,
+        Prisma.InputJsonValue | typeof Prisma.DbNull,
       textHbs: dto.textHbs ?? null,
+      // Empty is the same as absent here: a cleared field in the editor means
+      // "go back to deriving it from the email", not "send a blank title".
+      pushTitleHbs: dto.pushTitleHbs?.trim() || null,
+      pushBodyHbs: dto.pushBodyHbs?.trim() || null,
       referencedVars: result.referencedVars,
       updatedByUserId: userId,
     };
@@ -483,6 +488,8 @@ export class NotificationsAdminService {
           subjectHbs: existing.subjectHbs,
           htmlHbs: existing.htmlHbs,
           textHbs: existing.textHbs,
+          pushTitleHbs: existing.pushTitleHbs,
+          pushBodyHbs: existing.pushBodyHbs,
           note: dto.note ?? null,
           createdByUserId: userId,
         },
@@ -518,7 +525,13 @@ export class NotificationsAdminService {
   async revert(id: string, version: number, userId: string) {
     const snapshot = await this.prisma.notificationTemplateVersion.findUnique({
       where: { templateId_version: { templateId: id, version } },
-      select: { subjectHbs: true, htmlHbs: true, textHbs: true },
+      select: {
+        subjectHbs: true,
+        htmlHbs: true,
+        textHbs: true,
+        pushTitleHbs: true,
+        pushBodyHbs: true,
+      },
     });
     if (!snapshot) throw new NotFoundException(`No version ${version}`);
 
@@ -532,6 +545,8 @@ export class NotificationsAdminService {
         subjectHbs: snapshot.subjectHbs,
         htmlHbs: snapshot.htmlHbs,
         textHbs: snapshot.textHbs,
+        pushTitleHbs: snapshot.pushTitleHbs,
+        pushBodyHbs: snapshot.pushBodyHbs,
         note: `Reverted to version ${version}`,
       },
       userId,
@@ -558,6 +573,8 @@ export class NotificationsAdminService {
       htmlHbs?: string;
       bodyDoc?: Record<string, unknown>;
       textHbs?: string | null;
+      pushTitleHbs?: string | null;
+      pushBodyHbs?: string | null;
     },
   ) {
     const template = await this.getTemplate(id);
@@ -578,6 +595,24 @@ export class NotificationsAdminService {
       draft?.htmlHbs !== undefined ||
       draft?.bodyDoc !== undefined;
 
+    const push = this.renderer.renderPushDraft({
+      subjectHbs: draft?.subjectHbs ?? template.subjectHbs,
+      htmlHbs,
+      textHbs: draft?.textHbs ?? template.textHbs,
+      // `undefined` means the editor did not send the field, so fall back to
+      // what is stored; an explicit null or '' means the admin cleared it and
+      // wants the derived copy back.
+      pushTitleHbs:
+        draft?.pushTitleHbs === undefined
+          ? template.pushTitleHbs
+          : draft.pushTitleHbs,
+      pushBodyHbs:
+        draft?.pushBodyHbs === undefined
+          ? template.pushBodyHbs
+          : draft.pushBodyHbs,
+      context,
+    });
+
     if (usingDraft) {
       const rendered = this.renderer.renderDraft({
         subjectHbs: draft?.subjectHbs ?? template.subjectHbs,
@@ -587,6 +622,7 @@ export class NotificationsAdminService {
       });
       return {
         ...rendered,
+        push,
         source: 'draft' as const,
         templateId: id,
         context,
@@ -599,7 +635,12 @@ export class NotificationsAdminService {
       templateName: eventKey ?? template.name,
       context,
     });
-    return { ...rendered, context, derivedTextHbs: deriveTextHbs(htmlHbs) };
+    return {
+      ...rendered,
+      push,
+      context,
+      derivedTextHbs: deriveTextHbs(htmlHbs),
+    };
   }
 
   /**

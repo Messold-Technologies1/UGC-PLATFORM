@@ -2344,6 +2344,15 @@ model NotificationTemplate {
   bodyDoc        Json?
   /// Null means derive the plain-text part from the rendered HTML.
   textHbs        String?  @db.Text
+  /// Browser-notification copy. Null on either means derive it from the email
+  /// — the subject trimmed of its sign-off for the title, the opening line of
+  /// the text part for the body (see rendering/push-copy.ts).
+  ///
+  /// Worth overriding where the email subject reads badly on a lock screen:
+  /// it is written for an inbox, where naming the sender is the convention
+  /// and there is room for a sentence. A notification has neither.
+  pushTitleHbs   String?
+  pushBodyHbs    String?  @db.Text
   /// Variable names found in the Handlebars AST when the template was saved.
   referencedVars String[] @default([])
   isActive       Boolean  @default(true)
@@ -2367,11 +2376,15 @@ model NotificationTemplateVersion {
   templateId String               @db.Uuid
   template   NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  version    Int
-  subjectHbs String
-  htmlHbs    String  @db.Text
-  textHbs    String? @db.Text
-  note       String?
+  version      Int
+  subjectHbs   String
+  htmlHbs      String  @db.Text
+  textHbs      String? @db.Text
+  /// Snapshotted like the rest, so reverting restores the notification copy
+  /// alongside the email rather than leaving the two from different edits.
+  pushTitleHbs String?
+  pushBodyHbs  String? @db.Text
+  note         String?
 
   createdByUserId String?  @db.Uuid
   createdAt       DateTime @default(now())

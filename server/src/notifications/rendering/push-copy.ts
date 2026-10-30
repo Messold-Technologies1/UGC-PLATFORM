@@ -107,3 +107,38 @@ export function pushClickUrl(
   if (/^https?:\/\//i.test(url)) return url;
   return `${base}/${url.replace(/^\//, '')}`;
 }
+
+/**
+ * The notification, from whichever sources exist.
+ *
+ * One function so the send path and the admin preview cannot disagree about
+ * when an override applies or what the fallback does to email copy — a
+ * preview that renders by different rules than the sender is worse than no
+ * preview, because it is believed.
+ *
+ * Overrides arrive already rendered and are used as written, truncated but
+ * never trimmed: the greeting-strip and sign-off-trim repair conventions that
+ * belong to email, and copy written for a lock screen has none to repair.
+ */
+export function pushCopyFrom(input: {
+  /** The rendered email subject, for the title fallback. */
+  renderedSubject: string;
+  /** The rendered plain-text part, for the body fallback. */
+  renderedText: string;
+  /** Rendered override, or null/empty to derive. */
+  overrideTitle?: string | null;
+  overrideBody?: string | null;
+  platformName: unknown;
+}): { title: string; body: string } {
+  const overrideTitle = input.overrideTitle?.trim();
+  const overrideBody = input.overrideBody?.trim();
+
+  return {
+    title: overrideTitle
+      ? overrideTitle
+      : pushTitleFrom(input.renderedSubject, input.platformName),
+    body: overrideBody
+      ? truncateForPush(overrideBody)
+      : truncateForPush(stripGreeting(input.renderedText)),
+  };
+}

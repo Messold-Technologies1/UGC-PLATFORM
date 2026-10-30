@@ -176,6 +176,8 @@ export class NotificationsAdminController {
       htmlHbs: dto.htmlHbs,
       bodyDoc: dto.bodyDoc,
       textHbs: dto.textHbs,
+      pushTitleHbs: dto.pushTitleHbs,
+      pushBodyHbs: dto.pushBodyHbs,
     });
   }
 

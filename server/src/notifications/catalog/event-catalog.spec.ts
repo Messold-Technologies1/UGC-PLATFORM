@@ -45,7 +45,7 @@ describe('notification event catalog', () => {
         expect({ key, name, type: spec.type }).toEqual({
           key,
           name,
-          type: expect.any(String) as unknown as string,
+          type: expect.any(String),
         });
         expect(spec.example.length).toBeGreaterThan(0);
       }
@@ -81,9 +81,9 @@ describe('notification event catalog', () => {
       'order-chat-message-for-brand',
       'order-chat-message-for-creator',
     ]) {
-      expect(`${key}:${NOTIFICATION_EVENTS_BY_KEY[key].defaultChannels?.join()}`).toBe(
-        `${key}:PUSH`,
-      );
+      expect(
+        `${key}:${NOTIFICATION_EVENTS_BY_KEY[key].defaultChannels?.join()}`,
+      ).toBe(`${key}:PUSH`);
     }
   });
 

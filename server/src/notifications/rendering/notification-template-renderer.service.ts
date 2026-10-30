@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import Handlebars from 'handlebars';
 import type { TemplateDelegate } from 'handlebars';
 import { deriveText } from './derive-text';
-import { pushTitleFrom, stripGreeting, truncateForPush } from './push-copy';
+import { pushCopyFrom } from './push-copy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TemplateRendererService } from '../../mail/template-renderer.service';
 import {
@@ -15,6 +15,9 @@ type CompiledTemplate = {
   subject: TemplateDelegate;
   body: TemplateDelegate;
   text: TemplateDelegate | null;
+  /** Null means no override: derive the notification from the email. */
+  pushTitle: TemplateDelegate | null;
+  pushBody: TemplateDelegate | null;
 };
 
 export type RenderRequest = {
@@ -95,24 +98,35 @@ export class NotificationTemplateRenderer {
    * that explains it. That correspondence is what lets push be switched on
    * for any event in the catalog without writing thirty more templates first.
    *
-   * It is a fallback, not a ceiling. Where a subject reads badly as a title —
-   * too long, or written for an inbox rather than a lock screen — the answer
-   * is a per-event push override, which is a column and an admin field this
-   * does not have yet (docs/BROWSER_PUSH_PLAN.md §4.3).
+   * That derivation is the fallback, not a ceiling: a template can carry its
+   * own `pushTitleHbs` and `pushBodyHbs`, written for a lock screen rather
+   * than an inbox, and either one overrides its half independently.
+   *
+   * An override is rendered as written — truncated, because the platform
+   * truncates anyway, but never greeting-stripped or sign-off-trimmed. Those
+   * trims repair email conventions, and copy written for a notification has
+   * none to repair.
    */
   async renderPush(req: RenderRequest): Promise<RenderedPush> {
+    const row = await this.findTemplate(req);
     const rendered = await this.render(req);
-    return {
-      // Both trims exist because the source is email copy: a subject signs off
-      // with the site name and a body opens by greeting the reader, and a
-      // notification has room for neither.
-      title: pushTitleFrom(
-        rendered.subject,
-        this.legacy.applyDefaults(req.context).platformName,
-      ),
-      body: truncateForPush(stripGreeting(rendered.text)),
-      templateId: rendered.templateId,
-    };
+    const ctx = this.legacy.applyDefaults(req.context);
+
+    // An override is used as written. The trims below exist only because the
+    // fallback's source is email copy — a subject that signs off with the site
+    // name, a body that opens by greeting the reader — and applying them to
+    // copy somebody wrote FOR a notification would quietly edit their words.
+    const compiled = row ? this.compile(row) : null;
+
+    const { title, body } = pushCopyFrom({
+      renderedSubject: rendered.subject,
+      renderedText: rendered.text,
+      overrideTitle: compiled?.pushTitle?.(ctx),
+      overrideBody: compiled?.pushBody?.(ctx),
+      platformName: ctx.platformName,
+    });
+
+    return { title, body, templateId: rendered.templateId };
   }
 
   /**
@@ -142,6 +156,38 @@ export class NotificationTemplateRenderer {
     return { subject, html, text };
   }
 
+  /**
+   * The notification a draft would produce, for the admin preview.
+   *
+   * Uncached like {@link renderDraft}, and routed through the same
+   * {@link pushCopyFrom} the send path uses, so what the editor shows is what
+   * would actually arrive — including when a field is left blank and the copy
+   * falls back to the email.
+   */
+  renderPushDraft(draft: {
+    subjectHbs: string;
+    htmlHbs: string;
+    textHbs?: string | null;
+    pushTitleHbs?: string | null;
+    pushBodyHbs?: string | null;
+    context: EmailTemplateContext;
+  }): { title: string; body: string } {
+    const rendered = this.renderDraft(draft);
+    const ctx = this.legacy.applyDefaults(draft.context);
+
+    return pushCopyFrom({
+      renderedSubject: rendered.subject,
+      renderedText: rendered.text,
+      overrideTitle: draft.pushTitleHbs
+        ? Handlebars.compile(draft.pushTitleHbs)(ctx)
+        : null,
+      overrideBody: draft.pushBodyHbs
+        ? Handlebars.compile(draft.pushBodyHbs)(ctx)
+        : null,
+      platformName: ctx.platformName,
+    });
+  }
+
   /** Clears the compiled cache. Used after a template is saved in the same process. */
   invalidate(): void {
     this.cache.clear();
@@ -154,6 +200,8 @@ export class NotificationTemplateRenderer {
       subjectHbs: true,
       htmlHbs: true,
       textHbs: true,
+      pushTitleHbs: true,
+      pushBodyHbs: true,
       isActive: true,
     } as const;
 
@@ -185,6 +233,8 @@ export class NotificationTemplateRenderer {
     subjectHbs: string;
     htmlHbs: string;
     textHbs: string | null;
+    pushTitleHbs?: string | null;
+    pushBodyHbs?: string | null;
   }): CompiledTemplate {
     const cacheKey = `${row.id}:${row.version}`;
     const hit = this.cache.get(cacheKey);
@@ -194,6 +244,8 @@ export class NotificationTemplateRenderer {
       subject: Handlebars.compile(row.subjectHbs),
       body: Handlebars.compile(row.htmlHbs),
       text: row.textHbs ? Handlebars.compile(row.textHbs) : null,
+      pushTitle: row.pushTitleHbs ? Handlebars.compile(row.pushTitleHbs) : null,
+      pushBody: row.pushBodyHbs ? Handlebars.compile(row.pushBodyHbs) : null,
     };
 
     if (this.cache.size >= NotificationTemplateRenderer.CACHE_MAX) {

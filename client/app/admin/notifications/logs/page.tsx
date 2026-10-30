@@ -160,6 +160,7 @@ export default function NotificationLogsPage() {
             <SelectItem value="__all">Any channel</SelectItem>
             <SelectItem value="EMAIL">Email</SelectItem>
             <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+            <SelectItem value="PUSH">Browser</SelectItem>
           </SelectContent>
         </Select>
         <Select
@@ -213,7 +214,7 @@ export default function NotificationLogsPage() {
                   <td className="text-muted-foreground p-3 whitespace-nowrap text-xs">
                     {formatOffset(row.offsetMinutes)}
                     <br />
-                    {row.channel === "EMAIL" ? "email" : "whatsapp"}
+                    {row.channel.toLowerCase()}
                   </td>
                   <td className="p-3 text-xs">{row.toAddress}</td>
                   <td className="p-3">

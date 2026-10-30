@@ -47,31 +47,3 @@ export function urlBase64ToApplicationServerKey(base64: string): ArrayBuffer {
 export function canRequestPermission(): boolean {
   return pushSupported() && Notification.permission !== "denied";
 }
-
-/**
- * Drop this browser's subscription without touching the account's column.
- *
- * For sign-out, where there is no toggle and no React: the next person on this
- * machine must not inherit push for the account that just left. Deliberately
- * best-effort and never throwing — a sign-out that fails because a
- * notification could not be unsubscribed would be a worse bug than the stale
- * subscription, which the server prunes on the 410 its next send gets anyway.
- *
- * The DELETE must go out before the session cookie is gone, so call this
- * before the logout request, not after.
- */
-export async function forgetPushSubscriptionForSignOut(
-  deleteOnServer: (endpoint: string) => Promise<void>,
-): Promise<void> {
-  if (!pushSupported()) return;
-  try {
-    const registration = await navigator.serviceWorker.getRegistration("/sw.js");
-    const subscription = await registration?.pushManager.getSubscription();
-    if (!subscription) return;
-    const { endpoint } = subscription;
-    await subscription.unsubscribe().catch(() => undefined);
-    await deleteOnServer(endpoint).catch(() => undefined);
-  } catch {
-    // Nothing a signing-out user can do about it, and nothing worth blocking.
-  }
-}

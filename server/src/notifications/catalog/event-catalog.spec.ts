@@ -68,6 +68,7 @@ describe('notification event catalog', () => {
     ).sort();
 
     expect(opted).toEqual([
+      'order-chat-message-for-admin',
       'order-chat-message-for-brand',
       'order-chat-message-for-creator',
     ]);
@@ -75,6 +76,7 @@ describe('notification event catalog', () => {
 
   it('seeds order chat as push only', () => {
     for (const key of [
+      'order-chat-message-for-admin',
       'order-chat-message-for-brand',
       'order-chat-message-for-creator',
     ]) {
@@ -116,6 +118,7 @@ describe('notification event catalog', () => {
       'order-auto-accept-reminder-for-brand',
       'order-brief-accepted-for-brand',
       'order-brief-submitted-for-creator',
+      'order-chat-message-for-admin',
       'order-chat-message-for-brand',
       'order-chat-message-for-creator',
       'order-content-delivered-for-brand',

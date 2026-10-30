@@ -137,40 +137,52 @@ export class NotificationStepService {
       if (!relevant) return this.skipAll(job, 'not_relevant');
     }
 
-    const recipient = await definition.resolve(this.context(), job.entityId);
-    if (!recipient) return this.skipAll(job, 'entity_gone');
-
-    if (recipient.userId && !(await this.userIsActive(recipient.userId))) {
-      return this.skipAll(job, 'user_inactive', recipient);
-    }
+    const resolved = await definition.resolve(this.context(), job.entityId);
+    // null means the entity or its recipient is gone. An empty array is a
+    // different answer: the event found its audience and it was nobody — no
+    // admin on duty, say — which is not a sign anything is broken.
+    if (resolved === null) return this.skipAll(job, 'entity_gone');
+    const recipients = Array.isArray(resolved) ? resolved : [resolved];
+    if (recipients.length === 0) return this.skipAll(job, 'no_recipient');
 
     const outcomes: StepOutcome[] = [];
     const failures: unknown[] = [];
 
-    // Channels are independent: a WhatsApp failure must not cost the email.
-    //
-    // deliverChannel records its own failure and rethrows so the job retries,
-    // but that throw used to escape this loop — so an SES outage silently took
-    // WhatsApp with it, and the comment above was simply untrue. Each channel
-    // is tried now, and the failures are re-raised together once every channel
-    // has had its turn.
-    for (const channel of row.channels) {
-      try {
-        outcomes.push(
-          await this.deliverChannel(job, channel, recipient, {
-            alwaysSend: event.alwaysSend,
-            emailTemplateId: row.templateOverrideId ?? event.emailTemplateId,
-            whatsappTemplateName:
-              row.whatsappTemplateOverride ??
-              event.whatsappTemplateName ??
-              defaultWhatsAppTemplateName(job.eventKey),
-            whatsappBodyVars: definition.whatsappBodyVars ?? [],
-            suppressWhenViewing: definition.suppressWhenViewing ?? false,
-          }),
-        );
-      } catch (err) {
-        failures.push(err);
-        outcomes.push({ channel, result: 'failed' });
+    // One event may address a group whose size is not known in advance. Each
+    // recipient is claimed and logged separately — the log's identity already
+    // includes the recipient — so one of them being inactive or unreachable
+    // cannot silence the rest.
+    for (const recipient of recipients) {
+      if (recipient.userId && !(await this.userIsActive(recipient.userId))) {
+        outcomes.push(...(await this.skipAll(job, 'user_inactive', recipient)));
+        continue;
+      }
+
+      // Channels are independent: a WhatsApp failure must not cost the email.
+      //
+      // deliverChannel records its own failure and rethrows so the job retries,
+      // but that throw used to escape this loop — so an SES outage silently took
+      // WhatsApp with it, and the comment above was simply untrue. Each channel
+      // is tried now, and the failures are re-raised together once every channel
+      // has had its turn.
+      for (const channel of row.channels) {
+        try {
+          outcomes.push(
+            await this.deliverChannel(job, channel, recipient, {
+              alwaysSend: event.alwaysSend,
+              emailTemplateId: row.templateOverrideId ?? event.emailTemplateId,
+              whatsappTemplateName:
+                row.whatsappTemplateOverride ??
+                event.whatsappTemplateName ??
+                defaultWhatsAppTemplateName(job.eventKey),
+              whatsappBodyVars: definition.whatsappBodyVars ?? [],
+              suppressWhenViewing: definition.suppressWhenViewing ?? false,
+            }),
+          );
+        } catch (err) {
+          failures.push(err);
+          outcomes.push({ channel, result: 'failed' });
+        }
       }
     }
 
@@ -444,6 +456,11 @@ export class NotificationStepService {
     recipient: ResolvedRecipient,
     channel: NotificationChannel,
   ): Promise<boolean> {
+    // Staff have no profile row and therefore no preference to consult. Kept
+    // explicit on the recipient rather than inferred from a missing
+    // profileType, because "no profile" is also what a resolver looks like
+    // when it forgot to set one — and that must keep failing closed.
+    if (recipient.bypassProfileOptIn) return true;
     if (!recipient.profileType || !recipient.profileId) return false;
     const select =
       channel === NotificationChannel.EMAIL

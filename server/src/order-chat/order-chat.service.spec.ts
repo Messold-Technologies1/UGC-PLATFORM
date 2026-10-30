@@ -301,7 +301,10 @@ describe('OrderChatService', () => {
         text: 'Hello',
       });
 
-      expect(emitted()).toEqual(['order-chat-message-for-creator']);
+      expect(emitted()).toEqual([
+        'order-chat-message-for-creator',
+        'order-chat-message-for-admin',
+      ]);
     });
 
     it('tells the brand when the creator writes, and not the creator', async () => {
@@ -315,7 +318,10 @@ describe('OrderChatService', () => {
         text: 'Hello',
       });
 
-      expect(emitted()).toEqual(['order-chat-message-for-brand']);
+      expect(emitted()).toEqual([
+        'order-chat-message-for-brand',
+        'order-chat-message-for-admin',
+      ]);
     });
 
     // Support writes into this same thread during a dispute. Being neither
@@ -341,9 +347,30 @@ describe('OrderChatService', () => {
       });
 
       expect(emitted().sort()).toEqual([
+        'order-chat-message-for-admin',
         'order-chat-message-for-brand',
         'order-chat-message-for-creator',
       ]);
+    });
+
+    // Emitted for every message, disputed or not: whether support hears about
+    // it is the catalog's call at SEND time, so a dispute resolved during the
+    // collapsing window silences a message posted a minute before it closed.
+    it('always emits the support event, leaving the dispute check to send time', async () => {
+      prisma.orderChatMessage.create.mockResolvedValue(
+        messageFrom(brandUserId),
+      );
+
+      await service.sendMessage({
+        orderId,
+        senderUserId: brandUserId,
+        text: 'Hello',
+      });
+
+      expect(notifications.emit).toHaveBeenCalledWith(
+        'order-chat-message-for-admin',
+        expect.objectContaining({ entityId: orderId }),
+      );
     });
 
     // The bucket must come from the row's own timestamp, so two app servers

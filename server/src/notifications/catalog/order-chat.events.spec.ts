@@ -19,6 +19,15 @@ type DigestOpts = {
   lastReadAt?: Date | null;
   order?: Record<string, unknown> | null;
   buyerThrows?: boolean;
+  /** Order status, for the support event's dispute gate. */
+  status?: string;
+  /** Who is on duty. */
+  admins?: Array<{
+    id: string;
+    email: string | null;
+    name: string | null;
+    phone: string | null;
+  }>;
 };
 
 function ctxWith(opts: DigestOpts = {}): EventContext {
@@ -65,7 +74,22 @@ function ctxWith(opts: DigestOpts = {}): EventContext {
       ),
     },
     prisma: {
-      order: { findUnique: jest.fn().mockResolvedValue(order) },
+      order: {
+        findUnique: jest
+          .fn()
+          .mockImplementation(
+            ({ select }: { select?: Record<string, unknown> }) => {
+              // The dispute gate asks for status alone; everything else loads the
+              // full row.
+              if (select && Object.keys(select).length === 1 && select.status) {
+                return Promise.resolve(
+                  order === null ? null : { status: opts.status ?? 'DISPUTED' },
+                );
+              }
+              return Promise.resolve(order);
+            },
+          ),
+      },
       orderChatReadState: {
         findUnique: jest
           .fn()
@@ -91,6 +115,17 @@ function ctxWith(opts: DigestOpts = {}): EventContext {
         findUnique: jest
           .fn()
           .mockResolvedValue({ id: BRAND_USER, email: 'brand@example.com' }),
+        findMany: jest.fn().mockResolvedValue(
+          opts.admins ?? [
+            {
+              id: 'admin-1',
+              email: 'a1@example.com',
+              name: 'Priya',
+              phone: null,
+            },
+            { id: 'admin-2', email: 'a2@example.com', name: null, phone: null },
+          ],
+        ),
       },
     },
   } as unknown as EventContext;
@@ -98,6 +133,7 @@ function ctxWith(opts: DigestOpts = {}): EventContext {
 
 const forCreator = orderChatEvents['order-chat-message-for-creator'];
 const forBrand = orderChatEvents['order-chat-message-for-brand'];
+const forAdmin = orderChatEvents['order-chat-message-for-admin'];
 
 describe('chatOccurrenceKey', () => {
   // This is the whole burst-collapsing mechanism: messages sharing a key
@@ -227,6 +263,96 @@ describe('order chat events', () => {
     it('answers null when the order is gone', async () => {
       await expect(
         forCreator.stillRelevant(ctxWith({ order: null }), ORDER_ID),
+      ).resolves.toBeNull();
+    });
+  });
+});
+
+describe('order chat — support', () => {
+  // A dispute has no assigned owner, so there is nobody in particular to tell.
+  it('addresses every admin on duty', async () => {
+    const resolved = await forAdmin.resolve(ctxWith(), ORDER_ID);
+
+    expect(Array.isArray(resolved)).toBe(true);
+    expect(
+      (resolved as Array<{ userId: string | null }>).map((r) => r.userId),
+    ).toEqual(['admin-1', 'admin-2']);
+  });
+
+  // Outside a dispute the thread belongs to the brand and creator; support is
+  // not a participant and must not be told about it.
+  it('resolves to nobody when the order is not disputed', async () => {
+    await expect(
+      forAdmin.resolve(ctxWith({ status: 'DELIVERED' }), ORDER_ID),
+    ).resolves.toBeNull();
+  });
+
+  it('does not notify the admin who just wrote', async () => {
+    const resolved = (await forAdmin.resolve(
+      ctxWith({ latestSender: 'admin-1' }),
+      ORDER_ID,
+    )) as Array<{ userId: string | null }>;
+
+    expect(resolved.map((r) => r.userId)).toEqual(['admin-2']);
+  });
+
+  // An empty group is not a missing entity: the step service logs the two
+  // differently, and "no admin on duty" is not a sign anything is broken.
+  it('resolves to an empty group when nobody is on duty', async () => {
+    const resolved = await forAdmin.resolve(ctxWith({ admins: [] }), ORDER_ID);
+
+    expect(resolved).toEqual([]);
+  });
+
+  // Admins have no workspace profile, so the per-profile opt-in columns would
+  // refuse every send to them.
+  it('marks admins as having no profile preference to consult', async () => {
+    const resolved = (await forAdmin.resolve(ctxWith(), ORDER_ID)) as Array<{
+      bypassProfileOptIn?: boolean;
+      profileType?: string;
+    }>;
+
+    for (const recipient of resolved) {
+      expect(recipient.bypassProfileOptIn).toBe(true);
+      expect(recipient.profileType).toBeUndefined();
+    }
+  });
+
+  it('points support at the admin order page, not a workspace one', async () => {
+    const resolved = (await forAdmin.resolve(ctxWith(), ORDER_ID)) as Array<{
+      vars: Record<string, unknown>;
+    }>;
+
+    expect(resolved[0].vars.actionUrl).toBe(
+      `https://app.gocollab.io/admin/orderManagement/${ORDER_ID}`,
+    );
+  });
+
+  it('falls back to a greeting when an admin has no name', async () => {
+    const resolved = (await forAdmin.resolve(ctxWith(), ORDER_ID)) as Array<{
+      vars: Record<string, unknown>;
+    }>;
+
+    expect(resolved[0].vars.recipientName).toBe('Priya');
+    expect(resolved[1].vars.recipientName).toBe('there');
+  });
+
+  describe('stillRelevant', () => {
+    it('keeps a delayed send while the dispute is open', async () => {
+      await expect(forAdmin.stillRelevant(ctxWith(), ORDER_ID)).resolves.toBe(
+        true,
+      );
+    });
+
+    it('stops once the dispute is resolved', async () => {
+      await expect(
+        forAdmin.stillRelevant(ctxWith({ status: 'ACCEPTED' }), ORDER_ID),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null when the order is gone', async () => {
+      await expect(
+        forAdmin.stillRelevant(ctxWith({ order: null }), ORDER_ID),
       ).resolves.toBeNull();
     });
   });

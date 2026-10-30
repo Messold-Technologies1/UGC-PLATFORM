@@ -1,9 +1,13 @@
 import {
   NotificationChannel,
+  OrderStatus,
+  RoleName,
   NotificationRecipientRole,
   OrderChatMessageType,
+  UserStatus,
 } from '@prisma/client';
 import { defineEvents } from './define-events';
+import type { ResolvedRecipient } from './define-events';
 import type { EventContext } from './define-events';
 import {
   brandDisplayName,
@@ -14,7 +18,7 @@ import {
   type OrderRow,
 } from './order-context';
 
-const { CREATOR, BRAND } = NotificationRecipientRole;
+const { CREATOR, BRAND, USER } = NotificationRecipientRole;
 
 /**
  * Chat seeds as push only.
@@ -57,6 +61,21 @@ export const CHAT_WINDOW_MS = 2 * 60_000;
 export function chatOccurrenceKey(orderId: string, at: Date): string {
   return `${orderId}:${Math.floor(at.getTime() / CHAT_WINDOW_MS)}`;
 }
+
+const adminChatVars = {
+  recipientName: { type: 'string', example: 'Priya' },
+  orderId: { type: 'string', example: 'ord_8f21c4' },
+  packageName: { type: 'string', example: 'Standard — 3 reels' },
+  actionUrl: {
+    type: 'url',
+    example: '/admin/orderManagement/ord_8f21c4',
+  },
+  senderName: { type: 'string', example: 'Acme Beauty' },
+  messagePreview: {
+    type: 'string',
+    example: 'The delivery is still not what we briefed.',
+  },
+} as const;
 
 const chatVars = {
   recipientName: { type: 'string', example: 'Ananya R' },
@@ -183,6 +202,53 @@ async function senderLabel(
   return senderUserId === buyer ? brandDisplayName(order) : 'Support';
 }
 
+/** Support only joins the conversation while the order is under dispute. */
+async function isDisputed(
+  ctx: EventContext,
+  orderId: string,
+): Promise<boolean | null> {
+  const order = await ctx.prisma.order.findUnique({
+    where: { id: orderId },
+    select: { status: true },
+  });
+  if (!order) return null;
+  return order.status === OrderStatus.DISPUTED;
+}
+
+/**
+ * Every admin who could pick this up.
+ *
+ * A dispute has no assigned owner — `OrderDispute.resolvedByUserId` is set at
+ * the end, by whoever happened to resolve it — so there is nobody in
+ * particular to tell and the event addresses all of them. Each gets their own
+ * claim and log row, so one admin's browser being unreachable does not silence
+ * the rest.
+ *
+ * ADMIN can sit on the primary role or among the secondary ones, matching how
+ * AdminGuard decides, so that the people who can open the dispute chat are
+ * exactly the people told about it.
+ */
+async function activeAdmins(ctx: EventContext): Promise<
+  Array<{
+    id: string;
+    email: string | null;
+    name: string | null;
+    phone: string | null;
+  }>
+> {
+  return ctx.prisma.user.findMany({
+    where: {
+      status: UserStatus.ACTIVE,
+      deletedAt: null,
+      OR: [
+        { primaryRole: { name: RoleName.ADMIN } },
+        { userRoles: { some: { role: { name: RoleName.ADMIN } } } },
+      ],
+    },
+    select: { id: true, email: true, name: true, phone: true },
+  });
+}
+
 /**
  * Is there still anything unread for this side?
  *
@@ -283,6 +349,62 @@ export const orderChatEvents = defineEvents({
       });
     },
     stillRelevant: (ctx, id) => stillUnread(ctx, id, 'brand'),
+    suppressWhenViewing: true,
+    defaultChannels: PUSH_ONLY,
+  },
+
+  'order-chat-message-for-admin': {
+    label: 'Chat message — to support',
+    description:
+      "Somebody posted in a disputed order's chat. Goes to every admin, and only while the dispute is open.",
+    recipient: USER,
+    vars: adminChatVars,
+    resolve: async (ctx, id) => {
+      // Support is a participant only while the dispute is open. Outside that
+      // the thread is the brand and creator's own, and admins should not be
+      // notified about a conversation they are not part of.
+      if (!(await isDisputed(ctx, id))) return null;
+
+      const order = await loadOrder(ctx, id);
+      if (!order) return null;
+
+      const admins = await activeAdmins(ctx);
+      const latest = await ctx.prisma.orderChatMessage.findFirst({
+        where: { orderId: id },
+        orderBy: { createdAt: 'desc' },
+        select: { senderUserId: true, type: true, text: true },
+      });
+
+      const senderName = await senderLabel(
+        ctx,
+        order,
+        latest?.senderUserId ?? null,
+      );
+      const vars = {
+        orderId: order.id,
+        packageName: order.packageNameSnapshot,
+        senderName,
+        messagePreview: previewOf(latest),
+        actionUrl: `${ctx.frontendBaseUrl}/admin/orderManagement/${order.id}`,
+      };
+
+      // Whoever just wrote is not told about their own message — which is how
+      // an admin replying in the thread avoids notifying themselves.
+      return admins
+        .filter((admin) => admin.id !== latest?.senderUserId)
+        .map((admin): ResolvedRecipient => ({
+          userId: admin.id,
+          email: admin.email,
+          phone: admin.phone,
+          // Admins have no workspace profile, so there are no opt-in columns
+          // to read. Their gate is the browser permission.
+          bypassProfileOptIn: true,
+          vars: { recipientName: admin.name?.trim() || 'there', ...vars },
+        }));
+    },
+    // The nudge stops when the dispute does: a resolved order's chat is no
+    // longer support's to watch.
+    stillRelevant: (ctx, id) => isDisputed(ctx, id),
     suppressWhenViewing: true,
     defaultChannels: PUSH_ONLY,
   },

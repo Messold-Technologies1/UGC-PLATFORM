@@ -19,11 +19,7 @@ import type { PrismaService } from '../../prisma/prisma.service';
 
 /** Declared variable types. Only used to label the admin variable picker. */
 export type NotificationVarType =
-  | 'string'
-  | 'number'
-  | 'date'
-  | 'money'
-  | 'url';
+  'string' | 'number' | 'date' | 'money' | 'url';
 
 export type NotificationVarSpec = {
   type: NotificationVarType;
@@ -47,6 +43,21 @@ export type ResolvedRecipient = {
   email: string | null;
   phone: string | null;
   vars: TemplateVars;
+  /**
+   * Skip the per-profile opt-in columns for this recipient.
+   *
+   * Only for staff. The opt-in booleans live on the creator, brand and agency
+   * profiles and record what that workspace chose; an admin has no such row,
+   * so there is no preference to honour and the gate would otherwise refuse
+   * every send to them. It is per recipient rather than per event because one
+   * event can address both — a dispute notice going to a brand, who chose, and
+   * to the admins handling it, who have nothing to choose with.
+   *
+   * This is NOT a way around someone's choice: a recipient with a profile must
+   * leave it unset. For staff the real gate is the browser permission, which
+   * they grant and revoke themselves.
+   */
+  bypassProfileOptIn?: boolean;
 };
 
 /** Everything an event's hooks are given to do their work. */
@@ -118,11 +129,18 @@ export type EventDefinition = {
    * Returns `null` when the entity or its recipient no longer exists — the
    * step worker logs that as a skip. `| null` is in the signature so the case
    * cannot be quietly forgotten.
+   *
+   * May return an array for an event addressed to a group whose size is not
+   * known in advance — every admin, say. Each recipient is claimed and logged
+   * separately, because the log's identity already includes the recipient, so
+   * one of them bouncing or opting out cannot affect the others. An empty
+   * array is a group that turned out to have nobody in it, which is logged as
+   * `no_recipient` rather than as a missing entity.
    */
   resolve: (
     ctx: EventContext,
     entityId: string,
-  ) => Promise<ResolvedRecipient | null>;
+  ) => Promise<ResolvedRecipient | ResolvedRecipient[] | null>;
 
   /**
    * Whether a *delayed* send is still warranted, re-checked when it fires.

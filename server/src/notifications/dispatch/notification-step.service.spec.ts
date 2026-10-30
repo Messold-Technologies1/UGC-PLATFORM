@@ -38,6 +38,8 @@ type Options = {
   extraVars?: Record<string, string>;
   /** How many browsers the recipient has granted push on. */
   pushSubscriptions?: number;
+  /** Return a group rather than one person, as a staff event does. */
+  recipients?: Array<Record<string, unknown>> | null;
 };
 
 function build(opts: Options = {}) {
@@ -157,20 +159,22 @@ function build(opts: Options = {}) {
             ? { whatsappBodyVars: opts.whatsappBodyVars }
             : {}),
           resolve: jest.fn().mockResolvedValue(
-            opts.resolveNull
-              ? null
-              : {
-                  userId: 'u1',
-                  profileType: opts.buyer ?? 'brand',
-                  profileId: opts.buyer === 'agency' ? 'a1' : 'b1',
-                  email: 'brand@example.com',
-                  phone: '919812345678',
-                  vars: {
-                    recipientName: 'Rohit',
-                    actionUrl: 'https://app.gocollab.io/brand/orders/ord_1',
-                    ...(opts.extraVars ?? {}),
+            opts.recipients !== undefined
+              ? opts.recipients
+              : opts.resolveNull
+                ? null
+                : {
+                    userId: 'u1',
+                    profileType: opts.buyer ?? 'brand',
+                    profileId: opts.buyer === 'agency' ? 'a1' : 'b1',
+                    email: 'brand@example.com',
+                    phone: '919812345678',
+                    vars: {
+                      recipientName: 'Rohit',
+                      actionUrl: 'https://app.gocollab.io/brand/orders/ord_1',
+                      ...(opts.extraVars ?? {}),
+                    },
                   },
-                },
           ),
           stillRelevant: jest
             .fn()
@@ -699,5 +703,118 @@ describe('NotificationStepService.deliver — the push channel', () => {
       }),
     ).rejects.toThrow('SES is down');
     expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('NotificationStepService.deliver — a group of recipients', () => {
+  const pushJob: StepJobData = { ...job, channels: [NotificationChannel.PUSH] };
+
+  function groupEventRow() {
+    return {
+      isActive: true,
+      deprecated: false,
+      alwaysSend: false,
+      emailTemplateId: 't1',
+      whatsappTemplateName: null,
+      schedule: [
+        {
+          isActive: true,
+          channels: [NotificationChannel.PUSH],
+          templateOverrideId: null,
+          whatsappTemplateOverride: null,
+        },
+      ],
+    };
+  }
+
+  const staff = (id: string) => ({
+    userId: id,
+    email: `${id}@example.com`,
+    phone: null,
+    bypassProfileOptIn: true,
+    vars: { recipientName: id, actionUrl: 'https://app.gocollab.io/admin/x' },
+  });
+
+  it('delivers to each member of the group', async () => {
+    const { service, push } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1'), staff('admin-2')],
+    });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes.map((o) => o.result)).toEqual(['sent', 'sent']);
+    expect(push.sendToUser).toHaveBeenCalledWith('admin-1', expect.anything());
+    expect(push.sendToUser).toHaveBeenCalledWith('admin-2', expect.anything());
+  });
+
+  // The log's identity already includes the recipient, so each claim is its
+  // own row — which is what keeps one admin's state from affecting another's.
+  it('claims separately for each member', async () => {
+    const { service, log } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1'), staff('admin-2')],
+    });
+
+    await service.deliver(pushJob);
+
+    expect(log.claim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: 'admin-1',
+        toAddress: 'push:admin-1',
+      }),
+    );
+    expect(log.claim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserId: 'admin-2',
+        toAddress: 'push:admin-2',
+      }),
+    );
+  });
+
+  it('skips one inactive member without silencing the rest', async () => {
+    const { service, push, prisma } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1'), staff('admin-2')],
+    });
+    prisma.user.findUnique
+      .mockResolvedValueOnce({ status: UserStatus.SUSPENDED })
+      .mockResolvedValueOnce({ status: UserStatus.ACTIVE });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes.map((o) => o.result)).toEqual(['skipped', 'sent']);
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(push.sendToUser).toHaveBeenCalledWith('admin-2', expect.anything());
+  });
+
+  // An audience that turned out to be empty is not a missing entity, and the
+  // log must not say it was: a wall of entity_gone should mean something.
+  it('records an empty group as no_recipient, not entity_gone', async () => {
+    const { service, log } = build({
+      eventRow: groupEventRow(),
+      recipients: [],
+    });
+
+    const outcomes = await service.deliver(pushJob);
+
+    expect(outcomes[0]).toMatchObject({ reason: 'no_recipient' });
+    expect(log.recordSkip).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedReason: 'no_recipient' }),
+    );
+  });
+
+  // Staff have no workspace profile, so the opt-in columns would refuse them.
+  it('sends to staff without consulting the profile opt-ins', async () => {
+    const { service, push, prisma } = build({
+      eventRow: groupEventRow(),
+      recipients: [staff('admin-1')],
+      optedIn: false,
+    });
+
+    await service.deliver(pushJob);
+
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(prisma.brandProfile.findUnique).not.toHaveBeenCalled();
   });
 });

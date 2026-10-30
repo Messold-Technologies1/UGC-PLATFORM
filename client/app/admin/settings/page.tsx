@@ -4,6 +4,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 // import Image from "next/image";
 import { useRegisterAdminMutation } from "@/features/admin/hooks/use-register-admin-mutation";
+import { AdminPushCard } from "@/features/push/components/admin-push-card";
 
 export default function AdminSettings() {
   const [name, setName] = useState("");
@@ -44,6 +45,7 @@ export default function AdminSettings() {
           Change your password
         </Link>
       </p>
+      <AdminPushCard />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <section className="lg:col-span-7 rounded-xl p-10 relative overflow-hidden">
           <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[100px] rounded-full"></div>

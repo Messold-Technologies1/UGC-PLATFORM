@@ -120,6 +120,12 @@ export class OrderChatService {
         ...(message.senderUserId !== brandUserId
           ? (['order-chat-message-for-brand'] as const)
           : []),
+        // Always emitted; the event itself resolves to nobody unless the order
+        // is under dispute. Keeping the condition in the catalog rather than
+        // here means the dispute check runs at SEND time, so a dispute
+        // resolved during the collapsing window stops the notification that
+        // the message a minute ago would otherwise still produce.
+        'order-chat-message-for-admin' as const,
       ];
 
       for (const eventKey of events) {
@@ -140,7 +146,9 @@ export class OrderChatService {
     }
   }
 
-  private async getOrderParticipants(orderId: string): Promise<OrderChatParticipants> {
+  private async getOrderParticipants(
+    orderId: string,
+  ): Promise<OrderChatParticipants> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
@@ -164,7 +172,9 @@ export class OrderChatService {
     };
   }
 
-  async getOrderChatParticipantsForAdmin(orderId: string): Promise<OrderChatParticipants> {
+  async getOrderChatParticipantsForAdmin(
+    orderId: string,
+  ): Promise<OrderChatParticipants> {
     return this.getOrderParticipants(orderId);
   }
 
@@ -271,7 +281,9 @@ export class OrderChatService {
       where: { orderId: params.orderId },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: take + 1,
-      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : undefined),
+      ...(params.cursor
+        ? { cursor: { id: params.cursor }, skip: 1 }
+        : undefined),
       select: MESSAGE_SELECT,
     });
 
@@ -472,7 +484,10 @@ export class OrderChatService {
         return message;
       });
     } catch (err: unknown) {
-      if (params.clientMessageId && (err as { code?: string })?.code === 'P2002') {
+      if (
+        params.clientMessageId &&
+        (err as { code?: string })?.code === 'P2002'
+      ) {
         const existing = await this.prisma.orderChatMessage.findFirst({
           where: {
             orderId: params.orderId,
@@ -511,7 +526,12 @@ export class OrderChatService {
     }
 
     const row = await this.prisma.orderChatReadState.upsert({
-      where: { orderId_userId: { orderId: params.orderId, userId: params.viewerUserId } },
+      where: {
+        orderId_userId: {
+          orderId: params.orderId,
+          userId: params.viewerUserId,
+        },
+      },
       create: {
         orderId: params.orderId,
         userId: params.viewerUserId,
@@ -522,7 +542,12 @@ export class OrderChatService {
         lastReadMessageId: msg.id,
         lastReadAt: msg.createdAt,
       },
-      select: { orderId: true, userId: true, lastReadMessageId: true, lastReadAt: true },
+      select: {
+        orderId: true,
+        userId: true,
+        lastReadMessageId: true,
+        lastReadAt: true,
+      },
     });
 
     await this.realtime.emitReadUpdated({
@@ -540,10 +565,7 @@ export class OrderChatService {
     };
   }
 
-  async getState(params: {
-    orderId: string;
-    viewerUserId: string;
-  }): Promise<{
+  async getState(params: { orderId: string; viewerUserId: string }): Promise<{
     orderId: string;
     viewerUserId: string;
     brandUserId: string;
@@ -560,7 +582,10 @@ export class OrderChatService {
     });
 
     const states = await this.prisma.orderChatReadState.findMany({
-      where: { orderId: params.orderId, userId: { in: [participants.brandUserId, participants.creatorUserId] } },
+      where: {
+        orderId: params.orderId,
+        userId: { in: [participants.brandUserId, participants.creatorUserId] },
+      },
       select: { userId: true, lastReadMessageId: true, lastReadAt: true },
     });
 

@@ -171,6 +171,25 @@ export class SaveTemplateDto {
   note?: string | null;
 }
 
+/** The browser-notification page saves these two fields and nothing else. */
+export class SavePushCopyDto {
+  @ApiPropertyOptional({
+    description: 'Null or empty derives the title from the email subject.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  pushTitleHbs?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Null or empty derives the body from the plain-text part.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  pushBodyHbs?: string | null;
+}
+
 export class PreviewTemplateDto {
   @ApiPropertyOptional({
     description:

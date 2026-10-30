@@ -309,6 +309,145 @@ export class NotificationsAdminService {
     });
   }
 
+  /**
+   * Every template, as a browser notification.
+   *
+   * Its own listing rather than a column on the template list, because the
+   * question here is different: not "what email is this" but "what does this
+   * event look like on a lock screen, and has anyone written it". The
+   * rendered copy comes back with each row, derived where nobody has
+   * overridden it, so the list answers that without opening anything.
+   *
+   * Rendered with the event's declared examples, like every other preview, so
+   * nothing real is read.
+   */
+  async listPushTemplates() {
+    const rows = await this.prisma.notificationTemplate.findMany({
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+        pushTitleHbs: true,
+        pushBodyHbs: true,
+        subjectHbs: true,
+        htmlHbs: true,
+        textHbs: true,
+      },
+    });
+
+    return Promise.all(
+      rows.map(async (row) => {
+        const vars = await this.varsForTemplate(row.id, row.name);
+        const context: Record<string, string> = {};
+        for (const [name, spec] of Object.entries(vars)) {
+          context[name] = spec.example;
+        }
+
+        let preview: { title: string; body: string };
+        try {
+          preview = this.renderer.renderPushDraft({
+            subjectHbs: row.subjectHbs,
+            htmlHbs: row.htmlHbs,
+            textHbs: row.textHbs,
+            pushTitleHbs: row.pushTitleHbs,
+            pushBodyHbs: row.pushBodyHbs,
+            context,
+          });
+        } catch {
+          // One unrenderable template must not blank the whole list; the
+          // editor will say what is wrong with it.
+          preview = { title: '', body: '' };
+        }
+
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          isActive: row.isActive,
+          pushTitleHbs: row.pushTitleHbs,
+          pushBodyHbs: row.pushBodyHbs,
+          /** True when somebody wrote it rather than it being derived. */
+          customised: Boolean(row.pushTitleHbs ?? row.pushBodyHbs),
+          preview,
+        };
+      }),
+    );
+  }
+
+  /**
+   * Save only the notification copy.
+   *
+   * Deliberately not a call to saveTemplate with the email fields echoed back:
+   * that would make a page about two fields capable of overwriting the body,
+   * and a stale copy held open in another tab would do exactly that on save.
+   * This touches the two columns and nothing else.
+   *
+   * It still versions and validates, because those are properties of the
+   * template rather than of the email — a reverted version should restore the
+   * notification too, and a typo'd variable renders an empty notification at
+   * send time either way.
+   */
+  async savePushCopy(
+    id: string,
+    dto: { pushTitleHbs?: string | null; pushBodyHbs?: string | null },
+    userId: string,
+  ) {
+    const existing = await this.getTemplate(id);
+    const vars = await this.varsForTemplate(id, existing.name);
+
+    const pushTitleHbs = dto.pushTitleHbs?.trim() || null;
+    const pushBodyHbs = dto.pushBodyHbs?.trim() || null;
+
+    const result = this.validator.validate(
+      {
+        subjectHbs: existing.subjectHbs,
+        htmlHbs: existing.htmlHbs,
+        textHbs: existing.textHbs,
+        pushTitleHbs,
+        pushBodyHbs,
+      },
+      vars,
+    );
+    if (!result.ok) {
+      throw new UnprocessableEntityException({
+        message: 'Template did not validate',
+        issues: result.issues,
+      });
+    }
+
+    const saved = await this.prisma.$transaction(async (tx) => {
+      await tx.notificationTemplateVersion.create({
+        data: {
+          templateId: existing.id,
+          version: existing.version,
+          subjectHbs: existing.subjectHbs,
+          htmlHbs: existing.htmlHbs,
+          textHbs: existing.textHbs,
+          pushTitleHbs: existing.pushTitleHbs,
+          pushBodyHbs: existing.pushBodyHbs,
+          note: 'Browser notification copy',
+          createdByUserId: userId,
+        },
+      });
+      return tx.notificationTemplate.update({
+        where: { id: existing.id },
+        data: {
+          pushTitleHbs,
+          pushBodyHbs,
+          referencedVars: result.referencedVars,
+          updatedByUserId: userId,
+          version: { increment: 1 },
+        },
+        select: { id: true, version: true },
+      });
+    });
+
+    this.renderer.invalidate();
+    return saved;
+  }
+
   async getTemplate(id: string) {
     const row = await this.prisma.notificationTemplate.findUnique({
       where: { id },

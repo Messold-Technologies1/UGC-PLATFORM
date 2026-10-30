@@ -224,3 +224,27 @@ export function formatOffset(minutes: number): string {
   const noun = value === 1 ? unit.replace(/s$/, "") : unit;
   return `After ${value} ${noun}`;
 }
+
+/**
+ * One template seen as a browser notification.
+ *
+ * `preview` is what would actually arrive, rendered server-side — derived
+ * from the email where nobody has written anything, so the list reads the
+ * same whether a row is customised or not.
+ */
+export interface PushTemplateSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  pushTitleHbs: string | null;
+  pushBodyHbs: string | null;
+  /** Somebody wrote this one, rather than it being derived. */
+  customised: boolean;
+  preview: { title: string; body: string };
+}
+
+export interface SavePushCopyInput {
+  pushTitleHbs?: string | null;
+  pushBodyHbs?: string | null;
+}

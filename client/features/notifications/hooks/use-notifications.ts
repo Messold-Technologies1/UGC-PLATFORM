@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SavePushCopyInput } from "../types";
 import {
   backfillRow,
   createTemplate,
@@ -17,6 +18,8 @@ import {
   saveTemplate,
   sweepEvent,
   updateEvent,
+  fetchPushTemplates,
+  savePushCopy,
 } from "../api/notifications-api";
 import type { SaveTemplateInput, ScheduleRow, TemplateDraft } from "../types";
 
@@ -183,5 +186,31 @@ export function useNotificationLogsQuery(filters: {
     // Keep the current page on screen while the next one loads, so paging does
     // not blank the table and bounce the scroll position.
     placeholderData: (previous) => previous,
+  });
+}
+
+export const pushTemplatesQueryKey = ["admin", "notifications", "push"] as const;
+
+export function usePushTemplatesQuery() {
+  return useQuery({
+    queryKey: pushTemplatesQueryKey,
+    queryFn: fetchPushTemplates,
+  });
+}
+
+/**
+ * Saves the two notification fields and nothing else.
+ *
+ * Invalidates the list so the rendered preview beside each row reflects the
+ * save — including a cleared field falling back to the derived copy, which is
+ * the case most likely to be doubted.
+ */
+export function useSavePushCopyMutation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SavePushCopyInput) => savePushCopy(id, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: pushTemplatesQueryKey });
+    },
   });
 }

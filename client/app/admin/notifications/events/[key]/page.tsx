@@ -26,6 +26,7 @@ import {
   useUpdateEventMutation,
 } from "@/features/notifications/hooks/use-notifications";
 import { formatOffset, type ScheduleRow } from "@/features/notifications/types";
+import Link from "next/link";
 
 /** Pulls the useful line out of an API error without leaking a stack. */
 function errorMessage(error: unknown): string {
@@ -189,9 +190,15 @@ export default function NotificationEventDetailPage({
             is a page away. */}
         <p className="text-muted-foreground text-xs">
           Browser notifications are built from the email template above — its
-          subject becomes the title, its opening line the body. To write them
-          separately, open that template and use its{" "}
-          <strong>Browser notification</strong> section.
+          subject becomes the title, its opening line the body. Write them
+          separately on the{" "}
+          <Link
+            href="/admin/notifications/push"
+            className="underline hover:text-foreground"
+          >
+            Browser notifications
+          </Link>{" "}
+          page.
         </p>
       </section>
 

@@ -343,6 +343,9 @@ export const ENDPOINTS = {
         `/api/admin/notifications/events/${encodeURIComponent(key)}/backfill`,
       EVENT_SWEEP: (key: string) =>
         `/api/admin/notifications/events/${encodeURIComponent(key)}/sweep`,
+      PUSH_TEMPLATES: "/api/admin/notifications/push",
+      PUSH_TEMPLATE: (id: string) =>
+        `/api/admin/notifications/push/${encodeURIComponent(id)}`,
       TEMPLATES: "/api/admin/notifications/templates",
       TEMPLATE: (id: string) =>
         `/api/admin/notifications/templates/${encodeURIComponent(id)}`,

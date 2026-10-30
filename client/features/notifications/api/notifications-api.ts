@@ -7,6 +7,8 @@ import type {
   NotificationLogPage,
   NotificationTemplateDetail,
   NotificationTemplateSummary,
+  PushTemplateSummary,
+  SavePushCopyInput,
   SaveTemplateInput,
   ScheduleRow,
   SweepResult,
@@ -199,5 +201,23 @@ export async function fetchLogs(params: {
   take?: number;
 }): Promise<NotificationLogPage> {
   const { data } = await api.get<NotificationLogPage>(N.LOGS, { params });
+  return data;
+}
+
+export async function fetchPushTemplates(): Promise<PushTemplateSummary[]> {
+  const { data } = await api.get<PushTemplateSummary[]>(
+    ENDPOINTS.ADMIN.NOTIFICATIONS.PUSH_TEMPLATES,
+  );
+  return data;
+}
+
+export async function savePushCopy(
+  id: string,
+  input: SavePushCopyInput,
+): Promise<{ id: string; version: number }> {
+  const { data } = await api.put<{ id: string; version: number }>(
+    ENDPOINTS.ADMIN.NOTIFICATIONS.PUSH_TEMPLATE(id),
+    input,
+  );
   return data;
 }

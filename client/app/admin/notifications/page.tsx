@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, FileText, ScrollText } from "lucide-react";
+import { Bell, BellRing, FileText, ScrollText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useNotificationEventsQuery } from "@/features/notifications/hooks/use-notifications";
@@ -23,7 +23,7 @@ export default function NotificationsHomePage() {
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/admin/notifications/events"
           className="hover:border-primary rounded-lg border p-5 transition-colors"
@@ -41,7 +41,17 @@ export default function NotificationsHomePage() {
           <FileText className="text-muted-foreground mb-2 h-5 w-5" />
           <h2 className="font-medium">Templates</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Email and browser-notification copy, with version history
+            Email copy, with version history
+          </p>
+        </Link>
+        <Link
+          href="/admin/notifications/push"
+          className="hover:border-primary rounded-lg border p-5 transition-colors"
+        >
+          <BellRing className="text-muted-foreground mb-2 h-5 w-5" />
+          <h2 className="font-medium">Browser notifications</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            What each event looks like on a lock screen
           </p>
         </Link>
         <Link

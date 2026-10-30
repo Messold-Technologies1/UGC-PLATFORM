@@ -41,7 +41,7 @@ export default function NotificationsHomePage() {
           <FileText className="text-muted-foreground mb-2 h-5 w-5" />
           <h2 className="font-medium">Templates</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Email copy, with version history
+            Email and browser-notification copy, with version history
           </p>
         </Link>
         <Link

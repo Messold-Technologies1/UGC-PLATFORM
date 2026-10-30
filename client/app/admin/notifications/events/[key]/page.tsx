@@ -184,6 +184,15 @@ export default function NotificationEventDetailPage({
             </p>
           </div>
         </div>
+
+        {/* Said here because this is where Browser gets ticked, and the copy
+            is a page away. */}
+        <p className="text-muted-foreground text-xs">
+          Browser notifications are built from the email template above — its
+          subject becomes the title, its opening line the body. To write them
+          separately, open that template and use its{" "}
+          <strong>Browser notification</strong> section.
+        </p>
       </section>
 
       <section className="space-y-4 rounded-lg border p-5">

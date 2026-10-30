@@ -49,7 +49,7 @@ export function NotificationPreferencesCard({
   ];
 
   return (
-    <Card className="p-5">
+    <Card id="notifications" className="scroll-mt-28 p-5">
       {showHeading ? (
         <div>
           <h2 className="text-sm font-medium">Notifications</h2>

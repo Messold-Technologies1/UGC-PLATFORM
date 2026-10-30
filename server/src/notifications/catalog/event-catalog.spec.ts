@@ -1,3 +1,4 @@
+import { NotificationRecipientRole } from '@prisma/client';
 import { EmailTemplateKey } from '../../mail/mail.types';
 import {
   EVENTS_NOT_IN_CATALOG,
@@ -44,7 +45,7 @@ describe('notification event catalog', () => {
         expect({ key, name, type: spec.type }).toEqual({
           key,
           name,
-          type: expect.any(String) as unknown as string,
+          type: expect.any(String),
         });
         expect(spec.example.length).toBeGreaterThan(0);
       }
@@ -80,10 +81,27 @@ describe('notification event catalog', () => {
       'order-chat-message-for-brand',
       'order-chat-message-for-creator',
     ]) {
-      expect(`${key}:${NOTIFICATION_EVENTS_BY_KEY[key].defaultChannels?.join()}`).toBe(
-        `${key}:PUSH`,
-      );
+      expect(
+        `${key}:${NOTIFICATION_EVENTS_BY_KEY[key].defaultChannels?.join()}`,
+      ).toBe(`${key}:PUSH`);
     }
+  });
+
+  // The brand sees whoever they booked inside the app; a notification is read
+  // on a lock screen by whoever is standing nearby, so it is the one surface
+  // that must not carry the creator's name. Enforced on the declared vars and
+  // not merely on today's templates, because the admin can edit templates and
+  // the variable picker offers whatever is declared here.
+  it('offers no creator name to anyone but the creator', () => {
+    const leaking = NOTIFICATION_EVENT_KEYS.filter((key) => {
+      const def = NOTIFICATION_EVENTS_BY_KEY[key];
+      return (
+        def.recipient !== NotificationRecipientRole.CREATOR &&
+        Object.keys(def.vars).includes('creatorName')
+      );
+    });
+
+    expect(leaking).toEqual([]);
   });
 
   it('lets every event take a delayed row', () => {

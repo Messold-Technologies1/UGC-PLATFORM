@@ -80,6 +80,10 @@ function build(overrides: { supportsDelay?: boolean; eventKey?: string } = {}) {
       html: '<p>draft</p>',
       text: 'draft',
     }),
+    renderPushDraft: jest.fn().mockReturnValue({
+      title: 'push title',
+      body: 'push body',
+    }),
   };
 
   const sweeps = {

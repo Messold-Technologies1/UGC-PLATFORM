@@ -1,5 +1,6 @@
 import {
   PUSH_BODY_MAX,
+  pushCopyFrom,
   pushClickUrl,
   pushTitleFrom,
   stripGreeting,
@@ -125,5 +126,60 @@ describe('stripGreeting', () => {
 
   it('keeps a greeting that is the whole message', () => {
     expect(stripGreeting('Hi Ananya,')).toBe('Hi Ananya,');
+  });
+});
+
+describe('pushCopyFrom', () => {
+  const email = {
+    renderedSubject: '📩 New brief from Acme — Go Collab',
+    renderedText: 'Hi Ananya,\n\nAcme submitted a brief for your package.',
+    platformName: 'Go Collab',
+  };
+
+  it('derives both halves from the email when nothing is overridden', () => {
+    expect(pushCopyFrom(email)).toEqual({
+      title: '📩 New brief from Acme',
+      body: 'Acme submitted a brief for your package.',
+    });
+  });
+
+  // Copy written for a lock screen has no email conventions to repair, so the
+  // trims that fix the fallback must not touch it.
+  it('uses an override as written, without stripping or trimming', () => {
+    const out = pushCopyFrom({
+      ...email,
+      overrideTitle: 'Hi there — a brief from Acme',
+      overrideBody: 'Hello! Tap to review it.',
+    });
+
+    expect(out.title).toBe('Hi there — a brief from Acme');
+    expect(out.body).toBe('Hello! Tap to review it.');
+  });
+
+  it('overrides each half independently', () => {
+    expect(pushCopyFrom({ ...email, overrideTitle: 'New brief' })).toEqual({
+      title: 'New brief',
+      body: 'Acme submitted a brief for your package.',
+    });
+    expect(pushCopyFrom({ ...email, overrideBody: 'Tap to review' })).toEqual({
+      title: '📩 New brief from Acme',
+      body: 'Tap to review',
+    });
+  });
+
+  // A cleared editor field means "go back to deriving it", not "send blank".
+  it('treats an empty or whitespace override as absent', () => {
+    expect(
+      pushCopyFrom({ ...email, overrideTitle: '   ', overrideBody: '' }),
+    ).toEqual({
+      title: '📩 New brief from Acme',
+      body: 'Acme submitted a brief for your package.',
+    });
+  });
+
+  it('still truncates an override, because the platform does anyway', () => {
+    const out = pushCopyFrom({ ...email, overrideBody: 'x'.repeat(400) });
+
+    expect(out.body.length).toBeLessThanOrEqual(PUSH_BODY_MAX + 1);
   });
 });

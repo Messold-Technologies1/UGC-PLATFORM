@@ -22,6 +22,8 @@ type Row = {
   subjectHbs: string;
   htmlHbs: string;
   textHbs: string | null;
+  pushTitleHbs?: string | null;
+  pushBodyHbs?: string | null;
   isActive: boolean;
 };
 
@@ -218,5 +220,61 @@ describe('deriveText', () => {
     expect(deriveText('<a href="https://x.test">https://x.test</a>')).toBe(
       'https://x.test',
     );
+  });
+});
+
+describe('NotificationTemplateRenderer.renderPush', () => {
+  const row = (extra: Partial<Row> = {}): Row => ({
+    id: 't1',
+    version: 1,
+    subjectHbs: '🎬 Content delivered — {{platformName}}',
+    htmlHbs: '<p>Hi {{recipientName}},</p><p>Your content is ready.</p>',
+    textHbs: 'Hi {{recipientName}},\n\nYour content is ready.',
+    isActive: true,
+    ...extra,
+  });
+
+  function build(extra: Partial<Row> = {}) {
+    const prisma = makePrisma({ [KEY]: row(extra) });
+    return new NotificationTemplateRenderer(prisma as never, makeLegacy());
+  }
+
+  it('derives both halves from the email when nothing is overridden', async () => {
+    const out = await build().renderPush({ templateName: KEY, context });
+
+    expect(out.title).toBe('🎬 Content delivered');
+    expect(out.body).toBe('Your content is ready.');
+  });
+
+  // The whole point of the columns: copy written for a lock screen.
+  it('uses a stored override, rendered with the event’s variables', async () => {
+    const out = await build({
+      pushTitleHbs: 'Content ready for {{recipientName}}',
+      pushBodyHbs: 'Tap to review {{packageName}}.',
+    }).renderPush({ templateName: KEY, context });
+
+    expect(out.title).toBe('Content ready for Rohit');
+    expect(out.body).toBe('Tap to review Standard.');
+  });
+
+  it('overrides one half and derives the other', async () => {
+    const out = await build({
+      pushTitleHbs: 'Your content is ready',
+    }).renderPush({ templateName: KEY, context });
+
+    expect(out.title).toBe('Your content is ready');
+    expect(out.body).toBe('Your content is ready.');
+  });
+
+  // An override is somebody's words; the greeting-strip and sign-off-trim
+  // repair email conventions it does not have.
+  it('leaves an override’s own greeting and dash alone', async () => {
+    const out = await build({
+      pushTitleHbs: 'Delivered — review it',
+      pushBodyHbs: 'Hi Rohit, your content is ready.',
+    }).renderPush({ templateName: KEY, context });
+
+    expect(out.title).toBe('Delivered — review it');
+    expect(out.body).toBe('Hi Rohit, your content is ready.');
   });
 });

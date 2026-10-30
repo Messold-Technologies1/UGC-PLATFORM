@@ -13,6 +13,7 @@ import {
 } from "@/features/notifications/components/template-body-editor";
 import { EmailVisualEditor } from "@/features/notifications/components/email-visual-editor";
 import { TemplatePreviewPane } from "@/features/notifications/components/template-preview-pane";
+import { PushCopyEditor } from "@/features/notifications/components/push-copy-editor";
 import { NotificationsBackLink } from "@/features/notifications/components/back-link";
 import {
   useRevertTemplateMutation,
@@ -98,6 +99,10 @@ function TemplateEditor({
   );
   const bodyDocQuery = useTemplateBodyDocQuery(id, mode === "visual");
   const [text, setText] = useState(template.textHbs ?? "");
+  // Empty means "derive it from the email", which is also what the server
+  // stores a cleared field as — so the two agree without a separate flag.
+  const [pushTitle, setPushTitle] = useState(template.pushTitleHbs ?? "");
+  const [pushBody, setPushBody] = useState(template.pushBodyHbs ?? "");
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
   const [rendered, setRendered] = useState<TemplatePreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -134,6 +139,8 @@ function TemplateEditor({
       html: usingDoc ? null : html,
       bodyDoc: usingDoc ? bodyDoc : null,
       textHbs: textMode === "manual" ? text : null,
+      pushTitleHbs: pushTitle,
+      pushBodyHbs: pushBody,
     }),
     400,
   );
@@ -144,6 +151,8 @@ function TemplateEditor({
       html: string | null;
       bodyDoc: EmailBodyDoc | null;
       textHbs: string | null;
+      pushTitleHbs: string;
+      pushBodyHbs: string;
     };
     // Nothing to render yet while the document is still being fetched.
     if (draft.html === null && draft.bodyDoc === null) return;
@@ -155,6 +164,8 @@ function TemplateEditor({
             ? { bodyDoc: draft.bodyDoc }
             : { htmlHbs: draft.html ?? "" }),
           textHbs: draft.textHbs,
+          pushTitleHbs: draft.pushTitleHbs,
+          pushBodyHbs: draft.pushBodyHbs,
         },
       },
       {
@@ -192,8 +203,20 @@ function TemplateEditor({
       (usingDoc
         ? JSON.stringify(bodyDoc) !== JSON.stringify(baselineDoc)
         : html !== template.htmlHbs) ||
-      text !== (template.textHbs ?? ""),
-    [subject, html, text, template, usingDoc, bodyDoc, baselineDoc],
+      text !== (template.textHbs ?? "") ||
+      pushTitle !== (template.pushTitleHbs ?? "") ||
+      pushBody !== (template.pushBodyHbs ?? ""),
+    [
+      subject,
+      html,
+      text,
+      pushTitle,
+      pushBody,
+      template,
+      usingDoc,
+      bodyDoc,
+      baselineDoc,
+    ],
   );
 
   const onSave = () => {
@@ -207,6 +230,8 @@ function TemplateEditor({
         // would just be a second, ignorable source of truth.
         ...(usingDoc ? { bodyDoc } : { htmlHbs: html }),
         textHbs: text.trim() ? text : null,
+        pushTitleHbs: pushTitle.trim() ? pushTitle : null,
+        pushBodyHbs: pushBody.trim() ? pushBody : null,
       },
       {
         onSuccess: (result) => toast.success(`Saved as v${result.version}`),
@@ -414,6 +439,17 @@ function TemplateEditor({
               derivedText={derivedText}
             />
           ) : null}
+
+          {/* Below the body, because it is derived from it by default and is
+              only worth touching once the email reads right. */}
+          <PushCopyEditor
+            title={pushTitle}
+            body={pushBody}
+            onTitleChange={setPushTitle}
+            onBodyChange={setPushBody}
+            preview={rendered?.push ?? null}
+            issues={issues}
+          />
         </div>
 
         <div className="order-3 xl:sticky xl:top-6 xl:h-[calc(100vh-6rem)]">

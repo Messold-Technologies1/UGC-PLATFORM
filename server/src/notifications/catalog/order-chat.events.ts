@@ -11,7 +11,6 @@ import type { ResolvedRecipient } from './define-events';
 import type { EventContext } from './define-events';
 import {
   brandDisplayName,
-  creatorDisplayName,
   loadOrder,
   toBrand,
   toCreator,
@@ -70,20 +69,29 @@ const adminChatVars = {
     type: 'url',
     example: '/admin/orderManagement/ord_8f21c4',
   },
-  senderName: { type: 'string', example: 'Acme Beauty' },
-  messagePreview: {
-    type: 'string',
-    example: 'The delivery is still not what we briefed.',
-  },
+  senderName: { type: 'string', example: 'the creator' },
 } as const;
 
-const chatVars = {
+/**
+ * Everything the chat templates may render EXCEPT the message itself.
+ *
+ * The quoted message is the sender's own words, so on a brand's or an admin's
+ * screen it can carry the creator's name however the sender is labelled —
+ * people sign off. Those two therefore get a count and nothing more, and the
+ * preview is declared only where the author is the brand, who is named in
+ * that copy anyway.
+ */
+const chatVarsWithoutPreview = {
   recipientName: { type: 'string', example: 'Ananya R' },
   orderId: { type: 'string', example: 'ord_8f21c4' },
   packageName: { type: 'string', example: 'Standard — 3 reels' },
   actionUrl: { type: 'url', example: '/creator/messages?orderId=ord_8f21c4' },
-  senderName: { type: 'string', example: 'Acme Beauty' },
+  senderName: { type: 'string', example: 'the creator' },
   unreadCount: { type: 'number', example: '3' },
+} as const;
+
+const chatVars = {
+  ...chatVarsWithoutPreview,
   messagePreview: {
     type: 'string',
     example: 'Could you reshoot the opening line?',
@@ -186,9 +194,19 @@ async function chatDigest(
 /**
  * Who to say the message is from.
  *
- * Admins write into this same thread during a dispute, and naming the
- * individual would put a support agent's account name on a brand's lock
- * screen. Anyone who is neither party to the order is "Support".
+ * The creator is never named. Brand-facing copy calls them "the creator"
+ * everywhere else in the catalog — only the auto-accept reminder and the
+ * agency-placed notice print `creatorName` — and a notification is the worst
+ * place to break that, since it lands on a lock screen where anyone nearby
+ * can read it.
+ *
+ * The brand is named, which is the same asymmetry the rest of the catalog
+ * has: creator-facing copy says "Acme Beauty", brand-facing copy says "the
+ * creator".
+ *
+ * Admins write into this thread during a dispute, and naming the individual
+ * would put a support agent's account name in front of a brand. Anyone who is
+ * neither party to the order is "Support".
  */
 async function senderLabel(
   ctx: EventContext,
@@ -196,7 +214,7 @@ async function senderLabel(
   senderUserId: string | null,
 ): Promise<string> {
   if (!senderUserId) return 'Support';
-  if (senderUserId === order.creator.user.id) return creatorDisplayName(order);
+  if (senderUserId === order.creator.user.id) return 'the creator';
 
   const buyer = await buyerUserId(ctx, order);
   return senderUserId === buyer ? brandDisplayName(order) : 'Support';
@@ -328,7 +346,7 @@ export const orderChatEvents = defineEvents({
     description:
       'The creator or support posted in the order chat. Collapses a burst into one notice.',
     recipient: BRAND,
-    vars: chatVars,
+    vars: chatVarsWithoutPreview,
     resolve: async (ctx, id) => {
       const order = await loadOrder(ctx, id);
       if (!order) return null;
@@ -345,7 +363,6 @@ export const orderChatEvents = defineEvents({
         actionUrl: messagesUrl(ctx, order, 'brand'),
         senderName: digest.senderName,
         unreadCount: digest.unreadCount,
-        messagePreview: digest.messagePreview,
       });
     },
     stillRelevant: (ctx, id) => stillUnread(ctx, id, 'brand'),
@@ -384,7 +401,6 @@ export const orderChatEvents = defineEvents({
         orderId: order.id,
         packageName: order.packageNameSnapshot,
         senderName,
-        messagePreview: previewOf(latest),
         actionUrl: `${ctx.frontendBaseUrl}/admin/orderManagement/${order.id}`,
       };
 

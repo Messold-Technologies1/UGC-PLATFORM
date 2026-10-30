@@ -144,6 +144,26 @@ export class SaveTemplateDto {
   @IsString()
   textHbs?: string | null;
 
+  @ApiPropertyOptional({
+    description:
+      'Browser-notification title. Null derives it from the subject. Keep it ' +
+      'short — a lock screen shows about 40 characters.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  pushTitleHbs?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Browser-notification body. Null derives it from the plain-text part. ' +
+      'Truncated at 120 characters when sent.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  pushBodyHbs?: string | null;
+
   @ApiPropertyOptional({ description: 'Shown in the version history.' })
   @IsOptional()
   @IsString()
@@ -192,6 +212,26 @@ export class PreviewTemplateDto {
   @IsOptional()
   @IsString()
   textHbs?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Browser-notification title. Null derives it from the subject. Keep it ' +
+      'short — a lock screen shows about 40 characters.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  pushTitleHbs?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Browser-notification body. Null derives it from the plain-text part. ' +
+      'Truncated at 120 characters when sent.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  pushBodyHbs?: string | null;
 }
 
 export class BackfillDto {

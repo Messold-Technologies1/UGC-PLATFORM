@@ -95,6 +95,9 @@ export interface NotificationTemplateDetail {
   /** Present when the body was written in the visual editor. */
   bodyDoc: EmailBodyDoc | null;
   textHbs: string | null;
+  /** Browser-notification overrides. Null derives them from the email. */
+  pushTitleHbs: string | null;
+  pushBodyHbs: string | null;
   referencedVars: string[];
   isActive: boolean;
   version: number;
@@ -109,6 +112,8 @@ export interface SaveTemplateInput {
   htmlHbs?: string;
   bodyDoc?: EmailBodyDoc;
   textHbs?: string | null;
+  pushTitleHbs?: string | null;
+  pushBodyHbs?: string | null;
   note?: string | null;
 }
 
@@ -125,7 +130,7 @@ export interface EmailBodyDoc {
 
 /** One reason a template cannot be saved. */
 export interface TemplateIssue {
-  part: "subject" | "html" | "text";
+  part: "subject" | "html" | "text" | "pushTitle" | "pushBody";
   kind:
     | "syntax"
     | "unknown-variable"
@@ -145,6 +150,12 @@ export interface TemplatePreview {
   context: Record<string, string>;
   /** The plain-text template the HTML implies, for keeping the two in step. */
   derivedTextHbs: string;
+  /**
+   * The browser notification this would produce, rendered by the same code
+   * the sender uses — so a blank override previews its fallback rather than
+   * an empty box.
+   */
+  push: { title: string; body: string };
 }
 
 /** Unsaved editor content, so the preview can show what is on screen. */
@@ -153,6 +164,8 @@ export interface TemplateDraft {
   htmlHbs?: string;
   bodyDoc?: EmailBodyDoc;
   textHbs?: string | null;
+  pushTitleHbs?: string | null;
+  pushBodyHbs?: string | null;
 }
 
 export interface TemplateVersion {

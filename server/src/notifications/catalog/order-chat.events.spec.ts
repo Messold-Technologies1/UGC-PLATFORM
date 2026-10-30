@@ -215,13 +215,25 @@ describe('order chat events', () => {
     expect(recipient?.vars.senderName).toBe('Support');
   });
 
-  it('names the creator when the creator wrote last', async () => {
+  // Never by name. Brand-facing copy says "the creator" everywhere else in
+  // the catalog, and a notification lands on a lock screen where anyone
+  // nearby can read it.
+  it('does not name the creator when the creator wrote last', async () => {
     const recipient = await forBrand.resolve(
       ctxWith({ latestSender: CREATOR_USER }),
       ORDER_ID,
     );
 
-    expect(recipient?.vars.senderName).toBe('Ananya R');
+    expect(recipient?.vars.senderName).toBe('the creator');
+  });
+
+  it('still names the brand, which creator-facing copy always has', async () => {
+    const recipient = await forCreator.resolve(
+      ctxWith({ latestSender: BRAND_USER }),
+      ORDER_ID,
+    );
+
+    expect(recipient?.vars.senderName).toBe('Acme Beauty');
   });
 
   it('describes a voice note rather than quoting an empty body', async () => {

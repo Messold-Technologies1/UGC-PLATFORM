@@ -11,7 +11,6 @@ import type { ResolvedRecipient } from './define-events';
 import type { EventContext } from './define-events';
 import {
   brandDisplayName,
-  creatorDisplayName,
   loadOrder,
   toBrand,
   toCreator,
@@ -82,7 +81,7 @@ const chatVars = {
   orderId: { type: 'string', example: 'ord_8f21c4' },
   packageName: { type: 'string', example: 'Standard — 3 reels' },
   actionUrl: { type: 'url', example: '/creator/messages?orderId=ord_8f21c4' },
-  senderName: { type: 'string', example: 'Acme Beauty' },
+  senderName: { type: 'string', example: 'the creator' },
   unreadCount: { type: 'number', example: '3' },
   messagePreview: {
     type: 'string',
@@ -186,9 +185,19 @@ async function chatDigest(
 /**
  * Who to say the message is from.
  *
- * Admins write into this same thread during a dispute, and naming the
- * individual would put a support agent's account name on a brand's lock
- * screen. Anyone who is neither party to the order is "Support".
+ * The creator is never named. Brand-facing copy calls them "the creator"
+ * everywhere else in the catalog — only the auto-accept reminder and the
+ * agency-placed notice print `creatorName` — and a notification is the worst
+ * place to break that, since it lands on a lock screen where anyone nearby
+ * can read it.
+ *
+ * The brand is named, which is the same asymmetry the rest of the catalog
+ * has: creator-facing copy says "Acme Beauty", brand-facing copy says "the
+ * creator".
+ *
+ * Admins write into this thread during a dispute, and naming the individual
+ * would put a support agent's account name in front of a brand. Anyone who is
+ * neither party to the order is "Support".
  */
 async function senderLabel(
   ctx: EventContext,
@@ -196,7 +205,7 @@ async function senderLabel(
   senderUserId: string | null,
 ): Promise<string> {
   if (!senderUserId) return 'Support';
-  if (senderUserId === order.creator.user.id) return creatorDisplayName(order);
+  if (senderUserId === order.creator.user.id) return 'the creator';
 
   const buyer = await buyerUserId(ctx, order);
   return senderUserId === buyer ? brandDisplayName(order) : 'Support';

@@ -26,6 +26,40 @@ export type PushState =
 
 const SW_PATH = "/sw.js";
 
+/** Marks that this tab has already put the browser's prompt up. */
+const AUTO_PROMPT_KEY = "push-auto-prompted";
+
+/**
+ * Whether to raise the permission prompt unasked on this load.
+ *
+ * Once per tab session, not once per render and not once per navigation.
+ * Chrome treats three dismissals as a block, so a prompt that reappears on
+ * every page view does not persuade anybody — it spends the account's only
+ * chance and then takes the decision out of their hands. A session is a
+ * reasonable stand-in for "they just signed in", without nagging someone who
+ * is simply reloading.
+ *
+ * sessionStorage can throw in a private window, and a browser that will not
+ * remember we asked is one we should not ask repeatedly, so a failure here
+ * means no.
+ */
+function shouldAutoPrompt(): boolean {
+  if (Notification.permission !== "default") return false;
+  try {
+    return window.sessionStorage.getItem(AUTO_PROMPT_KEY) === null;
+  } catch {
+    return false;
+  }
+}
+
+function markAutoPrompted(): void {
+  try {
+    window.sessionStorage.setItem(AUTO_PROMPT_KEY, "1");
+  } catch {
+    // Nothing to do; shouldAutoPrompt already refuses when storage is absent.
+  }
+}
+
 async function register(): Promise<ServiceWorkerRegistration> {
   const existing = await navigator.serviceWorker.getRegistration(SW_PATH);
   if (existing) return existing;
@@ -41,15 +75,22 @@ async function register(): Promise<ServiceWorkerRegistration> {
  * prompt fired on page load is ignored outright by Firefox and Safari, and a
  * refusal cannot be asked for a second time.
  *
- * On mount it never prompts, but it does more than read. A subscription this
- * browser already has is re-sent to the server, and one that is missing while
- * permission is already granted is created — subscribe() is silent once the
- * answer is "granted", so this costs the user nothing. That is what makes
- * push effectively on by default: saying yes once covers every later account
- * and every dropped subscription, without ever asking twice.
+ * On mount it re-sends a subscription this browser already has, and creates
+ * one that is missing while permission is already granted — subscribe() is
+ * silent once the answer is "granted", so that path costs the user nothing.
+ * Saying yes once therefore covers every later account on that browser and
+ * every dropped subscription, without asking twice.
+ *
+ * With `autoPrompt` it will also raise the browser's prompt, once per tab
+ * session, for a browser that has not answered yet. Only the app-wide
+ * bootstrap sets it; the settings toggle does not, because there the click
+ * is the request.
  */
-export function usePushSubscription(options: { enabled?: boolean } = {}) {
+export function usePushSubscription(
+  options: { enabled?: boolean; autoPrompt?: boolean } = {},
+) {
   const enabled = options.enabled ?? true;
+  const autoPrompt = options.autoPrompt ?? false;
   const [state, setState] = useState<PushState>("working");
   const publicKeyRef = useRef<string | null>(null);
 
@@ -61,9 +102,8 @@ export function usePushSubscription(options: { enabled?: boolean } = {}) {
     return publicKeyRef.current;
   }, []);
 
-  // Reconcile on mount. Deliberately silent — it never calls
-  // requestPermission — which is what makes it safe to run on every
-  // authenticated page rather than only where the toggle is shown.
+  // Reconcile on mount. Silent unless `autoPrompt` is set, in which case it
+  // may raise the browser's permission prompt once per tab session.
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
@@ -90,18 +130,31 @@ export function usePushSubscription(options: { enabled?: boolean } = {}) {
         if (cancelled) return;
 
         if (!subscription) {
-          // Permission already granted but no subscription: either the
-          // browser dropped it (Chrome does, after long inactivity) or this
-          // account has never had one on a browser that already said yes.
-          // Either way, create one without asking — subscribe() only prompts
-          // when permission is still "default", and here it is not.
+          // No subscription. If permission is already granted this is the
+          // silent case — the browser dropped the subscription (Chrome does,
+          // after long inactivity) or this account has never had one on a
+          // browser that already said yes — and subscribe() below creates one
+          // without asking anybody anything.
           //
-          // This is what makes push on by default: a person says yes once,
-          // and every account they use in that browser is subscribed from
-          // then on, on whatever page they happen to open.
+          // That silent path is what makes push on by default: a person says
+          // yes once, and every account they use in that browser is
+          // subscribed from then on, on whatever page they open.
           if (Notification.permission !== "granted") {
-            setState("unsubscribed");
-            return;
+            // Still unanswered, and this surface is allowed to ask: put the
+            // browser's own prompt up once per session. See shouldAutoPrompt
+            // for why it is once and not every render.
+            if (autoPrompt && shouldAutoPrompt()) {
+              markAutoPrompted();
+              const granted = await Notification.requestPermission();
+              if (cancelled) return;
+              if (granted !== "granted") {
+                setState(granted === "denied" ? "denied" : "unsubscribed");
+                return;
+              }
+            } else {
+              setState("unsubscribed");
+              return;
+            }
           }
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
@@ -125,7 +178,7 @@ export function usePushSubscription(options: { enabled?: boolean } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, readConfig]);
+  }, [enabled, autoPrompt, readConfig]);
 
   /**
    * Must be called from a user gesture — the browser rejects the permission

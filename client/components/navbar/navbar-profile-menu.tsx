@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, Shield, UserRound } from "lucide-react";
+import { Bell, LogOut, Shield, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   resolveActiveWorkspace,
   workspaceAccountHref,
+  workspaceNotificationsHref,
 } from "@/features/auth/lib/workspace-menu";
 import { useAuth } from "@/providers/auth-provider";
 import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog";
@@ -45,6 +46,12 @@ export function NavbarProfileMenu({
     activeWorkspace === "CREATOR"
       ? workspaceAccountHref(activeWorkspace)
       : workspaceAccountHref("CREATOR");
+  const notificationsHref =
+    activeWorkspace === "BRAND" ||
+    activeWorkspace === "AGENCY" ||
+    activeWorkspace === "CREATOR"
+      ? workspaceNotificationsHref(activeWorkspace)
+      : workspaceNotificationsHref("CREATOR");
   const isBrandPath =
     pathname === "/brand/settings/profile" || pathname.startsWith("/brand/");
   const isAgencyPath =
@@ -114,6 +121,14 @@ export function NavbarProfileMenu({
                 >
                   <UserRound className="size-4 shrink-0" aria-hidden />
                   Profile
+                </Link>
+                <Link
+                  href={notificationsHref}
+                  className={cn(accountMenuItemClass, "w-full")}
+                  onClick={wrapNavigate()}
+                >
+                  <Bell className="size-4 shrink-0" aria-hidden />
+                  Notifications
                 </Link>
                 {showPasswordSecurity ? (
                   <button
@@ -218,6 +233,14 @@ export function NavbarProfileMenu({
                     >
                       <UserRound className="size-4" aria-hidden />
                       Profile
+                    </Link>
+                    <Link
+                      href={notificationsHref}
+                      role="menuitem"
+                      className={cn(accountMenuItemClass, "w-full")}
+                    >
+                      <Bell className="size-4" aria-hidden />
+                      Notifications
                     </Link>
                     {showPasswordSecurity ? (
                       <button

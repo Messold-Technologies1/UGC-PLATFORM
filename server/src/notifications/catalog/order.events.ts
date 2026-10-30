@@ -32,6 +32,16 @@ const DISPUTE_CONTINUED_MESSAGE =
 const brandNameVar = {
   brandName: { type: 'string', example: 'Acme Beauty' },
 } as const;
+/**
+ * Declared only on creator-facing events, where it is the recipient's own
+ * name. Brand-facing copy says "the creator" instead — the brand sees whoever
+ * they booked in the app, and a notification is read on a lock screen by
+ * whoever is nearby, so it is the one surface that should not carry it.
+ *
+ * Kept off those events' `vars` rather than merely unused by their templates,
+ * so the admin variable picker cannot offer it and a template referencing it
+ * fails validation instead of quietly reintroducing the name.
+ */
 const creatorNameVar = {
   creatorName: { type: 'string', example: 'Ananya R' },
 } as const;
@@ -92,7 +102,6 @@ export const orderEvents = defineEvents({
     recipient: BRAND,
     vars: {
       ...commonVars,
-      ...creatorNameVar,
       deliveryDueAt: { type: 'date', example: '05 Oct 2026, 6:00 pm' },
     },
     resolve: async (ctx, id) => {
@@ -102,7 +111,6 @@ export const orderEvents = defineEvents({
         ctx,
         order,
         omitBlank({
-          creatorName: creatorDisplayName(order),
           orderId: order.id,
           deliveryDueAt: formatDate(order.deliveryDueAt),
           actionUrl: brandOrderUrl(ctx, order),
@@ -218,14 +226,12 @@ export const orderEvents = defineEvents({
     recipient: BRAND,
     vars: {
       ...commonVars,
-      ...creatorNameVar,
       deliveryDueAt: { type: 'date', example: '05 Oct 2026, 6:00 pm' },
     },
     resolve: async (ctx, id) => {
       const order = await loadOrder(ctx, id);
       if (!order) return null;
       return toBrand(ctx, order, {
-        creatorName: creatorDisplayName(order),
         orderId: order.id,
         deliveryDueAt: formatDate(order.deliveryDueAt),
         actionUrl: brandOrderUrl(ctx, order),
@@ -352,7 +358,6 @@ export const orderEvents = defineEvents({
     vars: {
       ...commonVars,
       ...brandNameVar,
-      ...creatorNameVar,
       daysAdded: { type: 'number', example: '30' },
       totalUsageDays: { type: 'number', example: '60' },
     },
@@ -366,7 +371,6 @@ export const orderEvents = defineEvents({
       });
       return toBrand(ctx, order, {
         brandName: brandDisplayName(order),
-        creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         daysAdded: String(purchase?.daysAdded ?? 0),
@@ -418,7 +422,6 @@ export const orderEvents = defineEvents({
     recipient: BRAND,
     vars: {
       ...commonVars,
-      ...creatorNameVar,
       deliveredAt: { type: 'date', example: '02 Oct 2026, 1:15 pm' },
       revisionNumber: { type: 'number', example: '1' },
     },
@@ -434,7 +437,6 @@ export const orderEvents = defineEvents({
         ctx,
         order,
         omitBlank({
-          creatorName: creatorDisplayName(order),
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           deliveredAt: formatDate(delivery?.createdAt ?? order.deliveredAt),
@@ -479,7 +481,6 @@ export const orderEvents = defineEvents({
     recipient: BRAND,
     vars: {
       ...commonVars,
-      ...creatorNameVar,
       deliveredAt: { type: 'date', example: '10 Mar 2026, 1:15 pm' },
       autoAcceptAt: { type: 'date', example: '15 Mar 2026, 9:00 am' },
     },
@@ -494,7 +495,6 @@ export const orderEvents = defineEvents({
       const order = await loadOrder(ctx, id);
       if (!order) return null;
       return toBrand(ctx, order, {
-        creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         deliveredAt: formatDate(order.deliveredAt),
@@ -541,12 +541,11 @@ export const orderEvents = defineEvents({
   'order-completed-for-brand': {
     label: 'Order completed — to brand',
     recipient: BRAND,
-    vars: { ...commonVars, ...creatorNameVar },
+    vars: { ...commonVars },
     resolve: async (ctx, id) => {
       const order = await loadOrder(ctx, id);
       if (!order) return null;
       return toBrand(ctx, order, {
-        creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         actionUrl: brandOrderUrl(ctx, order),
@@ -563,7 +562,6 @@ export const orderEvents = defineEvents({
     recipient: BRAND,
     vars: {
       ...commonVars,
-      ...creatorNameVar,
       agencyName: { type: 'string', example: 'Northstar Media' },
     },
     /**
@@ -577,7 +575,6 @@ export const orderEvents = defineEvents({
       if (!order?.placedByAgency) return null;
       return toBrand(ctx, order, {
         agencyName: order.placedByAgency.name,
-        creatorName: creatorDisplayName(order),
         packageName: order.packageNameSnapshot,
         orderId: order.id,
         actionUrl: brandOrderUrl(ctx, order),
@@ -594,7 +591,6 @@ export const orderEvents = defineEvents({
     recipient: BRAND,
     vars: {
       ...commonVars,
-      ...creatorNameVar,
       resolutionNotes: { type: 'string', example: 'Refunded in full.' },
     },
     resolve: async (ctx, id) => {
@@ -607,7 +603,6 @@ export const orderEvents = defineEvents({
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           resolutionNotes: order.cancellationReason ?? '',
-          creatorName: creatorDisplayName(order),
           actionUrl: brandOrderUrl(ctx, order),
         }),
       );
@@ -647,7 +642,6 @@ export const orderEvents = defineEvents({
     recipient: BRAND,
     vars: {
       ...commonVars,
-      ...creatorNameVar,
       cancellationNote: { type: 'string', example: 'Campaign postponed.' },
     },
     resolve: async (ctx, id) => {
@@ -660,7 +654,6 @@ export const orderEvents = defineEvents({
           packageName: order.packageNameSnapshot,
           orderId: order.id,
           cancellationNote: order.cancellationReason ?? '',
-          creatorName: creatorDisplayName(order),
           actionUrl: brandOrderUrl(ctx, order),
         }),
       );

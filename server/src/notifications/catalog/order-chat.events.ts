@@ -69,20 +69,29 @@ const adminChatVars = {
     type: 'url',
     example: '/admin/orderManagement/ord_8f21c4',
   },
-  senderName: { type: 'string', example: 'Acme Beauty' },
-  messagePreview: {
-    type: 'string',
-    example: 'The delivery is still not what we briefed.',
-  },
+  senderName: { type: 'string', example: 'the creator' },
 } as const;
 
-const chatVars = {
+/**
+ * Everything the chat templates may render EXCEPT the message itself.
+ *
+ * The quoted message is the sender's own words, so on a brand's or an admin's
+ * screen it can carry the creator's name however the sender is labelled —
+ * people sign off. Those two therefore get a count and nothing more, and the
+ * preview is declared only where the author is the brand, who is named in
+ * that copy anyway.
+ */
+const chatVarsWithoutPreview = {
   recipientName: { type: 'string', example: 'Ananya R' },
   orderId: { type: 'string', example: 'ord_8f21c4' },
   packageName: { type: 'string', example: 'Standard — 3 reels' },
   actionUrl: { type: 'url', example: '/creator/messages?orderId=ord_8f21c4' },
   senderName: { type: 'string', example: 'the creator' },
   unreadCount: { type: 'number', example: '3' },
+} as const;
+
+const chatVars = {
+  ...chatVarsWithoutPreview,
   messagePreview: {
     type: 'string',
     example: 'Could you reshoot the opening line?',
@@ -337,7 +346,7 @@ export const orderChatEvents = defineEvents({
     description:
       'The creator or support posted in the order chat. Collapses a burst into one notice.',
     recipient: BRAND,
-    vars: chatVars,
+    vars: chatVarsWithoutPreview,
     resolve: async (ctx, id) => {
       const order = await loadOrder(ctx, id);
       if (!order) return null;
@@ -354,7 +363,6 @@ export const orderChatEvents = defineEvents({
         actionUrl: messagesUrl(ctx, order, 'brand'),
         senderName: digest.senderName,
         unreadCount: digest.unreadCount,
-        messagePreview: digest.messagePreview,
       });
     },
     stillRelevant: (ctx, id) => stillUnread(ctx, id, 'brand'),
@@ -393,7 +401,6 @@ export const orderChatEvents = defineEvents({
         orderId: order.id,
         packageName: order.packageNameSnapshot,
         senderName,
-        messagePreview: previewOf(latest),
         actionUrl: `${ctx.frontendBaseUrl}/admin/orderManagement/${order.id}`,
       };
 

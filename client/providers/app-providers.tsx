@@ -30,6 +30,7 @@ export function PublicAppProviders({
 }
 
 import { NotificationProvider } from "@/providers/notification-provider";
+import { PushBootstrap } from "@/features/push/components/push-bootstrap";
 
 export function AuthenticatedAppProviders({
   children,
@@ -40,7 +41,11 @@ export function AuthenticatedAppProviders({
     <AuthProvider>
       <ActiveBrandProvider>
         <NotificationProvider>
-          <RealtimeProvider>{children}</RealtimeProvider>
+          <RealtimeProvider>
+            {/* Renders nothing; keeps this browser's subscription alive. */}
+            <PushBootstrap />
+            {children}
+          </RealtimeProvider>
         </NotificationProvider>
       </ActiveBrandProvider>
     </AuthProvider>

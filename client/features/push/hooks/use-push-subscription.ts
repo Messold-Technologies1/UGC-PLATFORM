@@ -41,10 +41,12 @@ async function register(): Promise<ServiceWorkerRegistration> {
  * prompt fired on page load is ignored outright by Firefox and Safari, and a
  * refusal cannot be asked for a second time.
  *
- * On mount it only *reads*: a subscription this browser already has is
- * re-sent to the server, because Chrome drops subscriptions after long
- * inactivity and a user whose subscription silently expired looks exactly
- * like one who never subscribed.
+ * On mount it never prompts, but it does more than read. A subscription this
+ * browser already has is re-sent to the server, and one that is missing while
+ * permission is already granted is created — subscribe() is silent once the
+ * answer is "granted", so this costs the user nothing. That is what makes
+ * push effectively on by default: saying yes once covers every later account
+ * and every dropped subscription, without ever asking twice.
  */
 export function usePushSubscription(options: { enabled?: boolean } = {}) {
   const enabled = options.enabled ?? true;
@@ -59,8 +61,9 @@ export function usePushSubscription(options: { enabled?: boolean } = {}) {
     return publicKeyRef.current;
   }, []);
 
-  // Reconcile on mount. Deliberately silent: it never prompts, so it is safe
-  // to run on every page that shows the toggle.
+  // Reconcile on mount. Deliberately silent — it never calls
+  // requestPermission — which is what makes it safe to run on every
+  // authenticated page rather than only where the toggle is shown.
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
@@ -83,18 +86,33 @@ export function usePushSubscription(options: { enabled?: boolean } = {}) {
         }
 
         const registration = await register();
-        const subscription =
-          await registration.pushManager.getSubscription();
+        let subscription = await registration.pushManager.getSubscription();
         if (cancelled) return;
 
         if (!subscription) {
-          setState("unsubscribed");
-          return;
+          // Permission already granted but no subscription: either the
+          // browser dropped it (Chrome does, after long inactivity) or this
+          // account has never had one on a browser that already said yes.
+          // Either way, create one without asking — subscribe() only prompts
+          // when permission is still "default", and here it is not.
+          //
+          // This is what makes push on by default: a person says yes once,
+          // and every account they use in that browser is subscribed from
+          // then on, on whatever page they happen to open.
+          if (Notification.permission !== "granted") {
+            setState("unsubscribed");
+            return;
+          }
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToApplicationServerKey(publicKey),
+          });
+          if (cancelled) return;
         }
 
-        // Re-send what we already have. The server upserts on the endpoint, so
-        // this is free when nothing changed and is the only thing that
-        // recovers a subscription the server lost or never received.
+        // Re-send what we have. The server upserts on the endpoint, so this is
+        // free when nothing changed and is the only thing that recovers a
+        // subscription the server lost or never received.
         await savePushSubscription(subscription);
         if (!cancelled) setState("subscribed");
       } catch {

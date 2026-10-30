@@ -32,6 +32,7 @@ import {
   ReplaceScheduleDto,
   SaveTemplateDto,
   UpdateEventDto,
+  SavePushCopyDto,
 } from './dto/notifications-admin.dto';
 
 type AuthedRequest = Request & { user: { id: string } };
@@ -111,6 +112,24 @@ export class NotificationsAdminController {
   @ApiOperation({ summary: 'List email templates' })
   listTemplates() {
     return this.service.listTemplates();
+  }
+
+  @Get('push')
+  @ApiOperation({
+    summary: 'Every template as a browser notification, copy already rendered',
+  })
+  listPushTemplates() {
+    return this.service.listPushTemplates();
+  }
+
+  @Put('push/:id')
+  @ApiOperation({ summary: 'Save a template’s browser-notification copy' })
+  savePushCopy(
+    @Param('id') id: string,
+    @Body() dto: SavePushCopyDto,
+    @Req() req: Request & { user: { id: string } },
+  ) {
+    return this.service.savePushCopy(id, dto, req.user.id);
   }
 
   @Get('templates/catalog')

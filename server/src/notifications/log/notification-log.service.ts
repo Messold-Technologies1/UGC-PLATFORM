@@ -17,6 +17,12 @@ export type SkipReason =
   | 'suppressed'
   | 'no_address'
   | 'no_phone'
+  /**
+   * The account has granted push nowhere — never allowed it, or revoked it
+   * everywhere. Distinct from `no_address` so the log tells "never opted in"
+   * apart from "has no email on file", which is the push permission funnel.
+   */
+  | 'no_push_subscription'
   | 'not_relevant'
   | 'event_inactive'
   | 'row_removed'

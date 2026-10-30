@@ -254,6 +254,7 @@ model User {
   orderChatReadStates         OrderChatReadState[]
   passwordResetTokens         PasswordResetToken[]
   contactMessagesRead         ContactMessage[]           @relation("ContactMessageReadBy")
+  pushSubscriptions           PushSubscription[]
 
   @@index([status])
   @@index([deletedAt])
@@ -438,6 +439,14 @@ model CreatorProfile {
   emailNotificationsEnabled    Boolean                     @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
   whatsappNotificationsEnabled Boolean                     @default(false)
+  /// Opt-in for browser push. Defaults TRUE, unlike the two above: an email
+  /// address or a phone number arrives with the account and is no evidence of
+  /// consent, whereas a push subscription exists only because the person
+  /// answered their browser's permission prompt with "Allow". The flag is
+  /// therefore a mute switch for someone who granted permission and wants the
+  /// notifications to stop without revoking it at the browser level. With no
+  /// subscription on file the send skips regardless.
+  pushNotificationsEnabled     Boolean                     @default(true)
   /// Meta (Facebook) attribution identifiers captured in the creator's browser
   /// at signup. Replayed via the Conversions API when the creator is listed so
   /// the (out-of-band, admin-triggered) conversion attributes to the ad the
@@ -1433,6 +1442,14 @@ model Agency {
   emailNotificationsEnabled    Boolean  @default(false)
   /// Opt-in for WhatsApp notifications.
   whatsappNotificationsEnabled Boolean  @default(false)
+  /// Opt-in for browser push. Defaults TRUE, unlike the two above: an email
+  /// address or a phone number arrives with the account and is no evidence of
+  /// consent, whereas a push subscription exists only because the person
+  /// answered their browser's permission prompt with "Allow". The flag is
+  /// therefore a mute switch for someone who granted permission and wants the
+  /// notifications to stop without revoking it at the browser level. With no
+  /// subscription on file the send skips regardless.
+  pushNotificationsEnabled     Boolean  @default(true)
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
@@ -1481,6 +1498,14 @@ model BrandProfile {
   emailNotificationsEnabled    Boolean           @default(false)
   /// Opt-in for WhatsApp notifications (enforced when WhatsApp delivery is wired).
   whatsappNotificationsEnabled Boolean           @default(false)
+  /// Opt-in for browser push. Defaults TRUE, unlike the two above: an email
+  /// address or a phone number arrives with the account and is no evidence of
+  /// consent, whereas a push subscription exists only because the person
+  /// answered their browser's permission prompt with "Allow". The flag is
+  /// therefore a mute switch for someone who granted permission and wants the
+  /// notifications to stop without revoking it at the browser level. With no
+  /// subscription on file the send skips regardless.
+  pushNotificationsEnabled     Boolean           @default(true)
   createdAt                    DateTime          @default(now())
   updatedAt                    DateTime          @updatedAt
 
@@ -1665,7 +1690,7 @@ model CreatorFeature {
   /// creator here" and this means "the ranking did". Null on a row no
   /// reshuffle has touched. The newest value across the table is when the
   /// board was last reshuffled, which is what the admin header reads.
-  autoRankedAt  DateTime?
+  autoRankedAt DateTime?
 
   creator    CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   featuredBy User?          @relation("CreatorFeaturedBy", fields: [featuredById], references: [id], onDelete: SetNull)
@@ -2218,6 +2243,7 @@ model WalletWithdrawal {
 enum NotificationChannel {
   EMAIL
   WHATSAPP
+  PUSH
 }
 
 enum NotificationRecipientRole {
@@ -2318,6 +2344,15 @@ model NotificationTemplate {
   bodyDoc        Json?
   /// Null means derive the plain-text part from the rendered HTML.
   textHbs        String?  @db.Text
+  /// Browser-notification copy. Null on either means derive it from the email
+  /// — the subject trimmed of its sign-off for the title, the opening line of
+  /// the text part for the body (see rendering/push-copy.ts).
+  ///
+  /// Worth overriding where the email subject reads badly on a lock screen:
+  /// it is written for an inbox, where naming the sender is the convention
+  /// and there is room for a sentence. A notification has neither.
+  pushTitleHbs   String?
+  pushBodyHbs    String?  @db.Text
   /// Variable names found in the Handlebars AST when the template was saved.
   referencedVars String[] @default([])
   isActive       Boolean  @default(true)
@@ -2341,11 +2376,15 @@ model NotificationTemplateVersion {
   templateId String               @db.Uuid
   template   NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  version    Int
-  subjectHbs String
-  htmlHbs    String  @db.Text
-  textHbs    String? @db.Text
-  note       String?
+  version      Int
+  subjectHbs   String
+  htmlHbs      String  @db.Text
+  textHbs      String? @db.Text
+  /// Snapshotted like the rest, so reverting restores the notification copy
+  /// alongside the email rather than leaving the two from different edits.
+  pushTitleHbs String?
+  pushBodyHbs  String? @db.Text
+  note         String?
 
   createdByUserId String?  @db.Uuid
   createdAt       DateTime @default(now())
@@ -2386,8 +2425,9 @@ model NotificationLog {
   /// SES messageId or WhatsApp wamid — the join key for the delivery webhooks.
   providerMessageId String?
   errorMessage      String?
-  /// opted_out | suppressed | no_phone | not_relevant | event_inactive |
-  /// row_removed | entity_gone | no_recipient | user_inactive | superseded
+  /// opted_out | suppressed | no_address | no_phone | no_push_subscription |
+  /// not_relevant | event_inactive | row_removed | entity_gone | no_recipient |
+  /// user_inactive | superseded | sending_disabled
   skippedReason     String?
 
   queuedAt    DateTime  @default(now())
@@ -2404,6 +2444,48 @@ model NotificationLog {
   @@index([eventKey, queuedAt])
   @@index([status, queuedAt])
   @@index([status, claimedAt])
+}
+
+/// One browser, on one device, that agreed to receive push.
+///
+/// The unit is a browser profile rather than an account: a creator with a
+/// laptop and a phone has two rows, each with its own keys, and revoking
+/// permission on one must not silence the other. That is why the push send
+/// path addresses a *user* and fans out here, instead of carrying an address
+/// the way email and WhatsApp do.
+///
+/// Rows are pruned by the transport, not by a sweep: a push service answers
+/// 404 or 410 for an endpoint whose browser has uninstalled, cleared its data
+/// or revoked permission, and that answer is the only reliable signal that a
+/// subscription is dead. Nothing else deletes them.
+model PushSubscription {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The push service URL the payload is POSTed to. Unique because a browser
+  /// re-subscribing with the same endpoint is the same subscription: the write
+  /// must update the keys in place, never add a second row that would make one
+  /// notification arrive twice.
+  endpoint  String  @unique
+  /// Client public key and auth secret from the browser's PushSubscription,
+  /// both base64url. Required to encrypt the payload; useless without the
+  /// endpoint, and the server's VAPID private key is what proves the sender.
+  p256dh    String
+  auth      String
+  /// For telling a user's devices apart in support ("which browser stopped
+  /// getting these?"). Never parsed.
+  userAgent String?
+
+  createdAt     DateTime  @default(now())
+  /// Last push this endpoint accepted. Lets a cleanup job find subscriptions
+  /// that have gone quiet without ever returning 410.
+  lastSuccessAt DateTime?
+  /// Consecutive soft failures (timeouts, 5xx). Diagnostic only — it never
+  /// deletes a row, because a push service having a bad hour is not consent
+  /// being withdrawn.
+  failureCount  Int       @default(0)
+
+  @@index([userId])
 }
 
 /// A single WhatsApp OTP challenge for one phone number.

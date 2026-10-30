@@ -309,6 +309,145 @@ export class NotificationsAdminService {
     });
   }
 
+  /**
+   * Every template, as a browser notification.
+   *
+   * Its own listing rather than a column on the template list, because the
+   * question here is different: not "what email is this" but "what does this
+   * event look like on a lock screen, and has anyone written it". The
+   * rendered copy comes back with each row, derived where nobody has
+   * overridden it, so the list answers that without opening anything.
+   *
+   * Rendered with the event's declared examples, like every other preview, so
+   * nothing real is read.
+   */
+  async listPushTemplates() {
+    const rows = await this.prisma.notificationTemplate.findMany({
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+        pushTitleHbs: true,
+        pushBodyHbs: true,
+        subjectHbs: true,
+        htmlHbs: true,
+        textHbs: true,
+      },
+    });
+
+    return Promise.all(
+      rows.map(async (row) => {
+        const vars = await this.varsForTemplate(row.id, row.name);
+        const context: Record<string, string> = {};
+        for (const [name, spec] of Object.entries(vars)) {
+          context[name] = spec.example;
+        }
+
+        let preview: { title: string; body: string };
+        try {
+          preview = this.renderer.renderPushDraft({
+            subjectHbs: row.subjectHbs,
+            htmlHbs: row.htmlHbs,
+            textHbs: row.textHbs,
+            pushTitleHbs: row.pushTitleHbs,
+            pushBodyHbs: row.pushBodyHbs,
+            context,
+          });
+        } catch {
+          // One unrenderable template must not blank the whole list; the
+          // editor will say what is wrong with it.
+          preview = { title: '', body: '' };
+        }
+
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          isActive: row.isActive,
+          pushTitleHbs: row.pushTitleHbs,
+          pushBodyHbs: row.pushBodyHbs,
+          /** True when somebody wrote it rather than it being derived. */
+          customised: Boolean(row.pushTitleHbs ?? row.pushBodyHbs),
+          preview,
+        };
+      }),
+    );
+  }
+
+  /**
+   * Save only the notification copy.
+   *
+   * Deliberately not a call to saveTemplate with the email fields echoed back:
+   * that would make a page about two fields capable of overwriting the body,
+   * and a stale copy held open in another tab would do exactly that on save.
+   * This touches the two columns and nothing else.
+   *
+   * It still versions and validates, because those are properties of the
+   * template rather than of the email — a reverted version should restore the
+   * notification too, and a typo'd variable renders an empty notification at
+   * send time either way.
+   */
+  async savePushCopy(
+    id: string,
+    dto: { pushTitleHbs?: string | null; pushBodyHbs?: string | null },
+    userId: string,
+  ) {
+    const existing = await this.getTemplate(id);
+    const vars = await this.varsForTemplate(id, existing.name);
+
+    const pushTitleHbs = dto.pushTitleHbs?.trim() || null;
+    const pushBodyHbs = dto.pushBodyHbs?.trim() || null;
+
+    const result = this.validator.validate(
+      {
+        subjectHbs: existing.subjectHbs,
+        htmlHbs: existing.htmlHbs,
+        textHbs: existing.textHbs,
+        pushTitleHbs,
+        pushBodyHbs,
+      },
+      vars,
+    );
+    if (!result.ok) {
+      throw new UnprocessableEntityException({
+        message: 'Template did not validate',
+        issues: result.issues,
+      });
+    }
+
+    const saved = await this.prisma.$transaction(async (tx) => {
+      await tx.notificationTemplateVersion.create({
+        data: {
+          templateId: existing.id,
+          version: existing.version,
+          subjectHbs: existing.subjectHbs,
+          htmlHbs: existing.htmlHbs,
+          textHbs: existing.textHbs,
+          pushTitleHbs: existing.pushTitleHbs,
+          pushBodyHbs: existing.pushBodyHbs,
+          note: 'Browser notification copy',
+          createdByUserId: userId,
+        },
+      });
+      return tx.notificationTemplate.update({
+        where: { id: existing.id },
+        data: {
+          pushTitleHbs,
+          pushBodyHbs,
+          referencedVars: result.referencedVars,
+          updatedByUserId: userId,
+          version: { increment: 1 },
+        },
+        select: { id: true, version: true },
+      });
+    });
+
+    this.renderer.invalidate();
+    return saved;
+  }
+
   async getTemplate(id: string) {
     const row = await this.prisma.notificationTemplate.findUnique({
       where: { id },
@@ -320,6 +459,8 @@ export class NotificationsAdminService {
         htmlHbs: true,
         bodyDoc: true,
         textHbs: true,
+        pushTitleHbs: true,
+        pushBodyHbs: true,
         referencedVars: true,
         isActive: true,
         version: true,
@@ -459,9 +600,12 @@ export class NotificationsAdminService {
       // otherwise drift, and the stale document would silently win next time
       // the visual editor opened.
       bodyDoc: (dto.bodyDoc ?? null) as
-        | Prisma.InputJsonValue
-        | typeof Prisma.DbNull,
+        Prisma.InputJsonValue | typeof Prisma.DbNull,
       textHbs: dto.textHbs ?? null,
+      // Empty is the same as absent here: a cleared field in the editor means
+      // "go back to deriving it from the email", not "send a blank title".
+      pushTitleHbs: dto.pushTitleHbs?.trim() || null,
+      pushBodyHbs: dto.pushBodyHbs?.trim() || null,
       referencedVars: result.referencedVars,
       updatedByUserId: userId,
     };
@@ -483,6 +627,8 @@ export class NotificationsAdminService {
           subjectHbs: existing.subjectHbs,
           htmlHbs: existing.htmlHbs,
           textHbs: existing.textHbs,
+          pushTitleHbs: existing.pushTitleHbs,
+          pushBodyHbs: existing.pushBodyHbs,
           note: dto.note ?? null,
           createdByUserId: userId,
         },
@@ -518,7 +664,13 @@ export class NotificationsAdminService {
   async revert(id: string, version: number, userId: string) {
     const snapshot = await this.prisma.notificationTemplateVersion.findUnique({
       where: { templateId_version: { templateId: id, version } },
-      select: { subjectHbs: true, htmlHbs: true, textHbs: true },
+      select: {
+        subjectHbs: true,
+        htmlHbs: true,
+        textHbs: true,
+        pushTitleHbs: true,
+        pushBodyHbs: true,
+      },
     });
     if (!snapshot) throw new NotFoundException(`No version ${version}`);
 
@@ -532,6 +684,8 @@ export class NotificationsAdminService {
         subjectHbs: snapshot.subjectHbs,
         htmlHbs: snapshot.htmlHbs,
         textHbs: snapshot.textHbs,
+        pushTitleHbs: snapshot.pushTitleHbs,
+        pushBodyHbs: snapshot.pushBodyHbs,
         note: `Reverted to version ${version}`,
       },
       userId,
@@ -558,6 +712,8 @@ export class NotificationsAdminService {
       htmlHbs?: string;
       bodyDoc?: Record<string, unknown>;
       textHbs?: string | null;
+      pushTitleHbs?: string | null;
+      pushBodyHbs?: string | null;
     },
   ) {
     const template = await this.getTemplate(id);
@@ -578,6 +734,24 @@ export class NotificationsAdminService {
       draft?.htmlHbs !== undefined ||
       draft?.bodyDoc !== undefined;
 
+    const push = this.renderer.renderPushDraft({
+      subjectHbs: draft?.subjectHbs ?? template.subjectHbs,
+      htmlHbs,
+      textHbs: draft?.textHbs ?? template.textHbs,
+      // `undefined` means the editor did not send the field, so fall back to
+      // what is stored; an explicit null or '' means the admin cleared it and
+      // wants the derived copy back.
+      pushTitleHbs:
+        draft?.pushTitleHbs === undefined
+          ? template.pushTitleHbs
+          : draft.pushTitleHbs,
+      pushBodyHbs:
+        draft?.pushBodyHbs === undefined
+          ? template.pushBodyHbs
+          : draft.pushBodyHbs,
+      context,
+    });
+
     if (usingDraft) {
       const rendered = this.renderer.renderDraft({
         subjectHbs: draft?.subjectHbs ?? template.subjectHbs,
@@ -587,6 +761,7 @@ export class NotificationsAdminService {
       });
       return {
         ...rendered,
+        push,
         source: 'draft' as const,
         templateId: id,
         context,
@@ -599,7 +774,12 @@ export class NotificationsAdminService {
       templateName: eventKey ?? template.name,
       context,
     });
-    return { ...rendered, context, derivedTextHbs: deriveTextHbs(htmlHbs) };
+    return {
+      ...rendered,
+      push,
+      context,
+      derivedTextHbs: deriveTextHbs(htmlHbs),
+    };
   }
 
   /**

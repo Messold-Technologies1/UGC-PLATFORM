@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { OrderChatMessageType } from '@prisma/client';
@@ -16,6 +17,8 @@ import {
 } from './order-chat-message.mapper';
 import { buildOrderLastChatSnapshotUpdate } from './order-chat-order-snapshot';
 import { OrderChatRealtimeNotifier } from './order-chat-realtime.notifier';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
+import { chatOccurrenceKey } from '../notifications/catalog/order-chat.events';
 
 type OrderChatParticipants = {
   /**
@@ -48,11 +51,14 @@ const MESSAGE_SELECT = {
 
 @Injectable()
 export class OrderChatService {
+  private readonly logger = new Logger(OrderChatService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly realtime: OrderChatRealtimeNotifier,
     private readonly brandAccess: BrandAccessService,
+    private readonly notifications: NotificationEventsService,
   ) {}
 
   private formatMessage(row: OrderChatMessageRow): FormattedOrderChatMessage {
@@ -78,9 +84,71 @@ export class OrderChatService {
       orderId,
       message: toRealtimeChatMessagePayload(message),
     });
+    await this.notifyCounterparties(orderId, message);
   }
 
-  private async getOrderParticipants(orderId: string): Promise<OrderChatParticipants> {
+  /**
+   * Tell whoever did not write it.
+   *
+   * Both the realtime emit above and this run from the one place all three
+   * send paths converge on, so a new way to post a message cannot forget
+   * either half.
+   *
+   * Which side is notified follows from who is absent rather than from who
+   * sent it, which is what makes the admin case fall out for free: support
+   * writes into this same thread during a dispute, and being neither party it
+   * matches both tests, so both sides hear about it.
+   *
+   * The occurrence key buckets by time, so a burst of messages claims one
+   * delivery-log row and arrives as one notification — see CHAT_WINDOW_MS.
+   * `createdAt` is the database's timestamp rather than the clock here, so two
+   * app servers handling the same conversation agree on the bucket.
+   */
+  private async notifyCounterparties(
+    orderId: string,
+    message: FormattedOrderChatMessage,
+  ): Promise<void> {
+    try {
+      const { brandUserId, creatorUserId } =
+        await this.getOrderParticipants(orderId);
+      const occurrenceKey = chatOccurrenceKey(orderId, message.createdAt);
+
+      const events = [
+        ...(message.senderUserId !== creatorUserId
+          ? (['order-chat-message-for-creator'] as const)
+          : []),
+        ...(message.senderUserId !== brandUserId
+          ? (['order-chat-message-for-brand'] as const)
+          : []),
+        // Always emitted; the event itself resolves to nobody unless the order
+        // is under dispute. Keeping the condition in the catalog rather than
+        // here means the dispute check runs at SEND time, so a dispute
+        // resolved during the collapsing window stops the notification that
+        // the message a minute ago would otherwise still produce.
+        'order-chat-message-for-admin' as const,
+      ];
+
+      for (const eventKey of events) {
+        await this.notifications.emit(eventKey, {
+          entityId: orderId,
+          occurrenceKey,
+          occurredAt: message.createdAt,
+        });
+      }
+    } catch (err) {
+      // Never let notifying cost the message. It is already written and
+      // already on the socket; the recipient will see it when they look.
+      this.logger.error(
+        `chat notification for order ${orderId} failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  private async getOrderParticipants(
+    orderId: string,
+  ): Promise<OrderChatParticipants> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
@@ -104,7 +172,9 @@ export class OrderChatService {
     };
   }
 
-  async getOrderChatParticipantsForAdmin(orderId: string): Promise<OrderChatParticipants> {
+  async getOrderChatParticipantsForAdmin(
+    orderId: string,
+  ): Promise<OrderChatParticipants> {
     return this.getOrderParticipants(orderId);
   }
 
@@ -211,7 +281,9 @@ export class OrderChatService {
       where: { orderId: params.orderId },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: take + 1,
-      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : undefined),
+      ...(params.cursor
+        ? { cursor: { id: params.cursor }, skip: 1 }
+        : undefined),
       select: MESSAGE_SELECT,
     });
 
@@ -412,7 +484,10 @@ export class OrderChatService {
         return message;
       });
     } catch (err: unknown) {
-      if (params.clientMessageId && (err as { code?: string })?.code === 'P2002') {
+      if (
+        params.clientMessageId &&
+        (err as { code?: string })?.code === 'P2002'
+      ) {
         const existing = await this.prisma.orderChatMessage.findFirst({
           where: {
             orderId: params.orderId,
@@ -451,7 +526,12 @@ export class OrderChatService {
     }
 
     const row = await this.prisma.orderChatReadState.upsert({
-      where: { orderId_userId: { orderId: params.orderId, userId: params.viewerUserId } },
+      where: {
+        orderId_userId: {
+          orderId: params.orderId,
+          userId: params.viewerUserId,
+        },
+      },
       create: {
         orderId: params.orderId,
         userId: params.viewerUserId,
@@ -462,7 +542,12 @@ export class OrderChatService {
         lastReadMessageId: msg.id,
         lastReadAt: msg.createdAt,
       },
-      select: { orderId: true, userId: true, lastReadMessageId: true, lastReadAt: true },
+      select: {
+        orderId: true,
+        userId: true,
+        lastReadMessageId: true,
+        lastReadAt: true,
+      },
     });
 
     await this.realtime.emitReadUpdated({
@@ -480,10 +565,7 @@ export class OrderChatService {
     };
   }
 
-  async getState(params: {
-    orderId: string;
-    viewerUserId: string;
-  }): Promise<{
+  async getState(params: { orderId: string; viewerUserId: string }): Promise<{
     orderId: string;
     viewerUserId: string;
     brandUserId: string;
@@ -500,7 +582,10 @@ export class OrderChatService {
     });
 
     const states = await this.prisma.orderChatReadState.findMany({
-      where: { orderId: params.orderId, userId: { in: [participants.brandUserId, participants.creatorUserId] } },
+      where: {
+        orderId: params.orderId,
+        userId: { in: [participants.brandUserId, participants.creatorUserId] },
+      },
       select: { userId: true, lastReadMessageId: true, lastReadAt: true },
     });
 

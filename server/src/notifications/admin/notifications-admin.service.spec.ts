@@ -51,6 +51,8 @@ function build(overrides: { supportsDelay?: boolean; eventKey?: string } = {}) {
         subjectHbs: 'old',
         htmlHbs: '<p>old</p>',
         textHbs: null,
+        pushTitleHbs: null,
+        pushBodyHbs: null,
         referencedVars: [],
         isActive: true,
         version: 1,
@@ -79,6 +81,10 @@ function build(overrides: { supportsDelay?: boolean; eventKey?: string } = {}) {
       subject: 'draft',
       html: '<p>draft</p>',
       text: 'draft',
+    }),
+    renderPushDraft: jest.fn().mockReturnValue({
+      title: 'push title',
+      body: 'push body',
     }),
   };
 
@@ -398,5 +404,93 @@ describe('deriveText', () => {
         '{{> actionButton url=actionUrl label="Review order \u2192"}}',
       ),
     ).toEqual({ textHbs: 'Review order: {{actionUrl}}' });
+  });
+});
+
+describe('savePushCopy', () => {
+  // The whole reason this is not a call to saveTemplate with the email echoed
+  // back: a page about two fields must not be able to rewrite the body, and a
+  // stale copy open in another tab would do exactly that.
+  it('writes only the two notification columns', async () => {
+    const { service, prisma, tx } = build();
+
+    await service.savePushCopy(
+      't1',
+      { pushTitleHbs: 'Content ready', pushBodyHbs: 'Tap to review' },
+      'admin-1',
+    );
+
+    // Matched in full rather than partially: an exact object is what proves
+    // the email fields are absent, which `objectContaining` could not.
+    expect(tx.notificationTemplate.update).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      data: {
+        pushTitleHbs: 'Content ready',
+        pushBodyHbs: 'Tap to review',
+        referencedVars: [],
+        updatedByUserId: 'admin-1',
+        version: { increment: 1 },
+      },
+      select: { id: true, version: true },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  // A cleared field means "go back to deriving it", not "send a blank title".
+  it('stores an emptied field as null', async () => {
+    const { service, tx } = build();
+
+    await service.savePushCopy('t1', { pushTitleHbs: '  ' }, 'admin-1');
+
+    expect(tx.notificationTemplate.update).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      data: {
+        pushTitleHbs: null,
+        pushBodyHbs: null,
+        referencedVars: [],
+        updatedByUserId: 'admin-1',
+        version: { increment: 1 },
+      },
+      select: { id: true, version: true },
+    });
+  });
+
+  // Versioned like any other edit, so a revert restores the notification too.
+  it('snapshots the previous version before writing', async () => {
+    const { service, tx } = build();
+
+    await service.savePushCopy('t1', { pushTitleHbs: 'New' }, 'admin-1');
+
+    // Exact, so it also pins that the snapshot captured the PREVIOUS push
+    // copy beside the email — that is what makes a revert restore both.
+    expect(tx.notificationTemplateVersion.create).toHaveBeenCalledWith({
+      data: {
+        templateId: 't1',
+        version: 1,
+        subjectHbs: 'old',
+        htmlHbs: '<p>old</p>',
+        textHbs: null,
+        pushTitleHbs: null,
+        pushBodyHbs: null,
+        note: 'Browser notification copy',
+        createdByUserId: 'admin-1',
+      },
+    });
+  });
+
+  it('refuses a variable the event does not have', async () => {
+    const { service } = build();
+
+    await expect(
+      service.savePushCopy('t1', { pushTitleHbs: '{{nope}}' }, 'admin-1'),
+    ).rejects.toThrow();
+  });
+
+  it('drops the compiled cache so the edit is live on the next send', async () => {
+    const { service, renderer } = build();
+
+    await service.savePushCopy('t1', { pushTitleHbs: 'New' }, 'admin-1');
+
+    expect(renderer.invalidate).toHaveBeenCalled();
   });
 });

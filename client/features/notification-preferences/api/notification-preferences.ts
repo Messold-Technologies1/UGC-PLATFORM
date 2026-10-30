@@ -7,12 +7,14 @@ export type NotificationPreferences = {
   profileType: NotificationProfileType;
   emailNotificationsEnabled: boolean;
   whatsappNotificationsEnabled: boolean;
+  pushNotificationsEnabled: boolean;
 };
 
-/** Both optional: one toggle is saved on its own, never as a pair. */
+/** All optional: one toggle is saved on its own, never as a set. */
 export type UpdateNotificationPreferencesPayload = {
   emailNotificationsEnabled?: boolean;
   whatsappNotificationsEnabled?: boolean;
+  pushNotificationsEnabled?: boolean;
 };
 
 export const notificationPreferencesQueryKey = [

@@ -98,6 +98,7 @@ function TemplateEditor({
   );
   const bodyDocQuery = useTemplateBodyDocQuery(id, mode === "visual");
   const [text, setText] = useState(template.textHbs ?? "");
+
   const [issues, setIssues] = useState<TemplateIssue[]>([]);
   const [rendered, setRendered] = useState<TemplatePreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);

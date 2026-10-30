@@ -1,0 +1,18 @@
+{
+  "name": "Go Collab — Where Creators Meet Brands",
+  "short_name": "Go Collab",
+  "description": "The marketplace for authentic user-generated content.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

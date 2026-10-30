@@ -24,6 +24,7 @@ export class NotificationPreferencesService {
       profileType: target.profileType,
       emailNotificationsEnabled: target.emailNotificationsEnabled,
       whatsappNotificationsEnabled: target.whatsappNotificationsEnabled,
+      pushNotificationsEnabled: target.pushNotificationsEnabled,
     };
   }
 
@@ -42,6 +43,9 @@ export class NotificationPreferencesService {
     if (dto.whatsappNotificationsEnabled !== undefined) {
       data.whatsappNotificationsEnabled = dto.whatsappNotificationsEnabled;
     }
+    if (dto.pushNotificationsEnabled !== undefined) {
+      data.pushNotificationsEnabled = dto.pushNotificationsEnabled;
+    }
     if (Object.keys(data).length === 0) {
       return this.getForUser(userId);
     }
@@ -49,6 +53,7 @@ export class NotificationPreferencesService {
     const select = {
       emailNotificationsEnabled: true,
       whatsappNotificationsEnabled: true,
+      pushNotificationsEnabled: true,
     } as const;
     const where = { id: target.id };
 
@@ -72,11 +77,13 @@ export class NotificationPreferencesService {
     id: string;
     emailNotificationsEnabled: boolean;
     whatsappNotificationsEnabled: boolean;
+    pushNotificationsEnabled: boolean;
   }> {
     const select = {
       id: true,
       emailNotificationsEnabled: true,
       whatsappNotificationsEnabled: true,
+      pushNotificationsEnabled: true,
     } as const;
 
     const creator = await this.prisma.creatorProfile.findUnique({

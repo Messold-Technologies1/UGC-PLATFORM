@@ -75,6 +75,10 @@ export const ENDPOINTS = {
   NOTIFICATION_PREFERENCES: {
     ME: "/api/notification-preferences/me",
   },
+  PUSH: {
+    VAPID_PUBLIC_KEY: "/api/push/vapid-public-key",
+    SUBSCRIPTIONS: "/api/push/subscriptions",
+  },
   BRIEFS: {
     LIST: "/api/briefs",
     FIELD_OPTIONS: "/api/briefs/field-options",
@@ -339,6 +343,9 @@ export const ENDPOINTS = {
         `/api/admin/notifications/events/${encodeURIComponent(key)}/backfill`,
       EVENT_SWEEP: (key: string) =>
         `/api/admin/notifications/events/${encodeURIComponent(key)}/sweep`,
+      PUSH_TEMPLATES: "/api/admin/notifications/push",
+      PUSH_TEMPLATE: (id: string) =>
+        `/api/admin/notifications/push/${encodeURIComponent(id)}`,
       TEMPLATES: "/api/admin/notifications/templates",
       TEMPLATE: (id: string) =>
         `/api/admin/notifications/templates/${encodeURIComponent(id)}`,

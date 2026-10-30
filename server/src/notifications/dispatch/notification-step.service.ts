@@ -7,6 +7,11 @@ import { EmailSuppressionService } from '../../mail/email-suppression.service';
 import { SesMailTransport } from '../../mail/ses-mail.transport';
 import { WhatsAppCloudTransport } from '../../whatsapp/whatsapp-cloud.transport';
 import {
+  PermanentPushError,
+  WebPushTransport,
+} from '../../push/web-push.transport';
+import { PushSubscriptionsService } from '../../push/push-subscriptions.service';
+import {
   frontendBaseUrl,
   frontendRelativePath,
 } from '../../util/frontend-url.util';
@@ -16,6 +21,7 @@ import {
 } from '../catalog/event-catalog';
 import type { EventContext, ResolvedRecipient } from '../catalog/define-events';
 import { NotificationTemplateRenderer } from '../rendering/notification-template-renderer.service';
+import { pushClickUrl } from '../rendering/push-copy';
 import {
   NotificationLogService,
   type ClaimInput,
@@ -68,6 +74,8 @@ export class NotificationStepService {
     private readonly suppression: EmailSuppressionService,
     private readonly ses: SesMailTransport,
     private readonly whatsapp: WhatsAppCloudTransport,
+    private readonly push: WebPushTransport,
+    private readonly pushSubscriptions: PushSubscriptionsService,
   ) {}
 
   /**
@@ -129,39 +137,52 @@ export class NotificationStepService {
       if (!relevant) return this.skipAll(job, 'not_relevant');
     }
 
-    const recipient = await definition.resolve(this.context(), job.entityId);
-    if (!recipient) return this.skipAll(job, 'entity_gone');
-
-    if (recipient.userId && !(await this.userIsActive(recipient.userId))) {
-      return this.skipAll(job, 'user_inactive', recipient);
-    }
+    const resolved = await definition.resolve(this.context(), job.entityId);
+    // null means the entity or its recipient is gone. An empty array is a
+    // different answer: the event found its audience and it was nobody — no
+    // admin on duty, say — which is not a sign anything is broken.
+    if (resolved === null) return this.skipAll(job, 'entity_gone');
+    const recipients = Array.isArray(resolved) ? resolved : [resolved];
+    if (recipients.length === 0) return this.skipAll(job, 'no_recipient');
 
     const outcomes: StepOutcome[] = [];
     const failures: unknown[] = [];
 
-    // Channels are independent: a WhatsApp failure must not cost the email.
-    //
-    // deliverChannel records its own failure and rethrows so the job retries,
-    // but that throw used to escape this loop — so an SES outage silently took
-    // WhatsApp with it, and the comment above was simply untrue. Each channel
-    // is tried now, and the failures are re-raised together once every channel
-    // has had its turn.
-    for (const channel of row.channels) {
-      try {
-        outcomes.push(
-          await this.deliverChannel(job, channel, recipient, {
-            alwaysSend: event.alwaysSend,
-            emailTemplateId: row.templateOverrideId ?? event.emailTemplateId,
-            whatsappTemplateName:
-              row.whatsappTemplateOverride ??
-              event.whatsappTemplateName ??
-              defaultWhatsAppTemplateName(job.eventKey),
-            whatsappBodyVars: definition.whatsappBodyVars ?? [],
-          }),
-        );
-      } catch (err) {
-        failures.push(err);
-        outcomes.push({ channel, result: 'failed' });
+    // One event may address a group whose size is not known in advance. Each
+    // recipient is claimed and logged separately — the log's identity already
+    // includes the recipient — so one of them being inactive or unreachable
+    // cannot silence the rest.
+    for (const recipient of recipients) {
+      if (recipient.userId && !(await this.userIsActive(recipient.userId))) {
+        outcomes.push(...(await this.skipAll(job, 'user_inactive', recipient)));
+        continue;
+      }
+
+      // Channels are independent: a WhatsApp failure must not cost the email.
+      //
+      // deliverChannel records its own failure and rethrows so the job retries,
+      // but that throw used to escape this loop — so an SES outage silently took
+      // WhatsApp with it, and the comment above was simply untrue. Each channel
+      // is tried now, and the failures are re-raised together once every channel
+      // has had its turn.
+      for (const channel of row.channels) {
+        try {
+          outcomes.push(
+            await this.deliverChannel(job, channel, recipient, {
+              alwaysSend: event.alwaysSend,
+              emailTemplateId: row.templateOverrideId ?? event.emailTemplateId,
+              whatsappTemplateName:
+                row.whatsappTemplateOverride ??
+                event.whatsappTemplateName ??
+                defaultWhatsAppTemplateName(job.eventKey),
+              whatsappBodyVars: definition.whatsappBodyVars ?? [],
+              suppressWhenViewing: definition.suppressWhenViewing ?? false,
+            }),
+          );
+        } catch (err) {
+          failures.push(err);
+          outcomes.push({ channel, result: 'failed' });
+        }
       }
     }
 
@@ -179,10 +200,24 @@ export class NotificationStepService {
       whatsappTemplateName: string;
       /** Keys of the event's vars to render after `{{1}}`. */
       whatsappBodyVars: readonly string[];
+      /** Let the service worker drop this one if its page is already open. */
+      suppressWhenViewing: boolean;
     },
   ): Promise<StepOutcome> {
+    // Push is the odd one out: it has no address, it has an account with some
+    // number of browsers attached. A synthetic one keeps the log's identity
+    // intact — one row per user per event per offset, exactly as for the other
+    // two channels — while the fan-out across devices happens below it, in the
+    // transport. Without this the log would need a row per browser, and the
+    // unique constraint that stops a double send would stop meaning anything.
     const address =
-      channel === NotificationChannel.EMAIL ? recipient.email : recipient.phone;
+      channel === NotificationChannel.EMAIL
+        ? recipient.email
+        : channel === NotificationChannel.WHATSAPP
+          ? recipient.phone
+          : recipient.userId
+            ? `push:${recipient.userId}`
+            : null;
     const claimBase: ClaimInput = {
       eventKey: job.eventKey,
       entityId: job.entityId,
@@ -196,12 +231,18 @@ export class NotificationStepService {
     };
 
     if (!address?.trim()) {
-      await this.log.recordSkip({
-        ...claimBase,
-        skippedReason:
-          channel === NotificationChannel.EMAIL ? 'no_address' : 'no_phone',
-      });
-      return { channel, result: 'skipped', reason: 'no_address' };
+      const reason: SkipReason =
+        channel === NotificationChannel.EMAIL
+          ? 'no_address'
+          : channel === NotificationChannel.WHATSAPP
+            ? 'no_phone'
+            : // Push with no address means no account to address, which is a
+              // missing recipient rather than a missing contact detail.
+              'no_recipient';
+      await this.log.recordSkip({ ...claimBase, skippedReason: reason });
+      // Reported as it is recorded. This used to answer 'no_address' for every
+      // channel, so a missing phone read back as a missing email.
+      return { channel, result: 'skipped', reason };
     }
 
     if (!opts.alwaysSend && !(await this.optedIn(recipient, channel))) {
@@ -215,6 +256,21 @@ export class NotificationStepService {
     ) {
       await this.log.recordSkip({ ...claimBase, skippedReason: 'suppressed' });
       return { channel, result: 'skipped', reason: 'suppressed' };
+    }
+
+    // Checked before the claim, not inside the send, so that granting
+    // permission later is not refused as a duplicate of the send that found
+    // nothing to deliver to.
+    if (
+      channel === NotificationChannel.PUSH &&
+      recipient.userId &&
+      (await this.pushSubscriptions.countForUser(recipient.userId)) === 0
+    ) {
+      await this.log.recordSkip({
+        ...claimBase,
+        skippedReason: 'no_push_subscription',
+      });
+      return { channel, result: 'skipped', reason: 'no_push_subscription' };
     }
 
     const claim = await this.log.claim(claimBase);
@@ -235,12 +291,16 @@ export class NotificationStepService {
       const providerMessageId =
         channel === NotificationChannel.EMAIL
           ? await this.sendEmail(job, recipient, address, opts.emailTemplateId)
-          : await this.sendWhatsApp(
-              recipient,
-              address,
-              opts.whatsappTemplateName,
-              opts.whatsappBodyVars,
-            );
+          : channel === NotificationChannel.WHATSAPP
+            ? await this.sendWhatsApp(
+                recipient,
+                address,
+                opts.whatsappTemplateName,
+                opts.whatsappBodyVars,
+              )
+            : await this.sendPush(job, recipient, opts.emailTemplateId, {
+                suppressWhenViewing: opts.suppressWhenViewing,
+              });
 
       await this.log.markSent(claim.logId, {
         providerMessageId: providerMessageId.messageId,
@@ -320,16 +380,94 @@ export class NotificationStepService {
     return { messageId, subject: templateName, templateId: null };
   }
 
+  /**
+   * Fan the event out to every browser the recipient has.
+   *
+   * Returns no provider message id, unlike the other two channels: one send
+   * touches N push services and gets N responses, and none of them is an
+   * identifier a webhook will later quote back. Push has no delivery callback
+   * at all — the closest thing is the 410 on a *later* send, which the
+   * transport handles by deleting the subscription. So the log row for a push
+   * records that it was accepted for delivery and nothing more.
+   */
+  private async sendPush(
+    job: StepJobData,
+    recipient: ResolvedRecipient,
+    templateId: string | null,
+    opts: { suppressWhenViewing: boolean },
+  ): Promise<{
+    messageId: string | null;
+    subject: string;
+    templateId: string | null;
+  }> {
+    if (!recipient.userId) {
+      throw new PermanentSendError(
+        `push for ${job.eventKey} resolved no user to address`,
+      );
+    }
+
+    const rendered = await this.renderer.renderPush({
+      templateId,
+      templateName: job.eventKey,
+      context: recipient.vars,
+    });
+
+    if (!rendered.title.trim()) {
+      // A notification with no title renders as the site name and nothing
+      // else, which tells the recipient less than not sending would.
+      throw new PermanentSendError(
+        `template for ${job.eventKey} rendered an empty push title`,
+      );
+    }
+
+    try {
+      await this.push.sendToUser(recipient.userId, {
+        title: rendered.title,
+        body: rendered.body,
+        url: pushClickUrl(
+          recipient.vars.actionUrl,
+          frontendBaseUrl(this.config),
+        ),
+        // One event about one entity collapses into one notification rather
+        // than stacking: the second telling you about this order replaces the
+        // first, which is what the recipient would want anyway.
+        tag: `${job.eventKey}:${job.entityId}`,
+        suppressIfVisible: opts.suppressWhenViewing,
+      });
+    } catch (err) {
+      // Translate so the engine's retry decision keeps working: the transport
+      // has its own permanent-error type, and `pickFailureToRaise` only knows
+      // about this module's.
+      if (err instanceof PermanentPushError) {
+        throw new PermanentSendError(err.message);
+      }
+      throw err;
+    }
+
+    return {
+      messageId: null,
+      subject: rendered.title,
+      templateId: rendered.templateId,
+    };
+  }
+
   /** The existing per-profile opt-in booleans, unchanged. */
   private async optedIn(
     recipient: ResolvedRecipient,
     channel: NotificationChannel,
   ): Promise<boolean> {
+    // Staff have no profile row and therefore no preference to consult. Kept
+    // explicit on the recipient rather than inferred from a missing
+    // profileType, because "no profile" is also what a resolver looks like
+    // when it forgot to set one — and that must keep failing closed.
+    if (recipient.bypassProfileOptIn) return true;
     if (!recipient.profileType || !recipient.profileId) return false;
     const select =
       channel === NotificationChannel.EMAIL
         ? { emailNotificationsEnabled: true as const }
-        : { whatsappNotificationsEnabled: true as const };
+        : channel === NotificationChannel.WHATSAPP
+          ? { whatsappNotificationsEnabled: true as const }
+          : { pushNotificationsEnabled: true as const };
 
     if (recipient.profileType === 'creator') {
       const p = await this.prisma.creatorProfile.findUnique({
@@ -402,13 +540,20 @@ function readFlag(
   profile: {
     emailNotificationsEnabled?: boolean;
     whatsappNotificationsEnabled?: boolean;
+    pushNotificationsEnabled?: boolean;
   } | null,
   channel: NotificationChannel,
 ): boolean {
   if (!profile) return false;
-  return channel === NotificationChannel.EMAIL
-    ? (profile.emailNotificationsEnabled ?? false)
-    : (profile.whatsappNotificationsEnabled ?? false);
+  if (channel === NotificationChannel.EMAIL) {
+    return profile.emailNotificationsEnabled ?? false;
+  }
+  if (channel === NotificationChannel.WHATSAPP) {
+    return profile.whatsappNotificationsEnabled ?? false;
+  }
+  // Defaults true on the column, so the fallback here is only reached when the
+  // profile row was selected without it — never on the send path.
+  return profile.pushNotificationsEnabled ?? false;
 }
 
 /**

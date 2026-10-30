@@ -20,6 +20,22 @@ export function workspaceAccountHref(role: WorkspaceMenuRole): string {
   return "/creator/account";
 }
 
+/**
+ * Where this workspace's notification toggles are.
+ *
+ * Brand and agency keep theirs on the profile settings page, which their
+ * Profile menu item already opens — the anchor just saves a scroll. The
+ * creator's live on a page of their own, and nothing in the account menu
+ * linked to it, so a creator could only reach their own notification settings
+ * by typing the URL. That is also the account most of the order events are
+ * addressed to, which made it the one place the toggle had to be reachable.
+ */
+export function workspaceNotificationsHref(role: WorkspaceMenuRole): string {
+  if (role === "BRAND") return "/brand/settings/profile#notifications";
+  if (role === "AGENCY") return "/agency/settings/profile#notifications";
+  return "/creator/settings/notifications";
+}
+
 /** Resolve which workspace the account menu should treat as active. */
 export function resolveActiveWorkspace(
   pathname: string,

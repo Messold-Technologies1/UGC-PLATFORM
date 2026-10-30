@@ -36,6 +36,9 @@ export enum EmailTemplateKey {
   AGENCY_LINK_REJECTED = 'agency-link-rejected',
   AGENCY_LINK_ENDED = 'agency-link-ended',
   ORDER_PLACED_BY_AGENCY_FOR_BRAND = 'order-placed-by-agency-for-brand',
+  ORDER_CHAT_MESSAGE_FOR_CREATOR = 'order-chat-message-for-creator',
+  ORDER_CHAT_MESSAGE_FOR_BRAND = 'order-chat-message-for-brand',
+  ORDER_CHAT_MESSAGE_FOR_ADMIN = 'order-chat-message-for-admin',
   PASSWORD_RESET = 'password-reset',
 }
 

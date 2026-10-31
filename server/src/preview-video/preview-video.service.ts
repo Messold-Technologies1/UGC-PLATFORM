@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -130,15 +131,8 @@ export class PreviewVideoService {
       return;
     }
 
-    const source = await this.storage.getObjectBuffer(sourceKey);
-    const out = await this.transcodePreview(source, sourceKey);
-
     const previewKey = `creator-profile/${creatorId}/preview/${randomUUID()}.mp4`;
-    await this.storage.putObjectBuffer({
-      key: previewKey,
-      body: out,
-      contentType: 'video/mp4',
-    });
+    const bytes = await this.transcodePreview(sourceKey, previewKey);
     const previewUrl = this.storage.buildCdnUrl(previewKey);
 
     await this.prisma.creatorProfile.update({
@@ -160,7 +154,7 @@ export class PreviewVideoService {
     }
 
     this.logger.log(
-      `preview: creator ${creatorId} ready (${(out.length / 1024).toFixed(0)} KiB from ${sourceKey})`,
+      `preview: creator ${creatorId} ready (${(bytes / 1024).toFixed(0)} KiB from ${sourceKey})`,
     );
   }
 
@@ -178,11 +172,15 @@ export class PreviewVideoService {
    *   PREVIEW_VIDEO_PRESET       x264 preset (default veryfast)
    *   PREVIEW_VIDEO_AUDIO_BITRATE  AAC bitrate (default 128k)
    *   PREVIEW_VIDEO_MAX_SECONDS  clip length cap (default 8)
+   *
+   * Streams S3 → disk → ffmpeg → disk → S3, so resident memory is independent
+   * of the source size. Returns the uploaded byte count, which only the
+   * streaming upload can report (nothing here ever holds the whole file).
    */
   private async transcodePreview(
-    source: Buffer,
     sourceKey: string,
-  ): Promise<Buffer> {
+    previewKey: string,
+  ): Promise<number> {
     const dir = await mkdtemp(join(tmpdir(), 'preview-'));
     const srcExt = sourceKey.split('.').pop()?.toLowerCase() || 'mp4';
     const inPath = join(dir, `in.${srcExt}`);
@@ -201,7 +199,7 @@ export class PreviewVideoService {
     const preset = process.env.PREVIEW_VIDEO_PRESET || 'veryfast';
     const audioBitrate = process.env.PREVIEW_VIDEO_AUDIO_BITRATE || '128k';
     try {
-      await writeFile(inPath, source);
+      await this.storage.downloadToFile(sourceKey, inPath);
       await this.runFfmpeg([
         '-y',
         '-i',
@@ -233,7 +231,15 @@ export class PreviewVideoService {
         '+faststart',
         outPath,
       ]);
-      return await readFile(outPath);
+      // Uploaded inside the `try` so the temp directory still exists while the
+      // multipart runs — the `finally` would otherwise delete outPath from
+      // under it.
+      const { bytes } = await this.storage.uploadStream({
+        key: previewKey,
+        body: createReadStream(outPath),
+        contentType: 'video/mp4',
+      });
+      return bytes;
     } finally {
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     }

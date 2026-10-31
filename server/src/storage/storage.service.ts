@@ -14,6 +14,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { PassThrough } from 'node:stream';
 import type { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { createWriteStream } from 'node:fs';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type {
@@ -774,7 +776,39 @@ export class StorageService {
     return `${dir}preview/${randomUUID()}.${ext}`;
   }
 
-  /** Download an object from S3 into an in-memory buffer. */
+  /**
+   * Stream an object from S3 straight onto disk, so memory stays flat no matter
+   * how large it is.
+   *
+   * This is the one to use for video. `getObjectBuffer` holds the entire object
+   * in RAM, and the upload caps here are 1 GiB for portfolio video and 500 MiB
+   * for deliveries — so buffering a worst-case source costs more than a GiB of
+   * resident memory before ffmpeg has allocated a single frame buffer, which is
+   * how these encodes were getting OOM-killed. The transcode pipelines all want
+   * a seekable local file anyway (ffmpeg needs to seek for the `moov` atom), so
+   * the buffer was never buying anything: it was a detour through RAM on the way
+   * to the same temp file.
+   */
+  async downloadToFile(key: string, destPath: string): Promise<void> {
+    const res = await this.s3.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    const body = res.Body as Readable | undefined;
+    if (!body) {
+      throw new Error(`Empty object body for key: ${key}`);
+    }
+    // pipeline (not .pipe) so a mid-transfer S3 error rejects here and the
+    // write stream is destroyed, rather than leaving a truncated file that
+    // ffmpeg would then fail on with a far less obvious error.
+    await pipeline(body, createWriteStream(destPath));
+  }
+
+  /**
+   * Download an object from S3 into an in-memory buffer.
+   *
+   * Only for objects known to be small — images, documents, overlays. For video
+   * use `downloadToFile`.
+   */
   async getObjectBuffer(key: string): Promise<Buffer> {
     const res = await this.s3.send(
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),

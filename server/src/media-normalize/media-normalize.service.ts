@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, open, rm } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -56,24 +57,37 @@ function videoPreset(): string {
  * precedes `mdat` (i.e. the file is already "faststart"). Bounded so a
  * malformed or non-ISOBMFF file can't spin here.
  */
-function topLevelAtoms(buf: Buffer): string[] {
+async function topLevelAtoms(path: string): Promise<string[]> {
   const out: string[] = [];
-  let off = 0;
-  while (off + 8 <= buf.length && out.length < 32) {
-    let size = buf.readUInt32BE(off);
-    const type = buf.toString('latin1', off + 4, off + 8);
-    // Anything that isn't four printable ASCII chars means we've lost sync.
-    if (!/^[\x20-\x7e]{4}$/.test(type)) break;
-    out.push(type);
-    if (size === 1) {
-      // 64-bit extended size follows the type.
-      if (off + 16 > buf.length) break;
-      size = buf.readUInt32BE(off + 8) * 2 ** 32 + buf.readUInt32BE(off + 12);
-    } else if (size === 0) {
-      break; // runs to EOF — nothing after it
+  // Reads 16-byte headers at sparse offsets rather than taking a Buffer of the
+  // whole file: the walk only ever needs each atom's header, because it then
+  // SKIPS the payload by `size`. On a 1 GiB upload that is a few dozen bytes
+  // read instead of a gigabyte held in memory.
+  const fd = await open(path, 'r');
+  try {
+    const { size: fileSize } = await fd.stat();
+    const header = Buffer.alloc(16);
+    let off = 0;
+    while (off + 8 <= fileSize && out.length < 32) {
+      const { bytesRead } = await fd.read(header, 0, 16, off);
+      if (bytesRead < 8) break;
+      let size = header.readUInt32BE(0);
+      const type = header.toString('latin1', 4, 8);
+      // Anything that isn't four printable ASCII chars means we've lost sync.
+      if (!/^[\x20-\x7e]{4}$/.test(type)) break;
+      out.push(type);
+      if (size === 1) {
+        // 64-bit extended size follows the type.
+        if (bytesRead < 16) break;
+        size = header.readUInt32BE(8) * 2 ** 32 + header.readUInt32BE(12);
+      } else if (size === 0) {
+        break; // runs to EOF — nothing after it
+      }
+      if (size < 8) break;
+      off += size;
     }
-    if (size < 8) break;
-    off += size;
+  } finally {
+    await fd.close();
   }
   return out;
 }
@@ -85,8 +99,8 @@ function topLevelAtoms(buf: Buffer): string[] {
  * end of the file before it can show frame one — on a multi-hundred-MB upload
  * that reads as "the video never loads".
  */
-function hasFaststart(buf: Buffer): boolean {
-  const atoms = topLevelAtoms(buf);
+async function hasFaststart(path: string): Promise<boolean> {
+  const atoms = await topLevelAtoms(path);
   const moov = atoms.indexOf('moov');
   const mdat = atoms.indexOf('mdat');
   if (moov === -1 || mdat === -1) return false;
@@ -249,21 +263,20 @@ export class MediaNormalizeService {
     sourceKey: string,
     opts: { keepAudio: boolean; destPrefix: string },
   ): Promise<{ key: string; url: string; bytes: number } | null> {
-    const source = await this.storage.getObjectBuffer(sourceKey);
     const ext = sourceKey.split('.').pop()?.toLowerCase() || 'mp4';
 
     const dir = await mkdtemp(join(tmpdir(), 'normalize-'));
     const inPath = join(dir, `in.${ext}`);
     const outPath = join(dir, 'out.mp4');
     try {
-      await writeFile(inPath, source);
+      await this.storage.downloadToFile(sourceKey, inPath);
       const probe = await this.probe(inPath);
 
       if (!this.needsNormalize(ext, probe)) {
         // Already web-safe. Leave the bytes alone unless the moov atom is at the
         // end, in which case remux (stream copy — no re-encode, so no quality
         // change) purely to move it to the front.
-        if (hasFaststart(source)) return null;
+        if (await hasFaststart(inPath)) return null;
         this.logger.log(
           `normalize: ${sourceKey} is web-safe but not faststart — remuxing (stream copy)`,
         );
@@ -273,14 +286,16 @@ export class MediaNormalizeService {
           keepAudio: opts.keepAudio && probe.audioCodec !== null,
         });
       }
-      const out = await readFile(outPath);
       const key = `${opts.destPrefix}/${randomUUID()}.mp4`;
-      await this.storage.putObjectBuffer({
+      // Streamed, and inside the `try` so the temp dir outlives the multipart.
+      // `bytes` comes back from the uploader because nothing here ever holds
+      // the whole file to measure it.
+      const { bytes } = await this.storage.uploadStream({
         key,
-        body: out,
+        body: createReadStream(outPath),
         contentType: 'video/mp4',
       });
-      return { key, url: this.storage.buildCdnUrl(key), bytes: out.length };
+      return { key, url: this.storage.buildCdnUrl(key), bytes };
     } finally {
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     }

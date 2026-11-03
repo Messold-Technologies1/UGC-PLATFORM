@@ -202,7 +202,12 @@ export const orderEvents = defineEvents({
           brandName: brandDisplayName(order),
           orderId: order.id,
           courierName: order.courierName ?? '',
-          trackingId: order.trackingId ?? '',
+          // A dash rather than a blank, so the template can print it
+          // unconditionally. The alternative is {{#if trackingId}} inside the
+          // details block, and an inline conditional is what stops a body
+          // opening in the visual editor — so the default belongs here, where
+          // it is also the one place that knows a courier may not give one.
+          trackingId: order.trackingId?.trim() || '—',
           dispatchedAt: formatDate(order.dispatchedAt),
           actionUrl: creatorOrderUrl(ctx, order.id),
         }),

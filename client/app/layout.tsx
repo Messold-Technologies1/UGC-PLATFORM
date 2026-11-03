@@ -107,9 +107,38 @@ export default function RootLayout({
       suppressHydrationWarning
       data-scroll-behavior="smooth"
     >
+      <head>
+        {/* Google Tag Manager — must sit immediately after <head> */}
+        <Script
+          id="gtm-js"
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-P3WZFZL4"
+          strategy="beforeInteractive"
+        />
+        <Script
+          id="gtm-datalayer"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+`,
+          }}
+        />
+      </head>
       <body
         className="font-sans antialiased flex min-h-svh flex-col"
       >
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-P3WZFZL4"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+            title="Google Tag Manager"
+          />
+        </noscript>
         <Script
           id="ugc-theme-color-init"
           strategy="beforeInteractive"

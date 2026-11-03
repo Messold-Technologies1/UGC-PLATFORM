@@ -1,29 +1,15 @@
-{{!-- context: recipientName, platformName, brandName, orderId, courierName, trackingId (optional), dispatchedAt, actionUrl --}}
+{{!-- context: recipientName, platformName, brandName, orderId, courierName, trackingId, dispatchedAt, actionUrl --}}
 <p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
 <p style="margin:0 0 16px;font-size:24px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">It's on the way! 📦</p>
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
   <strong>{{brandName}}</strong> shipped the product for your order. Once it lands, confirm receipt so you can start creating.
 </p>
-<table style="margin:0 0 20px;width:100%;border-collapse:collapse;font-size:14px;color:#374151;border:2px solid #111827;border-radius:12px;overflow:hidden;">
-  <tr>
-    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;width:120px;background:#fafafa;">Order</td>
-    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:13px;">{{orderId}}</td>
-  </tr>
-  <tr>
-    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;background:#fafafa;">Courier</td>
-    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;">{{courierName}}</td>
-  </tr>
-  {{#if trackingId}}
-  <tr>
-    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;background:#fafafa;">Tracking</td>
-    <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-family:monospace;">{{trackingId}}</td>
-  </tr>
-  {{/if}}
-  <tr>
-    <td style="padding:10px 14px;color:#6b7280;background:#fafafa;">Dispatched</td>
-    <td style="padding:10px 14px;">{{dispatchedAt}}</td>
-  </tr>
-</table>
+<div style="margin:0 0 20px;padding:14px 16px;background:#fafafa;border:2px solid #111827;border-radius:12px;">
+  <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#374151;"><strong>Order:</strong> {{orderId}}</p>
+  <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#374151;"><strong>Courier:</strong> {{courierName}}</p>
+  <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#374151;"><strong>Tracking:</strong> {{trackingId}}</p>
+  <p style="margin:0;font-size:14px;line-height:1.6;color:#374151;"><strong>Dispatched:</strong> {{dispatchedAt}}</p>
+</div>
 <div style="margin:0 0 24px;">
   {{> actionButton url=actionUrl label="Confirm receipt →"}}
 </div>

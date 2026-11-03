@@ -49,10 +49,34 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Build
-        # .env.production is picked up automatically and compiled in. Nothing
-        # secret is involved: every NEXT_PUBLIC_ value ends up in the bundle
-        # anyway, which is exactly why they live in the repo and not in secrets.
-        run: npm run build
+        # .env.production is sourced into the real process environment rather
+        # than left for Next to discover. Next does normally load that file, but
+        # process env takes precedence over every .env file and is visible in
+        # the log below — so a build can never silently fall back to the
+        # localhost defaults in lib/env.ts, which is what shipped once already.
+        #
+        # Nothing secret is involved: every NEXT_PUBLIC_ value is compiled into
+        # the bundle browsers download, which is why they live in the repo.
+        run: |
+          set -a
+          . ./.env.production
+          set +a
+          echo "building with:"
+          grep -E '^NEXT_PUBLIC_' .env.production | sed 's/^/  /'
+          npm run build
+
+      - name: Assert the production URLs were compiled in
+        # The failure this catches is silent: the site boots, serves 200s and
+        # looks correct, while share links point at localhost and the realtime
+        # socket dials a host that is not there. Cheaper to fail the build.
+        run: |
+          if grep -rq 'localhost:3000\|localhost:4000' .next/static/chunks/ 2>/dev/null; then
+            echo "::error::localhost is baked into the bundle - .env.production was not applied"
+            exit 1
+          fi
+          grep -rq 'gocollab\.io' .next/static/chunks/ \
+            || { echo "::error::no production URL found in the bundle"; exit 1; }
+          echo "production URLs compiled in, no localhost fallbacks"
 
       - name: Package
         # Next leaves public/ and .next/static/ out of the standalone folder on

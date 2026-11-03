@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Self-hosted on EC2 behind nginx, not on Vercel. `standalone` emits
+  // .next/standalone with only the packages actually reached at runtime, so a
+  // deploy ships tens of MB instead of the whole node_modules tree.
+  // Note: `public/` and `.next/static/` are deliberately NOT copied in by Next
+  // (they are meant to be served from a CDN), so the deploy has to copy them
+  // alongside — without that the site renders with no CSS and no images.
+  output: 'standalone',
   poweredByHeader: false,
   reactStrictMode: true,
   experimental: {

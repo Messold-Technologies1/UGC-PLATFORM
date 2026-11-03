@@ -32,6 +32,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Opting in for exactly one: .env.production holds only NEXT_PUBLIC_*
+# values, which are compiled into the JavaScript that ships to browsers
+# and are public by definition. The CI build reads it from the repo.
+# Anything genuinely secret goes in /etc/gocollab/client.env on the
+# server, which is read at startup and never enters the bundle.
+!.env.production
 
 # vercel
 .vercel

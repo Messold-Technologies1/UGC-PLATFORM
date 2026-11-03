@@ -654,6 +654,11 @@ export class BrandProfileService {
         _count: { _all: true },
       });
       for (const group of ongoingGroups) {
+        // `brandId` is nullable on Order, so groupBy types the key as
+        // `string | null` even though the `in: brandIds` filter above makes a
+        // null group impossible. Skip rather than assert, so a future schema
+        // change cannot put a `null` key into the map.
+        if (!group.brandId) continue;
         ongoingByBrandId.set(group.brandId, group._count._all);
       }
     }
@@ -1135,7 +1140,9 @@ export class BrandProfileService {
 
     return this.getBrandProfileForActor({
       actorUserId: userId,
-      brandProfileId: ctx.brandProfileId,
+      // resolveBrandContext reports "no brand" as null; this method's param is
+      // optional, and it converts back to null itself on the way in.
+      brandProfileId: ctx.brandProfileId ?? undefined,
     });
   }
 }

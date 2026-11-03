@@ -1,0 +1,170 @@
+name: Deploy server
+
+# Build on the runner, install on the box. A t3.medium should not be running
+# `nest build` while it is also serving requests and encoding video, and a
+# compile that only happens in CI cannot fail differently in production.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch:
+
+concurrency:
+  # Never let two deploys flip the symlink at once. `cancel-in-progress: false`
+  # because cancelling mid-`prisma migrate deploy` is worse than queueing.
+  # Shared with deploy-client.yml: both drive the same PM2 daemon on the same
+  # box, so a server deploy and a client deploy queue rather than overlap.
+  group: deploy-ec2
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  ARTIFACT_BUCKET: gocollab-deploy-artifacts
+  INSTANCE_ID: i-0e294f7bf8cb6bb83
+  NODE_VERSION: '22'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for OIDC: the runner mints a short-lived token and exchanges it
+      # for AWS credentials. No access keys are stored in GitHub.
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install
+        # Full install including dev deps — the runner needs the compiler.
+        # `prisma generate` runs on postinstall and reads the datasource block,
+        # so the variables must exist. It never connects, so placeholders are
+        # correct here; the real values live on the box.
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          DIRECT_URL: postgresql://build:build@localhost:5432/build
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck and test
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          DIRECT_URL: postgresql://build:build@localhost:5432/build
+        run: |
+          npx tsc --noEmit
+          npm test -- --ci --runInBand
+
+      - name: Build
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          DIRECT_URL: postgresql://build:build@localhost:5432/build
+        run: npm run build
+
+      - name: Assert the build is complete
+        # nest-cli copies mail/templates into dist (nest-cli.json assets). Those
+        # files are the renderer's fallback until every template exists in the
+        # database, so an artifact without them starts fine and renders nothing.
+        run: |
+          test -f dist/main.js
+          test -f dist/main.worker.js
+          test "$(find dist/mail/templates -name '*.hbs' | wc -l)" -gt 0
+
+      - name: Package
+        id: pack
+        run: |
+          # node_modules is deliberately NOT in here. sharp and the Prisma query
+          # engine are native; a tree built on this runner is linked against the
+          # runner's glibc. The box runs `npm ci --omit=dev` itself.
+          tar -czf "/tmp/${GITHUB_SHA}.tar.gz" \
+            dist package.json package-lock.json prisma scripts ecosystem.config.js
+          echo "size=$(du -h "/tmp/${GITHUB_SHA}.tar.gz" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload artifact
+        run: |
+          aws s3 cp "/tmp/${GITHUB_SHA}.tar.gz" \
+            "s3://${ARTIFACT_BUCKET}/server/${GITHUB_SHA}.tar.gz" --only-show-errors
+          # deploy.sh ships beside the tarball rather than inside it: it is the
+          # script that creates the release directory, so it cannot be unpacked
+          # from the release it is about to create. Shipping it per-commit still
+          # means the box always runs this commit's deploy logic.
+          aws s3 cp deploy.sh \
+            "s3://${ARTIFACT_BUCKET}/server/${GITHUB_SHA}.deploy.sh" --only-show-errors
+          echo "uploaded ${{ steps.pack.outputs.size }}"
+
+      - name: Deploy via SSM
+        # No inbound SSH. The runner never connects to the instance - it asks
+        # Systems Manager to run a command, and the SSM agent (already on the
+        # box via the instance profile) pulls the work. Nothing in the security
+        # group opens for GitHub's IP range, and no private key exists anywhere.
+        run: |
+          set -euo pipefail
+
+          # runuser -l: PM2's process list, logs and systemd unit all belong to
+          # ec2-user. SSM runs commands as ROOT, and a deploy run as root would
+          # start a second, separate PM2 daemon owned by root - the deploy would
+          # look like it succeeded while the real processes never updated.
+          SCRIPT=$(cat <<EOF
+          set -euo pipefail
+          aws s3 cp s3://${ARTIFACT_BUCKET}/server/${GITHUB_SHA}.deploy.sh /tmp/deploy-${GITHUB_SHA}.sh --only-show-errors
+          chmod +x /tmp/deploy-${GITHUB_SHA}.sh
+          chown ec2-user /tmp/deploy-${GITHUB_SHA}.sh
+          runuser -l ec2-user -c "/tmp/deploy-${GITHUB_SHA}.sh s3://${ARTIFACT_BUCKET}/server/${GITHUB_SHA}.tar.gz"
+          rm -f /tmp/deploy-${GITHUB_SHA}.sh
+          EOF
+          )
+
+          # Built with jq into a file rather than passed as --parameters
+          # commands="...": the CLI's shorthand parser cannot carry a multi-line
+          # script with quotes in it, and fails in confusing ways when it tries.
+          jq -n --arg s "$SCRIPT" \
+            '{commands: [$s], executionTimeout: ["900"]}' > /tmp/ssm-params.json
+
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${GITHUB_SHA::7}" \
+            --timeout-seconds 900 \
+            --parameters file:///tmp/ssm-params.json \
+            --query 'Command.CommandId' --output text)
+
+          echo "SSM command: $CMD_ID"
+
+          # Poll rather than wait: send-command has no waiter, and polling lets
+          # the host's stdout land in this log instead of being lost on the box.
+          STATUS=Pending
+          for _ in $(seq 1 180); do
+            sleep 5
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+          done
+
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text || true
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::deploy finished with status $STATUS"
+            aws ssm get-command-invocation \
+              --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query StandardErrorContent --output text || true
+            exit 1
+          fi

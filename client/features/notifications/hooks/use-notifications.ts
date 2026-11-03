@@ -11,6 +11,9 @@ import {
   fetchTemplateVersions,
   fetchTemplates,
   deriveTemplateText,
+  fetchBroadcastAudiences,
+  fetchBroadcasts,
+  sendBroadcast,
   previewDraftTemplate,
   previewTemplate,
   replaceSchedule,
@@ -32,6 +35,8 @@ export const notificationKeys = {
     ["admin", "notifications", "template", id, "versions"] as const,
   logs: (filters: Record<string, string | number | undefined>) =>
     ["admin", "notifications", "logs", filters] as const,
+  broadcasts: ["admin", "notifications", "broadcasts"] as const,
+  broadcastAudiences: ["admin", "notifications", "broadcasts", "audiences"] as const,
 };
 
 export function useNotificationEventsQuery(enabled = true) {
@@ -211,6 +216,35 @@ export function useSavePushCopyMutation(id: string) {
     mutationFn: (input: SavePushCopyInput) => savePushCopy(id, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: pushTemplatesQueryKey });
+    },
+  });
+}
+
+export function useBroadcastAudiencesQuery() {
+  return useQuery({
+    queryKey: notificationKeys.broadcastAudiences,
+    queryFn: fetchBroadcastAudiences,
+  });
+}
+
+export function useBroadcastsQuery() {
+  return useQuery({
+    queryKey: notificationKeys.broadcasts,
+    queryFn: fetchBroadcasts,
+  });
+}
+
+export function useSendBroadcastMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: sendBroadcast,
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: notificationKeys.broadcasts }),
+        // Sizes move as accounts come and go, and the list is the thing an
+        // admin reads right after sending.
+        qc.invalidateQueries({ queryKey: notificationKeys.broadcastAudiences }),
+      ]);
     },
   });
 }

@@ -359,6 +359,8 @@ export const ENDPOINTS = {
         `/api/admin/notifications/templates/${encodeURIComponent(id)}/versions`,
       TEMPLATE_REVERT: (id: string, version: number) =>
         `/api/admin/notifications/templates/${encodeURIComponent(id)}/revert/${version}`,
+      BROADCASTS: "/api/admin/notifications/broadcasts",
+      BROADCAST_AUDIENCES: "/api/admin/notifications/broadcasts/audiences",
       LOGS: "/api/admin/notifications/logs",
     },
     COUPONS: {

@@ -248,3 +248,49 @@ export interface SavePushCopyInput {
   pushTitleHbs?: string | null;
   pushBodyHbs?: string | null;
 }
+
+export type BroadcastAudienceKey =
+  | "CREATORS_WITH_OPEN_TO"
+  | "LISTED_CREATORS"
+  | "ACTIVE_BRANDS"
+  | "ACTIVE_AGENCIES";
+
+export type BroadcastStatus = "PENDING" | "SENDING" | "COMPLETED" | "FAILED";
+
+export interface BroadcastAudienceInfo {
+  audience: BroadcastAudienceKey;
+  eventKey: string;
+  label: string;
+  description: string;
+  /**
+   * Profiles the audience matches — NOT messages that will arrive. Opt-outs,
+   * suppressed addresses and missing phone numbers are decided per recipient
+   * at send time and recorded in the delivery log.
+   */
+  size: number;
+}
+
+export interface BroadcastRun {
+  id: string;
+  audience: BroadcastAudienceKey;
+  note: string | null;
+  emailTemplateId: string | null;
+  emailTemplate: { id: string; name: string } | null;
+  whatsappTemplateName: string | null;
+  channels: NotificationChannel[];
+  status: BroadcastStatus;
+  matched: number;
+  enqueued: number;
+  error: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface SendBroadcastInput {
+  audience: BroadcastAudienceKey;
+  channels: NotificationChannel[];
+  emailTemplateId?: string | null;
+  whatsappTemplateName?: string | null;
+  note?: string | null;
+}

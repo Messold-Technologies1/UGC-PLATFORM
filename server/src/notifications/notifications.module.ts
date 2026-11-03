@@ -19,6 +19,7 @@ import { NotificationTemplateImportService } from './rendering/template-import.s
 import { TemplateValidatorService } from './rendering/template-validator.service';
 import { NotificationsAdminController } from './admin/notifications-admin.controller';
 import { NotificationsAdminService } from './admin/notifications-admin.service';
+import { NotificationBroadcastService } from './broadcast/notification-broadcast.service';
 
 /**
  * The notification engine.
@@ -57,6 +58,7 @@ import { NotificationsAdminService } from './admin/notifications-admin.service';
     NotificationTemplateRenderer,
     TemplateValidatorService,
     NotificationsAdminService,
+    NotificationBroadcastService,
     NotificationLogService,
     NotificationLogFeedPublisher,
     NotificationLogFeedBridge,

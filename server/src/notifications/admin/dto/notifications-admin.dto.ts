@@ -19,7 +19,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { NotificationChannel } from '@prisma/client';
+import { BroadcastAudience, NotificationChannel } from '@prisma/client';
 
 /** 14 days, the longest offset the drips use. */
 export const MAX_OFFSET_MINUTES = 20160;
@@ -317,4 +317,45 @@ export class PreviewDraftDto {
   @IsOptional()
   @IsString()
   textHbs?: string | null;
+}
+
+export class SendBroadcastDto {
+  @ApiProperty({
+    enum: BroadcastAudience,
+    description: 'Which standing audience to send to.',
+  })
+  @IsEnum(BroadcastAudience)
+  audience!: BroadcastAudience;
+
+  @ApiProperty({
+    enum: NotificationChannel,
+    isArray: true,
+    description:
+      'Channels to send on. May only narrow what the event\u2019s schedule row already allows.',
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsEnum(NotificationChannel, { each: true })
+  channels!: NotificationChannel[];
+
+  @ApiPropertyOptional({
+    description:
+      'Email template for this run. Null falls back to whatever the event points at.',
+  })
+  @IsOptional()
+  @IsUUID()
+  emailTemplateId?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Approved Meta template name for the WhatsApp side.',
+  })
+  @IsOptional()
+  @IsString()
+  whatsappTemplateName?: string | null;
+
+  @ApiPropertyOptional({ description: 'Shown in the broadcast history.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string | null;
 }

@@ -39,6 +39,13 @@ export enum EmailTemplateKey {
   ORDER_CHAT_MESSAGE_FOR_CREATOR = 'order-chat-message-for-creator',
   ORDER_CHAT_MESSAGE_FOR_BRAND = 'order-chat-message-for-brand',
   ORDER_CHAT_MESSAGE_FOR_ADMIN = 'order-chat-message-for-admin',
+  // Announcements. No product code emits these; an admin broadcast run does.
+  // They carry placeholder copy so the event has a template from day one —
+  // the catalog's rule is that every event must, or it renders nothing.
+  BROADCAST_CREATORS_OPEN_TO = 'broadcast-creators-open-to',
+  BROADCAST_CREATORS_LISTED = 'broadcast-creators-listed',
+  BROADCAST_BRANDS = 'broadcast-brands',
+  BROADCAST_AGENCIES = 'broadcast-agencies',
   PASSWORD_RESET = 'password-reset',
 }
 

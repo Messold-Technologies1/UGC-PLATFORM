@@ -2367,6 +2367,7 @@ model NotificationTemplate {
   versions          NotificationTemplateVersion[]
   events            NotificationEvent[]           @relation("EventEmailTemplate")
   scheduleOverrides NotificationSchedule[]        @relation("ScheduleTemplateOverride")
+  broadcasts        NotificationBroadcast[]
 }
 
 /// Mirrors the LegalPage / LegalPageVersion pattern: every save snapshots the
@@ -2549,4 +2550,74 @@ model PhoneOtp {
   @@index([ipHash, createdAt])
   // Supports the retention purge.
   @@index([createdAt])
+}
+
+/// Who a broadcast goes to. Each value maps to one keyset-paginated query in
+/// `notifications/broadcast/broadcast-audiences.ts` and to one catalog event,
+/// so a broadcast reuses the ordinary send path: opt-ins, suppression, the
+/// delivery log and the bulk rate limiter all apply unchanged.
+enum BroadcastAudience {
+  /// Creators who have opted into at least one "Open to" category
+  /// (CreatorRestriction rows) — the sensitive-category filter brands search on.
+  CREATORS_WITH_OPEN_TO
+  /// Every creator whose profile is live in browse (isListed).
+  LISTED_CREATORS
+  /// Every brand whose user account is ACTIVE.
+  ACTIVE_BRANDS
+  /// Every agency whose user account is ACTIVE.
+  ACTIVE_AGENCIES
+}
+
+enum BroadcastStatus {
+  /// Counted but not sent. `preview` writes nothing; this is a run created and
+  /// not yet started.
+  PENDING
+  SENDING
+  COMPLETED
+  /// The audience walk threw part-way. `enqueued` says how many were already
+  /// handed to the queue — those still send.
+  FAILED
+}
+
+/// One press of Send.
+///
+/// The row exists so a broadcast can be repeated. The delivery log is unique on
+/// (eventKey, entityId, occurrenceKey, recipientUserId, channel, offsetMinutes),
+/// so with a fixed occurrence key the same audience could be messaged exactly
+/// once, ever, and every later announcement would be silently refused as a
+/// duplicate. Each run's id becomes the occurrenceKey, which is what makes a
+/// second send a different send.
+model NotificationBroadcast {
+  id       String            @id @default(uuid()) @db.Uuid
+  audience BroadcastAudience
+  /// Admin's note for the history list — what this announcement was.
+  note     String?
+
+  /// Chosen per run rather than per event: the audience is standing, the copy
+  /// is not. Null falls back to whatever the event itself points at.
+  emailTemplateId      String?               @db.Uuid
+  /// Meta template name. WhatsApp copy lives in WhatsApp Manager, so only the
+  /// name travels.
+  whatsappTemplateName String?
+  /// May only narrow what the event's schedule row already allows, never widen it.
+  channels             NotificationChannel[]
+
+  status   BroadcastStatus @default(PENDING)
+  /// Rows the audience query matched when the run started.
+  matched  Int             @default(0)
+  /// Rows actually handed to the queue. Lower than `matched` only if the walk
+  /// failed part-way.
+  enqueued Int             @default(0)
+  /// Set when the walk throws, so the history row can say why.
+  error    String?
+
+  createdByUserId String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  startedAt       DateTime?
+  finishedAt      DateTime?
+
+  emailTemplate NotificationTemplate? @relation(fields: [emailTemplateId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([audience, createdAt(sort: Desc)])
 }

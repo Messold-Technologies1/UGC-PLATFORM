@@ -5,6 +5,7 @@ import { AdminGuard } from '../../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { NotificationsAdminController } from './notifications-admin.controller';
 import { NotificationsAdminService } from './notifications-admin.service';
+import { NotificationBroadcastService } from '../broadcast/notification-broadcast.service';
 
 /**
  * Swagger has to be able to describe this controller.
@@ -26,7 +27,10 @@ describe('NotificationsAdminController (swagger)', () => {
     const allow = { canActivate: () => true };
     const moduleRef = await Test.createTestingModule({
       controllers: [NotificationsAdminController],
-      providers: [{ provide: NotificationsAdminService, useValue: {} }],
+      providers: [
+        { provide: NotificationsAdminService, useValue: {} },
+        { provide: NotificationBroadcastService, useValue: {} },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(allow)

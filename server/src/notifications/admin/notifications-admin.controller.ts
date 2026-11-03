@@ -24,9 +24,11 @@ import { AdminGuard } from '../../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ListNotificationLogsQueryDto } from './dto/list-notification-logs-query.dto';
 import { NotificationsAdminService } from './notifications-admin.service';
+import { NotificationBroadcastService } from '../broadcast/notification-broadcast.service';
 import {
   BackfillDto,
   DeriveTextDto,
+  SendBroadcastDto,
   PreviewDraftDto,
   PreviewTemplateDto,
   ReplaceScheduleDto,
@@ -42,7 +44,10 @@ type AuthedRequest = Request & { user: { id: string } };
 @Controller('admin/notifications')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class NotificationsAdminController {
-  constructor(private readonly service: NotificationsAdminService) {}
+  constructor(
+    private readonly service: NotificationsAdminService,
+    private readonly broadcasts: NotificationBroadcastService,
+  ) {}
 
   // ---- events ----
 
@@ -252,6 +257,36 @@ export class NotificationsAdminController {
   }
 
   // ---- logs ----
+
+  @Get('broadcasts/audiences')
+  @ApiOperation({
+    summary: 'The standing broadcast audiences and their current sizes',
+    description:
+      'Size is how many profiles the audience matches, not how many messages ' +
+      'will arrive: opt-outs, suppressed addresses and missing phone numbers ' +
+      'are decided per recipient at send time and recorded in the log.',
+  })
+  broadcastAudiences() {
+    return this.broadcasts.listAudiences();
+  }
+
+  @Get('broadcasts')
+  @ApiOperation({ summary: 'Past broadcast runs, newest first' })
+  listBroadcasts(@Query('take') take?: string) {
+    return this.broadcasts.list(take ? Number(take) : undefined);
+  }
+
+  @Post('broadcasts')
+  @ApiOperation({
+    summary: 'Send a broadcast',
+    description:
+      'Walks the audience onto the bulk queue. Each run gets its own id as the ' +
+      'occurrence key, which is what allows the same audience to be messaged ' +
+      'again later instead of the delivery log refusing it as a duplicate.',
+  })
+  sendBroadcast(@Body() dto: SendBroadcastDto, @Req() req: AuthedRequest) {
+    return this.broadcasts.send({ ...dto, createdByUserId: req.user.id });
+  }
 
   @Get('logs')
   @ApiOperation({

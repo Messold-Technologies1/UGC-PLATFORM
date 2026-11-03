@@ -1,4 +1,5 @@
 import { agencyLinkEvents } from './agency-link.events';
+import { BROADCAST_EVENTS } from './broadcast.events';
 import type { EventDefinition } from './define-events';
 import { orderChatEvents } from './order-chat.events';
 import { orderEvents } from './order.events';
@@ -20,6 +21,8 @@ export const NOTIFICATION_EVENTS = {
   ...orderChatEvents,
   ...profileEvents,
   ...agencyLinkEvents,
+  // Nothing in the product emits these; an admin broadcast run does.
+  ...BROADCAST_EVENTS,
 } satisfies Record<string, EventDefinition>;
 
 export type NotificationEventKey = keyof typeof NOTIFICATION_EVENTS;

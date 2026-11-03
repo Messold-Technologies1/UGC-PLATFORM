@@ -14,7 +14,7 @@ export default function NotificationsHomePage() {
   const configured = events?.filter((e) => e.scheduleCount > 0).length ?? 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 p-6">
+    <div className="mx-auto max-w-[1440px] space-y-8 p-6">
       <header>
         <h1 className="text-2xl font-semibold">Notifications</h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -23,7 +23,7 @@ export default function NotificationsHomePage() {
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Link
           href="/admin/notifications/events"
           className="hover:border-primary rounded-lg border p-5 transition-colors"

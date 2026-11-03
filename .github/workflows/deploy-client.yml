@@ -19,7 +19,7 @@ concurrency:
 
 env:
   AWS_REGION: ap-south-1
-  ARTIFACT_BUCKET: gocollab-deploy-artifacts
+  ARTIFACT_BUCKET: gocollab-deploy-artifacts-285870986713-ap-south-1-an
   INSTANCE_ID: i-0e294f7bf8cb6bb83
   NODE_VERSION: '22'
 

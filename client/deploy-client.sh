@@ -32,6 +32,28 @@ source "$ENV_FILE"
 set +a
 PORT="${PORT:-3000}"
 
+# Same trap as server/deploy.sh: `--update-env` refreshes variables a process
+# already has, but will not reliably introduce one added since its last start.
+# Compare the key SET (never the values) and recreate when it changes.
+ENV_KEYS_FILE="$APP_DIR/shared/.env-keys"
+ENV_KEYS_NOW="$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$ENV_FILE" | tr -d '=' | sort -u)"
+ENV_KEYS_WAS="$(cat "$ENV_KEYS_FILE" 2>/dev/null || true)"
+if [[ "$ENV_KEYS_NOW" == "$ENV_KEYS_WAS" ]]; then
+    PROCESS_MODE=reload
+else
+    PROCESS_MODE=recreate
+fi
+
+apply_processes() {
+    local ecosystem="$APP_DIR/current/ecosystem.config.js"
+    if [[ "$PROCESS_MODE" == recreate ]]; then
+        pm2 delete "$ecosystem" >/dev/null 2>&1 || true
+        pm2 start "$ecosystem"
+    else
+        pm2 startOrReload "$ecosystem" --update-env
+    fi
+}
+
 RELEASE_ID="$(date -u +%Y%m%d%H%M%S)-$(basename "$ARTIFACT" .tar.gz)"
 RELEASE_ID="${RELEASE_ID//\//-}"
 RELEASE_DIR="$APP_DIR/releases/$RELEASE_ID"
@@ -64,7 +86,10 @@ test -d "$RELEASE_DIR/public"              || { echo "artifact has no public/ â€
 # ---------------------------------------------------------------------------
 say "Switching to $RELEASE_ID"
 ln -sfn "$RELEASE_DIR" "$APP_DIR/current"
-pm2 startOrReload "$APP_DIR/current/ecosystem.config.js" --update-env
+if [[ "$PROCESS_MODE" == recreate ]]; then
+    say "Env file gained or lost a variable - recreating the web process"
+fi
+apply_processes
 
 # ---------------------------------------------------------------------------
 say "Health check (up to ${HEALTH_TIMEOUT}s)"
@@ -89,12 +114,16 @@ if [[ "$healthy" != true ]]; then
     if [[ -n "$PREVIOUS" && -d "$PREVIOUS" && "$PREVIOUS" != "$RELEASE_DIR" ]]; then
         echo "!!! rolling back to $(basename "$PREVIOUS")" >&2
         ln -sfn "$PREVIOUS" "$APP_DIR/current"
-        pm2 startOrReload "$APP_DIR/current/ecosystem.config.js" --update-env
+        apply_processes
     fi
     exit 1
 fi
 
 pm2 save --force
+# After the health check, not before: a failed deploy must not teach the next
+# one that these keys are already live.
+mkdir -p "$(dirname "$ENV_KEYS_FILE")"
+printf '%s\n' "$ENV_KEYS_NOW" > "$ENV_KEYS_FILE"
 
 # ---------------------------------------------------------------------------
 say "Pruning old releases (keeping $KEEP_RELEASES)"

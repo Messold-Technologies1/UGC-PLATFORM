@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400..800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fff;color:#16161A;font-family:'Figtree',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#16161A;text-decoration:none}a:hover{color:#E8384F}
+button{font-family:inherit}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#fff">
+
+<header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:1px solid #EEECEF">
+  <div style="max-width:1200px;margin:0 auto;height:64px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:-0.02em"><span style="width:22px;height:18px;border-radius:6px;background:#E8384F;display:block"></span>GoCollab</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <sc-if value="{{ scrolled }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="{{ c.av }}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;display:block">
+          <span style="font-size:15px;font-weight:700;white-space:nowrap">{{ c.name }}</span>
+        </div>
+      </sc-if>
+      <button onClick="{{ book }}" style="height:40px;padding:0 18px;border:0;border-radius:999px;background:#16161A;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Book · {{ priceFmt }}</button>
+    </div>
+  </div>
+</header>
+
+<section data-screen-label="01 Hero" style="background:linear-gradient(180deg,#FFF1F3 0%,#FFFFFF 100%)">
+  <div style="max-width:1200px;margin:0 auto;padding:40px 20px 48px;display:flex;flex-wrap:wrap;gap:40px;align-items:center">
+    <div style="flex:1 1 440px;min-width:0;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <img src="{{ c.av }}" alt="" style="width:76px;height:76px;border-radius:50%;object-fit:cover;display:block;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.08)">
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+          <h1 style="margin:0;font-size:clamp(30px,4vw,44px);line-height:1.05;font-weight:800;letter-spacing:-0.03em;display:flex;align-items:center;gap:10px;flex-wrap:wrap">{{ c.name }}<sc-if value="{{ c.verified }}" hint-placeholder-val="{{ true }}"><span title="Verified" style="width:24px;height:24px;border-radius:50%;background:#16B26B;color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none">✓</span></sc-if></h1>
+          <span style="font-size:15px;color:#6B6870">{{ c.type }}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 20px;font-size:15px;color:#4A474F">
+        <span style="display:flex;align-items:center;gap:6px"><span style="color:#E8384F">●</span>{{ c.loc }}</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="color:#E8384F">●</span>{{ langsInline }}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{ cats }}" as="t" hint-placeholder-count="3"><span style="padding:6px 12px;border-radius:999px;background:{{ t.bg }};color:{{ t.fg }};font-size:14px;font-weight:600">{{ t.k }}</span></sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:600px">
+        <p style="margin:0;font-size:17px;line-height:1.6;color:#2E2C33;text-wrap:pretty;display:-webkit-box;-webkit-line-clamp:{{ bioClamp }};-webkit-box-orient:vertical;overflow:hidden">{{ c.bio }}</p>
+        <sc-if value="{{ bioLong }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleBio }}" style="align-self:flex-start;padding:0;border:0;background:none;color:#E8384F;font-size:15px;font-weight:600;cursor:pointer">{{ bioBtn }}</button></sc-if>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px">
+        <button onClick="{{ book }}" style="height:54px;padding:0 28px;border:0;border-radius:999px;background:#E8384F;color:#fff;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(232,56,79,.25)" style-hover="background:#D42B42">Book now · from {{ priceFmt }}</button>
+        <button onClick="{{ toggleSave }}" style="height:54px;padding:0 22px;border:1.5px solid {{ saveBd }};border-radius:999px;background:#fff;color:#16161A;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px"><span style="color:#E8384F;font-size:18px">{{ heart }}</span>{{ saveLabel }}</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;color:#6B6870">
+        <span>✓ Pay securely on GoCollab</span><span>✓ Raw footage included</span><span>✓ {{ pkg.delivery }} delivery</span>
+      </div>
+    </div>
+    <div data-i="0" onClick="{{ openWork }}" style="flex:0 0 auto;width:min(300px,100%);aspect-ratio:9/16;position:relative;border-radius:22px;overflow:hidden;cursor:pointer;background:#F3EFF1;box-shadow:0 20px 50px rgba(0,0,0,.12);margin:0 auto">
+      <img src="{{ heroImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">
+      <span style="position:absolute;top:14px;left:14px;padding:6px 12px;border-radius:999px;background:#fff;font-size:13px;font-weight:600">▶ Intro reel</span>
+      <span style="position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(255,255,255,.95);display:flex;align-items:center;justify-content:center;font-size:20px">▶</span>
+      <span style="position:absolute;right:14px;bottom:14px;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff;font-size:13px">{{ heroDur }}</span>
+    </div>
+  </div>
+</section>
+
+<div style="max-width:1200px;margin:0 auto;padding:16px 20px 80px;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+  <main style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:56px">
+
+    <sc-if value="{{ hasWork }}" hint-placeholder-val="{{ true }}">
+    <section data-screen-label="02 Portfolio" style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><h2 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.02em">Portfolio</h2><span style="font-size:15px;color:#6B6870">{{ workCount }}</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:12px">
+        <sc-for list="{{ works }}" as="w" hint-placeholder-count="3">
+          <div data-i="{{ w.i }}" onClick="{{ openWork }}" style="aspect-ratio:9/16;position:relative;border-radius:16px;overflow:hidden;cursor:pointer;background:#F3EFF1">
+            <img src="{{ w.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s" style-hover="transform:scale(1.04)">
+            <span style="position:absolute;top:10px;left:10px;padding:3px 9px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:600">▶ {{ w.dur }}</span>
+            <span style="position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font-size:16px;pointer-events:none">▶</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+    </sc-if>
+
+    <section data-screen-label="03 About" style="display:flex;flex-direction:column;gap:18px">
+      <h2 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.02em">About</h2>
+      <div style="border:1px solid #EEECEF;border-radius:18px;overflow:hidden">
+        <sc-for list="{{ facts }}" as="f" hint-placeholder-count="7">
+          <div style="display:grid;grid-template-columns:minmax(120px,200px) minmax(0,1fr);gap:16px;padding:16px 20px;border-top:{{ f.bt }};align-items:center">
+            <span style="font-size:15px;color:#6B6870">{{ f.k }}</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ f.vals }}" as="v" hint-placeholder-count="2"><span style="padding:5px 12px;border-radius:999px;background:#F6F4F6;font-size:15px;font-weight:500">{{ v }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <sc-if value="{{ hasAud }}" hint-placeholder-val="{{ true }}">
+    <section id="audience" data-screen-label="04 Audience" style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.02em">Instagram audience</h2><span style="font-size:14px;color:#6B6870">Last 30 days</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #EEECEF;border-radius:18px;overflow:hidden">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+          <div style="padding:20px;border-left:{{ s.bl }}"><div style="font-size:clamp(26px,3vw,34px);font-weight:800;letter-spacing:-0.03em;line-height:1">{{ s.v }}</div><div style="font-size:14px;color:#6B6870;margin-top:6px">{{ s.k }}</div></div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px">
+        <div style="border:1px solid #EEECEF;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:17px;font-weight:700">Gender</div>
+          <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:#F6F4F6">
+            <sc-for list="{{ gender }}" as="g" hint-placeholder-count="3"><div style="width:{{ g.w }};background:{{ g.col }};transition:width 1s cubic-bezier(.2,.7,.2,1)"></div></sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ gender }}" as="g" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;font-size:15px"><span style="width:10px;height:10px;border-radius:50%;background:{{ g.col }};display:block;flex:none"></span><span style="flex:1">{{ g.k }}</span><b>{{ g.v }}%</b></div></sc-for>
+          </div>
+        </div>
+        <div style="border:1px solid #EEECEF;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:11px">
+          <div style="font-size:17px;font-weight:700;margin-bottom:3px">Age</div>
+          <sc-for list="{{ ages }}" as="a" hint-placeholder-count="7">
+            <div style="display:grid;grid-template-columns:52px minmax(0,1fr) 42px;gap:12px;align-items:center;font-size:14px"><span style="color:#6B6870">{{ a.k }}</span><div style="height:8px;background:#F6F4F6;border-radius:4px;overflow:hidden"><div style="height:100%;width:{{ a.w }};background:{{ a.col }};border-radius:4px;transition:width 1s cubic-bezier(.2,.7,.2,1)"></div></div><b style="text-align:right;font-weight:{{ a.fw }}">{{ a.v }}%</b></div>
+          </sc-for>
+        </div>
+        <div style="border:1px solid #EEECEF;border-radius:18px;padding:20px;display:flex;flex-direction:column">
+          <div style="font-size:17px;font-weight:700;margin-bottom:6px">Top cities</div>
+          <sc-for list="{{ cities }}" as="r" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;padding:10px 0;border-top:{{ r.bt }};font-size:15px;align-items:center"><span style="color:#9A97A0;font-size:13px">{{ r.n }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.k }}</span><b>{{ r.v }}%</b></div>
+          </sc-for>
+        </div>
+        <div style="border:1px solid #EEECEF;border-radius:18px;padding:20px;display:flex;flex-direction:column">
+          <div style="font-size:17px;font-weight:700;margin-bottom:6px">Top countries</div>
+          <sc-for list="{{ countries }}" as="r" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;padding:10px 0;border-top:{{ r.bt }};font-size:15px;align-items:center"><span style="color:#9A97A0;font-size:13px">{{ r.n }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.k }}</span><b>{{ r.v }}%</b></div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+  </main>
+
+  <aside id="pricing" data-screen-label="05 Pricing" style="flex:1 1 340px;max-width:420px;position:sticky;top:84px;margin:0 auto">
+    <div style="border:1.5px solid {{ cardBd }};border-radius:22px;background:#fff;box-shadow:0 12px 40px rgba(22,22,26,.08);overflow:hidden;transition:border-color .3s,box-shadow .3s">
+      <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:32px 24px;display:flex;flex-direction:column;gap:12px">
+          <span style="width:52px;height:52px;border-radius:50%;background:#16B26B;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center">✓</span>
+          <div style="font-size:24px;font-weight:800;letter-spacing:-0.02em">Order placed</div>
+          <div style="font-size:16px;line-height:1.5;color:#4A474F">{{ totalFmt }} is held securely and released once you approve the delivery.</div>
+          <button onClick="{{ reset }}" style="height:48px;margin-top:8px;border:1.5px solid #E2DFE4;border-radius:999px;background:#fff;font-size:15px;font-weight:600;cursor:pointer">Back to profile</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="padding:22px 24px 18px;background:linear-gradient(180deg,#FFF5F6,#fff)">
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:38px;font-weight:800;letter-spacing:-0.035em;line-height:1">{{ pkgPrice }}</span><span style="font-size:15px;color:#6B6870">{{ pkg.name }}</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px">
+              <sc-for list="{{ terms }}" as="t" hint-placeholder-count="3"><span style="padding:5px 10px;border-radius:999px;background:#fff;border:1px solid #F4C9D0;color:#C9283F;font-size:13px;font-weight:600">{{ t }}</span></sc-for>
+            </div>
+          </div>
+          <div style="padding:18px 24px;border-top:1px solid #F0EEF1;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:14px;font-weight:700;color:#6B6870">What you get</div>
+            <sc-for list="{{ pkg.includes }}" as="inc" hint-placeholder-count="4"><span style="font-size:16px;display:flex;gap:10px;align-items:center"><span style="color:#E8384F;font-weight:700">✓</span>{{ inc }}</span></sc-for>
+          </div>
+          <sc-if value="{{ hasAddons }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:18px 24px;border-top:1px solid #F0EEF1;display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:14px;font-weight:700;color:#6B6870">Add-ons <span style="font-weight:400">· optional</span></div>
+              <sc-for list="{{ addons }}" as="ad" hint-placeholder-count="3">
+                <button data-i="{{ ad.i }}" onClick="{{ toggleAddon }}" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:0 14px;border:1.5px solid {{ ad.bd }};border-radius:14px;background:{{ ad.bg }};cursor:pointer;text-align:left;color:#16161A">
+                  <span style="width:20px;height:20px;border-radius:6px;border:1.5px solid {{ ad.cbd }};background:{{ ad.cbg }};color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none">{{ ad.tick }}</span>
+                  <span style="flex:1;font-size:15px;font-weight:500">{{ ad.k }}</span><span style="font-size:15px;font-weight:700">+{{ ad.p }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="padding:18px 24px 22px;border-top:1px solid #F0EEF1;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:16px;color:#4A474F">Total</span><span style="font-size:26px;font-weight:800;letter-spacing:-0.02em">{{ totalFmt }}</span></div>
+            <button onClick="{{ submit }}" style="height:56px;border:0;border-radius:999px;background:#E8384F;color:#fff;font-size:17px;font-weight:700;cursor:pointer" style-hover="background:#D42B42">Place order · {{ totalFmt }}</button>
+            <div style="font-size:13px;color:#6B6870;text-align:center;line-height:1.5">Secure checkout on GoCollab · payment held until you approve the delivery</div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </aside>
+</div>
+
+<footer style="border-top:1px solid #EEECEF">
+  <div style="max-width:1200px;margin:0 auto;padding:24px 20px {{ footPad }};display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:14px;color:#6B6870">
+    <span>© 2026 GoCollab · This public profile is shared by the creator. Bookings &amp; payments are handled securely on GoCollab.</span>
+    <span style="display:flex;gap:20px"><a href="#" style="color:#6B6870">Browse creators</a><a href="#" style="color:#6B6870">For brands</a><a href="#" style="color:#6B6870">Become a creator</a></span>
+  </div>
+</footer>
+
+<sc-if value="{{ showBar }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid #EEECEF;box-shadow:0 -8px 24px rgba(0,0,0,.06);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <div style="display:flex;flex-direction:column"><span style="font-size:13px;color:#6B6870">From</span><span style="font-size:22px;font-weight:800;letter-spacing:-0.02em;line-height:1.1">{{ priceFmt }}</span></div>
+    <button onClick="{{ book }}" style="height:50px;padding:0 26px;border:0;border-radius:999px;background:#E8384F;color:#fff;font-size:16px;font-weight:700;cursor:pointer">Book now</button>
+  </div>
+</sc-if>
+
+<sc-if value="{{ viewerOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeViewer }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,10,12,.92);display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="height:min(calc(100vh - 140px),760px);aspect-ratio:9/16;max-width:100%;border-radius:18px;overflow:hidden;background:#222"><img src="{{ vw.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+    <button onClick="{{ closeViewer }}" style="position:absolute;top:16px;right:16px;height:40px;padding:0 16px;border-radius:999px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:14px;cursor:pointer">Close ✕</button>
+    <button onClick="{{ prevWork }}" style="position:absolute;left:16px;top:50%;width:48px;height:48px;margin-top:-24px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer">←</button>
+    <button onClick="{{ nextWork }}" style="position:absolute;right:16px;top:50%;width:48px;height:48px;margin-top:-24px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer">→</button>
+    <button onClick="{{ bookFromViewer }}" style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);height:52px;padding:0 26px;border:0;border-radius:999px;background:#E8384F;color:#fff;font-size:16px;font-weight:700;cursor:pointer;white-space:nowrap">Book this creator · {{ priceFmt }}</button>
+  </div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;creator&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;beauty&quot;,&quot;lifestyle&quot;],&quot;default&quot;:&quot;beauty&quot;,&quot;tsType&quot;:&quot;'beauty'|'lifestyle'&quot;},&quot;showAudience&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showAddons&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const A = 'assets/a-', B = 'assets/b-';
+const TAG = { Beauty: ['#FDE7EC', '#C9283F'], Lifestyle: ['#DDF7EA', '#0E7A46'], Fashion: ['#EFE7FD', '#6B34C4'], Tech: ['#E3EEFD', '#1F5FC2'] };
+const CREATORS = {
+  beauty: {
+    name: 'Beauty Creator', type: 'Individual / Solo', verified: true, av: B + 'av.jpg', cats: ['Beauty', 'Lifestyle', 'Fashion'],
+    bio: 'Im a Bangalore based model and a creator, I create content on English mostly at home or in my studio. I focus on beauty and lifestyle content the most',
+    loc: 'Thrissur, Kerala, India', langs: ['English', 'Tamil', 'Malayalam'],
+    intro: { img: B + 'hero.jpg', dur: '0:24' },
+    works: [{ img: B + 'w3.jpg', dur: '0:40' }, { img: B + 'w1.jpg', dur: '0:38' }, { img: B + 'w2.jpg', dur: '0:17' }],
+    pkg: { name: '1 Video', price: 3000, includes: ['1 Video', 'Basic editing', 'Raw footage', '1080p minimum', 'Usage rights: 30 days'], delivery: '5 days', length: '60s video', revisions: '2 revisions' },
+    addons: [['Revision', 100], ['Usage Rights extra 30 days', 100], ['Travel within City', 500]],
+    facts: [['Categories', ['Beauty', 'Lifestyle', 'Fashion']], ['Creator type', ['Individual / Solo']], ['Occupation', ['Model']], ['Appearance', ['Athletic / Fit']], ['Languages', ['English', 'Tamil', 'Malayalam']], ['On-location shoots', ['Not available']], ['Open to', ['Lingerie', 'Dating / Dating Apps', 'Night Clubs', 'Gambling']]],
+    ig: { followers: '4.1K', reach: '9.2K', views: '2.7K',
+      gender: [['Men', 59, '#38BDF8'], ['Unspecified', 20, '#9AA3B5'], ['Women', 20, '#EC4899']],
+      ages: [['13–17', 1], ['18–24', 11], ['25–34', 68], ['35–44', 15], ['45–54', 4], ['55–64', 1], ['65+', 1]],
+      cities: [['Kochi, Kerala', 16], ['Bangalore, Karnataka', 13], ['Thrissur, Kerala', 12], ['Dubai', 9], ['Chennai, Tamil Nadu', 6]],
+      countries: [['India', 70], ['United Arab Emirates', 9], ['United Kingdom', 4], ['Canada', 3], ['United States', 3]] }
+  },
+  lifestyle: {
+    name: 'Lifestyle Creator', type: 'Individual / Solo', verified: true, av: A + 'av.jpg', cats: ['Lifestyle', 'Beauty', 'Tech'],
+    bio: 'Lifestyle content creator with soft girl aesthetic style. My niche includes- Edtech, App, Lifestyle, Skincare, Finance, F&Beverages, Makeup, Food, Essentials, Digital tool, supplement, fashion, haircare, decor, gadgets. My content style includes - trending hooks (2-3) -openers -clear visuals and cuts -formal captions -clear audio -4k resolution -loud and proper CTA I would love to create authentic and engaging content for brands.',
+    loc: 'Kolkata, West Bengal, India', langs: ['English', 'Bengali', 'Hindi'],
+    intro: { img: A + 'hero.jpg', dur: '0:22' },
+    works: [{ img: A + 'w1.jpg', dur: '1:02' }, { img: A + 'w2.jpg', dur: '0:42' }, { img: A + 'w3.jpg', dur: '0:34' }],
+    pkg: { name: '1 Video', price: 2000, includes: ['1 Video', 'Basic editing'], delivery: '2 days', length: '60s video', revisions: '2 revisions' },
+    addons: [['Revision', 500], ['Usage Rights extra 30 days', 10000], ['Travel within City', 500]],
+    facts: [['Categories', ['Lifestyle', 'Beauty', 'Tech']], ['Creator type', ['Individual / Solo']], ['Occupation', ['Full-time Creator']], ['Appearance', ['Slim / Lean']], ['Languages', ['English', 'Bengali', 'Hindi']], ['On-location shoots', ['Available']]],
+    ig: { followers: '8.1K', reach: '54.3K', views: '2.6K',
+      gender: [['Unspecified', 44, '#9AA3B5'], ['Men', 42, '#38BDF8'], ['Women', 14, '#EC4899']],
+      ages: [['13–17', 9], ['18–24', 40], ['25–34', 38], ['35–44', 9], ['45–54', 2], ['55–64', 1], ['65+', 1]],
+      cities: [['Kolkata, West Bengal', 17], ['Chennai, Tamil Nadu', 7], ['Delhi', 7], ['Bangalore, Karnataka', 7], ['Mumbai, Maharashtra', 6]],
+      countries: [['India', 88], ['Bangladesh', 7], ['Brazil', 1], ['United States', 0], ['Indonesia', 0]] }
+  }
+};
+const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
+
+class Component extends DCLogic {
+  state = { saved: false, bioOpen: false, addons: {}, done: false, viewer: null, narrow: false, scrolled: false, audIn: false, flash: false };
+  componentDidMount() {
+    this.onScroll = () => {
+      const upd = {}; const s = window.scrollY > 380;
+      if (s !== this.state.scrolled) upd.scrolled = s;
+      const au = document.getElementById('audience');
+      if (!this.state.audIn && au && au.getBoundingClientRect().top < window.innerHeight * 0.85) upd.audIn = true;
+      if (Object.keys(upd).length) this.setState(upd);
+    };
+    this.onResize = () => { const n = window.innerWidth < 960; if (n !== this.state.narrow) this.setState({ narrow: n }); };
+    this.onKey = e => { if (e.key === 'Escape') this.setState({ viewer: null }); };
+    window.addEventListener('scroll', this.onScroll, { passive: true }); window.addEventListener('resize', this.onResize); window.addEventListener('keydown', this.onKey);
+    this.onResize(); this.onScroll();
+  }
+  componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); clearTimeout(this.t); }
+  componentDidUpdate(p) { if (p.creator !== this.props.creator) this.setState({ addons: {}, done: false, viewer: null, bioOpen: false }); }
+  book() {
+    const el = document.getElementById('pricing');
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 84, behavior: 'smooth' });
+    this.setState({ flash: true, viewer: null }); clearTimeout(this.t); this.t = setTimeout(() => this.setState({ flash: false }), 1400);
+  }
+  renderVals() {
+    const d = CREATORS[this.props.creator ?? 'beauty'] || CREATORS.beauty;
+    const st = this.state, set = s => this.setState(s);
+    const showAud = (this.props.showAudience ?? true) && !!d.ig;
+    const showAddons = (this.props.showAddons ?? true) && d.addons.length > 0;
+    const media = [...(d.intro ? [d.intro] : []), ...d.works].map((m, i) => ({ ...m, i }));
+    const ig = d.ig, on = st.audIn;
+    const maxAge = Math.max(...ig.ages.map(a => a[1]));
+    const total = d.pkg.price + (showAddons ? d.addons.reduce((t, a, i) => t + (st.addons[i] ? a[1] : 0), 0) : 0);
+    const rank = l => l.filter(r => r[1] > 0).map((r, i) => ({ n: i + 1, k: r[0], v: r[1], bt: i ? '1px solid #F2F0F3' : '0' }));
+    const vi = st.viewer ?? 0;
+    const bioLong = d.bio.length > 220;
+    return {
+      c: d, pkg: d.pkg, priceFmt: fmt(d.pkg.price), pkgPrice: fmt(d.pkg.price), totalFmt: fmt(total),
+      langsInline: d.langs.join(', '),
+      cats: d.cats.map(k => ({ k, bg: (TAG[k] || ['#F2F0F3'])[0], fg: (TAG[k] || [0, '#16161A'])[1] })),
+      bioLong, bioClamp: bioLong && !st.bioOpen ? 3 : 'unset', bioBtn: st.bioOpen ? 'Show less' : 'Read more', toggleBio: () => set({ bioOpen: !st.bioOpen }),
+      heart: st.saved ? '♥' : '♡', saveLabel: st.saved ? 'Saved' : 'Save', saveBd: st.saved ? '#F4A9B5' : '#E2DFE4', toggleSave: () => set({ saved: !st.saved }),
+      book: () => this.book(), bookFromViewer: e => { e.stopPropagation(); this.book(); },
+      scrolled: st.scrolled && !st.narrow,
+      heroImg: d.intro ? d.intro.img : d.av, heroDur: d.intro ? d.intro.dur : '',
+      hasWork: d.works.length > 0, works: media.filter(m => m.i > 0 || !d.intro), workCount: d.works.length + (d.works.length === 1 ? ' reel' : ' reels'),
+      openWork: e => set({ viewer: +e.currentTarget.dataset.i }),
+      facts: d.facts.filter(f => f[1] && f[1].length).map((f, i) => ({ k: f[0], vals: f[1], bt: i ? '1px solid #F2F0F3' : '0' })),
+      hasAud: showAud,
+      stats: [[ig.followers, 'Followers'], [ig.reach, 'Reach'], [ig.views, 'Profile views']].map((s, i) => ({ v: s[0], k: s[1], bl: i ? '1px solid #EEECEF' : '0' })),
+      gender: ig.gender.map(g => ({ k: g[0], v: g[1], col: g[2], w: on ? g[1] + '%' : '0%' })),
+      ages: ig.ages.map(a => ({ k: a[0], v: a[1], w: on ? Math.max(a[1] / maxAge * 100, 2) + '%' : '0%', col: a[1] === maxAge ? '#E8384F' : '#F4A9B5', fw: a[1] === maxAge ? 800 : 600 })),
+      cities: rank(ig.cities), countries: rank(ig.countries),
+      cardBd: st.flash ? '#E8384F' : '#EEECEF',
+      terms: [d.pkg.delivery + ' delivery', d.pkg.length, d.pkg.revisions].filter(Boolean),
+      hasAddons: showAddons,
+      addons: d.addons.map((a, i) => { const s = !!st.addons[i]; return { i, k: a[0], p: fmt(a[1]), tick: s ? '✓' : '', bd: s ? '#E8384F' : '#EEECEF', bg: s ? '#FFF5F6' : '#fff', cbd: s ? '#E8384F' : '#CFCBD2', cbg: s ? '#E8384F' : '#fff' }; }),
+      toggleAddon: e => { const i = +e.currentTarget.dataset.i; set({ addons: { ...st.addons, [i]: !st.addons[i] } }); },
+      done: st.done, notDone: !st.done, submit: () => set({ done: true }), reset: () => set({ done: false, addons: {} }),
+      showBar: st.narrow && st.viewer === null, footPad: st.narrow ? '100px' : '24px',
+      viewerOpen: st.viewer !== null, vw: media[vi] || media[0],
+      closeViewer: () => set({ viewer: null }),
+      prevWork: e => { e.stopPropagation(); set({ viewer: (vi - 1 + media.length) % media.length }); },
+      nextWork: e => { e.stopPropagation(); set({ viewer: (vi + 1) % media.length }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

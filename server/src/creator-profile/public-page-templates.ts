@@ -7,7 +7,16 @@
  * falls back to the default for ids it cannot render, so a value stored here
  * that the client does not know is degraded, never fatal.
  */
-export const PUBLIC_PAGE_TEMPLATE_IDS = ['v3'] as const;
+export const PUBLIC_PAGE_TEMPLATE_IDS = [
+  'v1',
+  'v2',
+  'v3',
+  'v4',
+  'v5',
+  'v6',
+  'v7',
+  'v8',
+] as const;
 
 export type PublicPageTemplateId = (typeof PUBLIC_PAGE_TEMPLATE_IDS)[number];
 

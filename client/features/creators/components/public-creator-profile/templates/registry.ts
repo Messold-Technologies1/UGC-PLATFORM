@@ -1,5 +1,12 @@
 import type { ComponentType } from "react";
+import { V1Template } from "./v1/v1-template";
+import { V2Template } from "./v2/v2-template";
 import { V3Template } from "./v3/v3-template";
+import { V4Template } from "./v4/v4-template";
+import { V5Template } from "./v5/v5-template";
+import { V6Template } from "./v6/v6-template";
+import { V7Template } from "./v7/v7-template";
+import { V8Template } from "./v8/v8-template";
 import type { PublicProfileViewModel } from "./types";
 
 export type PublicPageTemplateComponent = ComponentType<{
@@ -24,10 +31,52 @@ export type PublicPageTemplate = {
  */
 export const PUBLIC_PAGE_TEMPLATES: PublicPageTemplate[] = [
   {
+    id: "v1",
+    name: "Classic",
+    tagline: "Soft gradient hero, reel alongside, bordered About table.",
+    Component: V1Template,
+  },
+  {
+    id: "v2",
+    name: "Showcase",
+    tagline: "Reel-first hero with the About facts promoted into it.",
+    Component: V2Template,
+  },
+  {
     id: "v3",
     name: "Editorial",
     tagline: "Oversized type, tiled overview, sticky booking panel.",
     Component: V3Template,
+  },
+  {
+    id: "v4",
+    name: "Panels",
+    tagline: "Soft white cards on grey, with a pill nav and booking card.",
+    Component: V4Template,
+  },
+  {
+    id: "v5",
+    name: "Spotlight",
+    tagline: "Pinned profile card and a saturated booking panel.",
+    Component: V5Template,
+  },
+  {
+    id: "v6",
+    name: "Pastel",
+    tagline: "Tinted gradient field, pinned card, image-led package.",
+    Component: V6Template,
+  },
+  {
+    id: "v7",
+    name: "Signal",
+    tagline: "Pastel layout with a dark, chart-led audience section.",
+    Component: V7Template,
+  },
+  {
+    id: "v8",
+    name: "Profile",
+    tagline: "Wide banner card, About table, outlined audience panel.",
+    Component: V8Template,
   },
 ];
 

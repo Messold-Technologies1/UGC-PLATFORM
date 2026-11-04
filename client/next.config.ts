@@ -78,6 +78,17 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // The public-page design picker embeds this preview in an iframe so a
+        // creator can try a template before applying it. The global DENY above
+        // blocks framing outright — including same-origin — so this one route
+        // relaxes to SAMEORIGIN. It stays behind the creator auth middleware
+        // and only ever renders the creator's own already-public profile, so
+        // the window this opens is same-origin framing of public content.
+        // Listed after the catch-all: for a repeated key, the later rule wins.
+        source: "/creator/public-page-preview",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
     ];
   },
 };

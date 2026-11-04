@@ -216,7 +216,11 @@ export function usePublicProfileViewModel({
   });
 
   const { media, intro, portfolio } = useMemo(() => {
-    const playable = (portfolioQuery.data ?? []).filter((row) => row.videoUrl);
+    // Defensive: a non-array payload (an error envelope, a paginated object)
+    // would otherwise throw inside render and take the whole public page down
+    // with an error boundary. Degrade to "no portfolio" instead.
+    const rows = Array.isArray(portfolioQuery.data) ? portfolioQuery.data : [];
+    const playable = rows.filter((row) => row.videoUrl);
 
     const introMedia: PublicProfileMedia | null = profile.introVideoUrl
       ? {

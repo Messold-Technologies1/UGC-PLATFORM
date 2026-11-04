@@ -123,7 +123,12 @@ export function usePublicProfileViewModel({
     return groups;
   }, [profile.facetSelections]);
 
-  const categories = facetsByDimension.CONTENT_CATEGORY ?? [];
+  // Memoised: a fresh [] fallback on every render would invalidate every
+  // downstream useMemo that depends on it.
+  const categories = useMemo(
+    () => facetsByDimension.CONTENT_CATEGORY ?? [],
+    [facetsByDimension],
+  );
   const creatorTypeLabel = facetsByDimension.CREATOR_TYPE?.[0] ?? null;
 
   // Creators are anonymous to brands: the public page shows a niche-derived

@@ -61,6 +61,16 @@ const satoshi = localFont({
   display: "swap",
 });
 
+// Figtree (SIL OFL) is the typeface the creator public-page templates are
+// designed in. Declared here so the variable exists app-wide, but applied only
+// by those templates via `font-figtree` — the rest of the app stays on Satoshi.
+const figtree = localFont({
+  src: "./fonts/Figtree-latin.woff2",
+  variable: "--font-figtree-face",
+  weight: "300 900",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Go Collab — Where Creators Meet Brands",
@@ -103,7 +113,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={satoshi.variable}
+      className={`${satoshi.variable} ${figtree.variable}`}
       suppressHydrationWarning
       data-scroll-behavior="smooth"
     >

@@ -179,63 +179,47 @@ export function V4Template({ model }: TemplateProps) {
             )}
 
             {/* --------------------------------------------------------- work */}
-            {(model.avatarUrl || model.portfolio.length > 0) && (
+            {(model.intro || model.portfolio.length > 0) && (
               <section
                 id="work"
                 className="grid scroll-mt-20 gap-2.5 rounded-gc-xl bg-white p-2.5 lg:grid-cols-2"
               >
-                <div
-                  className={cn(
-                    "flex gap-4.5 rounded-gc-lg bg-[#F2F2F2] p-3.5",
-                    model.intro && "transition hover:bg-[#eaeaea]",
-                  )}
-                >
-                  <HeroVisual
-                    media={model.intro}
-                    fallbackImageUrl={model.avatarUrl}
-                    fallbackInitials={model.initials}
-                    onOpen={() => setViewerIndex(0)}
-                    className="aspect-[9/16] w-42.5 shrink-0 rounded-gc-sm bg-[#ddd]"
-                    playClassName="size-12"
-                    playIconClassName="size-4 fill-[#141414] text-[#141414]"
-                  />
-                  <div className="flex min-w-0 flex-col gap-2.5 pt-1">
-                    {model.intro ? (
-                      <>
-                        <span className="text-[19px] font-bold">
-                          Intro reel
-                        </span>
-                        <span className="text-base leading-snug text-gc-muted-faint">
-                          Watch this creator introduce their work
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setViewerIndex(0)}
-                          className="mt-auto flex h-9.5 items-center self-start rounded-full bg-[#141414] px-4 text-sm font-semibold text-white"
-                        >
-                          Play intro
-                        </button>
-                      </>
-                    ) : (
-                      // No intro reel: the slot keeps the creator's portrait,
-                      // so the playback copy and CTA are replaced rather than
-                      // left pointing at nothing.
-                      <>
-                        <span className="text-[19px] font-bold">
-                          {model.headline}
-                        </span>
-                        {model.locationLabel && (
-                          <span className="text-base leading-snug text-gc-muted-faint">
-                            {model.locationLabel}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
+                {/* This card is an intro-reel promo — its copy and CTA are
+                    about playback — so it is omitted entirely when the creator
+                    has no reel, and the portfolio takes the full row. */}
+                {model.intro && (
+                  <button
+                    type="button"
+                    onClick={() => setViewerIndex(0)}
+                    className="flex gap-4.5 rounded-gc-lg bg-[#F2F2F2] p-3.5 text-left transition hover:bg-[#eaeaea]"
+                  >
+                    <HeroVisual
+                      media={model.intro}
+                      fallbackImageUrl={model.avatarUrl}
+                      fallbackInitials={model.initials}
+                      className="aspect-[9/16] w-42.5 shrink-0 rounded-gc-sm bg-[#ddd]"
+                      playClassName="size-12"
+                      playIconClassName="size-4 fill-[#141414] text-[#141414]"
+                    />
+                    <span className="flex min-w-0 flex-col gap-2.5 pt-1">
+                      <span className="text-[19px] font-bold">Intro reel</span>
+                      <span className="text-base leading-snug text-gc-muted-faint">
+                        Watch this creator introduce their work
+                      </span>
+                      <span className="mt-auto flex h-9.5 items-center self-start rounded-full bg-[#141414] px-4 text-sm font-semibold text-white">
+                        Play intro
+                      </span>
+                    </span>
+                  </button>
+                )}
 
                 {model.portfolio.length > 0 && (
-                  <div className="flex flex-col gap-3 rounded-gc-lg bg-[#F2F2F2] p-3.5">
+                  <div
+                    className={cn(
+                      "flex flex-col gap-3 rounded-gc-lg bg-[#F2F2F2] p-3.5",
+                      !model.intro && "lg:col-span-2",
+                    )}
+                  >
                     <div className="flex items-baseline justify-between px-0.5 pt-0.5">
                       <span className="text-[19px] font-bold">Portfolio</span>
                       <span className="text-[15px] text-gc-muted-faint">

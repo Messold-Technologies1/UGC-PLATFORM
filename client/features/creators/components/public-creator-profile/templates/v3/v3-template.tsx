@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Check, Clock, Play, Share2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MediaViewer } from "../shared/media-viewer";
+import { HeroVisual } from "../shared/template-chrome";
 import type { PublicProfileViewModel } from "../types";
 
 /** Niche pill tints, cycled so adjacent categories stay visually distinct. */
@@ -163,42 +164,27 @@ export function V3Template({ model }: TemplateProps) {
 
             {/* ------------------------------------------------------ overview */}
             <div className="grid gap-3 sm:grid-cols-3 sm:grid-rows-[minmax(200px,auto)_200px]">
-              {model.intro && (
-                <button
-                  type="button"
-                  onClick={() => setViewerIndex(0)}
-                  className="group relative min-h-[320px] overflow-hidden rounded-gc-xl bg-gc-surface-alt text-left sm:row-span-2 sm:min-h-[420px]"
-                >
-                  {model.intro.thumbnailUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- remote S3 thumbnail
-                    <img
-                      src={model.intro.thumbnailUrl}
-                      alt=""
-                      className="absolute inset-0 size-full object-cover object-[center_25%] transition-transform duration-500 group-hover:scale-[1.03]"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <video
-                      src={model.intro.videoUrl}
-                      className="absolute inset-0 size-full object-cover object-[center_25%]"
-                      muted
-                      playsInline
-                      preload="metadata"
-                    />
-                  )}
+              <HeroVisual
+                media={model.intro}
+                fallbackImageUrl={model.avatarUrl}
+                fallbackInitials={model.initials}
+                onOpen={() => setViewerIndex(0)}
+                className="min-h-[320px] rounded-gc-xl sm:row-span-2 sm:min-h-[420px]"
+                imageClassName="object-[center_25%]"
+                overlay={
                   <span className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent to-45%" />
+                }
+                badge={
                   <span className="absolute left-3.5 top-3.5 rounded-full bg-white/90 px-3 py-1.5 text-[13px] font-semibold">
                     Intro
                   </span>
-                  <span className="absolute left-1/2 top-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90">
-                    <Play className="size-5 fill-gc-ink text-gc-ink" />
-                  </span>
+                }
+                caption={
                   <span className="absolute bottom-3.5 left-4 text-[15px] font-semibold text-white">
                     Watch intro
                   </span>
-                </button>
-              )}
+                }
+              />
 
               {model.bio && (
                 <div className="flex flex-col gap-2.5 rounded-gc-xl bg-[linear-gradient(120deg,#FFE3EA_0%,#F1E6FF_55%,#FFEBDD_100%)] p-6 sm:col-span-2">

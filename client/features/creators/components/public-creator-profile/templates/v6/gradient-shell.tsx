@@ -8,7 +8,11 @@ import { BookingPanelBody } from "../shared/booking-panel-body";
 import { FactTiles } from "../shared/fact-tiles";
 import { PortfolioGrid } from "../shared/portfolio-grid";
 import { ReviewsSection } from "../shared/reviews-section";
-import { CATEGORY_TINTS, VerifiedTick } from "../shared/template-chrome";
+import {
+  CATEGORY_TINTS,
+  HeroVisual,
+  VerifiedTick,
+} from "../shared/template-chrome";
 import type { PublicProfileViewModel } from "../types";
 
 /** Stacked gradients: see the note in v5 on why this is not a Tailwind class. */
@@ -72,40 +76,21 @@ export function GradientShell({
         {/* ---------------------------------------------------- profile card */}
         <section className="mx-auto w-full min-w-0 shrink-0 lg:sticky lg:top-5 lg:max-w-95 lg:flex-[0_1_380px]">
           <div className="flex flex-col gap-4 rounded-gc-2xl bg-white p-3 pb-4 shadow-[0_10px_40px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.03)]">
-            {model.intro ? (
-              <button
-                type="button"
-                onClick={() => setViewerIndex(0)}
-                className="relative aspect-square overflow-hidden rounded-gc-lg bg-[#eee] lg:aspect-[5/4]"
-              >
-                {model.intro.thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- remote S3 thumbnail
-                  <img
-                    src={model.intro.thumbnailUrl}
-                    alt=""
-                    className="absolute inset-0 size-full object-cover object-[center_22%]"
-                    loading="eager"
-                    decoding="async"
-                  />
-                ) : (
-                  <video
-                    src={model.intro.videoUrl}
-                    className="absolute inset-0 size-full object-cover object-[center_22%]"
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                )}
+            <HeroVisual
+              media={model.intro}
+              fallbackImageUrl={model.avatarUrl}
+              fallbackInitials={model.initials}
+              onOpen={() => setViewerIndex(0)}
+              className="aspect-square rounded-gc-lg bg-[#eee] lg:aspect-[5/4]"
+              imageClassName="object-[center_22%]"
+              playClassName="border border-white/45 bg-white/30 backdrop-blur"
+              playIconClassName="fill-white text-white"
+              badge={
                 <span className="absolute bottom-3 left-3 flex h-8 items-center rounded-full bg-black/40 px-3 text-[13px] font-semibold text-white backdrop-blur">
                   Intro reel
                 </span>
-                <span className="absolute left-1/2 top-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/45 bg-white/30 text-white backdrop-blur">
-                  ▶
-                </span>
-              </button>
-            ) : (
-              <div className="aspect-[5/4] rounded-gc-lg bg-[#eee]" />
-            )}
+              }
+            />
 
             <div className="flex flex-col gap-2 px-2">
               <h1 className="m-0 flex items-center gap-2 text-[26px] font-bold leading-tight tracking-[-0.02em]">

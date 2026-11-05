@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MediaViewer } from "../shared/media-viewer";
 import { AgeBars, GenderSplit, PlaceTabs } from "../shared/audience-parts";
 import { BookingPanelBody } from "../shared/booking-panel-body";
 import { PortfolioGrid } from "../shared/portfolio-grid";
 import { ReviewsSection } from "../shared/reviews-section";
-import { VerifiedTick } from "../shared/template-chrome";
+import { HeroVisual, VerifiedTick } from "../shared/template-chrome";
 import type { PublicProfileViewModel } from "../types";
 
 /** Stacked gradients: see the note in v5 on why these are not Tailwind classes. */
@@ -206,38 +205,20 @@ export function V8Template({ model }: TemplateProps) {
               </div>
             </div>
 
-            {model.intro && (
-              <button
-                type="button"
-                onClick={() => setViewerIndex(0)}
-                className="relative mx-auto aspect-[9/16] w-[min(220px,100%)] shrink-0 overflow-hidden rounded-gc-md border-4 border-white bg-[#E6E6E4] shadow-[0_16px_40px_rgba(0,0,0,0.16)] lg:-mt-22.5"
-              >
-                {model.intro.thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- remote S3 thumbnail
-                  <img
-                    src={model.intro.thumbnailUrl}
-                    alt=""
-                    className="absolute inset-0 size-full object-cover"
-                    loading="eager"
-                    decoding="async"
-                  />
-                ) : (
-                  <video
-                    src={model.intro.videoUrl}
-                    className="absolute inset-0 size-full object-cover"
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                )}
+            <HeroVisual
+              media={model.intro}
+              fallbackImageUrl={model.avatarUrl}
+              fallbackInitials={model.initials}
+              onOpen={() => setViewerIndex(0)}
+              className="mx-auto aspect-[9/16] w-[min(220px,100%)] shrink-0 rounded-gc-md border-4 border-white bg-[#E6E6E4] shadow-[0_16px_40px_rgba(0,0,0,0.16)] lg:-mt-22.5"
+              playClassName="size-13.5"
+              playIconClassName="size-4 fill-[#141414] text-[#141414]"
+              badge={
                 <span className="absolute left-2.5 top-2.5 flex h-7 items-center rounded-full bg-white/90 px-2.5 text-xs font-semibold">
                   Intro
                 </span>
-                <span className="absolute left-1/2 top-1/2 flex size-13.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90">
-                  <Play className="size-4 fill-[#141414] text-[#141414]" />
-                </span>
-              </button>
-            )}
+              }
+            />
           </div>
         </section>
 

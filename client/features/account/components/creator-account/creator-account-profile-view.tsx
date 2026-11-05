@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { PublicPageDesignDialog } from "@/features/creators/components/public-page-settings/public-page-design-dialog";
 import type { PortfolioVideoApi } from "@/features/creator-portfolio/api/types";
 
 /**
@@ -87,6 +88,7 @@ export function CreatorAccountProfileView({
   // approved, so only expose the preview once the profile is APPROVED.
   const isApproved = profile.approvalStatus === "APPROVED";
   const canPreviewPublicProfile = Boolean(publicProfilePath) && isApproved;
+  const [designDialogOpen, setDesignDialogOpen] = useState(false);
 
   let displayVideos: DisplayVideo[] = [...videos];
   if (profile.introVideoUrl) {
@@ -370,18 +372,11 @@ export function CreatorAccountProfileView({
                           variant="outline"
                           size="lg"
                           className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none"
-                          asChild
+                          data-tour="creator-profile-preview"
+                          onClick={() => setDesignDialogOpen(true)}
                         >
-                          <Link
-                            href={publicProfilePath ?? "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            data-tour="creator-profile-preview"
-                          >
-                            <Pencil className="size-3.5" />
-                            Preview Public Profile
-                            <ExternalLink className="size-3.5 opacity-60" />
-                          </Link>
+                          <Pencil className="size-3.5" />
+                          Preview Public Profile
                         </Button>
                       ) : (
                         <TooltipProvider delayDuration={150}>
@@ -826,6 +821,14 @@ export function CreatorAccountProfileView({
       <CreatorAvailabilityDialog
         open={availabilityOpen}
         onOpenChange={setAvailabilityOpen}
+      />
+
+      <PublicPageDesignDialog
+        open={designDialogOpen}
+        onOpenChange={setDesignDialogOpen}
+        creatorProfileId={profile.id}
+        currentTemplateId={profile.publicPageTemplate}
+        publicProfilePath={publicProfilePath}
       />
     </motion.div>
   );

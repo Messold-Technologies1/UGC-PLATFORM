@@ -1,4 +1,5 @@
 import { Country } from "country-state-city";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 export type PhoneCountryOption = {
   isoCode: string;
@@ -88,15 +89,61 @@ export function splitE164Phone(
   };
 }
 
+/**
+ * Canonical E.164 for `raw`, or `null` when it is not a real, dialable number.
+ *
+ * Mirrors `normalizeE164` on the server (server/src/common/phone). The server
+ * is the authority — this copy exists so the form can disable "Send OTP" and
+ * explain the problem before spending a round trip (and a WhatsApp message) on
+ * a number that will be rejected.
+ */
+export function normalizeE164Phone(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("+")) return null;
+  try {
+    const parsed = parsePhoneNumberFromString(trimmed);
+    return parsed?.isValid() ? parsed.number : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when `raw` is a real number we can dial. */
+export function isValidE164Phone(raw: string): boolean {
+  return normalizeE164Phone(raw) !== null;
+}
+
+/**
+ * Assemble the E.164 value to submit from the country picker and the national
+ * box.
+ *
+ * Canonicalizing here is what keeps the national trunk prefix out of the
+ * database. Indian numbers are printed as `08122064860`, so that is what gets
+ * typed into a box labelled "Phone number"; concatenating it with the dial
+ * code produced `+9108122064860`, which only looked E.164 because it had the
+ * right number of digits. libphonenumber recognises the trunk `0` and hands
+ * back `+918122064860`.
+ *
+ * A number still being typed has no canonical form yet, so the plain
+ * concatenation is returned until it parses. Validity is reported separately
+ * by {@link isValidE164Phone} rather than by emptying this value, so the field
+ * keeps showing what the user is typing.
+ */
 export function buildE164Phone(dialCode: string, nationalDigits: string): string {
   const national = nationalDigits.replace(/\D/g, "");
   if (!national) return "";
-  return `+${dialCode}${national}`;
+  const joined = `+${dialCode}${national}`;
+  return normalizeE164Phone(joined) ?? joined;
 }
 
-/** Max national digits so the full E.164 stays within 15 digits. */
+/**
+ * Max national digits accepted by the input.
+ *
+ * This is only a cap on typing — it keeps the value inside E.164's 15-digit
+ * ceiling and cannot tell a valid length from an invalid one (India's limit
+ * computes to 13 here, against a real national length of 10). Correctness is
+ * {@link isValidE164Phone}'s job.
+ */
 export function maxNationalDigits(dialCode: string): number {
   return Math.max(4, 15 - dialCode.length);
 }
-
-export const PHONE_E164_REGEX = /^\+\d{8,15}$/;

@@ -14,13 +14,15 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   Min,
-  MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import {
+  IsE164Phone,
+  NormalizeE164Phone,
+} from '../../common/phone/phone-e164.util';
 import {
   CreatorAddOnCreateDto,
   CreatorPackageCreateDto,
@@ -53,10 +55,8 @@ export class UpdateCreatorProfileDto {
   })
   @IsOptional()
   @IsString()
-  @MinLength(8)
-  @Matches(/^\+\d{8,15}$/, {
-    message: 'phone must be E.164 (e.g. +919876543210)',
-  })
+  @NormalizeE164Phone()
+  @IsE164Phone()
   phone?: string;
 
   @ApiPropertyOptional({

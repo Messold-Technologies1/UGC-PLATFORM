@@ -123,6 +123,10 @@ import {
   OPEN_TO_OPTIONS,
   type WizardStepId,
 } from "./wizard-config";
+import {
+  isValidE164Phone,
+  normalizeE164Phone,
+} from "@/features/auth/lib/phone-country-codes";
 import { AboutYouStep } from "./steps/about-you-step";
 import { YourBaseStep } from "./steps/your-base-step";
 import { IdentityStep } from "./steps/identity-step";
@@ -277,12 +281,14 @@ export function CreatorProfileWizard({
   const [shippingAddress, setShippingAddress] = useState(
     () => initialProfile.shippingAddress?.trim() ?? "",
   );
-  // Full E.164 (e.g. +9198…). Legacy national-only values are treated as +91.
+  // Full E.164 (e.g. +9198…). Legacy national-only values are treated as +91,
+  // and a stored value carrying a national trunk prefix (`+9108122064860`) is
+  // parsed back to the number it stands for so the field shows the real one.
   const [phone, setPhone] = useState(() => {
     const raw = initialProfile.phone?.trim() ?? "";
     if (!raw) return "";
-    if (raw.startsWith("+")) return raw;
-    return `+91${raw.replace(/\D/g, "")}`;
+    const joined = raw.startsWith("+") ? raw : `+91${raw.replace(/\D/g, "")}`;
+    return normalizeE164Phone(joined) ?? joined;
   });
   // Phone OTP: verified only when both flags are set (matches admin listed completeness).
   const [phoneVerified, setPhoneVerified] = useState(
@@ -969,9 +975,14 @@ export function CreatorProfileWizard({
         restrictions: selectedRestrictions,
         ...(phone
           ? {
-              phone: phone.startsWith("+")
-                ? phone
-                : `+91${phone.replace(/\D/g, "")}`,
+              phone: (() => {
+                const joined = phone.startsWith("+")
+                  ? phone
+                  : `+91${phone.replace(/\D/g, "")}`;
+                // The server parses and canonicalizes too; doing it here keeps
+                // the value we send identical to the value it stores.
+                return normalizeE164Phone(joined) ?? joined;
+              })(),
             }
           : {}),
         ...(profileImage.profileImageRemoved
@@ -1035,6 +1046,10 @@ export function CreatorProfileWizard({
         if (!gender) missing.push("gender");
         if (!adminMode && !phoneVerified)
           missing.push("a verified phone number");
+        // Admins edit the number directly with no OTP round trip, so nothing
+        // else would catch a malformed one before the save is rejected.
+        if (adminMode && phone.trim() && !isValidE164Phone(phone.trim()))
+          missing.push("a valid phone number");
         if (!instagramConnected) missing.push("an Instagram connection");
       } else if (id === "base") {
         if (!location.city.trim()) missing.push("city");
@@ -1083,6 +1098,7 @@ export function CreatorProfileWizard({
       displayName,
       contactEmail,
       dateOfBirth,
+      phone,
       gender,
       adminMode,
       phoneVerified,
@@ -1137,7 +1153,11 @@ export function CreatorProfileWizard({
             phone:
               !adminMode && !phoneVerified
                 ? "Verify your mobile number with OTP to continue."
-                : undefined,
+                : adminMode &&
+                    phone.trim() &&
+                    !isValidE164Phone(phone.trim())
+                  ? "Enter a valid phone number, starting with the country code."
+                  : undefined,
             instagram: !instagramConnected
               ? "Connect your Instagram account to continue."
               : undefined,
@@ -1239,6 +1259,7 @@ export function CreatorProfileWizard({
     isEighteenPlus,
     gender,
     adminMode,
+    phone,
     phoneVerified,
     location.city,
     shippingAddress,

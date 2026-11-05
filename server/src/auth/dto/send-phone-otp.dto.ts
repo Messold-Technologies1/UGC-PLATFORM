@@ -1,15 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, Matches, MinLength } from 'class-validator';
+import { IsString } from 'class-validator';
+
+import {
+  IsE164Phone,
+  NormalizeE164Phone,
+} from '../../common/phone/phone-e164.util';
 
 export class SendPhoneOtpDto {
   @ApiProperty({
     example: '+919876543210',
-    description: 'E.164 phone number including country code.',
+    description:
+      'Phone number in E.164, including the country code. Parsed and ' +
+      'canonicalized server-side, so a number carrying its national trunk ' +
+      'prefix (e.g. +9108122064860) is corrected rather than stored as sent.',
   })
   @IsString()
-  @MinLength(8)
-  @Matches(/^\+\d{8,15}$/, {
-    message: 'phone must be E.164 (e.g. +919876543210)',
-  })
+  @NormalizeE164Phone()
+  @IsE164Phone()
   phone!: string;
 }

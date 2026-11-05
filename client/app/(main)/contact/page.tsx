@@ -298,7 +298,21 @@ export default function ContactPage() {
               >
                 {isSubmitting ? "Sending..." : "Send Message"}
               </button>
+              {/* Stable hooks for analytics and tests. The utility classes
+                  here change whenever the styling does, so they are not safe
+                  to target; `cf-success` / `cf-error` are, and match the
+                  `cf-` ids already used by this form's fields.
+
+                  Kept mounted rather than conditionally rendered so the live
+                  region exists before its content changes — screen readers
+                  announce an existing region reliably, a newly inserted one
+                  much less so. `data-state` carries the status for anything
+                  that would rather read an attribute than measure visibility. */}
               <span
+                id="cf-success"
+                data-state={submitted ? "success" : "idle"}
+                role="status"
+                aria-live="polite"
                 className={`text-sm font-semibold text-[#178a3a] transition-opacity duration-400 ${
                   submitted ? "opacity-100" : "hidden"
                 }`}
@@ -306,7 +320,12 @@ export default function ContactPage() {
                 ✓ Thanks — we'll be in touch within 1 business day.
               </span>
               {errorMsg && (
-                <span className="text-sm font-semibold text-red-500">
+                <span
+                  id="cf-error"
+                  data-state="error"
+                  role="alert"
+                  className="text-sm font-semibold text-red-500"
+                >
                   {errorMsg}
                 </span>
               )}

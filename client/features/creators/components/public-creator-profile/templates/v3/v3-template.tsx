@@ -62,7 +62,7 @@ export function V3Template({ model }: TemplateProps) {
           <Link href="/" className="flex shrink-0 items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}
             <img
-              src="/brand-logo.png"
+              src="/brand-logo-wordmark.png"
               alt="GoCollab"
               className="h-9 w-auto object-contain object-left sm:h-10"
               loading="eager"

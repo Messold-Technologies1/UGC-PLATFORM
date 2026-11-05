@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import { PrismaClient } from '@prisma/client';
 
-import { normalizeE164 } from '../common/phone/phone-e164.util';
+import { classifyPhoneRepair } from '../common/phone/phone-e164.util';
 
 /**
  * Read-only audit of every stored phone number. Writes nothing to the
@@ -73,12 +73,14 @@ function dbFingerprint(): string {
 function classify(
   stored: string,
 ): Omit<Finding, 'table' | 'column' | 'id' | 'label' | 'notes'> | null {
-  const canonical = normalizeE164(stored);
-  if (canonical === stored) return null;
-  if (canonical === null) {
+  // Same classifier the repair script plans from, so the two can never
+  // disagree about what is wrong with a number.
+  const repair = classifyPhoneRepair(stored);
+  if (repair.kind === 'canonical') return null;
+  if (repair.kind === 'unrecoverable') {
     return { stored, verdict: 'INVALID', suggested: '' };
   }
-  return { stored, verdict: 'REPAIRABLE', suggested: canonical };
+  return { stored, verdict: 'REPAIRABLE', suggested: repair.to ?? '' };
 }
 
 function csvCell(value: string): string {

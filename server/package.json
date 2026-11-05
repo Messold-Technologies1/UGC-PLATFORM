@@ -63,7 +63,8 @@
     "prisma:backfill:notification-drip-log": "npm run notifications:backfill-drip-log",
     "start:worker": "node dist/main.worker.js",
     "start:worker:dev": "nest start --watch -b swc --entryFile main.worker",
-    "audit:phones": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/audit-nonstandard-phones.ts"
+    "audit:phones": "node dist/scripts/audit-nonstandard-phones.js",
+    "audit:phones:dev": "node -r ts-node/register/transpile-only src/scripts/audit-nonstandard-phones.ts"
   },
   "prisma": {
     "seed": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/seed.ts"

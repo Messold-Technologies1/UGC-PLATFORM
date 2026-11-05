@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import { PrismaClient } from '@prisma/client';
 
-import { normalizeE164 } from '../src/common/phone/phone-e164.util';
+import { normalizeE164 } from '../common/phone/phone-e164.util';
 
 /**
  * Read-only audit of every stored phone number. Writes nothing to the
@@ -28,10 +28,18 @@ import { normalizeE164 } from '../src/common/phone/phone-e164.util';
  *   INVALID     Does not parse to a real number at all. No safe suggestion
  *               exists; someone has to confirm the number with its owner.
  *
- * Usage:
+ * Lives in src/scripts (not prisma/) so `nest build` compiles it into
+ * dist/scripts. The deploy ships `dist` and runs `npm ci --omit=dev`, so a
+ * .ts file run through ts-node — the pattern the older prisma/ backfills use —
+ * cannot run on the server at all: ts-node is a devDependency and src/ is not
+ * in the release tarball.
+ *
+ * Usage, on the server (from /opt/gocollab/current):
  *   npm run audit:phones                 # summary + ./phone-audit-<ts>.csv
  *   npm run audit:phones -- --out=x.csv  # choose the file
  *   npm run audit:phones -- --quiet      # summary only, no CSV
+ *
+ * Locally, against a dev database: npm run audit:phones:dev
  */
 
 const prisma = new PrismaClient();

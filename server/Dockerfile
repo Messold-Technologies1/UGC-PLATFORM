@@ -55,6 +55,15 @@ RUN npm run build \
 # dimensions under yuv420p, so this doubles as proof that the crop in the filter
 # graph is doing its job: drop it and this build step fails with "width not
 # divisible by 2" — which is exactly how a creator's delivery died in prod.
+#
+# The overlay carries `shortest=1` and the watermark input is bounded with
+# `-t`, with no output `-shortest`. That combination is not cosmetic: output
+# `-shortest` against an endless `-loop 1` input races the muxer, and roughly
+# one run in thirteen finalises the file before a single video frame lands —
+# exit 0, no video stream. Measured on ffmpeg 7.0.2: 3 failures in 40 runs the
+# old way, 0 in 40 this way. The service survives that race because it checks
+# the encode with assertEncodedVideoFrames and retries; this build step has no
+# retry, so the flake failed whole deploys.
 RUN FF=/app/node_modules/ffmpeg-static/ffmpeg \
     && test -x "$FF" \
     && "$FF" -v error -y -f lavfi -i testsrc2=s=66x64:r=10:d=1 -f lavfi -i sine=d=1 \
@@ -62,9 +71,9 @@ RUN FF=/app/node_modules/ffmpeg-static/ffmpeg \
     && "$FF" -v error -y -i /tmp/wm-src.mp4 -vf crop=65:63 -c:v libx264 \
         -pix_fmt yuv444p -c:a copy /tmp/wm-odd.mp4 \
     && "$FF" -v error -y -f lavfi -i color=white@0.3:s=64x64:d=1 -frames:v 1 /tmp/wm-mark.png \
-    && "$FF" -v error -y -i /tmp/wm-odd.mp4 -loop 1 -i /tmp/wm-mark.png \
-        -filter_complex '[0:v]crop=trunc(iw/2)*2:trunc(ih/2)*2[basesrc];[1:v][basesrc]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto' \
-        -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 128k -shortest /tmp/wm-out.mp4 \
+    && "$FF" -v error -y -i /tmp/wm-odd.mp4 -loop 1 -t 1 -i /tmp/wm-mark.png \
+        -filter_complex '[0:v]crop=trunc(iw/2)*2:trunc(ih/2)*2[basesrc];[1:v][basesrc]scale2ref[wm][base];[base][wm]overlay=0:0:format=auto:shortest=1' \
+        -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 128k /tmp/wm-out.mp4 \
     && "$FF" -v error -i /tmp/wm-out.mp4 -map 0:v:0 -f null - \
     && rm -f /tmp/wm-src.mp4 /tmp/wm-odd.mp4 /tmp/wm-mark.png /tmp/wm-out.mp4
 

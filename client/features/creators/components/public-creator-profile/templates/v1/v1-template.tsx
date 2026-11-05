@@ -140,13 +140,13 @@ export function V1Template({ model }: TemplateProps) {
             )}
           </div>
 
-          {model.intro && (
-            <IntroReelCard
-              media={model.intro}
-              onOpen={() => setViewerIndex(0)}
-              className="mx-auto w-[min(300px,100%)] shrink-0"
-            />
-          )}
+          <IntroReelCard
+            media={model.intro}
+            fallbackImageUrl={model.avatarUrl}
+            fallbackInitials={model.initials}
+            onOpen={() => setViewerIndex(0)}
+            className="mx-auto w-[min(300px,100%)] shrink-0"
+          />
         </div>
       </section>
 

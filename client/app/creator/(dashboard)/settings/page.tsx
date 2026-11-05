@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { UserCircle, Bell, CreditCard, LayoutTemplate } from "lucide-react";
+import { UserCircle, Bell, CreditCard } from "lucide-react";
 
 export const metadata: Metadata = { title: "Settings" };
 
 const PROFILE_SETTINGS_HREF = "/creator/settings/profile" as const;
 const NOTIFICATION_SETTINGS_HREF = "/creator/settings/notifications" as const;
-const PUBLIC_PAGE_SETTINGS_HREF = "/creator/settings/public-page" as const;
 
 const sections = [
   {
@@ -16,13 +15,6 @@ const sections = [
     description:
       "Update your display name, bio, profile picture, and social links.",
     href: PROFILE_SETTINGS_HREF,
-  },
-  {
-    icon: LayoutTemplate,
-    title: "Public page",
-    description:
-      "Pick the design brands see on your public profile, and preview it first.",
-    href: PUBLIC_PAGE_SETTINGS_HREF,
   },
   {
     icon: Bell,

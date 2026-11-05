@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MediaViewer } from "../shared/media-viewer";
 import { AgeBars, GenderSplit, PlaceTabs } from "../shared/audience-parts";
 import { BookingPanelBody } from "../shared/booking-panel-body";
 import { PortfolioGrid } from "../shared/portfolio-grid";
 import { ReviewsSection } from "../shared/reviews-section";
-import { CATEGORY_TINTS, VerifiedTick } from "../shared/template-chrome";
+import {
+  CATEGORY_TINTS,
+  HeroVisual,
+  VerifiedTick,
+} from "../shared/template-chrome";
 import type { PublicProfileViewModel } from "../types";
 
 type TemplateProps = { model: PublicProfileViewModel };
@@ -176,51 +179,60 @@ export function V4Template({ model }: TemplateProps) {
             )}
 
             {/* --------------------------------------------------------- work */}
-            {(model.intro || model.portfolio.length > 0) && (
+            {(model.avatarUrl || model.portfolio.length > 0) && (
               <section
                 id="work"
                 className="grid scroll-mt-20 gap-2.5 rounded-gc-xl bg-white p-2.5 lg:grid-cols-2"
               >
-                {model.intro && (
-                  <button
-                    type="button"
-                    onClick={() => setViewerIndex(0)}
-                    className="flex gap-4.5 rounded-gc-lg bg-[#F2F2F2] p-3.5 text-left transition hover:bg-[#eaeaea]"
-                  >
-                    <span className="relative aspect-[9/16] w-42.5 shrink-0 overflow-hidden rounded-gc-sm bg-[#ddd]">
-                      {model.intro.thumbnailUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- remote S3 thumbnail
-                        <img
-                          src={model.intro.thumbnailUrl}
-                          alt=""
-                          className="size-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      ) : (
-                        <video
-                          src={model.intro.videoUrl}
-                          className="size-full object-cover"
-                          muted
-                          playsInline
-                          preload="metadata"
-                        />
-                      )}
-                      <span className="absolute left-1/2 top-1/2 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90">
-                        <Play className="size-4 fill-[#141414] text-[#141414]" />
-                      </span>
-                    </span>
-                    <span className="flex min-w-0 flex-col gap-2.5 pt-1">
-                      <span className="text-[19px] font-bold">Intro reel</span>
-                      <span className="text-base leading-snug text-gc-muted-faint">
-                        Watch this creator introduce their work
-                      </span>
-                      <span className="mt-auto flex h-9.5 items-center self-start rounded-full bg-[#141414] px-4 text-sm font-semibold text-white">
-                        Play intro
-                      </span>
-                    </span>
-                  </button>
-                )}
+                <div
+                  className={cn(
+                    "flex gap-4.5 rounded-gc-lg bg-[#F2F2F2] p-3.5",
+                    model.intro && "transition hover:bg-[#eaeaea]",
+                  )}
+                >
+                  <HeroVisual
+                    media={model.intro}
+                    fallbackImageUrl={model.avatarUrl}
+                    fallbackInitials={model.initials}
+                    onOpen={() => setViewerIndex(0)}
+                    className="aspect-[9/16] w-42.5 shrink-0 rounded-gc-sm bg-[#ddd]"
+                    playClassName="size-12"
+                    playIconClassName="size-4 fill-[#141414] text-[#141414]"
+                  />
+                  <div className="flex min-w-0 flex-col gap-2.5 pt-1">
+                    {model.intro ? (
+                      <>
+                        <span className="text-[19px] font-bold">
+                          Intro reel
+                        </span>
+                        <span className="text-base leading-snug text-gc-muted-faint">
+                          Watch this creator introduce their work
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setViewerIndex(0)}
+                          className="mt-auto flex h-9.5 items-center self-start rounded-full bg-[#141414] px-4 text-sm font-semibold text-white"
+                        >
+                          Play intro
+                        </button>
+                      </>
+                    ) : (
+                      // No intro reel: the slot keeps the creator's portrait,
+                      // so the playback copy and CTA are replaced rather than
+                      // left pointing at nothing.
+                      <>
+                        <span className="text-[19px] font-bold">
+                          {model.headline}
+                        </span>
+                        {model.locationLabel && (
+                          <span className="text-base leading-snug text-gc-muted-faint">
+                            {model.locationLabel}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
 
                 {model.portfolio.length > 0 && (
                   <div className="flex flex-col gap-3 rounded-gc-lg bg-[#F2F2F2] p-3.5">

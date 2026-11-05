@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Play } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MediaViewer } from "../shared/media-viewer";
 import { AgeBars, GenderSplit, PlaceTabs } from "../shared/audience-parts";
 import { PortfolioGrid } from "../shared/portfolio-grid";
 import { ReviewsSection } from "../shared/reviews-section";
-import { CATEGORY_TINTS, VerifiedTick } from "../shared/template-chrome";
+import {
+  CATEGORY_TINTS,
+  HeroVisual,
+  VerifiedTick,
+} from "../shared/template-chrome";
 import type { PublicProfileViewModel } from "../types";
 
 /** Film-grain overlay used on the booking panel, inlined to avoid a request. */
@@ -70,41 +74,22 @@ export function V5Template({ model }: TemplateProps) {
         {/* ---------------------------------------------------- profile card */}
         <aside className="mx-auto w-full shrink-0 lg:sticky lg:top-3 lg:max-w-102.5 lg:flex-[1_1_360px]">
           <div className="flex flex-col rounded-gc-2xl bg-white p-4 pb-4.5">
-            {model.intro ? (
-              <button
-                type="button"
-                onClick={() => setViewerIndex(0)}
-                className="relative aspect-square overflow-hidden rounded-gc-md bg-[#E6E6E8] lg:aspect-[5/4]"
-              >
-                {model.intro.thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- remote S3 thumbnail
-                  <img
-                    src={model.intro.thumbnailUrl}
-                    alt=""
-                    className="absolute inset-0 size-full object-cover object-[center_28%]"
-                    loading="eager"
-                    decoding="async"
-                  />
-                ) : (
-                  <video
-                    src={model.intro.videoUrl}
-                    className="absolute inset-0 size-full object-cover object-[center_28%]"
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
-                )}
+            <HeroVisual
+              media={model.intro}
+              fallbackImageUrl={model.avatarUrl}
+              fallbackInitials={model.initials}
+              onOpen={() => setViewerIndex(0)}
+              className="aspect-square rounded-gc-md bg-[#E6E6E8] lg:aspect-[5/4]"
+              imageClassName="object-[center_28%]"
+              overlay={
                 <span className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent to-40%" />
+              }
+              badge={
                 <span className="absolute left-3 top-3 flex h-7.5 items-center rounded-full bg-white/90 px-3 text-[13px] font-semibold">
                   Intro reel
                 </span>
-                <span className="absolute left-1/2 top-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/95">
-                  <Play className="size-5 fill-gc-ink text-gc-ink" />
-                </span>
-              </button>
-            ) : (
-              <div className="aspect-[5/4] rounded-gc-md bg-[#E6E6E8]" />
-            )}
+              }
+            />
 
             <div className="relative -mt-14.5 flex items-end justify-between px-1.5">
               {model.avatarUrl ? (

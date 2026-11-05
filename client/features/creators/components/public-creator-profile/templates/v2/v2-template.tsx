@@ -42,13 +42,13 @@ export function V2Template({ model }: TemplateProps) {
 
       <section className="bg-[linear-gradient(180deg,#FFF1F3_0%,#FFFFFF_100%)]">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-start gap-9 px-5 pb-11 pt-9">
-          {model.intro && (
-            <IntroReelCard
-              media={model.intro}
-              onOpen={() => setViewerIndex(0)}
-              className="mx-auto w-[min(320px,100%)] shrink-0"
-            />
-          )}
+          <IntroReelCard
+            media={model.intro}
+            fallbackImageUrl={model.avatarUrl}
+            fallbackInitials={model.initials}
+            onOpen={() => setViewerIndex(0)}
+            className="mx-auto w-[min(320px,100%)] shrink-0"
+          />
 
           <div className="flex min-w-0 flex-1 basis-120 flex-col gap-4.5">
             <div className="flex items-center gap-4">

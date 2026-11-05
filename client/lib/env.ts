@@ -1,4 +1,8 @@
-import { SITE_URL } from "@/config/site";
+// Relative, not the `@/` alias, on purpose. The server test suite
+// (server/src/auth/client-workspace-routing.spec.ts) imports this file
+// across the package boundary by path, and its Jest config defines no
+// moduleNameMapper — an `@/` import here fails to resolve there.
+import { SITE_URL } from "../config/site";
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, "");

@@ -1,3 +1,5 @@
+import { SITE_URL } from "@/config/site";
+
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, "");
 }
@@ -41,7 +43,9 @@ const apiUrl = normalizeBaseUrl(
 export const env = {
   apiUrl,
   phoneOtpEnabled: readPhoneOtpEnabled(),
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  // Shareable links (a creator's public profile URL) must be the real site
+  // even when built locally, so this is the canonical origin, not a guess.
+  siteUrl: SITE_URL,
   authCookieName: process.env.AUTH_COOKIE_NAME || "accessToken",
   refreshCookieName: process.env.REFRESH_COOKIE_NAME || "refreshToken",
   socketUrl: normalizeBaseUrl(

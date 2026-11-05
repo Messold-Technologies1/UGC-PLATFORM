@@ -62,7 +62,9 @@
     "notifications:backfill-drip-log:dev": "node -r ts-node/register/transpile-only src/scripts/backfill-notification-drip-log.ts",
     "prisma:backfill:notification-drip-log": "npm run notifications:backfill-drip-log",
     "start:worker": "node dist/main.worker.js",
-    "start:worker:dev": "nest start --watch -b swc --entryFile main.worker"
+    "start:worker:dev": "nest start --watch -b swc --entryFile main.worker",
+    "audit:phones": "node dist/scripts/audit-nonstandard-phones.js",
+    "audit:phones:dev": "node -r ts-node/register/transpile-only src/scripts/audit-nonstandard-phones.ts"
   },
   "prisma": {
     "seed": "TS_NODE_PROJECT=prisma/tsconfig.scripts.json node -r ts-node/register/transpile-only prisma/seed.ts"
@@ -97,6 +99,7 @@
     "helmet": "^8.1.0",
     "ioredis": "^5.11.1",
     "joi": "^18.0.2",
+    "libphonenumber-js": "^1.11.20",
     "mammoth": "^1.12.0",
     "marked": "^4.3.0",
     "nestjs-pino": "^4.6.1",

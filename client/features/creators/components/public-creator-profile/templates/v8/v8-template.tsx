@@ -92,7 +92,7 @@ export function V8Template({ model }: TemplateProps) {
         <Link href="/" className="flex shrink-0 items-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}
           <img
-            src="/brand-logo.png"
+            src="/brand-logo-wordmark.png"
             alt="GoCollab"
             className="h-8 w-auto object-contain object-left sm:h-9"
             loading="eager"

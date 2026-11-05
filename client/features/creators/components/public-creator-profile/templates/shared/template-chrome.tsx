@@ -58,9 +58,12 @@ export function PublicPageHeader({
         )}
       >
         <Link href="/" className="flex shrink-0 items-center">
+          {/* The shared brand-logo.png carries ~60% transparent padding, which
+              renders the wordmark tiny at header sizes. This trimmed variant is
+              the same artwork with that padding removed. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}
           <img
-            src="/brand-logo.png"
+            src="/brand-logo-wordmark.png"
             alt="GoCollab"
             className="h-8 w-auto object-contain object-left sm:h-9"
             loading="eager"

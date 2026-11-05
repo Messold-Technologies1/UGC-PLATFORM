@@ -1,4 +1,3 @@
-import type { MarketingFaq } from "@/components/landing/marketing/marketing-faqs";
 import { SITE_NAME, SITE_URL } from "@/config/site";
 
 /**
@@ -11,6 +10,16 @@ import { SITE_NAME, SITE_URL } from "@/config/site";
 
 /** Loose shape — schema.org graphs are open-ended by design. */
 export type JsonLdSchema = Record<string, unknown>;
+
+/**
+ * One question/answer pair, as the landing pages store them. Declared here
+ * rather than beside any one page's copy, because all three FAQ lists feed the
+ * same builder.
+ */
+export type FaqItem = {
+  q: string;
+  a: string;
+};
 
 /**
  * Publisher identity. Google reads `name`, `logo` and `sameAs` for the
@@ -58,7 +67,7 @@ export function websiteSchema(): JsonLdSchema {
  * from the DOM is not — which is why the landing page keeps collapsed answers
  * mounted.
  */
-export function faqPageSchema(faqs: readonly MarketingFaq[]): JsonLdSchema {
+export function faqPageSchema(faqs: readonly FaqItem[]): JsonLdSchema {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",

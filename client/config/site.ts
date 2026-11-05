@@ -5,11 +5,15 @@ export const SITE_DESCRIPTION =
 /**
  * Canonical origin, no trailing slash.
  *
- * Structured data has to agree with the canonical URL Google resolves the
- * site to, so this reads the same env var as `metadataBase` in the root
- * layout rather than hardcoding a host. Set `NEXT_PUBLIC_SITE_URL` to
- * whichever of www/non-www the site actually serves.
+ * Hardcoded on purpose. This used to be read from `NEXT_PUBLIC_SITE_URL` in
+ * four places with three different fallbacks — `https://collabry.com` in
+ * robots.ts and sitemap.ts, `https://gocollab.io` in the root layout and
+ * `http://localhost:3000` in lib/env.ts — and that variable is not set for
+ * the frontend. Unset, the sitemap advertised a domain the product does not
+ * use and creators were handed `http://localhost:3000/<slug>` as their
+ * shareable profile link.
+ *
+ * The site serves non-www, so every canonical URL, sitemap entry and
+ * structured-data graph is built from this one value.
  */
-export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.gocollab.io"
-).replace(/\/+$/, "");
+export const SITE_URL = "https://gocollab.io";

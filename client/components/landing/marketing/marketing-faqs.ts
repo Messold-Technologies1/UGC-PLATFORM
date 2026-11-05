@@ -1,9 +1,5 @@
 import { SITE_NAME } from "@/config/site";
-
-export type MarketingFaq = {
-  q: string;
-  a: string;
-};
+import type { FaqItem } from "@/lib/seo/structured-data";
 
 /**
  * FAQ copy for the public landing page at `/`.
@@ -14,7 +10,7 @@ export type MarketingFaq = {
  * hand-written copy of this list in a JSON-LD blob would be a correctness bug
  * waiting on the next copy edit.
  */
-export const MARKETING_FAQS: MarketingFaq[] = [
+export const MARKETING_FAQS: FaqItem[] = [
   {
     q: `What is ${SITE_NAME}?`,
     a: `${SITE_NAME} is a marketplace where brands find and hire creators, and creators create a profile that brands can discover, understand and order from.`,

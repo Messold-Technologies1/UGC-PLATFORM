@@ -8,6 +8,7 @@ import { AppShellProviders } from "@/providers/app-providers";
 import { GlobalVideoManager } from "@/components/global-video-manager";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { ClarityInit, ClarityUserSync } from "@/components/clarity";
+import { SITE_URL } from "@/config/site";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -78,9 +79,7 @@ export const metadata: Metadata = {
   },
   description:
     "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://gocollab.io",
-  ),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     siteName: "Go Collab",

@@ -11,7 +11,6 @@ import {
   creatorRole,
   type MarketingCreatorId,
 } from "@/components/landing/marketing/marketing-creators";
-import { CREATOR_FAQS } from "@/components/landing/marketing/creator-faqs";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -205,6 +204,49 @@ const TESTIMONIALS = [
     name: C.aashi.name,
     role: creatorRole(C.aashi),
     img: C.aashi.img,
+  },
+];
+
+const CREATOR_FAQS = [
+  {
+    q: `Is ${SITE_NAME} free for creators?`,
+    a: "Yes. Creating your profile and being discoverable costs nothing. There is no joining fee.",
+  },
+  {
+    q: "Do I need a minimum follower count?",
+    a: "No. Brands search for different things — some need content, some need audience. Your profile shows what you offer either way.",
+  },
+  {
+    q: "Can UGC creators join without a large audience?",
+    a: "Yes. Many brands are looking for content they can use in ads and on product pages, not for your follower count.",
+  },
+  {
+    q: "Can I decide my own pricing?",
+    a: "You set your own prices, for every service you list.",
+  },
+  {
+    q: "Can I choose what services I offer?",
+    a: "Yes. You choose your deliverables, what is included, and any add-ons you want to offer.",
+  },
+  {
+    q: "Can I change my pricing later?",
+    a: "You can update your pricing, services, delivery timelines and add-ons whenever you want.",
+  },
+  {
+    q: "How do brands discover me?",
+    a: "Brands search by category, location, budget, followers and delivery time. Profiles matching their requirements appear in the results.",
+  },
+  {
+    q: "What happens when I receive an order?",
+    a: "You receive the brief and the agreed deliverables, timeline and pricing. You accept it and then create the content.",
+  },
+  {
+    q: "How do revisions work?",
+    a: "Revisions are part of the service you listed. You decide how many are included, and can offer extra revisions as an add-on.",
+  },
+  {
+    q: "When do creators get paid?",
+    a: "Payment is released once the delivery is completed according to the agreed brief and platform policy.",
   },
 ];
 
@@ -778,21 +820,14 @@ export function CreatorsLanding() {
                       </span>
                     </button>
                   </h3>
-                  {/*
-                    Always mounted, hidden with the `hidden` attribute when
-                    collapsed. The FAQPage structured data on this route marks
-                    up every answer, and Google requires the marked-up text to
-                    be present in the page HTML — behind an expander is fine,
-                    missing from the DOM is not. Visually identical: `hidden`
-                    resolves to `display: none`.
-                  */}
-                  <p
-                    hidden={!open}
-                    id={`creator-faq-${i}`}
-                    className="text-muted-foreground px-[26px] pb-6 text-[15px] leading-[1.62] text-pretty"
-                  >
-                    {f.a}
-                  </p>
+                  {open ? (
+                    <p
+                      id={`creator-faq-${i}`}
+                      className="text-muted-foreground px-[26px] pb-6 text-[15px] leading-[1.62] text-pretty"
+                    >
+                      {f.a}
+                    </p>
+                  ) : null}
                 </div>
               );
             })}

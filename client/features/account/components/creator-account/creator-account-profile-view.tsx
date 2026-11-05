@@ -372,8 +372,10 @@ export function CreatorAccountProfileView({
                           className="w-full gap-2 sm:flex-1 xl:w-auto xl:flex-none"
                           asChild
                         >
+                          {/* Opens the full-page preview, where the creator can
+                              also switch the design, in a new tab. */}
                           <Link
-                            href={publicProfilePath ?? "#"}
+                            href="/creator/public-page-design"
                             target="_blank"
                             rel="noopener noreferrer"
                             data-tour="creator-profile-preview"

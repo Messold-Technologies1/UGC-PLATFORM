@@ -10,6 +10,7 @@ import {
   IsDateString,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -26,12 +27,24 @@ import {
 } from './create-creator-profile.dto';
 import { CreatorFacetSelectionInputDto } from './creator-facet-selection-input.dto';
 import { CreatorProfileLanguageInputDto } from './creator-profile-language-input.dto';
+import { PUBLIC_PAGE_TEMPLATE_IDS } from '../public-page-templates';
 
 export class UpdateCreatorProfileDto {
   @ApiPropertyOptional({ example: 'Jane Doe' })
   @IsOptional()
   @IsString()
   displayName?: string;
+
+  @ApiPropertyOptional({
+    example: 'v3',
+    enum: PUBLIC_PAGE_TEMPLATE_IDS,
+    description:
+      'Template the creator-facing public profile page renders with. Creators may change this at any time.',
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(PUBLIC_PAGE_TEMPLATE_IDS as unknown as string[])
+  publicPageTemplate?: string;
 
   @ApiPropertyOptional({
     example: '+919876543210',

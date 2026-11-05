@@ -143,6 +143,13 @@ export class CreatorProfileResponseDto {
   })
   publicSlug!: string;
 
+  @ApiProperty({
+    example: 'v3',
+    description:
+      'Template id the public profile page renders with. Clients fall back to their default template for unknown ids.',
+  })
+  publicPageTemplate!: string;
+
   @ApiPropertyOptional({
     example: '+919876543210',
     nullable: true,

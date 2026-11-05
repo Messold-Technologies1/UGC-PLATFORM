@@ -30,6 +30,8 @@ export type UpdateCreatorProfilePayload = {
   collaborationCount?: number;
   travelRadius?: number;
   onLocationAvailable?: boolean;
+  /** Template id for the public profile page; see the template registry. */
+  publicPageTemplate?: string;
   facetSelections?: CreatorFacetSelectionPayload[];
   profileLanguages?: CreatorProfileLanguagePayload[];
   categories?: string[];

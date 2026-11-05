@@ -375,6 +375,10 @@ model CreatorProfile {
   displayName                  String
   /// Unique URL slug for public profile (e.g. "riyasharma" or "riyasharma-4821").
   publicSlug                   String                      @unique
+  /// Which public-page template the creator's public profile renders with.
+  /// Plain string (not an enum) so adding a template needs no migration; the
+  /// client falls back to the default when the id is not in its registry.
+  publicPageTemplate           String                      @default("v3")
   introVideoKey                String?
   introVideoUrl                String?
   /// Media-normalization state for the intro video: it is transcoded to a

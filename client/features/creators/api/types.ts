@@ -114,6 +114,11 @@ export type CreatorProfileItemApi = {
   displayName: string;
   /** Unique public URL slug; may be absent until API migration is applied. */
   publicSlug?: string;
+  /**
+   * Which public-page template the creator has chosen (see the template
+   * registry). Unknown or missing values fall back to the default template.
+   */
+  publicPageTemplate?: string | null;
   phone?: string | null;
   phoneVerified?: boolean;
   /** Last OTP outcome on User; `approved` when verification succeeded. */

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400..800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F4F3;color:#141414;font-family:'Figtree',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#141414;text-decoration:none}a:hover{color:#E8384F}
+button{font-family:inherit}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:radial-gradient(50% 40% at 100% 100%,#FFD9CC 0%,rgba(255,217,204,0) 70%),radial-gradient(40% 35% at 0% 100%,#FBE0E8 0%,rgba(251,224,232,0) 70%),#F4F4F3">
+
+<header style="max-width:1200px;margin:0 auto;padding:18px 20px 0;display:flex;align-items:center;justify-content:space-between;gap:12px">
+  <div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:-0.02em"><span style="width:22px;height:18px;border-radius:6px;background:#E8384F;display:block"></span>GoCollab</div>
+  <div style="display:flex;gap:8px">
+    <a href="#" style="height:40px;padding:0 16px;border-radius:12px;border:1px solid #E4E4E2;background:#fff;font-size:14px;font-weight:600;display:flex;align-items:center">Browse creators</a>
+  </div>
+</header>
+
+<div style="max-width:1200px;margin:0 auto;padding:16px 20px 60px;display:flex;flex-direction:column;gap:16px">
+
+<section data-screen-label="01 Profile card" style="background:#F1F1F0;border-radius:32px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.03)">
+  <div style="position:relative;height:120px;background:radial-gradient(50% 120% at 10% 0%,#FFD6DF 0%,rgba(255,214,223,0) 70%),radial-gradient(45% 120% at 60% 100%,#EDE4FD 0%,rgba(237,228,253,0) 70%),radial-gradient(40% 120% at 95% 20%,#FFE3D3 0%,rgba(255,227,211,0) 70%),#F6F2F1">
+    <button onClick="{{ toggleSaveStop }}" aria-label="Save" style="position:absolute;right:24px;top:20px;width:48px;height:48px;border-radius:50%;border:1px solid rgba(0,0,0,.06);background:{{ saveBg }};cursor:pointer;display:flex;align-items:center;justify-content:center">{{ bookmark }}</button>
+  </div>
+  <div style="padding:0 28px 26px;position:relative;display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end">
+  <div style="flex:1 1 480px;min-width:0;margin-top:-56px;display:flex;flex-direction:column;gap:20px">
+    <div style="position:relative;width:112px">
+      <img src="{{ c.av }}" alt="" style="width:112px;height:112px;border-radius:50%;object-fit:cover;display:block;border:4px solid #F1F1F0;background:#F1F1F0">
+      <sc-if value="{{ c.verified }}" hint-placeholder-val="{{ true }}"><span title="Verified" style="position:absolute;right:4px;bottom:6px;width:26px;height:26px;border-radius:50%;background:#3B82F6;border:3px solid #F1F1F0;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center">✓</span></sc-if>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <h1 style="margin:0;font-size:clamp(26px,3vw,34px);font-weight:600;letter-spacing:-0.025em;line-height:1.1">{{ c.name }}</h1>
+        <span style="font-size:16px;color:#8A8A8A">{{ c.type }} · {{ c.loc }}</span>
+      </div>
+      <span style="height:42px;padding:0 16px 0 8px;border-radius:999px;background:#E8E8E6;display:flex;align-items:center;gap:10px;font-size:15px;font-weight:500">
+        <span style="display:flex"><sc-for list="{{ catDots }}" as="d" hint-placeholder-count="3"><span style="width:28px;height:28px;border-radius:50%;background:{{ d.bg }};border:2px solid #E8E8E6;margin-left:{{ d.ml }};display:flex;align-items:center;justify-content:center;color:{{ d.fg }};font-size:11px;font-weight:800">{{ d.l }}</span></sc-for></span>{{ catsInline }}
+      </span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;flex-wrap:wrap">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:0 clamp(16px,3vw,32px);border-left:{{ s.bl }}"><span style="font-size:22px;font-weight:600;letter-spacing:-0.02em;display:flex;align-items:center;gap:6px">{{ s.v }}</span><span style="font-size:14px;color:#8A8A8A">{{ s.k }}</span></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1 1 260px;max-width:340px">
+        <button id="heroCta" onClick="{{ book }}" style="width:100%;height:60px;border:0;border-radius:999px;background:#0A0A0A;color:#fff;font-size:18px;font-weight:500;cursor:pointer" style-hover="background:#262626">Book now · {{ priceFmt }}</button>
+        <span style="font-size:13px;color:#8A8A8A">✓ {{ pkg.delivery }} delivery · ✓ Secure payment</span>
+      </div>
+    </div>
+  </div>
+  <div data-i="0" onClick="{{ openWork }}" style="flex:0 0 auto;width:min(220px,100%);aspect-ratio:9/16;margin:-90px auto 0;position:relative;border-radius:22px;overflow:hidden;cursor:pointer;background:#E6E6E4;box-shadow:0 16px 40px rgba(0,0,0,.16);border:4px solid #fff">
+    <img src="{{ heroImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">
+    <span style="position:absolute;top:10px;left:10px;height:28px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.92);font-size:12px;font-weight:600;display:flex;align-items:center">▶ Intro · {{ heroDur }}</span>
+    <span style="position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font-size:16px;pointer-events:none">▶</span>
+  </div>
+  </div>
+</section>
+
+<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+<main style="flex:1 1 600px;min-width:0;display:flex;flex-direction:column;gap:16px">
+
+  <sc-if value="{{ hasWork }}" hint-placeholder-val="{{ true }}">
+  <section data-screen-label="02 Portfolio" style="background:#fff;border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 0 0 1px rgba(0,0,0,.04)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-size:20px;font-weight:700;letter-spacing:-0.015em">Portfolio</h2><span style="font-size:14px;color:#8A8A8A">{{ workCount }}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr));gap:10px">
+      <sc-for list="{{ works }}" as="w" hint-placeholder-count="3">
+        <div data-i="{{ w.i }}" onClick="{{ openWork }}" style="aspect-ratio:9/16;position:relative;border-radius:18px;overflow:hidden;cursor:pointer;background:#F1F1F0">
+          <img src="{{ w.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s" style-hover="transform:scale(1.04)">
+          <span style="position:absolute;left:8px;bottom:8px;padding:3px 9px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:600">▶ {{ w.dur }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+  </sc-if>
+
+  <section data-screen-label="03 About" style="background:#fff;border-radius:24px;padding:22px 22px 8px;box-shadow:0 0 0 1px rgba(0,0,0,.04)">
+    <h2 style="margin:0 0 6px;font-size:20px;font-weight:700;letter-spacing:-0.015em">About this creator</h2>
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+      <div style="display:grid;grid-template-columns:minmax(130px,200px) minmax(0,1fr);gap:16px;padding:16px 0;border-top:{{ r.bt }};align-items:start">
+        <span style="font-size:15px;font-weight:600;padding-top:9px">{{ r.k }}</span>
+        <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+          <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid #E6E6E4;border-radius:12px;padding:10px 14px;font-size:15px;line-height:1.55;color:#333">{{ r.v }}</div>
+          </sc-if>
+          <sc-if value="{{ r.isChips }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <sc-for list="{{ r.vals }}" as="v" hint-placeholder-count="2"><span style="height:42px;padding:0 14px;border:1px solid #E6E6E4;border-radius:12px;font-size:15px;display:flex;align-items:center;gap:8px"><span style="display:flex">{{ r.icon }}</span>{{ v }}</span></sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;letter-spacing:.04em;color:{{ r.noteFg }};display:flex;align-items:center;gap:6px">{{ r.note }}</span></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+
+  <sc-if value="{{ hasAud }}" hint-placeholder-val="{{ true }}">
+  <section id="audience" data-screen-label="04 Audience" style="background:#fff;border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:20px;box-shadow:0 0 0 1px rgba(0,0,0,.04)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><h2 style="margin:0;font-size:20px;font-weight:700;letter-spacing:-0.015em">Instagram audience</h2><span style="font-size:13px;color:#8A8A8A">Last 30 days</span></div>
+    <div style="display:flex;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid #EFEFED">
+      <sc-for list="{{ audStats }}" as="s" hint-placeholder-count="4">
+        <div style="padding:0 22px;border-left:{{ s.bl }};display:flex;flex-direction:column;gap:4px;margin-left:{{ s.ml }}"><span style="font-size:14px;color:#8A8A8A">{{ s.k }}</span><span style="font-size:20px;font-weight:600">{{ s.v }}</span></div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px">
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <span style="font-size:15px;font-weight:600">Age</span>
+        <sc-for list="{{ ages }}" as="a" hint-placeholder-count="7">
+          <div style="display:grid;grid-template-columns:48px minmax(0,1fr) 38px;gap:10px;align-items:center;font-size:14px"><span style="color:#8A8A8A">{{ a.k }}</span><div style="height:8px;background:#F1F1F0;border-radius:4px;overflow:hidden"><div style="height:100%;width:{{ a.w }};background:{{ a.col }};border-radius:4px;transition:width .9s cubic-bezier(.2,.7,.2,1)"></div></div><b style="text-align:right;font-weight:{{ a.fw }}">{{ a.v }}%</b></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:15px;font-weight:600">Gender</span>
+        <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;gap:3px">
+          <sc-for list="{{ gender }}" as="g" hint-placeholder-count="3"><div style="width:{{ g.w }};background:{{ g.col }};border-radius:6px;transition:width .9s cubic-bezier(.2,.7,.2,1)"></div></sc-for>
+        </div>
+        <sc-for list="{{ gender }}" as="g" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;font-size:15px;padding:4px 0"><span style="width:10px;height:10px;border-radius:50%;background:{{ g.col }};display:block"></span><span style="flex:1">{{ g.k }}</span><b>{{ g.v }}%</b></div></sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:15px;font-weight:600">Top</span>
+          <div style="display:flex;gap:4px;padding:3px;border-radius:10px;background:#F1F1F0">
+            <sc-for list="{{ placeTabs }}" as="p" hint-placeholder-count="2"><button data-p="{{ p.k }}" onClick="{{ pickPlace }}" style="height:30px;padding:0 12px;border:0;border-radius:8px;background:{{ p.bg }};color:{{ p.fg }};font-size:13px;font-weight:600;cursor:pointer;box-shadow:{{ p.sh }}">{{ p.k }}</button></sc-for>
+          </div>
+        </div>
+        <sc-for list="{{ places }}" as="r" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:{{ r.bt }}"><span style="width:20px;font-size:13px;font-weight:700;color:{{ r.nc }}">{{ r.n }}</span><span style="flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.k }}</span><b style="font-size:15px">{{ r.v }}%</b></div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+  </sc-if>
+</main>
+
+<aside id="book" data-screen-label="05 Booking" style="flex:1 1 320px;max-width:400px;position:{{ asidePos }};top:16px;margin:0 auto;background:#fff;border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:14px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 14px 40px rgba(0,0,0,.06);outline:2px solid {{ cardBd }};outline-offset:-2px;transition:outline-color .3s">
+  <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:12px;padding:8px 2px">
+      <span style="width:52px;height:52px;border-radius:50%;background:#16B26B;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center">✓</span>
+      <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em">Order placed</div>
+      <div style="font-size:15px;line-height:1.5;color:#555">{{ totalFmt }} is held securely and released once you approve the delivery.</div>
+      <button onClick="{{ reset }}" style="height:50px;margin-top:4px;border:1px solid #E6E6E4;border-radius:999px;background:#fff;font-size:15px;font-weight:600;cursor:pointer">Back to profile</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:18px;font-weight:700">Package</span><span style="height:26px;padding:0 10px;border-radius:8px;border:1px solid #E6E6E4;font-size:12px;font-weight:600;color:#555;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:#16B26B;display:block"></span>{{ pkg.name }}</span></div>
+      <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:42px;font-weight:700;letter-spacing:-0.04em;line-height:1">{{ priceFmt }}</span><span style="font-size:14px;color:#8A8A8A">base price</span></div>
+      <div style="display:flex;padding:12px 0;border-top:1px solid #EFEFED;border-bottom:1px solid #EFEFED">
+        <sc-for list="{{ terms }}" as="t" hint-placeholder-count="3"><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:0 10px;border-left:{{ t.bl }}"><span style="font-size:13px;color:#8A8A8A">{{ t.k }}</span><span style="font-size:15px;font-weight:600">{{ t.v }}</span></div></sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:13px;font-weight:600;color:#8A8A8A">What you get</span>
+        <sc-for list="{{ pkg.includes }}" as="inc" hint-placeholder-count="4"><span style="font-size:15px;display:flex;gap:10px;align-items:center"><span style="color:#E8384F;font-weight:800">✓</span>{{ inc }}</span></sc-for>
+      </div>
+      <sc-if value="{{ hasAddons }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;font-weight:600;color:#8A8A8A">Add-ons · optional</span>
+          <sc-for list="{{ addons }}" as="ad" hint-placeholder-count="3">
+            <button data-i="{{ ad.i }}" onClick="{{ toggleAddon }}" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:0 14px;border:1px solid {{ ad.bd }};border-radius:12px;background:{{ ad.bg }};cursor:pointer;text-align:left;color:#141414">
+              <span style="width:20px;height:20px;border-radius:6px;border:1.5px solid {{ ad.cbd }};background:{{ ad.cbg }};color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ ad.tick }}</span>
+              <span style="flex:1;font-size:15px">{{ ad.k }}</span><span style="font-size:15px;font-weight:600;white-space:nowrap;flex:none">+{{ ad.p }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:4px"><span style="font-size:15px;color:#555">Total</span><span style="font-size:26px;font-weight:700;letter-spacing:-0.02em">{{ totalFmt }}</span></div>
+      <button onClick="{{ submit }}" style="height:56px;border:0;border-radius:999px;background:#E8384F;color:#fff;font-size:17px;font-weight:600;cursor:pointer" style-hover="background:#D42B42">Place order · {{ totalFmt }}</button>
+      <span style="font-size:12px;color:#8A8A8A;text-align:center;line-height:1.5">Secure checkout on GoCollab · payment held until you approve the delivery</span>
+    </div>
+  </sc-if>
+</aside>
+</div>
+
+<footer style="padding:24px 4px 0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:13px;color:#8A8A8A">
+  <span>© 2026 GoCollab · This public profile is shared by the creator. Bookings &amp; payments are handled securely on GoCollab.</span>
+  <span style="display:flex;gap:18px"><a href="#" style="color:#8A8A8A">For brands</a><a href="#" style="color:#8A8A8A">Become a creator</a></span>
+</footer>
+</div>
+
+<sc-if value="{{ showBar }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(420px,calc(100% - 24px));z-index:30;height:66px;border-radius:999px;background:rgba(255,255,255,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 12px 30px rgba(0,0,0,.14),0 0 0 1px rgba(0,0,0,.04);display:flex;align-items:center;gap:10px;padding:0 8px 0 8px">
+    <img src="{{ c.av }}" alt="" style="width:50px;height:50px;border-radius:50%;object-fit:cover;display:block;flex:none">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:700">{{ priceFmt }}</span><span style="font-size:12px;color:#8A8A8A">{{ pkg.name }} · {{ pkg.delivery }} delivery</span></div>
+    <button onClick="{{ book }}" style="height:50px;padding:0 22px;border:0;border-radius:999px;background:#0A0A0A;color:#fff;font-size:15px;font-weight:600;cursor:pointer;flex:none">Book now</button>
+  </div>
+</sc-if>
+
+<sc-if value="{{ viewerOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeViewer }}" style="position:fixed;inset:0;z-index:60;background:rgba(8,8,8,.94);display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="position:relative;height:min(calc(100vh - 60px),820px);aspect-ratio:9/16;max-width:100%;border-radius:24px;overflow:hidden;background:#222">
+      <img src="{{ vw.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">
+      <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:4px">
+        <sc-for list="{{ dots }}" as="d" hint-placeholder-count="4"><span style="flex:1;height:3px;border-radius:2px;background:{{ d.bg }};display:block"></span></sc-for>
+      </div>
+      <button onClick="{{ bookFromViewer }}" style="position:absolute;left:12px;right:12px;bottom:12px;height:56px;border:0;border-radius:999px;background:#fff;color:#141414;font-size:16px;font-weight:600;cursor:pointer">Book this creator · {{ priceFmt }}</button>
+    </div>
+    <button onClick="{{ closeViewer }}" aria-label="Close" style="position:absolute;top:18px;right:18px;width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:15px;cursor:pointer">✕</button>
+    <button onClick="{{ prevWork }}" aria-label="Previous" style="position:absolute;left:16px;top:50%;width:50px;height:50px;margin-top:-25px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer">←</button>
+    <button onClick="{{ nextWork }}" aria-label="Next" style="position:absolute;right:16px;top:50%;width:50px;height:50px;margin-top:-25px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:18px;cursor:pointer">→</button>
+  </div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;creator&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;beauty&quot;,&quot;lifestyle&quot;],&quot;default&quot;:&quot;beauty&quot;,&quot;tsType&quot;:&quot;'beauty'|'lifestyle'&quot;},&quot;showAudience&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showAddons&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const A = 'assets/a-', B = 'assets/b-';
+const TAG = { Beauty: ['#FFE3EA', '#C9283F'], Lifestyle: ['#DDF5E8', '#0E7A46'], Fashion: ['#EDE4FD', '#6B34C4'], Tech: ['#E1EDFD', '#1F5FC2'] };
+const CREATORS = {
+  beauty: {
+    name: 'Beauty Creator', type: 'Individual / Solo', verified: true, av: B + 'av.jpg', cats: ['Beauty', 'Lifestyle', 'Fashion'],
+    bio: 'Im a Bangalore based model and a creator, I create content on English mostly at home or in my studio. I focus on beauty and lifestyle content the most',
+    loc: 'Thrissur, Kerala, India', langs: ['English', 'Tamil', 'Malayalam'],
+    intro: { img: B + 'hero.jpg', dur: '0:24' },
+    works: [{ img: B + 'w3.jpg', dur: '0:40' }, { img: B + 'w1.jpg', dur: '0:38' }, { img: B + 'w2.jpg', dur: '0:17' }],
+    pkg: { name: '1 Video', price: 3000, includes: ['1 Video', 'Basic editing', 'Raw footage', '1080p minimum', 'Usage rights: 30 days'], delivery: '5 days', length: '60s', revisions: '2' },
+    addons: [['Revision', 100], ['Usage Rights extra 30 days', 100], ['Travel within City', 500]],
+    facts: [['Creator type', ['Individual / Solo']], ['Occupation', ['Model']], ['Appearance', ['Athletic / Fit']], ['On-location shoots', ['Not available']], ['Languages', ['English', 'Tamil', 'Malayalam']], ['Categories', ['Beauty', 'Lifestyle', 'Fashion']]],
+    openTo: ['Lingerie', 'Dating / Dating Apps', 'Night Clubs', 'Gambling'],
+    ig: { followers: '4.1K', reach: '9.2K', views: '2.7K',
+      gender: [['Men', 59, '#38BDF8'], ['Unspecified', 20, '#B6B0BD'], ['Women', 20, '#EC4899']],
+      ages: [['13–17', 1], ['18–24', 11], ['25–34', 68], ['35–44', 15], ['45–54', 4], ['55–64', 1], ['65+', 1]],
+      cities: [['Kochi, Kerala', 16], ['Bangalore, Karnataka', 13], ['Thrissur, Kerala', 12], ['Dubai', 9], ['Chennai, Tamil Nadu', 6]],
+      countries: [['India', 70], ['United Arab Emirates', 9], ['United Kingdom', 4], ['Canada', 3], ['United States', 3]] }
+  },
+  lifestyle: {
+    name: 'Lifestyle Creator', type: 'Individual / Solo', verified: true, av: A + 'av.jpg', cats: ['Lifestyle', 'Beauty', 'Tech'],
+    bio: 'Lifestyle content creator with soft girl aesthetic style. My niche includes- Edtech, App, Lifestyle, Skincare, Finance, F&Beverages, Makeup, Food, Essentials, Digital tool, supplement, fashion, haircare, decor, gadgets. My content style includes - trending hooks (2-3) -openers -clear visuals and cuts -formal captions -clear audio -4k resolution -loud and proper CTA I would love to create authentic and engaging content for brands.',
+    loc: 'Kolkata, West Bengal, India', langs: ['English', 'Bengali', 'Hindi'],
+    intro: { img: A + 'hero.jpg', dur: '0:22' },
+    works: [{ img: A + 'w1.jpg', dur: '1:02' }, { img: A + 'w2.jpg', dur: '0:42' }, { img: A + 'w3.jpg', dur: '0:34' }],
+    pkg: { name: '1 Video', price: 2000, includes: ['1 Video', 'Basic editing'], delivery: '2 days', length: '60s', revisions: '2' },
+    addons: [['Revision', 500], ['Usage Rights extra 30 days', 10000], ['Travel within City', 500]],
+    facts: [['Creator type', ['Individual / Solo']], ['Occupation', ['Full-time Creator']], ['Appearance', ['Slim / Lean']], ['On-location shoots', ['Available']], ['Languages', ['English', 'Bengali', 'Hindi']], ['Categories', ['Lifestyle', 'Beauty', 'Tech']]],
+    openTo: [],
+    ig: { followers: '8.1K', reach: '54.3K', views: '2.6K',
+      gender: [['Unspecified', 44, '#B6B0BD'], ['Men', 42, '#38BDF8'], ['Women', 14, '#EC4899']],
+      ages: [['13–17', 9], ['18–24', 40], ['25–34', 38], ['35–44', 9], ['45–54', 2], ['55–64', 1], ['65+', 1]],
+      cities: [['Kolkata, West Bengal', 17], ['Chennai, Tamil Nadu', 7], ['Delhi', 7], ['Bangalore, Karnataka', 7], ['Mumbai, Maharashtra', 6]],
+      countries: [['India', 88], ['Bangladesh', 7], ['Brazil', 1], ['United States', 0], ['Indonesia', 0]] }
+  }
+};
+const ICONS = {
+  tag: [['path', 'M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z'], ['circle', 7.5, 7.5, 1.5]],
+  user: [['circle', 12, 8, 4], ['path', 'M4 21a8 8 0 0 1 16 0']],
+  bag: [['path', 'M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z'], ['path', 'M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2']],
+  spark: [['path', 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z'], ['path', 'M19 16v4M17 18h4']],
+  globe: [['circle', 12, 12, 9], ['path', 'M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18']],
+  pin: [['path', 'M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12Z'], ['circle', 12, 9, 2.5]],
+  check: [['circle', 12, 12, 9], ['path', 'M8 12.5l2.7 2.7L16 9.5']],
+  clock: [['circle', 12, 12, 9], ['path', 'M12 7v5l3 2']]
+};
+const icon = (k, c) => React.createElement('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: c, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+  ...(ICONS[k] || ICONS.tag).map((s, i) => s[0] === 'path' ? React.createElement('path', { key: i, d: s[1] }) : React.createElement('circle', { key: i, cx: s[1], cy: s[2], r: s[3] })));
+const FACT_STYLE = {
+  'Categories': { i: 'tag', bg: '#FFE3EA', fg: '#E8384F' },
+  'Creator type': { i: 'user', bg: '#EDE4FD', fg: '#7A4BD6' },
+  'Occupation': { i: 'bag', bg: '#FFEBD6', fg: '#D9822B' },
+  'Appearance': { i: 'spark', bg: '#FCE3F3', fg: '#C93D96' },
+  'On-location shoots': { i: 'pin', bg: '#DDF5E8', fg: '#14975A' },
+  'Languages': { i: 'globe', bg: '#E1EDFD', fg: '#2A72D6' },
+  _: { i: 'tag', bg: '#F1EEF2', fg: '#5E5A63' }
+};
+const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
+const h = React.createElement;
+const LABEL = { 'Categories': 'Content category', 'On-location shoots': 'On-location shoot' };
+const ICON_OF = { 'Categories': 'tag', 'Creator type': 'user', 'Appearance': 'spark', 'Occupation': 'bag', 'Languages': 'globe', 'On-location shoots': 'pin', 'Open to': 'check' };
+const BM = 'M6 2h12a1 1 0 0 1 1 1v19l-7-4.5L5 22V3a1 1 0 0 1 1-1Z';
+const bm = (fill, stroke) => h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill, stroke, strokeWidth: 2, strokeLinejoin: 'round' }, h('path', { d: BM }));
+
+class Component extends DCLogic {
+  state = { saved: false, addons: {}, done: false, viewer: null, place: 'Cities', audIn: false, narrow: false, pastCta: false, flash: false };
+  componentDidMount() {
+    this.onScroll = () => {
+      const upd = {};
+      const cta = document.getElementById('heroCta'); const pc = cta ? cta.getBoundingClientRect().bottom < 0 : false; if (pc !== this.state.pastCta) upd.pastCta = pc;
+      const au = document.getElementById('audience'); if (!this.state.audIn && au && au.getBoundingClientRect().top < window.innerHeight * 0.85) upd.audIn = true;
+      if (Object.keys(upd).length) this.setState(upd);
+    };
+    this.onResize = () => { const n = window.innerWidth < 980; if (n !== this.state.narrow) this.setState({ narrow: n }); };
+    this.onKey = e => { if (e.key === 'Escape') this.setState({ viewer: null }); };
+    window.addEventListener('scroll', this.onScroll, { passive: true }); window.addEventListener('resize', this.onResize); window.addEventListener('keydown', this.onKey);
+    this.onResize(); this.onScroll();
+  }
+  componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); window.removeEventListener('resize', this.onResize); window.removeEventListener('keydown', this.onKey); clearTimeout(this.t); }
+  componentDidUpdate(p) { if (p.creator !== this.props.creator) this.setState({ addons: {}, done: false, viewer: null }); }
+  book() {
+    this.setState({ viewer: null, flash: true });
+    const el = document.getElementById('book'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 16, behavior: 'smooth' });
+    clearTimeout(this.t); this.t = setTimeout(() => this.setState({ flash: false }), 1400);
+  }
+  renderVals() {
+    const d = CREATORS[this.props.creator ?? 'beauty'] || CREATORS.beauty;
+    const st = this.state, set = s => this.setState(s);
+    const showAud = (this.props.showAudience ?? true) && !!d.ig;
+    const showAddons = (this.props.showAddons ?? true) && d.addons.length > 0;
+    const media = [...(d.intro ? [d.intro] : []), ...d.works].map((m, i) => ({ ...m, i }));
+    const works = media.filter(m => m.i > 0 || !d.intro);
+    const ig = d.ig, on = st.audIn, p = d.pkg;
+    const total = p.price + (showAddons ? d.addons.reduce((t, a, i) => t + (st.addons[i] ? a[1] : 0), 0) : 0);
+    const vi = st.viewer ?? 0;
+    const maxAge = Math.max(...ig.ages.map(a => a[1]));
+    const byKey = Object.fromEntries(d.facts.filter(f => f[1] && f[1].length));
+    if (!byKey['Creator type'] && d.type) byKey['Creator type'] = [d.type];
+    if (d.openTo && d.openTo.length) byKey['Open to'] = d.openTo;
+    const order = ['Categories', 'Creator type', 'Appearance', 'Occupation', 'Open to', 'Languages', 'On-location shoots'];
+    const rows = [{ k: 'Bio', v: d.bio, isText: true, isChips: false, vals: [], hasNote: false, bt: '0' },
+      ...order.filter(k => byKey[k]).map(k => {
+        const loc = k === 'On-location shoots', yes = loc && !/not/i.test(byKey[k][0]);
+        return { k: LABEL[k] || k, vals: byKey[k], isText: false, isChips: true, icon: icon(ICON_OF[k] || 'tag', '#8A8A8A'), bt: '1px solid #EFEFED',
+          hasNote: loc, note: yes ? '● AVAILABLE FOR SHOOTS' : '● NOT AVAILABLE', noteFg: yes ? '#16A06A' : '#9A9A9A' };
+      })];
+    const placeList = (st.place === 'Countries' ? ig.countries : ig.cities).filter(r => r[1] > 0);
+    return {
+      c: d, pkg: p, priceFmt: fmt(p.price), totalFmt: fmt(total),
+      heroImg: d.intro ? d.intro.img : d.av, heroDur: d.intro ? d.intro.dur : '',
+      bookmark: bm(st.saved ? '#E8384F' : 'none', st.saved ? '#E8384F' : '#141414'), saveBg: st.saved ? '#FFE8EC' : 'rgba(255,255,255,.8)',
+      toggleSaveStop: e => { e.stopPropagation(); set({ saved: !st.saved }); },
+      catDots: d.cats.map((k, i) => ({ l: k[0], bg: (TAG[k] || ['#ddd'])[0], fg: (TAG[k] || [0, '#141414'])[1], ml: i ? '-8px' : '0' })),
+      catsInline: d.cats.join(' · '),
+      stats: [showAud && [ig.followers, 'followers'], [p.delivery, 'delivery'], [p.revisions + ' revisions', p.length + ' video']].filter(Boolean).map((s, i) => ({ v: s[0], k: s[1], bl: i ? '1px solid #DCDCDA' : '0' })),
+      book: () => this.book(),
+      hasWork: works.length > 0, works, workCount: works.length + (works.length === 1 ? ' reel' : ' reels'),
+      openWork: e => set({ viewer: +e.currentTarget.dataset.i }),
+      rows,
+      hasAud: showAud,
+      audStats: [[ig.followers, 'Followers'], [ig.reach, 'Reach'], [ig.views, 'Profile views'], [ig.ages.find(a => a[1] === maxAge)[0], 'Largest age group']].map((s, i) => ({ v: s[0], k: s[1], bl: i ? '1px solid #EFEFED' : '0', ml: i ? '0' : '-22px' })),
+      ages: ig.ages.map(a => ({ k: a[0], v: a[1], w: on ? Math.max(a[1] / maxAge * 100, 2) + '%' : '0%', col: a[1] === maxAge ? '#E8384F' : '#F6C9D2', fw: a[1] === maxAge ? 800 : 600 })),
+      gender: ig.gender.slice().sort((a, b) => b[1] - a[1]).map((g, i) => ({ k: g[0], v: g[1], col: ['#E8384F', '#141414', '#C8C8C6'][i], w: on ? g[1] + '%' : '0%' })),
+      placeTabs: ['Cities', 'Countries'].map(k => ({ k, bg: st.place === k ? '#fff' : 'transparent', fg: st.place === k ? '#141414' : '#8A8A8A', sh: st.place === k ? '0 1px 3px rgba(0,0,0,.1)' : 'none' })),
+      pickPlace: e => set({ place: e.currentTarget.dataset.p }),
+      places: placeList.map((r, i) => ({ n: i + 1, k: r[0], v: r[1], bt: i ? '1px solid #F2F2F0' : '0', nc: i === 0 ? '#E8384F' : '#9A9A9A' })),
+      terms: [['Delivery', p.delivery], ['Length', p.length + ' video'], ['Revisions', p.revisions]].map((t, i) => ({ k: t[0], v: t[1], bl: i ? '1px solid #EFEFED' : '0' })),
+      asidePos: st.narrow ? 'relative' : 'sticky', cardBd: st.flash ? '#E8384F' : 'transparent',
+      hasAddons: showAddons,
+      addons: d.addons.map((a, i) => { const s = !!st.addons[i]; return { i, k: a[0], p: fmt(a[1]), tick: s ? '✓' : '', bd: s ? '#E8384F' : '#E6E6E4', bg: s ? '#FFF4F6' : '#fff', cbd: s ? '#E8384F' : '#CFCFCD', cbg: s ? '#E8384F' : '#fff' }; }),
+      toggleAddon: e => { const i = +e.currentTarget.dataset.i; set({ addons: { ...st.addons, [i]: !st.addons[i] } }); },
+      done: st.done, notDone: !st.done, submit: () => set({ done: true }), reset: () => set({ done: false, addons: {} }),
+      showBar: st.narrow && st.pastCta && st.viewer === null,
+      viewerOpen: st.viewer !== null, vw: media[vi] || media[0],
+      dots: media.map((m, i) => ({ bg: i <= vi ? '#fff' : 'rgba(255,255,255,.35)' })),
+      closeViewer: () => set({ viewer: null }),
+      prevWork: e => { e.stopPropagation(); set({ viewer: (vi - 1 + media.length) % media.length }); },
+      nextWork: e => { e.stopPropagation(); set({ viewer: (vi + 1) % media.length }); },
+      bookFromViewer: e => { e.stopPropagation(); this.book(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

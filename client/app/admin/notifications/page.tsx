@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, BellRing, FileText, ScrollText } from "lucide-react";
+import { Bell, BellRing, FileText, Megaphone, ScrollText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useNotificationEventsQuery } from "@/features/notifications/hooks/use-notifications";
@@ -14,7 +14,7 @@ export default function NotificationsHomePage() {
   const configured = events?.filter((e) => e.scheduleCount > 0).length ?? 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 p-6">
+    <div className="mx-auto max-w-[1440px] space-y-8 p-6">
       <header>
         <h1 className="text-2xl font-semibold">Notifications</h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -23,7 +23,7 @@ export default function NotificationsHomePage() {
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Link
           href="/admin/notifications/events"
           className="hover:border-primary rounded-lg border p-5 transition-colors"
@@ -52,6 +52,16 @@ export default function NotificationsHomePage() {
           <h2 className="font-medium">Browser notifications</h2>
           <p className="text-muted-foreground mt-1 text-sm">
             What each event looks like on a lock screen
+          </p>
+        </Link>
+        <Link
+          href="/admin/notifications/broadcasts"
+          className="hover:border-primary rounded-lg border p-5 transition-colors"
+        >
+          <Megaphone className="text-muted-foreground mb-2 h-5 w-5" />
+          <h2 className="font-medium">Broadcasts</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Announce something to every creator, brand or agency
           </p>
         </Link>
         <Link

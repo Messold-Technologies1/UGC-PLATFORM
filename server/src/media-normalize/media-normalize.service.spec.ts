@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { Readable } from 'node:stream';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -63,6 +64,10 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
   function build(row: { videoKey: string | null }) {
     let uploaded: Buffer | null = null;
     let uploadedKey: string | null = null;
+    // The service no longer buffers the source — it asks storage to stream the
+    // object onto disk — so the fake writes whatever `setSource` was given to
+    // the path the service picked.
+    let source: Buffer | null = null;
     const prismaMock = {
       creatorPortfolioVideo: {
         findUnique: jest
@@ -72,12 +77,21 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
       },
     };
     const storageMock = {
-      getObjectBuffer: jest.fn(),
-      putObjectBuffer: jest.fn((input: { key: string; body: Buffer }) => {
-        uploaded = input.body;
-        uploadedKey = input.key;
-        return Promise.resolve(input.key);
+      downloadToFile: jest.fn(async (_key: string, destPath: string) => {
+        if (!source) throw new Error('test did not call setSource()');
+        await writeFile(destPath, source);
       }),
+      uploadStream: jest.fn(
+        async (input: { key: string; body: Readable; contentType: string }) => {
+          const chunks: Buffer[] = [];
+          for await (const chunk of input.body) {
+            chunks.push(Buffer.from(chunk as Buffer));
+          }
+          uploaded = Buffer.concat(chunks);
+          uploadedKey = input.key;
+          return { key: input.key, bytes: uploaded.length };
+        },
+      ),
       buildCdnUrl: jest.fn((k: string) => `https://cdn.example/${k}`),
       deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
     };
@@ -92,6 +106,9 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
       prismaMock,
       storageMock,
       previewMock,
+      setSource(buf: Buffer) {
+        source = buf;
+      },
       get uploaded() {
         return uploaded;
       },
@@ -126,11 +143,11 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
     }
 
     const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mov' });
-    h.storageMock.getObjectBuffer.mockResolvedValue(sample);
+    h.setSource(sample);
 
     await h.service.normalizePortfolioVideo('v1');
 
-    expect(h.storageMock.putObjectBuffer).toHaveBeenCalledTimes(1);
+    expect(h.storageMock.uploadStream).toHaveBeenCalledTimes(1);
     const out = h.uploaded as unknown as Buffer;
     expect(out).toBeInstanceOf(Buffer);
 
@@ -198,12 +215,12 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
     }
 
     const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
-    h.storageMock.getObjectBuffer.mockResolvedValue(sample);
+    h.setSource(sample);
 
     await h.service.normalizePortfolioVideo('v1');
 
     // No re-encode / upload / delete — just a status flip to ready.
-    expect(h.storageMock.putObjectBuffer).not.toHaveBeenCalled();
+    expect(h.storageMock.uploadStream).not.toHaveBeenCalled();
     expect(h.storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
     expect(h.prismaMock.creatorPortfolioVideo.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -247,11 +264,11 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
     expect(srcAtoms.indexOf('moov')).toBeGreaterThan(srcAtoms.indexOf('mdat'));
 
     const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
-    h.storageMock.getObjectBuffer.mockResolvedValue(sample);
+    h.setSource(sample);
 
     await h.service.normalizePortfolioVideo('v1');
 
-    expect(h.storageMock.putObjectBuffer).toHaveBeenCalledTimes(1);
+    expect(h.storageMock.uploadStream).toHaveBeenCalledTimes(1);
     const out = h.uploaded as unknown as Buffer;
     const atoms = topLevelAtoms(out);
     expect(atoms.indexOf('moov')).toBeLessThan(atoms.indexOf('mdat'));
@@ -294,11 +311,11 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
     process.env.PORTFOLIO_MAX_HEIGHT = '720';
     try {
       const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
-      h.storageMock.getObjectBuffer.mockResolvedValue(sample);
+      h.setSource(sample);
 
       await h.service.normalizePortfolioVideo('v1');
 
-      expect(h.storageMock.putObjectBuffer).toHaveBeenCalledTimes(1);
+      expect(h.storageMock.uploadStream).toHaveBeenCalledTimes(1);
       const out = h.uploaded as unknown as Buffer;
       const dir = await mkdtemp(join(tmpdir(), 'mn-cap-'));
       const outPath = join(dir, 'out.mp4');

@@ -145,6 +145,14 @@ export class NotificationStepService {
     const recipients = Array.isArray(resolved) ? resolved : [resolved];
     if (recipients.length === 0) return this.skipAll(job, 'no_recipient');
 
+    // The job may narrow the row's channels — a broadcast run sends on the
+    // subset the admin ticked — but never widen them. The row is re-read at
+    // send time precisely so that switching a channel off stops jobs already
+    // in flight, and honouring the job's list outright would undo that.
+    const channels = job.channels?.length
+      ? row.channels.filter((c) => job.channels.includes(c))
+      : row.channels;
+
     const outcomes: StepOutcome[] = [];
     const failures: unknown[] = [];
 
@@ -165,13 +173,20 @@ export class NotificationStepService {
       // WhatsApp with it, and the comment above was simply untrue. Each channel
       // is tried now, and the failures are re-raised together once every channel
       // has had its turn.
-      for (const channel of row.channels) {
+      for (const channel of channels) {
         try {
           outcomes.push(
             await this.deliverChannel(job, channel, recipient, {
               alwaysSend: event.alwaysSend,
-              emailTemplateId: row.templateOverrideId ?? event.emailTemplateId,
+              // Job first, then the schedule row, then the event. Only a
+              // broadcast sets the job level, where the copy belongs to the
+              // run rather than to the standing audience.
+              emailTemplateId:
+                job.templateOverrideId ??
+                row.templateOverrideId ??
+                event.emailTemplateId,
               whatsappTemplateName:
+                job.whatsappTemplateOverride ??
                 row.whatsappTemplateOverride ??
                 event.whatsappTemplateName ??
                 defaultWhatsAppTemplateName(job.eventKey),

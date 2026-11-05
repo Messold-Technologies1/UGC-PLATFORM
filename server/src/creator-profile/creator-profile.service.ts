@@ -23,6 +23,7 @@ import type { CreateCreatorProfileAtSignupInput } from './dto/create-creator-pro
 import { CreatorPackageService } from '../creator-package/creator-package.service';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
+import { DEFAULT_PUBLIC_PAGE_TEMPLATE_ID } from './public-page-templates';
 import { StorageService } from '../storage/storage.service';
 import { PresignProfileIntroVideoUploadDto } from './dto/presign-profile-intro-video-upload.dto';
 import { PresignProfileImageUploadDto } from './dto/presign-profile-image-upload.dto';
@@ -140,6 +141,7 @@ const CREATOR_LIST_BASE_SELECT = {
   id: true,
   displayName: true,
   publicSlug: true,
+  publicPageTemplate: true,
   introVideoUrl: true,
   previewVideoUrl: true,
   profileImageUrl: true,
@@ -516,6 +518,8 @@ export class CreatorProfileService {
       userId: mapped.userId,
       displayName: mapped.displayName,
       publicSlug: mapped.publicSlug,
+      publicPageTemplate:
+        mapped.publicPageTemplate ?? DEFAULT_PUBLIC_PAGE_TEMPLATE_ID,
       phone: mapped.user?.phone ?? null,
       phoneVerified: mapped.user?.phoneVerified ?? false,
       phoneOtpLastStatus: mapped.user?.phoneOtpLastStatus ?? null,
@@ -3414,6 +3418,9 @@ export class CreatorProfileService {
           }
           if (dto.onLocationAvailable !== undefined) {
             data.onLocationAvailable = dto.onLocationAvailable;
+          }
+          if (dto.publicPageTemplate !== undefined) {
+            data.publicPageTemplate = dto.publicPageTemplate;
           }
           if (nextIntroVideoKey !== undefined) {
             data.introVideoKey = nextIntroVideoKey;

@@ -61,6 +61,16 @@ const satoshi = localFont({
   display: "swap",
 });
 
+// Figtree (SIL OFL) is the typeface the creator public-page templates are
+// designed in. Declared here so the variable exists app-wide, but applied only
+// by those templates via `font-figtree` — the rest of the app stays on Satoshi.
+const figtree = localFont({
+  src: "./fonts/Figtree-latin.woff2",
+  variable: "--font-figtree-face",
+  weight: "300 900",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Go Collab — Where Creators Meet Brands",
@@ -103,13 +113,42 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={satoshi.variable}
+      className={`${satoshi.variable} ${figtree.variable}`}
       suppressHydrationWarning
       data-scroll-behavior="smooth"
     >
+      <head>
+        {/* Google Tag Manager — must sit immediately after <head> */}
+        <Script
+          id="gtm-js"
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-P3WZFZL4"
+          strategy="beforeInteractive"
+        />
+        <Script
+          id="gtm-datalayer"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+`,
+          }}
+        />
+      </head>
       <body
         className="font-sans antialiased flex min-h-svh flex-col"
       >
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-P3WZFZL4"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+            title="Google Tag Manager"
+          />
+        </noscript>
         <Script
           id="ugc-theme-color-init"
           strategy="beforeInteractive"

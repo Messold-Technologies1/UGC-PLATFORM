@@ -20,6 +20,17 @@ async function bootstrap() {
     bufferLogs: true,
   });
 
+  // Behind nginx, every request arrives from 127.0.0.1. Without this, Express
+  // reports that as `req.ip` for everyone, so ThrottlerModule buckets the whole
+  // internet together — the 5-per-minute limit on the login route would lock
+  // out all users as soon as any one of them failed five times.
+  //
+  // `1`, not `true`: trust exactly one hop (our nginx) and read the address it
+  // appended to X-Forwarded-For. `true` trusts the leftmost value in a header
+  // the client controls, which lets anyone forge their source address and walk
+  // straight through the rate limiter.
+  app.set('trust proxy', 1);
+
   // Route every NestJS log (framework + all `Logger` calls, including the
   // [admin-action] audit lines) through the structured pino logger.
   app.useLogger(app.get(PinoLogger));

@@ -46,6 +46,16 @@ export type StepJobData = EventJobData & {
    */
   offsetMinutes: number;
   channels: NotificationChannel[];
+  /**
+   * Copy chosen for this job rather than for the event, used by broadcasts:
+   * the audience is standing, the announcement is not, so the template belongs
+   * to the run.
+   *
+   * Takes precedence over the schedule row and the event. Absent on every
+   * emitted event, which keeps reading its copy from the row as before.
+   */
+  templateOverrideId?: string | null;
+  whatsappTemplateOverride?: string | null;
 };
 
 /**

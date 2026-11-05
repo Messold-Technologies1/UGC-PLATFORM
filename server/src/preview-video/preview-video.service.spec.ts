@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { Readable } from 'node:stream';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -68,8 +69,8 @@ describe('PreviewVideoService', () => {
       },
     };
     const storageMock = {
-      getObjectBuffer: jest.fn().mockResolvedValue(Buffer.from('x')),
-      putObjectBuffer: jest.fn().mockResolvedValue('k'),
+      downloadToFile: jest.fn().mockResolvedValue(undefined),
+      uploadStream: jest.fn().mockResolvedValue({ key: 'k', bytes: 1 }),
       buildCdnUrl: jest.fn((k: string) => `https://cdn.example/${k}`),
       deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
     };
@@ -122,7 +123,7 @@ describe('PreviewVideoService', () => {
 
       await service.generateForCreator('creator-1');
 
-      expect(storageMock.getObjectBuffer).not.toHaveBeenCalled();
+      expect(storageMock.downloadToFile).not.toHaveBeenCalled();
       expect(prismaMock.creatorProfile.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -149,8 +150,8 @@ describe('PreviewVideoService', () => {
       await service.generateForCreator('creator-1');
 
       // No download / encode / upload — just a status refresh.
-      expect(storageMock.getObjectBuffer).not.toHaveBeenCalled();
-      expect(storageMock.putObjectBuffer).not.toHaveBeenCalled();
+      expect(storageMock.downloadToFile).not.toHaveBeenCalled();
+      expect(storageMock.uploadStream).not.toHaveBeenCalled();
       expect(prismaMock.creatorProfile.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ previewVideoStatus: 'ready' }),
@@ -205,6 +206,9 @@ describe('PreviewVideoService', () => {
         console.warn('ffmpeg unavailable — skipping real-encode test');
         return;
       }
+      // Pinned to a const so the guard above narrows inside the async mock
+      // below — `sample` is an outer `let` and TS cannot keep the narrowing.
+      const sourceBytes = sample;
 
       const profileRow = {
         id: 'creator-1',
@@ -221,10 +225,19 @@ describe('PreviewVideoService', () => {
         creatorPortfolioVideo: { findFirst: jest.fn() },
       };
       const storageMock = {
-        getObjectBuffer: jest.fn().mockResolvedValue(sample),
-        putObjectBuffer: jest.fn((input: { body: Buffer }) => {
-          uploaded = input.body;
-          return Promise.resolve('k');
+        // Streams in and out now: write the sample to the path the service
+        // chose, and drain the read stream it hands back so the assertions
+        // below can still inspect the encoded bytes.
+        downloadToFile: jest.fn(async (_key: string, destPath: string) => {
+          await writeFile(destPath, sourceBytes);
+        }),
+        uploadStream: jest.fn(async (input: { key: string; body: Readable }) => {
+          const chunks: Buffer[] = [];
+          for await (const chunk of input.body) {
+            chunks.push(Buffer.from(chunk as Buffer));
+          }
+          uploaded = Buffer.concat(chunks);
+          return { key: input.key, bytes: uploaded.length };
         }),
         buildCdnUrl: jest.fn((k: string) => `https://cdn.example/${k}`),
         deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
@@ -236,7 +249,7 @@ describe('PreviewVideoService', () => {
 
       await service.generateForCreator('creator-1');
 
-      expect(storageMock.putObjectBuffer).toHaveBeenCalledTimes(1);
+      expect(storageMock.uploadStream).toHaveBeenCalledTimes(1);
       expect(uploaded).toBeInstanceOf(Buffer);
       const out = uploaded as unknown as Buffer;
 

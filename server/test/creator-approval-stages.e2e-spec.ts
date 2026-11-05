@@ -203,6 +203,7 @@ describe('Creator approval stages without the shortlist (e2e)', () => {
               {} as never,
               {} as never,
               {} as never,
+              {} as never,
               {} as never),
           inject: [PrismaService],
         },

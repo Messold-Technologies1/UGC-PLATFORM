@@ -16,6 +16,7 @@ import {
 import { useNotificationLogsQuery } from "@/features/notifications/hooks/use-notifications";
 import { useNotificationLogFeed } from "@/features/notifications/hooks/use-notification-log-feed";
 import { NotificationsBackLink } from "@/features/notifications/components/back-link";
+import { describeSkipReason } from "@/features/notifications/lib/skip-reasons";
 import {
   formatOffset,
   type NotificationLogStatus,
@@ -224,9 +225,7 @@ export default function NotificationLogsPage() {
                   </td>
                   <td className="text-muted-foreground max-w-xs p-3 text-xs">
                     {row.skippedReason && (
-                      <span className="block">
-                        Skipped: {row.skippedReason.replace(/_/g, " ")}
-                      </span>
+                      <SkipReason reason={row.skippedReason} />
                     )}
                     {row.errorMessage && (
                       // Clamped, with the whole thing on hover. A provider
@@ -303,5 +302,35 @@ export default function NotificationLogsPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A skipped row, explained.
+ *
+ * The reason is worth a sentence rather than a slug: most skips are the engine
+ * behaving correctly (the reminder was no longer needed, the recipient opted
+ * out) and look identical to the two that are not — a schedule row pulled out
+ * from under a queued job, or a record the worker could not read.
+ */
+function SkipReason({ reason }: { reason: string }) {
+  const { label, detail, tone } = describeSkipReason(reason);
+  return (
+    <span className="block">
+      <span
+        className={
+          tone === "attention"
+            ? "font-medium text-amber-700"
+            : tone === "contact"
+              ? "font-medium text-foreground"
+              : "font-medium"
+        }
+      >
+        {label}
+      </span>
+      {detail && (
+        <span className="text-muted-foreground mt-0.5 block">{detail}</span>
+      )}
+    </span>
   );
 }

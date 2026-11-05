@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
@@ -340,9 +341,9 @@ export class WatermarkService {
   private async buildPreviewForAsset(
     asset: StoredDeliveryAsset,
   ): Promise<{ previewKey: string; previewUrl: string }> {
-    const source = await this.storage.getObjectBuffer(asset.key);
-
     if (asset.kind === 'image') {
+      // Images are small enough to buffer; sharp wants a buffer anyway.
+      const source = await this.storage.getObjectBuffer(asset.key);
       const out = await this.watermarkImage(source);
       const previewKey = this.storage.buildDeliveryPreviewKey(asset.key);
       await this.storage.putObjectBuffer({
@@ -354,13 +355,11 @@ export class WatermarkService {
     }
 
     // video — normalize the preview container to mp4/H.264 for broad playback.
-    const out = await this.watermarkVideo(source, asset.key);
+    // Never buffered: the source streams S3 → disk and the result streams
+    // disk → S3, so a 500 MiB delivery costs no resident memory beyond
+    // ffmpeg's own frame buffers.
     const previewKey = this.storage.buildDeliveryPreviewKey(asset.key, 'mp4');
-    await this.storage.putObjectBuffer({
-      key: previewKey,
-      body: out,
-      contentType: 'video/mp4',
-    });
+    await this.watermarkVideo(asset.key, previewKey);
     return { previewKey, previewUrl: this.storage.buildCdnUrl(previewKey) };
   }
 
@@ -398,17 +397,24 @@ export class WatermarkService {
       .toBuffer();
   }
 
+  /**
+   * Watermarks the video at `sourceKey` and uploads the result to `previewKey`.
+   *
+   * Download and upload both stream, and the upload happens inside the same
+   * `try` as the encode so the temp directory still exists while it runs — the
+   * `finally` must not delete `outPath` out from under an in-flight multipart.
+   */
   private async watermarkVideo(
-    source: Buffer,
     sourceKey: string,
-  ): Promise<Buffer> {
+    previewKey: string,
+  ): Promise<void> {
     const dir = await mkdtemp(join(tmpdir(), 'wm-'));
     const srcExt = sourceKey.split('.').pop()?.toLowerCase() || 'mp4';
     const inPath = join(dir, `in.${srcExt}`);
     const wmPath = join(dir, 'wm.png');
     const outPath = join(dir, 'out.mp4');
     try {
-      await writeFile(inPath, source);
+      await this.storage.downloadToFile(sourceKey, inPath);
       // Square watermark canvas; scale2ref (no w/h args) stretches it to the
       // video's actual dimensions so the tiled text covers the whole frame,
       // whether the video is landscape or a vertical reel.
@@ -504,7 +510,11 @@ export class WatermarkService {
       ]);
       assertEncodedVideoFrames(stderr);
 
-      return await readFile(outPath);
+      await this.storage.uploadStream({
+        key: previewKey,
+        body: createReadStream(outPath),
+        contentType: 'video/mp4',
+      });
     } finally {
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     }

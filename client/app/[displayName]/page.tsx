@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchPublicPortfolioVideosByCreatorIdServer } from "@/features/creator-portfolio/api/fetch-public-portfolio-videos.server";
 import { fetchCreatorProfileByPublicSlug } from "@/features/creators/api/fetch-creator-profile-by-slug";
-import { PublicCreatorProfile } from "@/features/creators/components/public-creator-profile/public-creator-profile";
+import { PublicProfileTemplateHost } from "@/features/creators/components/public-creator-profile/templates/public-profile-template-host";
 
 // Auth-aware (owner can view pending profile); never statically cache this route.
 export const dynamic = "force-dynamic";
@@ -74,7 +74,7 @@ export default async function PublicCreatorProfileByDisplayNamePage({
   );
 
   return (
-    <PublicCreatorProfile
+    <PublicProfileTemplateHost
       profile={result.profile}
       initialPortfolioVideos={portfolioVideos}
     />

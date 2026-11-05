@@ -1,0 +1,159 @@
+name: Deploy client
+
+# The frontend half of the pipeline. Same shape as deploy-server.yml: build on
+# the runner, drop the artifact in S3, then ask SSM to run the install script on
+# the instance. No SSH, no inbound ports, no stored AWS keys.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'client/**'
+      - '.github/workflows/deploy-client.yml'
+  workflow_dispatch:
+
+# Shared with deploy-server.yml on purpose. Both deploys touch the same PM2
+# daemon on the same box, so they queue instead of racing each other.
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  ARTIFACT_BUCKET: gocollab-deploy-artifacts-285870986713-ap-south-1-an
+  INSTANCE_ID: i-0e294f7bf8cb6bb83
+  NODE_VERSION: '22'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        # .env.production is sourced into the real process environment rather
+        # than left for Next to discover. Next does normally load that file, but
+        # process env takes precedence over every .env file and is visible in
+        # the log below — so a build can never silently fall back to the
+        # localhost defaults in lib/env.ts, which is what shipped once already.
+        #
+        # Nothing secret is involved: every NEXT_PUBLIC_ value is compiled into
+        # the bundle browsers download, which is why they live in the repo.
+        run: |
+          set -a
+          . ./.env.production
+          set +a
+          echo "building with:"
+          grep -E '^NEXT_PUBLIC_' .env.production | sed 's/^/  /'
+          npm run build
+
+      - name: Assert the production URLs were compiled in
+        # The failure this catches is silent: the site boots, serves 200s and
+        # looks correct, while share links point at localhost and the realtime
+        # socket dials a host that is not there. Cheaper to fail the build.
+        run: |
+          if grep -rq 'localhost:3000\|localhost:4000' .next/static/chunks/ 2>/dev/null; then
+            echo "::error::localhost is baked into the bundle - .env.production was not applied"
+            exit 1
+          fi
+          grep -rq 'gocollab\.io' .next/static/chunks/ \
+            || { echo "::error::no production URL found in the bundle"; exit 1; }
+          echo "production URLs compiled in, no localhost fallbacks"
+
+      - name: Package
+        # Next leaves public/ and .next/static/ out of the standalone folder on
+        # the assumption a CDN serves them. Copy them in, or the site boots and
+        # answers 200 while rendering with no CSS and no images.
+        run: |
+          test -f .next/standalone/server.js \
+            || { echo "no standalone output — is output: 'standalone' set in next.config.ts?"; exit 1; }
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
+          cp ecosystem.config.js .next/standalone/ecosystem.config.js
+          tar -czf "/tmp/${GITHUB_SHA}.tar.gz" -C .next/standalone .
+          ls -lh "/tmp/${GITHUB_SHA}.tar.gz"
+
+      - name: Assert the artifact is complete
+        run: |
+          for path in server.js ecosystem.config.js .next/static public; do
+            tar -tzf "/tmp/${GITHUB_SHA}.tar.gz" "./$path" > /dev/null 2>&1 \
+              || { echo "artifact is missing $path"; exit 1; }
+          done
+          echo "artifact contains server.js, ecosystem.config.js, .next/static and public"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload artifact
+        run: |
+          aws s3 cp "/tmp/${GITHUB_SHA}.tar.gz" \
+            "s3://${ARTIFACT_BUCKET}/client/${GITHUB_SHA}.tar.gz" --only-show-errors
+          aws s3 cp deploy-client.sh \
+            "s3://${ARTIFACT_BUCKET}/client/${GITHUB_SHA}.deploy.sh" --only-show-errors
+
+      - name: Deploy via SSM
+        run: |
+          SCRIPT=$(cat <<EOF
+          set -euo pipefail
+          aws s3 cp s3://${ARTIFACT_BUCKET}/client/${GITHUB_SHA}.deploy.sh /tmp/deploy-client-${GITHUB_SHA}.sh --only-show-errors
+          chmod +x /tmp/deploy-client-${GITHUB_SHA}.sh
+          chown ec2-user /tmp/deploy-client-${GITHUB_SHA}.sh
+          runuser -l ec2-user -c "/tmp/deploy-client-${GITHUB_SHA}.sh s3://${ARTIFACT_BUCKET}/client/${GITHUB_SHA}.tar.gz"
+          rm -f /tmp/deploy-client-${GITHUB_SHA}.sh
+          EOF
+          )
+
+          # Built as a JSON file rather than --parameters shorthand: the
+          # shorthand parser splits on commas and cannot carry a script.
+          jq -n --arg s "$SCRIPT" '{commands: [$s], executionTimeout: ["900"]}' > /tmp/ssm-client-params.json
+
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy client ${GITHUB_SHA::7}" \
+            --timeout-seconds 900 \
+            --parameters file:///tmp/ssm-client-params.json \
+            --query 'Command.CommandId' --output text)
+          echo "SSM command: $CMD_ID"
+
+          for _ in $(seq 1 180); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query 'Status' --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 5
+          done
+
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::client deploy finished as $STATUS"
+            aws ssm get-command-invocation \
+              --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query 'StandardErrorContent' --output text
+            exit 1
+          fi

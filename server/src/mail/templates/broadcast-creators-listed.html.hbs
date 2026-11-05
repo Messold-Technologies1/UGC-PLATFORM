@@ -1,0 +1,12 @@
+{{!-- context: recipientName, platformName, actionUrl --}}
+{{!-- Placeholder announcement copy. An admin replaces this in
+     Admin → Notifications → Templates before running a broadcast. --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+<p style="margin:0 0 16px;font-size:22px;font-weight:800;line-height:1.3;color:#111827;letter-spacing:-0.02em;">We have something to share.</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  This is placeholder copy. Edit this template in Admin → Notifications → Templates to say what the announcement is, then send it from Admin → Notifications → Broadcasts.
+</p>
+<div style="margin:0 0 24px;">
+  {{> actionButton url=actionUrl label="Open to my {{platformName}} dashboard →"}}
+</div>
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— The {{platformName}} team 🚀</p>

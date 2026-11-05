@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Self-hosted on EC2 behind nginx, not on Vercel. `standalone` emits
+  // .next/standalone with only the packages actually reached at runtime, so a
+  // deploy ships tens of MB instead of the whole node_modules tree.
+  // Note: `public/` and `.next/static/` are deliberately NOT copied in by Next
+  // (they are meant to be served from a CDN), so the deploy has to copy them
+  // alongside — without that the site renders with no CSS and no images.
+  output: 'standalone',
   poweredByHeader: false,
   reactStrictMode: true,
   experimental: {
@@ -70,6 +77,17 @@ const nextConfig: NextConfig = {
             value: "camera=(), microphone=(self), geolocation=()",
           },
         ],
+      },
+      {
+        // The public-page design picker embeds this preview in an iframe so a
+        // creator can try a template before applying it. The global DENY above
+        // blocks framing outright — including same-origin — so this one route
+        // relaxes to SAMEORIGIN. It stays behind the creator auth middleware
+        // and only ever renders the creator's own already-public profile, so
+        // the window this opens is same-origin framing of public content.
+        // Listed after the catch-all: for a repeated key, the later rule wins.
+        source: "/creator/public-page-preview",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
       },
     ];
   },

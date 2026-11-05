@@ -12,6 +12,9 @@ import type {
   SaveTemplateInput,
   ScheduleRow,
   SweepResult,
+  BroadcastAudienceInfo,
+  BroadcastRun,
+  SendBroadcastInput,
   TemplateDraft,
   TemplatePreview,
   TemplateVersion,
@@ -219,5 +222,26 @@ export async function savePushCopy(
     ENDPOINTS.ADMIN.NOTIFICATIONS.PUSH_TEMPLATE(id),
     input,
   );
+  return data;
+}
+
+export async function fetchBroadcastAudiences(): Promise<
+  BroadcastAudienceInfo[]
+> {
+  const { data } = await api.get<BroadcastAudienceInfo[]>(
+    N.BROADCAST_AUDIENCES,
+  );
+  return data;
+}
+
+export async function fetchBroadcasts(): Promise<BroadcastRun[]> {
+  const { data } = await api.get<BroadcastRun[]>(N.BROADCASTS);
+  return data;
+}
+
+export async function sendBroadcast(
+  payload: SendBroadcastInput,
+): Promise<BroadcastRun> {
+  const { data } = await api.post<BroadcastRun>(N.BROADCASTS, payload);
   return data;
 }

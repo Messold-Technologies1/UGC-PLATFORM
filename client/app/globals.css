@@ -91,6 +91,8 @@ html {
   --font-sans: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
+  /* Creator public-page templates (v1-v8) are designed in Figtree. */
+  --font-figtree: var(--font-figtree-face), ui-sans-serif, system-ui, sans-serif;
   --container-site: 1440px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -131,6 +133,44 @@ html {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* ---- Creator public page (gc-*) --------------------------------------
+   * Shared palette and radii for the public-profile templates. The eight
+   * designs use one palette; defining it once keeps templates free of
+   * hardcoded hex and arbitrary radius values.
+   * -------------------------------------------------------------------- */
+  --color-gc-brand: #e8384f;
+  --color-gc-brand-hover: #d42b42;
+  --color-gc-brand-soft: #ffe3ea;
+  --color-gc-brand-muted: #f6c9d2;
+  --color-gc-ink: #16161a;
+  --color-gc-ink-soft: #2e2c33;
+  --color-gc-ink-muted: #4a474f;
+  --color-gc-muted: #5e5a63;
+  --color-gc-muted-soft: #6b6870;
+  --color-gc-muted-faint: #8a8a8a;
+  --color-gc-surface: #f6f4f5;
+  --color-gc-surface-alt: #f1eef2;
+  --color-gc-line: #eeecef;
+  --color-gc-line-soft: #f0eef1;
+  --color-gc-success: #16b26b;
+  --color-gc-success-soft: #e9f8f0;
+  --color-gc-success-ink: #0e7a46;
+  /* Niche tints, used for category pills across templates. */
+  --color-gc-tint-rose: #ffe3ea;
+  --color-gc-tint-rose-ink: #c9283f;
+  --color-gc-tint-mint: #ddf5e8;
+  --color-gc-tint-mint-ink: #0e7a46;
+  --color-gc-tint-violet: #ede4fd;
+  --color-gc-tint-violet-ink: #6b34c4;
+  --color-gc-tint-sky: #e1edfd;
+  --color-gc-tint-sky-ink: #1f5fc2;
+  --color-gc-tint-amber: #ffebd6;
+  --color-gc-tint-amber-ink: #d9822b;
+  --radius-gc-sm: 16px;
+  --radius-gc-md: 20px;
+  --radius-gc-lg: 28px;
+  --radius-gc-xl: 30px;
+  --radius-gc-2xl: 34px;
   --animate-accordion-down: accordion-down 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   --animate-accordion-up: accordion-up 0.16s cubic-bezier(0.4, 0, 1, 1);
   --animate-select-content-in: select-content-in 0.28s

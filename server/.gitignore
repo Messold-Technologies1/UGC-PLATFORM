@@ -3,3 +3,7 @@ node_modules
 .env
 
 /generated/prisma
+
+# Output of the phone audit / repair scripts (contains personal data).
+phone-audit-*.csv
+phone-repair-*.csv

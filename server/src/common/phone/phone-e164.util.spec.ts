@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 
 import {
+  classifyPhoneRepair,
   IsE164Phone,
   isCanonicalE164,
   isValidE164,
@@ -100,5 +101,57 @@ describe('DTO decorators', () => {
     const dto = build('not a phone');
     expect(validateSync(dto)).toHaveLength(1);
     expect(dto.phone).toBe('not a phone');
+  });
+});
+
+describe('classifyPhoneRepair', () => {
+  // Synthetic numbers throughout. Real values from the production audit are
+  // personal data and do not belong in the repository.
+
+  it('leaves an already-canonical number alone', () => {
+    expect(classifyPhoneRepair('+919876543210')).toEqual({
+      kind: 'canonical',
+      to: '+919876543210',
+    });
+  });
+
+  it('normalizes a national trunk prefix with no inference', () => {
+    expect(classifyPhoneRepair('+9109876543210')).toEqual({
+      kind: 'normalized',
+      to: '+919876543210',
+    });
+  });
+
+  it('normalizes formatting noise', () => {
+    expect(classifyPhoneRepair('+91 98765-43210')).toEqual({
+      kind: 'normalized',
+      to: '+919876543210',
+    });
+  });
+
+  it('recovers a country code that was entered twice', () => {
+    expect(classifyPhoneRepair('+91919876543210')).toEqual({
+      kind: 'recovered',
+      to: '+919876543210',
+    });
+  });
+
+  it('never shortens a number that is already valid', () => {
+    // The safety property behind the `recovered` rule. These digits do begin
+    // with 91 twice, but the value parses as a real number, so it must come
+    // back untouched rather than be cut down.
+    expect(classifyPhoneRepair('+919198765432')).toEqual({
+      kind: 'canonical',
+      to: '+919198765432',
+    });
+  });
+
+  it('gives up on numbers no rule can interpret', () => {
+    for (const junk of ['+919999999', '+9143434343', '+1']) {
+      expect(classifyPhoneRepair(junk)).toEqual({
+        kind: 'unrecoverable',
+        to: null,
+      });
+    }
   });
 });

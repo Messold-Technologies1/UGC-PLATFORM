@@ -71,6 +71,64 @@ export function isCanonicalE164(raw: unknown): boolean {
 }
 
 /**
+ * What can be done with a stored number that is not canonical E.164.
+ *
+ * - `canonical`     already correct; nothing to do.
+ * - `normalized`    libphonenumber parses it as a real number, we just store
+ *                   a non-canonical spelling of it (a national trunk prefix,
+ *                   spaces, dashes). Zero inference: the canonical form is the
+ *                   same number.
+ * - `recovered`     the stored value is NOT dialable, but it is a dialable
+ *                   number with its country code typed twice — `+91` followed
+ *                   by `91` and the ten real digits, which is what happens when
+ *                   someone pastes a full international number into a field
+ *                   that already has the country selected. Dropping the
+ *                   repeat yields a valid number. Some inference, so callers
+ *                   are expected to treat this class separately.
+ * - `unrecoverable` not a number and not repairable by any rule here. Too
+ *                   short, impossible range, digits nobody can interpret. Needs
+ *                   a human to ask its owner.
+ */
+export type PhoneRepairKind =
+  | 'canonical'
+  | 'normalized'
+  | 'recovered'
+  | 'unrecoverable';
+
+export type PhoneRepair = {
+  kind: PhoneRepairKind;
+  /** The value to store. Null when nothing can be stored with confidence. */
+  to: string | null;
+};
+
+/**
+ * Decide what, if anything, a stored phone number should become.
+ *
+ * The `recovered` rule is only ever attempted on a value that is **already
+ * invalid**. That is the safety property that makes it sound: a number which
+ * genuinely begins with a repeat of its own country code parses as valid and
+ * is returned as `canonical` or `normalized` long before the repeat is
+ * considered, so a real number can never be shortened by this.
+ */
+export function classifyPhoneRepair(stored: string): PhoneRepair {
+  const canonical = normalizeE164(stored);
+  if (canonical === stored) return { kind: 'canonical', to: stored };
+  if (canonical !== null) return { kind: 'normalized', to: canonical };
+
+  // Invalid. Try dropping a country code that was entered twice.
+  const digits = stored.replace(/\D/g, '');
+  for (let ccLength = 1; ccLength <= 3; ccLength += 1) {
+    const cc = digits.slice(0, ccLength);
+    const rest = digits.slice(ccLength);
+    if (!cc || !rest.startsWith(cc)) continue;
+    const candidate = normalizeE164(`+${rest}`);
+    if (candidate) return { kind: 'recovered', to: candidate };
+  }
+
+  return { kind: 'unrecoverable', to: null };
+}
+
+/**
  * Property validator for DTOs. Pair it with {@link NormalizeE164Phone} so the
  * value is canonicalized before it is checked — otherwise a repairable number
  * passes validation and is then persisted in its original, broken form.

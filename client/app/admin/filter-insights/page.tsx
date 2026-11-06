@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useCreatorSearchAnalyticsQuery } from "@/features/admin/creator-search/use-creator-search-analytics";
 import { filterLabel, type SearchAudience } from "@/features/admin/creator-search/types";
-import { BrandFilterUsageDialog } from "@/features/admin/creator-search/brand-filter-usage-dialog";
+import { ActorFilterUsageDialog } from "@/features/admin/creator-search/actor-filter-usage-dialog";
 
 const RANGE_OPTIONS = [
   { value: "7", label: "Last 7 days" },
@@ -76,7 +76,7 @@ function StatCard({
 export default function FilterInsightsPage() {
   const [range, setRange] = useState<string>("30");
   const [audience, setAudience] = useState<string>("ALL");
-  const [brandsOpen, setBrandsOpen] = useState(false);
+  const [actorsOpen, setActorsOpen] = useState(false);
 
   const params = useMemo(() => {
     const to = new Date();
@@ -189,9 +189,9 @@ export default function FilterInsightsPage() {
                   .map((a) => `${a.audience.toLowerCase()} ${a.searches}`)
                   .join(" · ") || "—"
               }
-              hint="Brands sign in; guests are signed-out visitors. Open for the per-brand breakdown."
+              hint="Brands and agencies sign in; guests are signed-out visitors. Open for the breakdown by name."
               icon={<Users className="size-3.5" />}
-              onClick={() => setBrandsOpen(true)}
+              onClick={() => setActorsOpen(true)}
             />
           </div>
 
@@ -297,9 +297,9 @@ export default function FilterInsightsPage() {
         </div>
       )}
 
-      <BrandFilterUsageDialog
-        open={brandsOpen}
-        onOpenChange={setBrandsOpen}
+      <ActorFilterUsageDialog
+        open={actorsOpen}
+        onOpenChange={setActorsOpen}
         params={{ from: params.from, to: params.to }}
       />
     </div>

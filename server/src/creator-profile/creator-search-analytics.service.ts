@@ -89,10 +89,14 @@ export type FilterUsageRow = {
   topValues: { value: string; searches: number }[];
 };
 
-export type BrandSearchRow = {
-  brandProfileId: string;
-  /** brandName, falling back to the contact email, then a short id. */
-  brandLabel: string;
+export type ActorSearchRow = {
+  /** The agency's id when an agency searched, otherwise the brand profile's. */
+  actorId: string;
+  kind: 'BRAND' | 'AGENCY';
+  /** The agency's or brand's own name, with name-shaped fallbacks. */
+  label: string;
+  /** For an agency: the brands it was acting for, by name. */
+  onBehalfOf: string[];
   searches: number;
   zeroResultSearches: number;
   lastSearchedAt: string;
@@ -149,6 +153,7 @@ export class CreatorSearchAnalyticsService {
           data: {
             actorUserId: input.actorUserId,
             brandProfileId: actor.brandProfileId,
+            agencyId: actor.agencyId,
             audience: actor.audience,
             filters: filters as Prisma.InputJsonValue,
             filterKeys: Object.keys(filters),
@@ -173,9 +178,13 @@ export class CreatorSearchAnalyticsService {
   private async resolveActor(
     actorUserId: string | null,
     activeBrandProfileId: string | null,
-  ): Promise<{ audience: SearchAudience; brandProfileId: string | null }> {
+  ): Promise<{
+    audience: SearchAudience;
+    brandProfileId: string | null;
+    agencyId: string | null;
+  }> {
     if (!actorUserId) {
-      return { audience: 'GUEST', brandProfileId: null };
+      return { audience: 'GUEST', brandProfileId: null, agencyId: null };
     }
 
     const user = await this.prisma.user.findUnique({
@@ -184,6 +193,7 @@ export class CreatorSearchAnalyticsService {
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
         brandProfile: { select: { id: true } },
+        ownedAgency: { select: { id: true } },
       },
     });
 
@@ -202,6 +212,9 @@ export class CreatorSearchAnalyticsService {
     return {
       audience,
       brandProfileId: activeBrandProfileId ?? user?.brandProfile?.id ?? null,
+      // Recorded whether or not the agency switched into a brand, so it is
+      // never invisible in the breakdown.
+      agencyId: user?.ownedAgency?.id ?? null,
     };
   }
 
@@ -332,21 +345,27 @@ export class CreatorSearchAnalyticsService {
   }
 
   /**
-   * Which brand used which filter.
+   * Which brand or agency used which filter.
    *
-   * Only rows that carry a brand: a signed-out visitor has no brandProfileId,
-   * and those are the majority of searches, so they would otherwise collapse
-   * into one meaningless "unknown" bucket.
+   * An agency is its own row, named after the agency, whether or not it had
+   * switched into a brand — the brands it was acting for are listed beside it.
+   * Grouping it under the brand instead would make an agency's work look like
+   * the brand's own, and an agency browsing its own workspace has no brand at
+   * all and would disappear.
+   *
+   * Signed-out visitors are excluded: they carry neither id, and on current
+   * traffic they are the majority, so they would collapse into one meaningless
+   * "unknown" row.
    *
    * Folded in memory for the same reason as `summary`: the per-value detail
    * lives inside the stored JSON payload, which no portable SQL aggregate can
    * unpack.
    */
-  async brandBreakdown(params: {
+  async actorBreakdown(params: {
     from?: Date;
     to?: Date;
     limit?: number;
-  }): Promise<BrandSearchRow[]> {
+  }): Promise<ActorSearchRow[]> {
     const to = params.to ?? new Date();
     const from =
       params.from ?? new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -355,10 +374,11 @@ export class CreatorSearchAnalyticsService {
     const events = await this.prisma.creatorSearchEvent.findMany({
       where: {
         createdAt: { gte: from, lte: to },
-        brandProfileId: { not: null },
+        OR: [{ brandProfileId: { not: null } }, { agencyId: { not: null } }],
       },
       select: {
         brandProfileId: true,
+        agencyId: true,
         filterKeys: true,
         filters: true,
         resultCount: true,
@@ -369,33 +389,48 @@ export class CreatorSearchAnalyticsService {
     });
 
     type Acc = {
+      kind: 'BRAND' | 'AGENCY';
       searches: number;
       zeroResultSearches: number;
       lastSearchedAt: Date;
       keys: Map<string, number>;
       values: Map<string, Set<string>>;
+      brandIds: Set<string>;
     };
-    const byBrand = new Map<string, Acc>();
+    const byActor = new Map<string, Acc>();
+    const brandIdsToName = new Set<string>();
+    const agencyIdsToName = new Set<string>();
 
     for (const event of events) {
-      const brandId = event.brandProfileId;
-      if (!brandId) continue;
+      // An agency owns the row it created, even inside a brand's workspace.
+      const isAgency = Boolean(event.agencyId);
+      const actorId = event.agencyId ?? event.brandProfileId;
+      if (!actorId) continue;
 
-      let acc = byBrand.get(brandId);
+      if (isAgency) agencyIdsToName.add(actorId);
+      else brandIdsToName.add(actorId);
+      if (event.brandProfileId) brandIdsToName.add(event.brandProfileId);
+
+      let acc = byActor.get(actorId);
       if (!acc) {
         acc = {
+          kind: isAgency ? 'AGENCY' : 'BRAND',
           searches: 0,
           zeroResultSearches: 0,
           // Rows arrive newest first, so the first one seen is the latest.
           lastSearchedAt: event.createdAt,
           keys: new Map(),
           values: new Map(),
+          brandIds: new Set(),
         };
-        byBrand.set(brandId, acc);
+        byActor.set(actorId, acc);
       }
 
       acc.searches += 1;
       if (event.resultCount === 0) acc.zeroResultSearches += 1;
+      if (isAgency && event.brandProfileId) {
+        acc.brandIds.add(event.brandProfileId);
+      }
 
       const filters = (event.filters ?? {}) as Record<string, unknown>;
       for (const key of event.filterKeys) {
@@ -415,40 +450,58 @@ export class CreatorSearchAnalyticsService {
       }
     }
 
-    const ranked = [...byBrand.entries()]
-      .sort((a, b) => b[1].searches - a[1].searches)
-      .slice(0, limit);
+    const [brands, agencies] = await Promise.all([
+      this.prisma.brandProfile.findMany({
+        where: { id: { in: [...brandIdsToName] } },
+        select: { id: true, brandName: true, contactFullName: true },
+      }),
+      this.prisma.agency.findMany({
+        where: { id: { in: [...agencyIdsToName] } },
+        select: { id: true, name: true },
+      }),
+    ]);
 
-    const profiles = await this.prisma.brandProfile.findMany({
-      where: { id: { in: ranked.map(([id]) => id) } },
-      select: { id: true, brandName: true, contactEmail: true },
-    });
-    const labels = new Map(
-      profiles.map((profile) => [
-        profile.id,
-        profile.brandName?.trim() ||
-          profile.contactEmail?.trim() ||
-          `Brand ${profile.id.slice(0, 8)}`,
+    // A name, not an email: an admin reading this wants to recognise the
+    // business. The contact's own name beats the address they signed up with.
+    const brandNames = new Map(
+      brands.map((brand) => [
+        brand.id,
+        brand.brandName?.trim() ||
+          brand.contactFullName?.trim() ||
+          `Brand ${brand.id.slice(0, 8)}`,
       ]),
     );
+    const agencyNames = new Map(
+      agencies.map((agency) => [agency.id, agency.name.trim()]),
+    );
 
-    return ranked.map(([brandProfileId, acc]) => ({
-      brandProfileId,
-      // A deleted brand still has rows; name it rather than drop the row.
-      brandLabel:
-        labels.get(brandProfileId) ??
-        `Brand ${brandProfileId.slice(0, 8)} (removed)`,
-      searches: acc.searches,
-      zeroResultSearches: acc.zeroResultSearches,
-      lastSearchedAt: acc.lastSearchedAt.toISOString(),
-      filters: [...acc.keys.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(([key, searches]) => ({
-          key,
-          searches,
-          topValues: [...(acc.values.get(key) ?? [])],
-        })),
-    }));
+    return [...byActor.entries()]
+      .sort((a, b) => b[1].searches - a[1].searches)
+      .slice(0, limit)
+      .map(([actorId, acc]) => ({
+        actorId,
+        kind: acc.kind,
+        // A deleted brand or agency still has rows; name it rather than drop
+        // the row, which would silently lose history.
+        label:
+          (acc.kind === 'AGENCY'
+            ? agencyNames.get(actorId)
+            : brandNames.get(actorId)) ??
+          `${acc.kind === 'AGENCY' ? 'Agency' : 'Brand'} ${actorId.slice(0, 8)} (removed)`,
+        onBehalfOf: [...acc.brandIds].map(
+          (id) => brandNames.get(id) ?? `Brand ${id.slice(0, 8)} (removed)`,
+        ),
+        searches: acc.searches,
+        zeroResultSearches: acc.zeroResultSearches,
+        lastSearchedAt: acc.lastSearchedAt.toISOString(),
+        filters: [...acc.keys.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([key, searches]) => ({
+            key,
+            searches,
+            topValues: [...(acc.values.get(key) ?? [])],
+          })),
+      }));
   }
 
 }

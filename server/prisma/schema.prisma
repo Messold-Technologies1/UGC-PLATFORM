@@ -2644,6 +2644,13 @@ model CreatorSearchEvent {
   /// The brand whose workspace the search ran in. Null for a guest, and for an
   /// agency that has not switched into a brand.
   brandProfileId String? @db.Uuid
+  /// The agency that did the searching, when one did. Set whether or not it had
+  /// switched into a brand, so an agency is never invisible: following the same
+  /// shape as Order.placedByAgencyId, where a record is OWNED by the brand and
+  /// ATTRIBUTED to the agency that acted. Without it, an agency working inside
+  /// a brand's workspace was indistinguishable from the brand itself, and one
+  /// browsing its own workspace had no brand and vanished from the breakdown.
+  agencyId String? @db.Uuid
   /// BRAND | AGENCY | GUEST | OTHER. Denormalized so the admin view can split
   /// by audience without joining through users on every query. OTHER is a
   /// creator or an admin browsing, which must not be counted as a brand.
@@ -2664,4 +2671,5 @@ model CreatorSearchEvent {
   @@index([createdAt])
   @@index([brandProfileId, createdAt])
   @@index([audience, createdAt])
+  @@index([agencyId, createdAt])
 }

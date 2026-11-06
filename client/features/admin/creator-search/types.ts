@@ -50,10 +50,14 @@ export function filterLabel(key: string): string {
   return FILTER_LABELS[key] ?? key;
 }
 
-export type BrandSearchRow = {
-  brandProfileId: string;
-  /** brandName, falling back to the contact email, then a short id. */
-  brandLabel: string;
+export type ActorSearchRow = {
+  /** The agency's id when an agency searched, otherwise the brand profile's. */
+  actorId: string;
+  kind: "BRAND" | "AGENCY";
+  /** The agency's or brand's own name. */
+  label: string;
+  /** For an agency: the brands it was acting for, by name. */
+  onBehalfOf: string[];
   searches: number;
   zeroResultSearches: number;
   lastSearchedAt: string;

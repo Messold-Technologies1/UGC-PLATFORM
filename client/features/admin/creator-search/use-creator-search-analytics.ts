@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
 import type {
-  BrandSearchRow,
+  ActorSearchRow,
   CreatorSearchAnalytics,
   SearchAudience,
 } from "./types";
@@ -36,24 +36,24 @@ export function useCreatorSearchAnalyticsQuery(
   });
 }
 
-export const creatorSearchBrandsQueryKey = (params: {
+export const creatorSearchActorsQueryKey = (params: {
   from?: string;
   to?: string;
-}) => ["admin", "creator-search-brands", params] as const;
+}) => ["admin", "creator-search-actors", params] as const;
 
 /**
  * Per-brand breakdown. `enabled` so the request only fires when the panel is
  * actually opened — most visits to this page never ask for it.
  */
-export function useCreatorSearchBrandsQuery(
+export function useCreatorSearchActorsQuery(
   params: { from?: string; to?: string },
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: creatorSearchBrandsQueryKey(params),
+    queryKey: creatorSearchActorsQueryKey(params),
     queryFn: async ({ signal }) => {
-      const { data } = await api.get<BrandSearchRow[]>(
-        ENDPOINTS.ADMIN.CREATOR_SEARCH.BRANDS,
+      const { data } = await api.get<ActorSearchRow[]>(
+        ENDPOINTS.ADMIN.CREATOR_SEARCH.ACTORS,
         { params, signal },
       );
       return data;

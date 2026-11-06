@@ -9,16 +9,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { filterLabel } from "./types";
-import { useCreatorSearchBrandsQuery } from "./use-creator-search-analytics";
+import { useCreatorSearchActorsQuery } from "./use-creator-search-analytics";
 
 /**
- * Which brand set which filter, behind the audience card.
+ * Which brand or agency set which filter, behind the audience card.
  *
- * Only brands appear. A signed-out visitor carries no brand — and on current
- * traffic those are the majority of searches — so including them would mean
- * one enormous "unknown" row that answers nothing.
+ * An agency is its own row, named after the agency, with the brands it was
+ * acting for listed beside it — grouping it under the brand would make an
+ * agency's work read as the brand's own.
+ *
+ * Signed-out visitors do not appear: they carry neither id, and on current
+ * traffic they are the majority of searches, so they would amount to one
+ * enormous "unknown" row that answers nothing.
  */
-export function BrandFilterUsageDialog({
+export function ActorFilterUsageDialog({
   open,
   onOpenChange,
   params,
@@ -27,7 +31,7 @@ export function BrandFilterUsageDialog({
   onOpenChange: (open: boolean) => void;
   params: { from?: string; to?: string };
 }) {
-  const { data, isLoading, isError, error } = useCreatorSearchBrandsQuery(
+  const { data, isLoading, isError, error } = useCreatorSearchActorsQuery(
     params,
     open,
   );
@@ -36,10 +40,11 @@ export function BrandFilterUsageDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Which brand filtered for what</DialogTitle>
+          <DialogTitle>Which brand or agency filtered for what</DialogTitle>
           <DialogDescription>
-            Brands that searched in this window, busiest first. Signed-out
-            visitors carry no brand, so they are not listed here.
+            Brands and agencies that searched in this window, busiest first. An
+            agency is listed under its own name, with the brands it was working
+            for. Signed-out visitors are not identifiable and are not listed.
           </DialogDescription>
         </DialogHeader>
 
@@ -56,39 +61,51 @@ export function BrandFilterUsageDialog({
           </div>
         ) : !data || data.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No signed-in brand searched in this window. The searches recorded
-            here came from signed-out visitors.
+            No signed-in brand or agency searched in this window. The searches
+            recorded here came from signed-out visitors.
           </p>
         ) : (
           <ul className="space-y-3 py-1">
-            {data.map((brand) => (
+            {data.map((actor) => (
               <li
-                key={brand.brandProfileId}
+                key={actor.actorId}
                 className="rounded-xl border border-border/60 p-4"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-semibold">{brand.brandLabel}</span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold">{actor.label}</span>
+                    {actor.kind === "AGENCY" ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        Agency
+                      </span>
+                    ) : null}
+                    {actor.onBehalfOf.length > 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        for {actor.onBehalfOf.join(", ")}
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="text-xs tabular-nums text-muted-foreground">
-                    {brand.searches.toLocaleString("en-IN")}{" "}
-                    {brand.searches === 1 ? "search" : "searches"}
-                    {brand.zeroResultSearches > 0
-                      ? ` · ${brand.zeroResultSearches} found nothing`
+                    {actor.searches.toLocaleString("en-IN")}{" "}
+                    {actor.searches === 1 ? "search" : "searches"}
+                    {actor.zeroResultSearches > 0
+                      ? ` · ${actor.zeroResultSearches} found nothing`
                       : ""}
                     {" · last "}
-                    {new Date(brand.lastSearchedAt).toLocaleDateString(
+                    {new Date(actor.lastSearchedAt).toLocaleDateString(
                       "en-IN",
                       { day: "numeric", month: "short" },
                     )}
                   </span>
                 </div>
 
-                {brand.filters.length === 0 ? (
+                {actor.filters.length === 0 ? (
                   <p className="mt-2 text-xs text-muted-foreground">
                     Browsed without setting any filter.
                   </p>
                 ) : (
                   <div className="mt-2.5 space-y-1.5">
-                    {brand.filters.map((f) => (
+                    {actor.filters.map((f) => (
                       <div
                         key={f.key}
                         className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm"

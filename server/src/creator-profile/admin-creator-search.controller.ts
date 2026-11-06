@@ -4,10 +4,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { CreatorSearchAnalyticsService } from './creator-search-analytics.service';
 import {
-  BrandSearchRowDto,
+  ActorSearchRowDto,
+  CreatorSearchActorsQueryDto,
   CreatorSearchAnalyticsQueryDto,
   CreatorSearchAnalyticsResponseDto,
-  CreatorSearchBrandsQueryDto,
 } from './dto/creator-search-analytics.dto';
 
 @ApiTags('Admin - Creator search')
@@ -37,19 +37,20 @@ export class AdminCreatorSearchController {
     });
   }
 
-  @Get('brands')
+  @Get('actors')
   @ApiOperation({
-    summary: 'Which brand searched for which filter',
+    summary: 'Which brand or agency searched for which filter',
     description:
-      'One row per brand that searched in the window, with the filters it ' +
-      'set and the values it chose. Signed-out visitors carry no brand and ' +
-      'are excluded.',
+      'One row per brand or agency that searched in the window, with the ' +
+      'filters it set and the values it chose. An agency is its own row, ' +
+      'named after the agency, listing the brands it acted for. Signed-out ' +
+      'visitors carry neither id and are excluded.',
   })
-  @ApiOkResponse({ type: [BrandSearchRowDto] })
-  async brands(
-    @Query() query: CreatorSearchBrandsQueryDto,
-  ): Promise<BrandSearchRowDto[]> {
-    return this.analytics.brandBreakdown({
+  @ApiOkResponse({ type: [ActorSearchRowDto] })
+  async actors(
+    @Query() query: CreatorSearchActorsQueryDto,
+  ): Promise<ActorSearchRowDto[]> {
+    return this.analytics.actorBreakdown({
       from: query.from ? new Date(query.from) : undefined,
       to: query.to ? new Date(query.to) : undefined,
     });

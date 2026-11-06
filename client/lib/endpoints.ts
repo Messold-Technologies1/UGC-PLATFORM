@@ -235,6 +235,7 @@ export const ENDPOINTS = {
   ADMIN: {
     CREATOR_SEARCH: {
       ANALYTICS: "/api/admin/creator-search/analytics",
+      ACTORS: "/api/admin/creator-search/actors",
     },
     CREATORS: {
       LIST: "/api/admin/creators",

@@ -82,3 +82,47 @@ export class CreatorSearchAnalyticsResponseDto {
   @ApiProperty({ type: [ZeroResultFilterDto] })
   topZeroResultFilters!: ZeroResultFilterDto[];
 }
+
+class ActorFilterUsageDto {
+  @ApiProperty({ example: 'contentCategory' }) key!: string;
+  @ApiProperty() searches!: number;
+  @ApiProperty({ type: [String], example: ['fashion', 'beauty'] })
+  topValues!: string[];
+}
+
+export class ActorSearchRowDto {
+  @ApiProperty({
+    description:
+      "The agency's id when an agency searched, otherwise the brand profile's.",
+  })
+  actorId!: string;
+  @ApiProperty({ enum: ['BRAND', 'AGENCY'] })
+  kind!: 'BRAND' | 'AGENCY';
+  @ApiProperty({
+    description:
+      "The agency's or brand's own name, with name-shaped fallbacks.",
+  })
+  label!: string;
+  @ApiProperty({
+    type: [String],
+    description: 'For an agency: the brands it was acting for, by name.',
+  })
+  onBehalfOf!: string[];
+  @ApiProperty() searches!: number;
+  @ApiProperty() zeroResultSearches!: number;
+  @ApiProperty() lastSearchedAt!: string;
+  @ApiProperty({ type: [ActorFilterUsageDto] })
+  filters!: ActorFilterUsageDto[];
+}
+
+export class CreatorSearchActorsQueryDto {
+  @ApiPropertyOptional({ example: '2026-10-01T00:00:00.000Z' })
+  @IsOptional()
+  @IsISO8601()
+  from?: string;
+
+  @ApiPropertyOptional({ example: '2026-11-01T00:00:00.000Z' })
+  @IsOptional()
+  @IsISO8601()
+  to?: string;
+}

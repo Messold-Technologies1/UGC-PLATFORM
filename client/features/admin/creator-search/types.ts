@@ -21,8 +21,26 @@ export type CreatorSearchAnalytics = {
   topZeroResultFilters: { key: string; searches: number }[];
 };
 
-/** OTHER is a creator or admin browsing — never counted as a brand. */
-export type SearchAudience = "BRAND" | "AGENCY" | "GUEST" | "OTHER";
+/**
+ * OTHER is a creator or admin browsing — never counted as a brand. LAPSED is a
+ * signed-in user whose access token had expired, which the browse route cannot
+ * identify but must not call a guest.
+ */
+export type SearchAudience =
+  | "BRAND"
+  | "AGENCY"
+  | "GUEST"
+  | "LAPSED"
+  | "OTHER";
+
+/** How each audience reads on the page. */
+export const AUDIENCE_LABELS: Record<string, string> = {
+  BRAND: "brands",
+  AGENCY: "agencies",
+  GUEST: "signed out",
+  LAPSED: "session expired",
+  OTHER: "creators / admins",
+};
 
 /** Filter keys as the API names them, mapped to what the filter bar calls them. */
 export const FILTER_LABELS: Record<string, string> = {
@@ -49,3 +67,17 @@ export const FILTER_LABELS: Record<string, string> = {
 export function filterLabel(key: string): string {
   return FILTER_LABELS[key] ?? key;
 }
+
+export type ActorSearchRow = {
+  /** The agency's id when an agency searched, otherwise the brand profile's. */
+  actorId: string;
+  kind: "BRAND" | "AGENCY";
+  /** The agency's or brand's own name. */
+  label: string;
+  /** For an agency: the brands it was acting for, by name. */
+  onBehalfOf: string[];
+  searches: number;
+  zeroResultSearches: number;
+  lastSearchedAt: string;
+  filters: { key: string; searches: number; topValues: string[] }[];
+};

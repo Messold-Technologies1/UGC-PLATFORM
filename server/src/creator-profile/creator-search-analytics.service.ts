@@ -32,10 +32,23 @@ export const TRACKED_FILTER_KEYS = [
 export type TrackedFilterKey = (typeof TRACKED_FILTER_KEYS)[number];
 
 /**
- * Who ran the search. OTHER covers a creator or an admin browsing the list —
- * rare, but it must not be silently counted as a brand.
+ * Who ran the search.
+ *
+ * OTHER covers a creator or an admin browsing the list — rare, but it must not
+ * be silently counted as a brand.
+ *
+ * LAPSED is a signed-in user whose access token had expired. The browse route
+ * uses OptionalJwtAuthGuard, which ignores an unverifiable token and answers
+ * 200 as if nobody were signed in, so these would otherwise be indistinguishable
+ * from genuine guests — and nobody can reach the filter bar without signing in,
+ * so a real GUEST row is a signal that something is wrong rather than a user.
  */
-export type SearchAudience = 'BRAND' | 'AGENCY' | 'GUEST' | 'OTHER';
+export type SearchAudience =
+  | 'BRAND'
+  | 'AGENCY'
+  | 'GUEST'
+  | 'LAPSED'
+  | 'OTHER';
 
 /** Filters whose value is worth counting one-by-one in the admin view. */
 const VALUE_BREAKDOWN_KEYS: TrackedFilterKey[] = [
@@ -89,6 +102,20 @@ export type FilterUsageRow = {
   topValues: { value: string; searches: number }[];
 };
 
+export type ActorSearchRow = {
+  /** The agency's id when an agency searched, otherwise the brand profile's. */
+  actorId: string;
+  kind: 'BRAND' | 'AGENCY';
+  /** The agency's or brand's own name, with name-shaped fallbacks. */
+  label: string;
+  /** For an agency: the brands it was acting for, by name. */
+  onBehalfOf: string[];
+  searches: number;
+  zeroResultSearches: number;
+  lastSearchedAt: string;
+  filters: { key: string; searches: number; topValues: string[] }[];
+};
+
 export type SearchAnalyticsSummary = {
   from: string;
   to: string;
@@ -129,16 +156,27 @@ export class CreatorSearchAnalyticsService {
     actorUserId: string | null;
     /** The agency's active-brand header, when there is one. */
     activeBrandProfileId: string | null;
+    /**
+     * True when the request carried an access-token cookie that did not
+     * verify. The guard treats that as anonymous, so without this the row
+     * would claim a stranger was filtering.
+     */
+    hadLapsedSession: boolean;
     resultCount: number;
   }): void {
     const filters = extractActiveFilters(input.query);
 
-    void this.resolveActor(input.actorUserId, input.activeBrandProfileId)
+    void this.resolveActor(
+      input.actorUserId,
+      input.activeBrandProfileId,
+      input.hadLapsedSession,
+    )
       .then((actor) =>
         this.prisma.creatorSearchEvent.create({
           data: {
             actorUserId: input.actorUserId,
             brandProfileId: actor.brandProfileId,
+            agencyId: actor.agencyId,
             audience: actor.audience,
             filters: filters as Prisma.InputJsonValue,
             filterKeys: Object.keys(filters),
@@ -163,9 +201,20 @@ export class CreatorSearchAnalyticsService {
   private async resolveActor(
     actorUserId: string | null,
     activeBrandProfileId: string | null,
-  ): Promise<{ audience: SearchAudience; brandProfileId: string | null }> {
+    hadLapsedSession: boolean,
+  ): Promise<{
+    audience: SearchAudience;
+    brandProfileId: string | null;
+    agencyId: string | null;
+  }> {
     if (!actorUserId) {
-      return { audience: 'GUEST', brandProfileId: null };
+      return {
+        // They were signed in; their token had simply aged out. Who they are
+        // is unrecoverable here, but calling them a guest would be a lie.
+        audience: hadLapsedSession ? 'LAPSED' : 'GUEST',
+        brandProfileId: null,
+        agencyId: null,
+      };
     }
 
     const user = await this.prisma.user.findUnique({
@@ -174,6 +223,7 @@ export class CreatorSearchAnalyticsService {
         primaryRole: { select: { name: true } },
         userRoles: { select: { role: { select: { name: true } } } },
         brandProfile: { select: { id: true } },
+        ownedAgency: { select: { id: true } },
       },
     });
 
@@ -192,6 +242,9 @@ export class CreatorSearchAnalyticsService {
     return {
       audience,
       brandProfileId: activeBrandProfileId ?? user?.brandProfile?.id ?? null,
+      // Recorded whether or not the agency switched into a brand, so it is
+      // never invisible in the breakdown.
+      agencyId: user?.ownedAgency?.id ?? null,
     };
   }
 
@@ -320,4 +373,165 @@ export class CreatorSearchAnalyticsService {
         .map(([key, searches]) => ({ key, searches })),
     };
   }
+
+  /**
+   * Which brand or agency used which filter.
+   *
+   * An agency is its own row, named after the agency, whether or not it had
+   * switched into a brand — the brands it was acting for are listed beside it.
+   * Grouping it under the brand instead would make an agency's work look like
+   * the brand's own, and an agency browsing its own workspace has no brand at
+   * all and would disappear.
+   *
+   * Signed-out visitors are excluded: they carry neither id, and on current
+   * traffic they are the majority, so they would collapse into one meaningless
+   * "unknown" row.
+   *
+   * Folded in memory for the same reason as `summary`: the per-value detail
+   * lives inside the stored JSON payload, which no portable SQL aggregate can
+   * unpack.
+   */
+  async actorBreakdown(params: {
+    from?: Date;
+    to?: Date;
+    limit?: number;
+  }): Promise<ActorSearchRow[]> {
+    const to = params.to ?? new Date();
+    const from =
+      params.from ?? new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const limit = Math.min(Math.max(params.limit ?? 50, 1), 200);
+
+    const events = await this.prisma.creatorSearchEvent.findMany({
+      where: {
+        createdAt: { gte: from, lte: to },
+        OR: [{ brandProfileId: { not: null } }, { agencyId: { not: null } }],
+      },
+      select: {
+        brandProfileId: true,
+        agencyId: true,
+        filterKeys: true,
+        filters: true,
+        resultCount: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20_000,
+    });
+
+    type Acc = {
+      kind: 'BRAND' | 'AGENCY';
+      searches: number;
+      zeroResultSearches: number;
+      lastSearchedAt: Date;
+      keys: Map<string, number>;
+      values: Map<string, Set<string>>;
+      brandIds: Set<string>;
+    };
+    const byActor = new Map<string, Acc>();
+    const brandIdsToName = new Set<string>();
+    const agencyIdsToName = new Set<string>();
+
+    for (const event of events) {
+      // An agency owns the row it created, even inside a brand's workspace.
+      const isAgency = Boolean(event.agencyId);
+      const actorId = event.agencyId ?? event.brandProfileId;
+      if (!actorId) continue;
+
+      if (isAgency) agencyIdsToName.add(actorId);
+      else brandIdsToName.add(actorId);
+      if (event.brandProfileId) brandIdsToName.add(event.brandProfileId);
+
+      let acc = byActor.get(actorId);
+      if (!acc) {
+        acc = {
+          kind: isAgency ? 'AGENCY' : 'BRAND',
+          searches: 0,
+          zeroResultSearches: 0,
+          // Rows arrive newest first, so the first one seen is the latest.
+          lastSearchedAt: event.createdAt,
+          keys: new Map(),
+          values: new Map(),
+          brandIds: new Set(),
+        };
+        byActor.set(actorId, acc);
+      }
+
+      acc.searches += 1;
+      if (event.resultCount === 0) acc.zeroResultSearches += 1;
+      if (isAgency && event.brandProfileId) {
+        acc.brandIds.add(event.brandProfileId);
+      }
+
+      const filters = (event.filters ?? {}) as Record<string, unknown>;
+      for (const key of event.filterKeys) {
+        acc.keys.set(key, (acc.keys.get(key) ?? 0) + 1);
+
+        const raw = filters[key];
+        if (!isActive(raw)) continue;
+        let bucket = acc.values.get(key);
+        if (!bucket) {
+          bucket = new Set<string>();
+          acc.values.set(key, bucket);
+        }
+        for (const value of Array.isArray(raw) ? raw : [raw]) {
+          const label = String(value).trim();
+          if (label && bucket.size < MAX_VALUES_PER_FILTER) bucket.add(label);
+        }
+      }
+    }
+
+    const [brands, agencies] = await Promise.all([
+      this.prisma.brandProfile.findMany({
+        where: { id: { in: [...brandIdsToName] } },
+        select: { id: true, brandName: true, contactFullName: true },
+      }),
+      this.prisma.agency.findMany({
+        where: { id: { in: [...agencyIdsToName] } },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    // A name, not an email: an admin reading this wants to recognise the
+    // business. The contact's own name beats the address they signed up with.
+    const brandNames = new Map(
+      brands.map((brand) => [
+        brand.id,
+        brand.brandName?.trim() ||
+          brand.contactFullName?.trim() ||
+          `Brand ${brand.id.slice(0, 8)}`,
+      ]),
+    );
+    const agencyNames = new Map(
+      agencies.map((agency) => [agency.id, agency.name.trim()]),
+    );
+
+    return [...byActor.entries()]
+      .sort((a, b) => b[1].searches - a[1].searches)
+      .slice(0, limit)
+      .map(([actorId, acc]) => ({
+        actorId,
+        kind: acc.kind,
+        // A deleted brand or agency still has rows; name it rather than drop
+        // the row, which would silently lose history.
+        label:
+          (acc.kind === 'AGENCY'
+            ? agencyNames.get(actorId)
+            : brandNames.get(actorId)) ??
+          `${acc.kind === 'AGENCY' ? 'Agency' : 'Brand'} ${actorId.slice(0, 8)} (removed)`,
+        onBehalfOf: [...acc.brandIds].map(
+          (id) => brandNames.get(id) ?? `Brand ${id.slice(0, 8)} (removed)`,
+        ),
+        searches: acc.searches,
+        zeroResultSearches: acc.zeroResultSearches,
+        lastSearchedAt: acc.lastSearchedAt.toISOString(),
+        filters: [...acc.keys.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([key, searches]) => ({
+            key,
+            searches,
+            topValues: [...(acc.values.get(key) ?? [])],
+          })),
+      }));
+  }
+
 }

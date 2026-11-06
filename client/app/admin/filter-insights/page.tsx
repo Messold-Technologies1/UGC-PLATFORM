@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight, Search, TriangleAlert, Users } from "lucide-react";
+import { ChevronRight, Search, TriangleAlert } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,11 +14,10 @@ import {
 } from "@/components/ui/select";
 import { useCreatorSearchAnalyticsQuery } from "@/features/admin/creator-search/use-creator-search-analytics";
 import {
-  AUDIENCE_LABELS,
   filterLabel,
   type SearchAudience,
 } from "@/features/admin/creator-search/types";
-import { ActorFilterUsageDialog } from "@/features/admin/creator-search/actor-filter-usage-dialog";
+import { FilterActorsDialog } from "@/features/admin/creator-search/filter-actors-dialog";
 
 const RANGE_OPTIONS = [
   { value: "7", label: "Last 7 days" },
@@ -40,48 +39,31 @@ function StatCard({
   value,
   hint,
   icon,
-  onClick,
 }: {
   label: string;
   value: string;
   hint?: string;
   icon?: React.ReactNode;
-  /** When set the whole card becomes a button that drills into the number. */
-  onClick?: () => void;
 }) {
-  const body = (
-    <>
+  return (
+    <Card className="h-full p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {icon}
         {label}
-        {onClick ? <ChevronRight className="ml-auto size-3.5" /> : null}
       </div>
       <div className="mt-2 text-3xl font-bold tabular-nums">{value}</div>
       {hint ? (
         <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
       ) : null}
-    </>
-  );
-
-  if (!onClick) return <Card className="p-4">{body}</Card>;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="h-full w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-    >
-      <Card className="h-full p-4 transition-colors hover:border-primary/40 hover:bg-accent/40">
-        {body}
-      </Card>
-    </button>
+    </Card>
   );
 }
 
 export default function FilterInsightsPage() {
   const [range, setRange] = useState<string>("30");
   const [audience, setAudience] = useState<string>("ALL");
-  const [actorsOpen, setActorsOpen] = useState(false);
+  // Which filter row is drilled into, by key. Null closes the panel.
+  const [openFilterKey, setOpenFilterKey] = useState<string | null>(null);
 
   const params = useMemo(() => {
     const to = new Date();
@@ -150,8 +132,7 @@ export default function FilterInsightsPage() {
         </Card>
       ) : isLoading ? (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Skeleton className="h-28" />
+          <div className="grid gap-4 sm:grid-cols-2">
             <Skeleton className="h-28" />
             <Skeleton className="h-28" />
           </div>
@@ -168,7 +149,7 @@ export default function FilterInsightsPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <StatCard
               label="Searches"
               value={data.totalSearches.toLocaleString("en-IN")}
@@ -187,31 +168,29 @@ export default function FilterInsightsPage() {
               }
               icon={<TriangleAlert className="size-3.5" />}
             />
-            <StatCard
-              label="Who filtered"
-              value={
-                data.byAudience
-                  .map(
-                    (a) =>
-                      `${AUDIENCE_LABELS[a.audience] ?? a.audience.toLowerCase()} ${a.searches}`,
-                  )
-                  .join(" · ") || "—"
-              }
-              hint="Filtering needs an account, so \u201csession expired\u201d is a signed-in user whose token aged out. Open for the breakdown by name."
-              icon={<Users className="size-3.5" />}
-              onClick={() => setActorsOpen(true)}
-            />
           </div>
 
           <Card className="p-5">
             <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
               Most used filters
             </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Select a filter to see which brands and agencies used it.
+            </p>
             <div className="mt-4 space-y-3">
               {usedFilters.map((f) => (
-                <div key={f.key}>
+                // The whole row opens the breakdown: who set this filter.
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setOpenFilterKey(f.key)}
+                  className="group block w-full rounded-lg p-2 -mx-2 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                >
                   <div className="flex items-baseline justify-between gap-3 text-sm">
-                    <span className="font-medium">{filterLabel(f.key)}</span>
+                    <span className="flex items-center gap-1.5 font-medium">
+                      {filterLabel(f.key)}
+                      <ChevronRight className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </span>
                     <span className="tabular-nums text-muted-foreground">
                       {f.searches.toLocaleString("en-IN")} ({f.shareOfSearches}%)
                     </span>
@@ -241,7 +220,7 @@ export default function FilterInsightsPage() {
                       ))}
                     </div>
                   ) : null}
-                </div>
+                </button>
               ))}
             </div>
 
@@ -305,9 +284,9 @@ export default function FilterInsightsPage() {
         </div>
       )}
 
-      <ActorFilterUsageDialog
-        open={actorsOpen}
-        onOpenChange={setActorsOpen}
+      <FilterActorsDialog
+        filterKey={openFilterKey}
+        onClose={() => setOpenFilterKey(null)}
         params={{ from: params.from, to: params.to }}
       />
     </div>

@@ -29,6 +29,7 @@ import {
   Wallet,
   type LucideIcon,
   Bell,
+  ChartBar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -178,6 +179,7 @@ const roleConfigs: Record<string, NavItem[]> = {
   ],
   admin: [
     { href: "/admin/creators", label: "Creators", icon: Users },
+    { href: "/admin/search-insights", label: "Search insights", icon: ChartBar },
     { href: "/admin/brandManagement", label: "Brand", icon: Building2 },
     { href: "/admin/agencyBrandLinks", label: "Agency links", icon: Link2 },
     { href: "/admin/orderManagement", label: "Orders", icon: Package },

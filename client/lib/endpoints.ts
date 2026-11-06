@@ -233,6 +233,9 @@ export const ENDPOINTS = {
     BY_SLUG: (slug: string) => `/api/legal-pages/${encodeURIComponent(slug)}`,
   },
   ADMIN: {
+    CREATOR_SEARCH: {
+      ANALYTICS: "/api/admin/creator-search/analytics",
+    },
     CREATORS: {
       LIST: "/api/admin/creators",
       SEGMENT_COUNTS: "/api/admin/creators/segment-counts",

@@ -33,6 +33,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
+import { CreatorSearchAnalyticsService } from './creator-search-analytics.service';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
@@ -92,6 +93,7 @@ export class CreatorProfileController {
     private readonly creatorBioGeneratorService: CreatorBioGeneratorService,
     private readonly facetOtherResolverService: FacetOtherResolverService,
     private readonly creatorEngagementService: CreatorEngagementService,
+    private readonly searchAnalytics: CreatorSearchAnalyticsService,
   ) {}
 
   @Post(':id/engagement')
@@ -224,10 +226,28 @@ export class CreatorProfileController {
     @Query() query: ListCreatorsQueryDto,
     @Req() req: Request & { user?: { id: string } },
   ): Promise<CreatorsPublicListResponseDto> {
-    return this.creatorProfileService.listCreators(query, {
-      actorUserId: req.user?.id ?? null,
-      brandProfileId: readBrandProfileIdFromRequest(req),
+    const actorUserId = req.user?.id ?? null;
+    const brandProfileId = readBrandProfileIdFromRequest(req) ?? null;
+    const result = await this.creatorProfileService.listCreators(query, {
+      actorUserId,
+      brandProfileId,
     });
+
+    // Recorded here rather than in the service: `listCreators` is also called
+    // internally by the admin order board, and that is not somebody searching.
+    // Page 1 only — infinite scroll fetches pages 2..n with the same filters,
+    // which continues a search rather than starting a new one. The call is
+    // fire-and-forget inside the service, so discovery never waits on it.
+    if ((query.page ?? 1) === 1) {
+      this.searchAnalytics.record({
+        query,
+        actorUserId,
+        activeBrandProfileId: brandProfileId,
+        resultCount: result.total,
+      });
+    }
+
+    return result;
   }
 
   @Get('facet-options')

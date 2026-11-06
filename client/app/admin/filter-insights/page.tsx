@@ -25,13 +25,20 @@ const RANGE_OPTIONS = [
   { value: "90", label: "Last 90 days" },
 ] as const;
 
+/**
+ * Only the two audiences that can actually reach the filter bar, plus
+ * everyone.
+ *
+ * The server still records LAPSED, OTHER and GUEST, and "Everyone" still
+ * counts them — they are kept out of this list because they are diagnostics,
+ * not audiences an admin wants to slice by. A GUEST row in particular means
+ * something unexpected is calling the browse endpoint, which is a question for
+ * the logs rather than a view on this page.
+ */
 const AUDIENCE_OPTIONS = [
   { value: "ALL", label: "Everyone" },
   { value: "BRAND", label: "Brands" },
   { value: "AGENCY", label: "Agencies" },
-  { value: "LAPSED", label: "Session expired" },
-  { value: "OTHER", label: "Creators / admins" },
-  { value: "GUEST", label: "Signed out" },
 ] as const;
 
 function StatCard({

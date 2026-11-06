@@ -53,6 +53,13 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        // Renamed to match what it actually reports on. Kept so a bookmark
+        // from the day it shipped under the old name still lands.
+        source: "/admin/search-insights",
+        destination: "/admin/filter-insights",
+        permanent: true,
+      },
+      {
         source: "/register/creator",
         destination: "/register",
         permanent: true,

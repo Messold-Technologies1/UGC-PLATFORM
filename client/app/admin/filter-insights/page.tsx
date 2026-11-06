@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, TriangleAlert, Users } from "lucide-react";
+import { ChevronRight, Search, TriangleAlert, Users } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useCreatorSearchAnalyticsQuery } from "@/features/admin/creator-search/use-creator-search-analytics";
 import { filterLabel, type SearchAudience } from "@/features/admin/creator-search/types";
+import { BrandFilterUsageDialog } from "@/features/admin/creator-search/brand-filter-usage-dialog";
 
 const RANGE_OPTIONS = [
   { value: "7", label: "Last 7 days" },
@@ -34,29 +35,48 @@ function StatCard({
   value,
   hint,
   icon,
+  onClick,
 }: {
   label: string;
   value: string;
   hint?: string;
   icon?: React.ReactNode;
+  /** When set the whole card becomes a button that drills into the number. */
+  onClick?: () => void;
 }) {
-  return (
-    <Card className="p-4">
+  const body = (
+    <>
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {icon}
         {label}
+        {onClick ? <ChevronRight className="ml-auto size-3.5" /> : null}
       </div>
       <div className="mt-2 text-3xl font-bold tabular-nums">{value}</div>
       {hint ? (
         <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
       ) : null}
-    </Card>
+    </>
+  );
+
+  if (!onClick) return <Card className="p-4">{body}</Card>;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-full w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+    >
+      <Card className="h-full p-4 transition-colors hover:border-primary/40 hover:bg-accent/40">
+        {body}
+      </Card>
+    </button>
   );
 }
 
-export default function SearchInsightsPage() {
+export default function FilterInsightsPage() {
   const [range, setRange] = useState<string>("30");
   const [audience, setAudience] = useState<string>("ALL");
+  const [brandsOpen, setBrandsOpen] = useState(false);
 
   const params = useMemo(() => {
     const to = new Date();
@@ -81,7 +101,7 @@ export default function SearchInsightsPage() {
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Search insights</h1>
+          <h1 className="text-2xl font-bold">Filter insights</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Which filters people actually use on the creator browse list. One
             row per search &mdash; scrolling further down a result list is the
@@ -163,13 +183,15 @@ export default function SearchInsightsPage() {
               icon={<TriangleAlert className="size-3.5" />}
             />
             <StatCard
-              label="Who searched"
+              label="Who filtered"
               value={
                 data.byAudience
                   .map((a) => `${a.audience.toLowerCase()} ${a.searches}`)
                   .join(" · ") || "—"
               }
+              hint="Brands sign in; guests are signed-out visitors. Open for the per-brand breakdown."
               icon={<Users className="size-3.5" />}
+              onClick={() => setBrandsOpen(true)}
             />
           </div>
 
@@ -274,6 +296,12 @@ export default function SearchInsightsPage() {
           </div>
         </div>
       )}
+
+      <BrandFilterUsageDialog
+        open={brandsOpen}
+        onOpenChange={setBrandsOpen}
+        params={{ from: params.from, to: params.to }}
+      />
     </div>
   );
 }

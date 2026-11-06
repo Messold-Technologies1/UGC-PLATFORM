@@ -49,3 +49,13 @@ export const FILTER_LABELS: Record<string, string> = {
 export function filterLabel(key: string): string {
   return FILTER_LABELS[key] ?? key;
 }
+
+export type BrandSearchRow = {
+  brandProfileId: string;
+  /** brandName, falling back to the contact email, then a short id. */
+  brandLabel: string;
+  searches: number;
+  zeroResultSearches: number;
+  lastSearchedAt: string;
+  filters: { key: string; searches: number; topValues: string[] }[];
+};

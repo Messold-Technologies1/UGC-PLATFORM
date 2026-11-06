@@ -82,3 +82,35 @@ export class CreatorSearchAnalyticsResponseDto {
   @ApiProperty({ type: [ZeroResultFilterDto] })
   topZeroResultFilters!: ZeroResultFilterDto[];
 }
+
+class BrandFilterUsageDto {
+  @ApiProperty({ example: 'contentCategory' }) key!: string;
+  @ApiProperty() searches!: number;
+  @ApiProperty({ type: [String], example: ['fashion', 'beauty'] })
+  topValues!: string[];
+}
+
+export class BrandSearchRowDto {
+  @ApiProperty() brandProfileId!: string;
+  @ApiProperty({
+    description: 'brandName, falling back to the contact email, then a short id.',
+  })
+  brandLabel!: string;
+  @ApiProperty() searches!: number;
+  @ApiProperty() zeroResultSearches!: number;
+  @ApiProperty() lastSearchedAt!: string;
+  @ApiProperty({ type: [BrandFilterUsageDto] })
+  filters!: BrandFilterUsageDto[];
+}
+
+export class CreatorSearchBrandsQueryDto {
+  @ApiPropertyOptional({ example: '2026-10-01T00:00:00.000Z' })
+  @IsOptional()
+  @IsISO8601()
+  from?: string;
+
+  @ApiPropertyOptional({ example: '2026-11-01T00:00:00.000Z' })
+  @IsOptional()
+  @IsISO8601()
+  to?: string;
+}

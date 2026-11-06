@@ -4,8 +4,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { CreatorSearchAnalyticsService } from './creator-search-analytics.service';
 import {
+  BrandSearchRowDto,
   CreatorSearchAnalyticsQueryDto,
   CreatorSearchAnalyticsResponseDto,
+  CreatorSearchBrandsQueryDto,
 } from './dto/creator-search-analytics.dto';
 
 @ApiTags('Admin - Creator search')
@@ -34,4 +36,23 @@ export class AdminCreatorSearchController {
       brandProfileId: query.brandProfileId,
     });
   }
+
+  @Get('brands')
+  @ApiOperation({
+    summary: 'Which brand searched for which filter',
+    description:
+      'One row per brand that searched in the window, with the filters it ' +
+      'set and the values it chose. Signed-out visitors carry no brand and ' +
+      'are excluded.',
+  })
+  @ApiOkResponse({ type: [BrandSearchRowDto] })
+  async brands(
+    @Query() query: CreatorSearchBrandsQueryDto,
+  ): Promise<BrandSearchRowDto[]> {
+    return this.analytics.brandBreakdown({
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+    });
+  }
+
 }

@@ -58,8 +58,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: "Insights",
     items: [
       {
-        href: "/admin/search-insights",
-        label: "Search insights",
+        href: "/admin/filter-insights",
+        label: "Filter insights",
         icon: ChartBar,
       },
       { href: "/admin/notifications", label: "Notifications", icon: Bell },

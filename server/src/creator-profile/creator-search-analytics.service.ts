@@ -89,6 +89,16 @@ export type FilterUsageRow = {
   topValues: { value: string; searches: number }[];
 };
 
+export type BrandSearchRow = {
+  brandProfileId: string;
+  /** brandName, falling back to the contact email, then a short id. */
+  brandLabel: string;
+  searches: number;
+  zeroResultSearches: number;
+  lastSearchedAt: string;
+  filters: { key: string; searches: number; topValues: string[] }[];
+};
+
 export type SearchAnalyticsSummary = {
   from: string;
   to: string;
@@ -320,4 +330,125 @@ export class CreatorSearchAnalyticsService {
         .map(([key, searches]) => ({ key, searches })),
     };
   }
+
+  /**
+   * Which brand used which filter.
+   *
+   * Only rows that carry a brand: a signed-out visitor has no brandProfileId,
+   * and those are the majority of searches, so they would otherwise collapse
+   * into one meaningless "unknown" bucket.
+   *
+   * Folded in memory for the same reason as `summary`: the per-value detail
+   * lives inside the stored JSON payload, which no portable SQL aggregate can
+   * unpack.
+   */
+  async brandBreakdown(params: {
+    from?: Date;
+    to?: Date;
+    limit?: number;
+  }): Promise<BrandSearchRow[]> {
+    const to = params.to ?? new Date();
+    const from =
+      params.from ?? new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const limit = Math.min(Math.max(params.limit ?? 50, 1), 200);
+
+    const events = await this.prisma.creatorSearchEvent.findMany({
+      where: {
+        createdAt: { gte: from, lte: to },
+        brandProfileId: { not: null },
+      },
+      select: {
+        brandProfileId: true,
+        filterKeys: true,
+        filters: true,
+        resultCount: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20_000,
+    });
+
+    type Acc = {
+      searches: number;
+      zeroResultSearches: number;
+      lastSearchedAt: Date;
+      keys: Map<string, number>;
+      values: Map<string, Set<string>>;
+    };
+    const byBrand = new Map<string, Acc>();
+
+    for (const event of events) {
+      const brandId = event.brandProfileId;
+      if (!brandId) continue;
+
+      let acc = byBrand.get(brandId);
+      if (!acc) {
+        acc = {
+          searches: 0,
+          zeroResultSearches: 0,
+          // Rows arrive newest first, so the first one seen is the latest.
+          lastSearchedAt: event.createdAt,
+          keys: new Map(),
+          values: new Map(),
+        };
+        byBrand.set(brandId, acc);
+      }
+
+      acc.searches += 1;
+      if (event.resultCount === 0) acc.zeroResultSearches += 1;
+
+      const filters = (event.filters ?? {}) as Record<string, unknown>;
+      for (const key of event.filterKeys) {
+        acc.keys.set(key, (acc.keys.get(key) ?? 0) + 1);
+
+        const raw = filters[key];
+        if (!isActive(raw)) continue;
+        let bucket = acc.values.get(key);
+        if (!bucket) {
+          bucket = new Set<string>();
+          acc.values.set(key, bucket);
+        }
+        for (const value of Array.isArray(raw) ? raw : [raw]) {
+          const label = String(value).trim();
+          if (label && bucket.size < MAX_VALUES_PER_FILTER) bucket.add(label);
+        }
+      }
+    }
+
+    const ranked = [...byBrand.entries()]
+      .sort((a, b) => b[1].searches - a[1].searches)
+      .slice(0, limit);
+
+    const profiles = await this.prisma.brandProfile.findMany({
+      where: { id: { in: ranked.map(([id]) => id) } },
+      select: { id: true, brandName: true, contactEmail: true },
+    });
+    const labels = new Map(
+      profiles.map((profile) => [
+        profile.id,
+        profile.brandName?.trim() ||
+          profile.contactEmail?.trim() ||
+          `Brand ${profile.id.slice(0, 8)}`,
+      ]),
+    );
+
+    return ranked.map(([brandProfileId, acc]) => ({
+      brandProfileId,
+      // A deleted brand still has rows; name it rather than drop the row.
+      brandLabel:
+        labels.get(brandProfileId) ??
+        `Brand ${brandProfileId.slice(0, 8)} (removed)`,
+      searches: acc.searches,
+      zeroResultSearches: acc.zeroResultSearches,
+      lastSearchedAt: acc.lastSearchedAt.toISOString(),
+      filters: [...acc.keys.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([key, searches]) => ({
+          key,
+          searches,
+          topValues: [...(acc.values.get(key) ?? [])],
+        })),
+    }));
+  }
+
 }

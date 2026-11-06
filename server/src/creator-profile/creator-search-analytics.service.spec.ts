@@ -185,3 +185,63 @@ describe('CreatorSearchAnalyticsService.record', () => {
     expect(create).toHaveBeenCalled();
   });
 });
+
+
+describe('CreatorSearchAnalyticsService.brandBreakdown', () => {
+  function setup(events: unknown[], profiles: unknown[]) {
+    const prisma = {
+      creatorSearchEvent: { findMany: jest.fn().mockResolvedValue(events) },
+      brandProfile: { findMany: jest.fn().mockResolvedValue(profiles) },
+    } as unknown as PrismaService;
+    return new CreatorSearchAnalyticsService(prisma);
+  }
+
+  const at = (iso: string) => new Date(iso);
+
+  it('groups by brand, ranks by searches, and keeps the values chosen', async () => {
+    const service = setup(
+      [
+        // Newest first, as the query orders them.
+        { brandProfileId: 'b1', filterKeys: ['city'], filters: { city: 'Mumbai' }, resultCount: 3, createdAt: at('2026-11-05T10:00:00Z') },
+        { brandProfileId: 'b1', filterKeys: ['city', 'gender'], filters: { city: 'Delhi', gender: 'FEMALE' }, resultCount: 0, createdAt: at('2026-11-04T10:00:00Z') },
+        { brandProfileId: 'b2', filterKeys: ['minPrice'], filters: { minPrice: 500 }, resultCount: 9, createdAt: at('2026-11-03T10:00:00Z') },
+      ],
+      [
+        { id: 'b1', brandName: '  Twyn Digital  ', contactEmail: 'a@b.c' },
+        { id: 'b2', brandName: null, contactEmail: 'ops@brand.com' },
+      ],
+    );
+
+    const rows = await service.brandBreakdown({});
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      brandProfileId: 'b1',
+      brandLabel: 'Twyn Digital',
+      searches: 2,
+      zeroResultSearches: 1,
+      // Rows arrive newest first, so the first one seen is the latest.
+      lastSearchedAt: '2026-11-05T10:00:00.000Z',
+    });
+    expect(rows[0].filters[0]).toEqual({
+      key: 'city',
+      searches: 2,
+      topValues: ['Mumbai', 'Delhi'],
+    });
+    // No brandName — falls back to the contact email rather than a raw uuid.
+    expect(rows[1].brandLabel).toBe('ops@brand.com');
+  });
+
+  it('names a brand whose profile has since been removed', async () => {
+    const service = setup(
+      [{ brandProfileId: 'gone-1234-5678', filterKeys: [], filters: {}, resultCount: 1, createdAt: at('2026-11-05T10:00:00Z') }],
+      [],
+    );
+
+    const rows = await service.brandBreakdown({});
+
+    // The rows outlive the profile; dropping them would silently lose history.
+    expect(rows[0].brandLabel).toContain('removed');
+    expect(rows[0].searches).toBe(1);
+  });
+});

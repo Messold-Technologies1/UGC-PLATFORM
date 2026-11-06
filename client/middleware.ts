@@ -9,7 +9,14 @@ export function middleware(request: NextRequest) {
 
   if (pathname.match(/^\/brand\/orders\/[^\/]+\/brief$/)) {
     const newPathname = pathname.replace('/brief', '');
-    return NextResponse.redirect(new URL(newPathname, request.url));
+    // Relative `Location` on purpose — see app/auth/session-restore/route.ts.
+    // `new URL(path, request.url)` resolves against the origin this process
+    // listens on (127.0.0.1:3000 under PM2), not the host the visitor asked
+    // for, so an absolute redirect here would hand out localhost URLs.
+    return new NextResponse(null, {
+      status: 307,
+      headers: { Location: `${newPathname}${search}` },
+    });
   }
 
   requestHeaders.set("x-pathname", `${pathname}${search}`);

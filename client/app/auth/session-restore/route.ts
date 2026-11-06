@@ -65,6 +65,31 @@ function applySetCookies(response: NextResponse, setCookieHeaders: string[]) {
   }
 }
 
+/**
+ * Redirect with a RELATIVE `Location`, never an absolute URL.
+ *
+ * `NextResponse.redirect(new URL(path, request.url))` looks right and is
+ * wrong behind a proxy. In a route handler Next builds `request.url` from the
+ * origin the server itself listens on — `http://localhost:3000` here, since
+ * PM2 starts the standalone server on 127.0.0.1:3000 — and it does NOT take
+ * the `Host` header into account, so nginx forwarding `Host: gocollab.io`
+ * changes nothing. The absolute URL went out in the `Location` header as-is
+ * and sent real visitors to `http://localhost:3000/...`:
+ *
+ *     curl -sI -H 'Host: gocollab.io' http://127.0.0.1:3000/auth/session-restore?...
+ *     location: http://localhost:3000/?noRestore=1
+ *
+ * This route is only reached when the 15-minute access token has expired but
+ * the refresh cookie is alive — i.e. a tab reopened later — which is exactly
+ * when users hit it and nobody hits it during normal navigation.
+ *
+ * A relative `Location` is valid (RFC 7231 §7.1.2) and every browser resolves
+ * it against the origin it asked, so the internal hostname can never leak.
+ */
+function redirectToPath(path: string): NextResponse {
+  return new NextResponse(null, { status: 307, headers: { Location: path } });
+}
+
 function clearAuthCookies(response: NextResponse) {
   const sameSite = process.env.NODE_ENV === "production" ? "none" : "lax";
   const baseOptions = {
@@ -117,7 +142,7 @@ export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get(env.refreshCookieName)?.value;
   if (!refreshToken) {
-    return NextResponse.redirect(new URL(fallbackUrl, request.url));
+    return redirectToPath(fallbackUrl);
   }
 
   const cookieHeader = cookieStore
@@ -136,7 +161,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!refreshResponse.ok) {
-      const response = NextResponse.redirect(new URL(fallbackUrl, request.url));
+      const response = redirectToPath(fallbackUrl);
       if (refreshResponse.status === 401 || refreshResponse.status === 403) {
         clearAuthCookies(response);
       }
@@ -155,10 +180,10 @@ export async function GET(request: NextRequest) {
         (await resolveHomeWorkspacePath(meCookieHeader)) ?? "/";
     }
 
-    const response = NextResponse.redirect(new URL(destination, request.url));
+    const response = redirectToPath(destination);
     applySetCookies(response, setCookieHeaders);
     return response;
   } catch {
-    return NextResponse.redirect(new URL(fallbackUrl, request.url));
+    return redirectToPath(fallbackUrl);
   }
 }

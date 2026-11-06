@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { CreatorProfileController } from './creator-profile.controller';
 import { AdminCreatorController } from './admin-creator.controller';
+import { AdminCreatorSearchController } from './admin-creator-search.controller';
 import { CreatorProfileService } from './creator-profile.service';
 import { CreatorPayoutDetailsService } from './creator-payout-details.service';
 import { CreatorUnavailabilityService } from './creator-unavailability.service';
@@ -13,6 +14,7 @@ import { CreatorBioGeneratorService } from './creator-bio-generator.service';
 import { FacetOtherResolverService } from './facet-other-resolver.service';
 import { CreatorEngagementService } from './creator-engagement.service';
 import { CreatorRankingService } from './creator-ranking.service';
+import { CreatorSearchAnalyticsService } from './creator-search-analytics.service';
 import { PreviewVideoModule } from '../preview-video/preview-video.module';
 import { MediaNormalizeModule } from '../media-normalize/media-normalize.module';
 import { CitiesModule } from '../cities/cities.module';
@@ -28,7 +30,11 @@ import { CitiesModule } from '../cities/cities.module';
     MediaNormalizeModule,
     CitiesModule,
   ],
-  controllers: [CreatorProfileController, AdminCreatorController],
+  controllers: [
+    CreatorProfileController,
+    AdminCreatorController,
+    AdminCreatorSearchController,
+  ],
   providers: [
     CreatorProfileService,
     CreatorPayoutDetailsService,
@@ -37,6 +43,7 @@ import { CitiesModule } from '../cities/cities.module';
     FacetOtherResolverService,
     CreatorEngagementService,
     CreatorRankingService,
+    CreatorSearchAnalyticsService,
   ],
   exports: [CreatorProfileService, CreatorEngagementService],
 })

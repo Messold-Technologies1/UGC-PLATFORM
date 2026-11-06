@@ -2625,3 +2625,43 @@ model NotificationBroadcast {
   @@index([createdAt(sort: Desc)])
   @@index([audience, createdAt(sort: Desc)])
 }
+
+/// One search against the creator browse list.
+///
+/// Written fire-and-forget from the browse CONTROLLER, never the service:
+/// `listCreators` is also called internally by the admin order board
+/// (creator-profile.service.ts listCreatorsForBrowseOrderBoard), and those
+/// calls are not somebody searching.
+///
+/// Only page 1 is recorded. Infinite scroll asks for pages 2..n with the same
+/// filters, which is the same search continuing, not a new one.
+model CreatorSearchEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+
+  /// Null for a signed-out visitor on the public list.
+  actorUserId String? @db.Uuid
+  /// The brand whose workspace the search ran in. Null for a guest, and for an
+  /// agency that has not switched into a brand.
+  brandProfileId String? @db.Uuid
+  /// BRAND | AGENCY | GUEST | OTHER. Denormalized so the admin view can split
+  /// by audience without joining through users on every query. OTHER is a
+  /// creator or an admin browsing, which must not be counted as a brand.
+  audience String
+
+  /// The filters that were actually set — defaults and empties excluded — in
+  /// the shape they arrived in. Kept raw so new questions can be asked of old
+  /// rows without a backfill.
+  filters Json
+  /// Just the names of the set filters, e.g. ["city", "contentCategory"].
+  /// Redundant with `filters`, deliberately: "which filters are used most" is
+  /// then one array aggregate instead of unpacking JSON across every row.
+  filterKeys String[]
+  /// How many creators matched. 0 is the interesting case — demand the
+  /// catalogue could not supply.
+  resultCount Int
+
+  @@index([createdAt])
+  @@index([brandProfileId, createdAt])
+  @@index([audience, createdAt])
+}

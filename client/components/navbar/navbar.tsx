@@ -12,24 +12,17 @@ import {
   Moon,
   Sun,
   Info,
-  Link2,
   Users,
   ShoppingCart,
   Briefcase,
-  Settings,
-  Package,
   FileText,
   ChevronDown,
   MessageSquare,
   Building2,
   Handshake,
   Heart,
-  Video,
-  Ticket,
   Wallet,
   type LucideIcon,
-  Bell,
-  ChartBar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,6 +38,7 @@ import { useWalletBalance } from "@/features/wallet/hooks";
 import type { AuthUser } from "@/features/auth/hooks/use-me-query";
 import { resolveCreatorOnboardingPath } from "@/features/auth/lib/resolve-creator-onboarding-path";
 import { SITE_NAME } from "@/config/site";
+import { adminNavItemsFor } from "@/components/admin/admin-nav-items";
 
 const CREATOR_UNDER_REVIEW_PATH = "/creator/under-review";
 const CREATOR_NAV_GATED_HREFS = new Set([
@@ -177,19 +171,6 @@ const roleConfigs: Record<string, NavItem[]> = {
       tourId: "nav-creator-portfolio",
     },
   ],
-  admin: [
-    { href: "/admin/creators", label: "Creators", icon: Users },
-    { href: "/admin/search-insights", label: "Search insights", icon: ChartBar },
-    { href: "/admin/brandManagement", label: "Brand", icon: Building2 },
-    { href: "/admin/agencyBrandLinks", label: "Agency links", icon: Link2 },
-    { href: "/admin/orderManagement", label: "Orders", icon: Package },
-    { href: "/admin/legal", label: "Legal", icon: FileText },
-    { href: "/admin/demo-videos", label: "Demo Videos", icon: Video },
-    { href: "/admin/notifications", label: "Notifications", icon: Bell },
-    { href: "/admin/coupons", label: "Coupons", icon: Ticket },
-    { href: "/admin/refunds", label: "Refunds", icon: Wallet },
-    { href: "/admin/settings", label: "Settings", icon: Settings },
-  ],
 };
 
 /** Spendable credit, as the Credits page writes it: whole rupees, en-IN. */
@@ -208,17 +189,16 @@ function getNavItems(pathname: string, user: AuthUser | null): NavItem[] {
     isAgencyUser && (segment === "brand" || segment === "agency")
       ? "agency"
       : segment;
+  // Admin's destinations live in components/admin/admin-nav-items.ts, shared
+  // with the sidebar that renders them on desktop. The navbar still needs the
+  // flat list for its mobile menu, which stays the one hamburger on small
+  // screens (the sidebar is lg-only).
+  if (navSegment === "admin") {
+    return adminNavItemsFor(Boolean(user?.canManageAdmins));
+  }
+
   // Copy so role config arrays are never mutated across renders.
   let items = [...(roleConfigs[navSegment] ?? [])];
-  if (navSegment === "admin" && !user?.canManageAdmins) {
-    // Settings (create admins), Coupons and Refunds are super-admin only.
-    const superAdminOnly = new Set([
-      "/admin/settings",
-      "/admin/coupons",
-      "/admin/refunds",
-    ]);
-    items = items.filter((item) => !superAdminOnly.has(item.href ?? ""));
-  }
 
   // While the creator is waiting on review, Orders / Messages / Portfolio all
   // land on the under-review screen instead of the locked workspace routes.
@@ -426,7 +406,7 @@ export function Navbar({ className }: { className?: string } = {}) {
             </Link>
           </div>
 
-          {navItems.length > 0 ? (
+          {navItems.length > 0 && !isAdminNav ? (
             <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
               <nav className="hidden lg:flex items-center gap-1">
                 {navItems.map((item) => {
@@ -517,9 +497,14 @@ export function Navbar({ className }: { className?: string } = {}) {
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <span data-tour="nav-notifications" className="inline-flex">
-                  <NotificationDropdown />
-                </span>
+                {/* Admin's navbar is deliberately just the logo and the
+                    profile; everything else moved to the sidebar. Admins read
+                    notifications on /admin/notifications. */}
+                {!isAdminNav && (
+                  <span data-tour="nav-notifications" className="inline-flex">
+                    <NotificationDropdown />
+                  </span>
+                )}
                 <span data-tour="nav-profile" className="inline-flex">
                   <NavbarProfileMenu />
                 </span>
@@ -540,7 +525,7 @@ export function Navbar({ className }: { className?: string } = {}) {
                 <TooltipContent>Your profile is under review</TooltipContent>
               </Tooltip>
             )}
-            {isAuthenticated && <NotificationDropdown />}
+            {isAuthenticated && !isAdminNav && <NotificationDropdown />}
             {mounted && !isLoading && !isAuthenticated && <GuestLoginMenu />}
             <Tooltip>
               <TooltipTrigger asChild>

@@ -34,6 +34,15 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { WorkspacePermissionGuard } from '../auth/guards/workspace-permission.guard';
 import { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
 import { CreatorSearchAnalyticsService } from './creator-search-analytics.service';
+import { AUTH_COOKIE_NAMES } from '../auth/auth.service';
+
+/**
+ * Set by the browse page's server-side prefetch of page 1. That request is a
+ * page render, not somebody searching: it carries no cookies (its response is
+ * shared between viewers and cached, so it must not be keyed to one of them),
+ * which made every one of them look like an anonymous visitor filtering.
+ */
+const PREFETCH_HEADER = 'x-gocollab-prefetch';
 import { UpdateCreatorProfileDto } from './dto/update-creator-profile.dto';
 import { CreatorsPublicListResponseDto } from './dto/creators-public-list-response.dto';
 import { CreatorProfileResponseDto } from './dto/creator-profile-response.dto';
@@ -224,7 +233,7 @@ export class CreatorProfileController {
   @ApiOkResponse({ type: CreatorsPublicListResponseDto })
   async listCreators(
     @Query() query: ListCreatorsQueryDto,
-    @Req() req: Request & { user?: { id: string } },
+    @Req() req: Request & { user?: { id: string }; cookies?: Record<string, string> },
   ): Promise<CreatorsPublicListResponseDto> {
     const actorUserId = req.user?.id ?? null;
     const brandProfileId = readBrandProfileIdFromRequest(req) ?? null;
@@ -238,11 +247,17 @@ export class CreatorProfileController {
     // Page 1 only — infinite scroll fetches pages 2..n with the same filters,
     // which continues a search rather than starting a new one. The call is
     // fire-and-forget inside the service, so discovery never waits on it.
-    if ((query.page ?? 1) === 1) {
+    const isPrefetch = req.headers?.[PREFETCH_HEADER] === '1';
+    if ((query.page ?? 1) === 1 && !isPrefetch) {
       this.searchAnalytics.record({
         query,
         actorUserId,
         activeBrandProfileId: brandProfileId,
+        // No user, but a token was sent: OptionalJwtAuthGuard ignores one it
+        // cannot verify and answers 200, so a signed-in brand whose 15-minute
+        // token aged out mid-session would otherwise be filed as a stranger.
+        hadLapsedSession:
+          !actorUserId && Boolean(req.cookies?.[AUTH_COOKIE_NAMES.accessToken]),
         resultCount: result.total,
       });
     }

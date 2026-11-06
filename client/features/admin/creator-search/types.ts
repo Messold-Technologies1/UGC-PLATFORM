@@ -21,8 +21,26 @@ export type CreatorSearchAnalytics = {
   topZeroResultFilters: { key: string; searches: number }[];
 };
 
-/** OTHER is a creator or admin browsing — never counted as a brand. */
-export type SearchAudience = "BRAND" | "AGENCY" | "GUEST" | "OTHER";
+/**
+ * OTHER is a creator or admin browsing — never counted as a brand. LAPSED is a
+ * signed-in user whose access token had expired, which the browse route cannot
+ * identify but must not call a guest.
+ */
+export type SearchAudience =
+  | "BRAND"
+  | "AGENCY"
+  | "GUEST"
+  | "LAPSED"
+  | "OTHER";
+
+/** How each audience reads on the page. */
+export const AUDIENCE_LABELS: Record<string, string> = {
+  BRAND: "brands",
+  AGENCY: "agencies",
+  GUEST: "signed out",
+  LAPSED: "session expired",
+  OTHER: "creators / admins",
+};
 
 /** Filter keys as the API names them, mapped to what the filter bar calls them. */
 export const FILTER_LABELS: Record<string, string> = {

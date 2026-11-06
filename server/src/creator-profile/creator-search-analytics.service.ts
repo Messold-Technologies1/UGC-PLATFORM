@@ -32,10 +32,23 @@ export const TRACKED_FILTER_KEYS = [
 export type TrackedFilterKey = (typeof TRACKED_FILTER_KEYS)[number];
 
 /**
- * Who ran the search. OTHER covers a creator or an admin browsing the list —
- * rare, but it must not be silently counted as a brand.
+ * Who ran the search.
+ *
+ * OTHER covers a creator or an admin browsing the list — rare, but it must not
+ * be silently counted as a brand.
+ *
+ * LAPSED is a signed-in user whose access token had expired. The browse route
+ * uses OptionalJwtAuthGuard, which ignores an unverifiable token and answers
+ * 200 as if nobody were signed in, so these would otherwise be indistinguishable
+ * from genuine guests — and nobody can reach the filter bar without signing in,
+ * so a real GUEST row is a signal that something is wrong rather than a user.
  */
-export type SearchAudience = 'BRAND' | 'AGENCY' | 'GUEST' | 'OTHER';
+export type SearchAudience =
+  | 'BRAND'
+  | 'AGENCY'
+  | 'GUEST'
+  | 'LAPSED'
+  | 'OTHER';
 
 /** Filters whose value is worth counting one-by-one in the admin view. */
 const VALUE_BREAKDOWN_KEYS: TrackedFilterKey[] = [
@@ -143,11 +156,21 @@ export class CreatorSearchAnalyticsService {
     actorUserId: string | null;
     /** The agency's active-brand header, when there is one. */
     activeBrandProfileId: string | null;
+    /**
+     * True when the request carried an access-token cookie that did not
+     * verify. The guard treats that as anonymous, so without this the row
+     * would claim a stranger was filtering.
+     */
+    hadLapsedSession: boolean;
     resultCount: number;
   }): void {
     const filters = extractActiveFilters(input.query);
 
-    void this.resolveActor(input.actorUserId, input.activeBrandProfileId)
+    void this.resolveActor(
+      input.actorUserId,
+      input.activeBrandProfileId,
+      input.hadLapsedSession,
+    )
       .then((actor) =>
         this.prisma.creatorSearchEvent.create({
           data: {
@@ -178,13 +201,20 @@ export class CreatorSearchAnalyticsService {
   private async resolveActor(
     actorUserId: string | null,
     activeBrandProfileId: string | null,
+    hadLapsedSession: boolean,
   ): Promise<{
     audience: SearchAudience;
     brandProfileId: string | null;
     agencyId: string | null;
   }> {
     if (!actorUserId) {
-      return { audience: 'GUEST', brandProfileId: null, agencyId: null };
+      return {
+        // They were signed in; their token had simply aged out. Who they are
+        // is unrecoverable here, but calling them a guest would be a lie.
+        audience: hadLapsedSession ? 'LAPSED' : 'GUEST',
+        brandProfileId: null,
+        agencyId: null,
+      };
     }
 
     const user = await this.prisma.user.findUnique({

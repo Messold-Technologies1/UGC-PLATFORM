@@ -13,7 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreatorSearchAnalyticsQuery } from "@/features/admin/creator-search/use-creator-search-analytics";
-import { filterLabel, type SearchAudience } from "@/features/admin/creator-search/types";
+import {
+  AUDIENCE_LABELS,
+  filterLabel,
+  type SearchAudience,
+} from "@/features/admin/creator-search/types";
 import { ActorFilterUsageDialog } from "@/features/admin/creator-search/actor-filter-usage-dialog";
 
 const RANGE_OPTIONS = [
@@ -26,8 +30,9 @@ const AUDIENCE_OPTIONS = [
   { value: "ALL", label: "Everyone" },
   { value: "BRAND", label: "Brands" },
   { value: "AGENCY", label: "Agencies" },
-  { value: "GUEST", label: "Signed-out visitors" },
+  { value: "LAPSED", label: "Session expired" },
   { value: "OTHER", label: "Creators / admins" },
+  { value: "GUEST", label: "Signed out" },
 ] as const;
 
 function StatCard({
@@ -186,10 +191,13 @@ export default function FilterInsightsPage() {
               label="Who filtered"
               value={
                 data.byAudience
-                  .map((a) => `${a.audience.toLowerCase()} ${a.searches}`)
+                  .map(
+                    (a) =>
+                      `${AUDIENCE_LABELS[a.audience] ?? a.audience.toLowerCase()} ${a.searches}`,
+                  )
                   .join(" · ") || "—"
               }
-              hint="Brands and agencies sign in; guests are signed-out visitors. Open for the breakdown by name."
+              hint="Filtering needs an account, so \u201csession expired\u201d is a signed-in user whose token aged out. Open for the breakdown by name."
               icon={<Users className="size-3.5" />}
               onClick={() => setActorsOpen(true)}
             />

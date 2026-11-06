@@ -79,6 +79,7 @@ describe('CreatorSearchAnalyticsService.record', () => {
       query: q({ city: 'Delhi', contentCategory: ['beauty'] }),
       actorUserId: 'user-1',
       activeBrandProfileId: null,
+      hadLapsedSession: false,
       resultCount: 7,
     });
     await flush();
@@ -98,6 +99,29 @@ describe('CreatorSearchAnalyticsService.record', () => {
     });
   });
 
+  it('files a lapsed session as LAPSED, not as a guest', async () => {
+    // Nobody can reach the filter bar without signing in, so a GUEST row is a
+    // bug rather than a user. OptionalJwtAuthGuard ignores a token it cannot
+    // verify and answers 200, which made a brand whose 15-minute token aged
+    // out mid-session look like a stranger.
+    const { service, create } = setup();
+
+    service.record({
+      query: q({ city: 'Pune' }),
+      actorUserId: null,
+      activeBrandProfileId: null,
+      hadLapsedSession: true,
+      resultCount: 3,
+    });
+    await flush();
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ audience: 'LAPSED' }),
+      }),
+    );
+  });
+
   it('labels a signed-out visitor GUEST without touching the user table', async () => {
     const { service, create, findUnique } = setup();
 
@@ -105,6 +129,7 @@ describe('CreatorSearchAnalyticsService.record', () => {
       query: q({ city: 'Pune' }),
       actorUserId: null,
       activeBrandProfileId: null,
+      hadLapsedSession: false,
       resultCount: 3,
     });
     await flush();
@@ -132,6 +157,7 @@ describe('CreatorSearchAnalyticsService.record', () => {
       query: q({ city: 'Goa' }),
       actorUserId: 'agency-user',
       activeBrandProfileId: 'brand-99',
+      hadLapsedSession: false,
       resultCount: 1,
     });
     await flush();
@@ -162,6 +188,7 @@ describe('CreatorSearchAnalyticsService.record', () => {
       query: q({ city: 'Goa' }),
       actorUserId: 'agency-user',
       activeBrandProfileId: null,
+      hadLapsedSession: false,
       resultCount: 1,
     });
     await flush();
@@ -189,6 +216,7 @@ describe('CreatorSearchAnalyticsService.record', () => {
       query: q({ city: 'Kochi' }),
       actorUserId: 'creator-user',
       activeBrandProfileId: null,
+      hadLapsedSession: false,
       resultCount: 5,
     });
     await flush();
@@ -211,6 +239,7 @@ describe('CreatorSearchAnalyticsService.record', () => {
         query: q({ city: 'Pune' }),
         actorUserId: null,
         activeBrandProfileId: null,
+        hadLapsedSession: false,
         resultCount: 0,
       }),
     ).not.toThrow();

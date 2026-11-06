@@ -9,13 +9,21 @@ describe('listCreators recording', () => {
     const listCreators = jest
       .fn()
       .mockResolvedValue({ items: [], total: 4, page: 1, limit: 20 });
-    // Only the first and last constructor arguments are used by listCreators.
-    // The padding keeps searchAnalytics in last position — add a service to
-    // the controller and this count has to follow, which the tests here will
-    // say loudly rather than silently skip recording.
+    // listCreators only reaches the first and last constructor arguments. The
+    // middle ones are written out rather than spread from Array(n).fill():
+    // a spread has no tuple type, so `tsc --noEmit` rejects it against a
+    // fixed-arity constructor even though Jest runs it happily — which is
+    // exactly how it passed here and failed in CI.
+    const unused = {} as never;
     const controller = new CreatorProfileController(
       { listCreators } as unknown as CreatorProfileService,
-      ...(Array(7).fill({}) as never[]),
+      unused,
+      unused,
+      unused,
+      unused,
+      unused,
+      unused,
+      unused,
       { record } as unknown as CreatorSearchAnalyticsService,
     );
     return { controller, record };

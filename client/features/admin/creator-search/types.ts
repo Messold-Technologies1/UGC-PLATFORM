@@ -33,14 +33,6 @@ export type SearchAudience =
   | "LAPSED"
   | "OTHER";
 
-/** How each audience reads on the page. */
-export const AUDIENCE_LABELS: Record<string, string> = {
-  BRAND: "brands",
-  AGENCY: "agencies",
-  GUEST: "signed out",
-  LAPSED: "session expired",
-  OTHER: "creators / admins",
-};
 
 /** Filter keys as the API names them, mapped to what the filter bar calls them. */
 export const FILTER_LABELS: Record<string, string> = {

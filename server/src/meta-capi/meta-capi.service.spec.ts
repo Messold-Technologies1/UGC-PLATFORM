@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { MetaCapiService } from './meta-capi.service';
 
 type Env = Record<string, string | undefined>;
@@ -18,6 +19,57 @@ const BOTH_ENV: Env = {
   META_CAPI_BRAND_DATASET_ID: '2222',
   META_CAPI_BRAND_ACCESS_TOKEN: 'brand-token',
 };
+
+describe('MetaCapiService startup diagnostics', () => {
+  /**
+   * A dataset with no ID or token never logs anything again for the life of
+   * the process, so this boot line is the only thing that distinguishes "not
+   * configured" from "nothing happened". `Purchase` has no browser copy, so
+   * for that event a disabled brand dataset means no data anywhere.
+   */
+  function captureBoot(env: Env): { logs: string[]; warns: string[] } {
+    const logs: string[] = [];
+    const warns: string[] = [];
+    const log = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation((m: unknown) => void logs.push(String(m)));
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation((m: unknown) => void warns.push(String(m)));
+    try {
+      buildService(env);
+    } finally {
+      log.mockRestore();
+      warn.mockRestore();
+    }
+    return { logs, warns };
+  }
+
+  it('names each dataset that can send', () => {
+    const { logs } = captureBoot(BOTH_ENV);
+    expect(logs.join('\n')).toContain('creator=on(1111) brand=on(2222)');
+  });
+
+  it('names the missing variable when the brand dataset is off', () => {
+    const { logs } = captureBoot(CREATOR_ENV);
+    expect(logs.join('\n')).toContain(
+      'brand=off(no META_CAPI_BRAND_DATASET_ID)',
+    );
+  });
+
+  it('says a dataset with an ID but no token is off', () => {
+    // Nothing can send here, so the whole line arrives as a warning.
+    const { warns } = captureBoot({ META_CAPI_BRAND_DATASET_ID: '2222' });
+    expect(warns.join('\n')).toContain('brand=off(no access token)');
+  });
+
+  it('warns when nothing can send at all', () => {
+    const { warns } = captureBoot({});
+    expect(warns.join('\n')).toContain(
+      'no server-side conversions will be sent',
+    );
+  });
+});
 
 describe('MetaCapiService dataset routing', () => {
   let fetchMock: jest.Mock;

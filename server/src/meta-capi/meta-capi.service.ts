@@ -184,6 +184,45 @@ export class MetaCapiService {
       this.config.get<string>('META_CAPI_API_VERSION')?.trim() || 'v21.0';
     this.testEventCode =
       this.config.get<string>('META_CAPI_TEST_EVENT_CODE')?.trim() || undefined;
+    this.logConfiguration();
+  }
+
+  /**
+   * Say once, at boot, which datasets can actually receive events.
+   *
+   * A dataset with no ID or no token is a silent no-op for the life of the
+   * process: `sendEvent` returns before it logs anything, so a misconfigured
+   * deployment looks exactly like one where nothing ever happened. That is
+   * indistinguishable from a broken conversion unless someone reads the code.
+   * `Purchase` has no browser copy to fall back on, so for that event a
+   * disabled brand dataset means no data at all, anywhere.
+   */
+  private logConfiguration(): void {
+    const describe = (audience: MetaCapiAudience, idVar: string): string => {
+      const { datasetId, accessToken } = this.datasets[audience];
+      if (datasetId && accessToken) return `${audience}=on(${datasetId})`;
+      if (!datasetId && !accessToken)
+        return `${audience}=off(no ${idVar}, no token)`;
+      return datasetId
+        ? `${audience}=off(no access token)`
+        : `${audience}=off(no ${idVar})`;
+    };
+    const summary = [
+      describe('creator', 'META_CAPI_DATASET_ID'),
+      describe('brand', 'META_CAPI_BRAND_DATASET_ID'),
+    ].join(' ');
+    const anyEnabled = this.enabledFor('creator') || this.enabledFor('brand');
+    const message = `Meta Conversions API: ${summary}${
+      this.testEventCode ? ' test_events=on' : ''
+    }`;
+    // Warn when nothing can send: that is almost always unintended in a
+    // deployment that expects conversions, and it is the one state no later
+    // log line will ever reveal.
+    if (anyEnabled) {
+      this.logger.log(message);
+    } else {
+      this.logger.warn(`${message} — no server-side conversions will be sent`);
+    }
   }
 
   /** Whether a dataset has both an ID and a token, i.e. can receive events. */

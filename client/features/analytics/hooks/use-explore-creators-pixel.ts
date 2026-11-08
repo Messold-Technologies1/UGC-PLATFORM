@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import {
   HOT_BRAND_SECONDS,
@@ -84,12 +84,13 @@ function startDwellTimer(identity: BuyerIdentity): () => void {
  */
 export function useExploreCreatorsPixel(): void {
   const resolveIdentity = useBuyerIdentityResolver();
-  const startedRef = useRef(false);
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
+    // Everything this effect starts is torn down by its own cleanup, so a
+    // re-run re-arms it. An outer "already started" ref would not: React
+    // StrictMode runs setup → cleanup → setup, and the second setup would bail
+    // on the ref while the first had already cancelled itself, leaving the
+    // catalogue reporting nothing at all in development.
     let cancelled = false;
     const cleanups: Array<() => void> = [];
 

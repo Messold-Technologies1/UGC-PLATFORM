@@ -310,6 +310,53 @@ No code change required.
 - **Server events:** set `META_CAPI_TEST_EVENT_CODE`, trigger the flow, and watch `BrandRegistration` / `CreatorProfileListed` appear live in **Test Events**. The server also logs Meta's `events_received` count, `fbtrace_id` and the dataset on every send.
 - **Deduplication:** in Events Manager, a brand signup should show one `BrandRegistration` with both "Browser" and "Server" as sources, not two events. If it shows two, the `event_id` no longer matches on both sides.
 
+## Not seeing an event?
+
+Every send here is a deliberate no-op when its dataset or pixel isn't
+configured, so "no data" and "not configured" look identical from the outside.
+Work down this list before suspecting the call site.
+
+**1. Is the server dataset even on?** `MetaCapiService` says so once at boot:
+
+```
+[MetaCapiService] Meta Conversions API: creator=on(1023…) brand=on(1307…)
+```
+
+`brand=off(no META_CAPI_BRAND_DATASET_ID)` means every server-side brand event
+is silently dropped, and nothing later in the log will mention it again. When no
+dataset can send, the line is a **warning** instead.
+
+**`Purchase` is the event to watch here.** It is the only conversion with no
+browser copy, so a disabled brand dataset makes it vanish completely, while
+`AddToWishlist` keeps appearing because the pixel still fires it from the
+browser. "Everything works except Purchase" is almost always this line.
+
+**2. Is the browser pixel on?** `NEXT_PUBLIC_*` values are inlined at **build**
+time, so setting them only in the runtime environment leaves the deployed bundle
+with none. In development the browser console says which:
+
+```
+[meta-pixel] skipped HotBrand (brand): no NEXT_PUBLIC_META_BRAND_PIXEL_ID …
+```
+
+With `NEXT_PUBLIC_META_BRAND_PIXEL_ID` empty but `NEXT_PUBLIC_META_PIXEL_ID`
+set, brand events are **not** dropped — they fall back to the creator pixel, so
+they are missing from the brand dataset while looking fine in the creator one.
+Check which dataset you are reading.
+
+**3. Is it a delayed event?** `HotBrand` needs
+`HOT_BRAND_SECONDS` of *visible* time on the catalogue in one mount — switching
+tabs pauses the count, and leaving the page before the threshold sends nothing.
+Watch for it with the Pixel Helper while staying on `/brand/creators`.
+
+**4. Is the viewer a buyer?** Every buyer event is skipped unless the signed-in
+user has the `BRAND` or `AGENCY` role (`useBuyerIdentityResolver`). Signed out,
+or signed in as an admin, nothing fires.
+
+**5. Still nothing?** Set `META_CAPI_TEST_EVENT_CODE` and watch Events Manager →
+Test Events, which shows server events as they arrive, including ones Meta later
+discards.
+
 ## Turning it off / removing
 
 - **Off (instant):** clear the client pixel IDs and/or the server dataset IDs. Each of the four vars switches off one channel of one dataset on its own.

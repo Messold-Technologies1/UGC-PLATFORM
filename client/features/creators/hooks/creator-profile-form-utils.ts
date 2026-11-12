@@ -115,7 +115,15 @@ export type SelectedFacets = Partial<
 export type PackageDraft = {
   packageName: string;
   videoLengthSeconds: string;
+  /** ALWAYS rupees — what brands pay and what the server stores. */
   priceAmount: string;
+  /**
+   * Set only for a creator who prices in their own currency. `priceAmount`
+   * above is then the converted rupee figure, kept in step so every existing
+   * check and preview keeps working untouched.
+   */
+  priceCurrency?: string;
+  priceAmountOriginal?: string;
   deliveryDays: string;
   maxRevisions: string;
 };
@@ -267,6 +275,13 @@ export function createInitialPackageDraft(
     priceAmount: pkg?.priceAmount
       ? String(Math.round(Number(pkg.priceAmount)))
       : "",
+    // Shows a returning creator the figure they actually typed rather than
+    // the rupee conversion of it.
+    priceCurrency: pkg?.priceCurrency ?? undefined,
+    priceAmountOriginal:
+      pkg?.priceAmountOriginal != null
+        ? String(Number(pkg.priceAmountOriginal))
+        : undefined,
     deliveryDays:
       pkg?.deliveryDays != null
         ? String(pkg.deliveryDays)

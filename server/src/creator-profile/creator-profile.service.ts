@@ -577,6 +577,11 @@ export class CreatorProfileService {
         deliverables: p.deliverables,
         videoLengthSeconds: p.videoLengthSeconds ?? 60,
         priceAmount: p.priceAmount,
+        // So the pricing form can show a returning creator the figure they
+        // typed rather than its rupee conversion.
+        priceCurrency: p.priceCurrency ?? 'INR',
+        priceAmountOriginal:
+          p.priceAmountOriginal != null ? String(p.priceAmountOriginal) : null,
         deliveryDays: p.deliveryDays,
         maxRevisions: p.maxRevisions ?? 2,
       })),

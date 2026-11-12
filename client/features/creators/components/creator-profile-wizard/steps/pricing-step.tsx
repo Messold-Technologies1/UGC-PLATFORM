@@ -13,6 +13,14 @@ import type { CreatorAddOnOption } from "@/features/creators/api/get-creator-add
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
 
+import { useFxRatesQuery } from "@/features/creators/hooks/use-fx-rates-query";
+import {
+  convertToInr,
+  currencyForCountry,
+  needsPriceConversion,
+  snapToPriceStep,
+} from "@/features/creators/lib/price-currency";
+
 import { CwCard, CwFieldWarn } from "../wizard-ui";
 import { WizardAccordionSection } from "./wizard-parts";
 
@@ -20,6 +28,13 @@ const FOLLOWER_START_PRICE_MAX = 10_000;
 
 export type PricingStepProps = {
   disabled: boolean;
+  /**
+   * Country from the location step. A creator outside India prices in their
+   * own currency and we convert; an Indian creator sees the rupee field
+   * exactly as before.
+   */
+  countryName?: string | null;
+
   /** Active Instagram follower count, when known. */
   instagramFollowers?: number | null;
 
@@ -145,6 +160,7 @@ function FollowerStartPriceSuggestion() {
 
 export function PricingStep({
   disabled,
+  countryName,
   instagramFollowers = null,
   packageDraft,
   onPackageChange,
@@ -164,6 +180,58 @@ export function PricingStep({
   onAddonsReviewed,
   errors = {},
 }: PricingStepProps) {
+  // Only a creator outside India sees the converter, and only then do we
+  // fetch rates at all.
+  const converting = needsPriceConversion(countryName);
+  const localCurrency = currencyForCountry(countryName);
+  const { data: fx } = useFxRatesQuery({ enabled: converting });
+
+  // The typed amount lives on the draft, so it survives step navigation and
+  // reaches the save payload without any extra wizard state.
+  const localPriceAmount = packageDraft.priceAmountOriginal ?? "";
+
+  const toInr = (amount: string): number | null => {
+    if (!localCurrency || !fx?.available) return null;
+    const raw = convertToInr(Number(amount), localCurrency, fx.rates);
+    return raw == null ? null : snapToPriceStep(raw);
+  };
+
+  const convertedInr = converting ? toInr(localPriceAmount) : null;
+
+  // No rates, or a currency the upstream does not carry (it covers the ECB
+  // set, so PKR and the Gulf are out). Fall back to the rupee field rather
+  // than block someone from pricing at all.
+  const conversionUnavailable =
+    converting &&
+    Boolean(localCurrency) &&
+    (fx?.available === false ||
+      (fx?.available === true && !fx.rates[localCurrency!]));
+
+  const priceConverter =
+    converting && localCurrency
+      ? {
+          currency: localCurrency,
+          amount: localPriceAmount,
+          onAmountChange: (amount: string) => {
+            // Keep the rupee figure in step with what they typed. Every
+            // existing check, the earnings banner and the review row all read
+            // `priceAmount`, so they keep working untouched — and the server
+            // converts again on save, so this is a preview, not the source of
+            // truth.
+            const inr = toInr(amount);
+            onPackageChange({
+              ...packageDraft,
+              priceCurrency: localCurrency,
+              priceAmountOriginal: amount,
+              priceAmount: inr == null ? "" : String(inr),
+            });
+          },
+          convertedInr,
+          unavailable: conversionUnavailable,
+          rateDate: fx?.date,
+        }
+      : undefined;
+
   const packageComplete =
     Boolean(packageDraft.priceAmount.trim()) &&
     Boolean(packageDraft.deliveryDays.trim()) &&
@@ -254,6 +322,7 @@ export function PricingStep({
           <PackageEditor
             draft={packageDraft}
             disabled={disabled}
+            priceConverter={priceConverter}
             onChange={onPackageChange}
             errors={packageErrors}
             defaultsConfirmed={defaultsConfirmed}

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { CreatorPackageCreateDto } from '../creator-profile/dto/create-creator-profile.dto';
+import { FxService } from '../fx/fx.service';
 
 /** Client passed to interactive `$transaction` callbacks */
 type PrismaTransactionClient = Omit<
@@ -18,6 +19,61 @@ export class CreatorPackageService {
   private readonly MAX_DELIVERY_DAYS = 30;
   private readonly PRICE_STEP = 500;
 
+  constructor(private readonly fx: FxService) {}
+
+  /**
+   * Rupees for a package, whatever currency the creator typed in.
+   *
+   * The rate is applied here rather than trusted from the request: a
+   * client-supplied rupee figure alongside a foreign amount would let a
+   * creator name their own exchange rate.
+   *
+   * A converted amount almost never lands on the PRICE_STEP grid, so it is
+   * rounded to the nearest step. The pricing form mirrors this, so the figure
+   * a creator is shown before saving is the one that gets stored.
+   */
+  private async resolvePrice(pkg: CreatorPackageCreateDto): Promise<{
+    priceAmount: number;
+    priceCurrency: string;
+    priceAmountOriginal: Prisma.Decimal | null;
+  }> {
+    const currency = (pkg.priceCurrency ?? 'INR').trim().toUpperCase() || 'INR';
+
+    if (currency === 'INR') {
+      return {
+        priceAmount: Number(pkg.priceAmount),
+        priceCurrency: 'INR',
+        priceAmountOriginal: null,
+      };
+    }
+
+    const entered = Number(pkg.priceAmountOriginal);
+    if (!Number.isFinite(entered) || entered <= 0) {
+      throw new BadRequestException(
+        'priceAmountOriginal is required when priceCurrency is not INR.',
+      );
+    }
+
+    const converted = await this.fx.convertToInr(entered, currency);
+    if (!converted) {
+      // Either the upstream is unreachable or it does not carry this
+      // currency (it covers the ECB set, so PKR and the Gulf are out).
+      throw new BadRequestException(
+        `We cannot convert ${currency} to rupees right now. ` +
+          'Enter your price in ₹ instead.',
+      );
+    }
+
+    const stepped =
+      Math.round(converted.inr / this.PRICE_STEP) * this.PRICE_STEP;
+
+    return {
+      priceAmount: Math.max(stepped, this.PRICE_STEP),
+      priceCurrency: currency,
+      priceAmountOriginal: new Prisma.Decimal(entered.toFixed(2)),
+    };
+  }
+
   async createPackages(
     tx: PrismaTransactionClient,
     creatorId: string,
@@ -31,7 +87,8 @@ export class CreatorPackageService {
     const pkg = packages[0];
     if (!pkg) return;
 
-    const price = Number(pkg.priceAmount);
+    const { priceAmount: price, priceCurrency, priceAmountOriginal } =
+      await this.resolvePrice(pkg);
     if (!Number.isFinite(price) || !Number.isInteger(price)) {
       throw new BadRequestException('priceAmount must be a whole number.');
     }
@@ -94,6 +151,8 @@ export class CreatorPackageService {
         deliverables: normalizedDeliverables,
         videoLengthSeconds,
         priceAmount: new Prisma.Decimal(String(price)),
+        priceCurrency,
+        priceAmountOriginal,
         deliveryDays,
         maxRevisions,
       },

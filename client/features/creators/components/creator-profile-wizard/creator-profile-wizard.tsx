@@ -2161,6 +2161,7 @@ export function CreatorProfileWizard({
               ) : activeStep.id === "pricing" ? (
                 <PricingStep
                   disabled={fieldsDisabled}
+                  countryName={location.countryName}
                   instagramFollowers={instagramFollowers}
                   packageDraft={packages.packageDraft}
                   onPackageChange={onPackageChange}

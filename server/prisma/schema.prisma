@@ -1757,7 +1757,16 @@ model CreatorPackage {
   title              String?
   deliverables       Json // array of strings e.g. ["1 Video", "Basic editing"]
   videoLengthSeconds Int      @default(60)
+  /// ALWAYS rupees. Orders, platform fees, payouts and the browse price
+  /// filter are all built on this, so it stays the canonical figure whatever
+  /// currency the creator typed.
   priceAmount        Decimal  @db.Decimal(12, 2)
+  /// What the creator actually entered, when that was not rupees. Kept so the
+  /// pricing form can show them their own currency back instead of a
+  /// converted number they never chose. `INR` means they typed rupees and
+  /// `priceAmountOriginal` is null.
+  priceCurrency      String   @default("INR")
+  priceAmountOriginal Decimal? @db.Decimal(12, 2)
   deliveryDays       Int      @default(5)
   maxRevisions       Int      @default(1)
   createdAt          DateTime @default(now())

@@ -2438,10 +2438,15 @@ export class CreatorProfileService {
    * the expensive `adminCreatorListInclude` is loaded for one page of results
    * afterwards. Callers get a Map keyed by creator id — empty array means the
    * profile is complete.
+   *
+   * `requirePayoutDetails` is the caller's, because the two cohorts built from
+   * this pass want different answers. See each call site.
    */
-  private async evaluateListedCreatorsCompleteness(
-    search?: string,
-  ): Promise<Map<string, string[]>> {
+  private async evaluateListedCreatorsCompleteness(params: {
+    search?: string;
+    requirePayoutDetails: boolean;
+  }): Promise<Map<string, string[]>> {
+    const { search, requirePayoutDetails } = params;
     const where: Prisma.CreatorProfileWhereInput = buildAdminCreatorsListWhere(
       AdminCreatorListSegment.LISTED,
       search,
@@ -2460,11 +2465,7 @@ export class CreatorProfileService {
     for (const profile of profiles) {
       const { missing } = evaluateListedProfileCompleteness(
         toListedCompletenessInput(profile, addOnNames),
-        // Payout details are deliberately not counted here. This segment is
-        // about whether a profile is presentable to brands; bank details are
-        // invisible to them and block nothing until money is owed, where the
-        // creator-facing gate picks them up instead.
-        { requirePayoutDetails: false },
+        { requirePayoutDetails },
       );
       byCreatorId.set(profile.id, missing);
     }
@@ -2484,9 +2485,13 @@ export class CreatorProfileService {
   }
 
   /**
-   * The outreach cohort: every LISTED creator whose profile is not actually
-   * finished, with the contact details needed to reach them and the exact list
-   * of what they are still missing.
+   * The outreach cohort: every LISTED creator with something still outstanding,
+   * with the contact details needed to reach them and the exact list of what
+   * it is.
+   *
+   * Broader than the admin "Listed · incomplete" tab, deliberately: this one
+   * counts missing payout details and that tab does not. A bank account is not
+   * part of whether a profile reads as finished, but it is worth a nudge.
    *
    * Public because the admin list is not the only consumer — a WhatsApp/email
    * nudge job, a one-off script or a CSV export all need the same cohort, and
@@ -2508,7 +2513,13 @@ export class CreatorProfileService {
   async listListedCreatorsWithIncompleteProfiles(): Promise<
     ListedCreatorProfileGap[]
   > {
-    const missingByCreatorId = await this.evaluateListedCreatorsCompleteness();
+    // Payout details ARE counted here, unlike the admin segment. This cohort
+    // exists to nudge creators about gaps, and "we have no way to pay you" is
+    // worth a nudge even though it does not make a profile unpresentable —
+    // which is why the admin tab leaves it out and this does not.
+    const missingByCreatorId = await this.evaluateListedCreatorsCompleteness({
+      requirePayoutDetails: true,
+    });
 
     const incompleteIds = [...missingByCreatorId.entries()]
       .filter(([, missing]) => missing.length > 0)
@@ -2557,8 +2568,13 @@ export class CreatorProfileService {
   }): Promise<AdminCreatorsListResponseDto> {
     const { page, limit, skip, search, wantComplete } = query;
 
-    const missingByCreatorId =
-      await this.evaluateListedCreatorsCompleteness(search);
+    const missingByCreatorId = await this.evaluateListedCreatorsCompleteness({
+      search,
+      // The "Listed · incomplete" / "Listed · complete" tabs. Bank details
+      // are invisible to brands and block nothing, so they do not decide
+      // whether a profile reads as finished.
+      requirePayoutDetails: false,
+    });
 
     const matchingIds = [...missingByCreatorId.entries()]
       .filter(([, missing]) =>
@@ -2665,7 +2681,10 @@ export class CreatorProfileService {
         },
       }),
       // Derived from the live checklist, so it cannot be a SQL count.
-      this.evaluateListedCreatorsCompleteness(),
+      // Counts behind those same tabs, so the same rule.
+      this.evaluateListedCreatorsCompleteness({
+        requirePayoutDetails: false,
+      }),
     ]);
 
     let listedComplete = 0;

@@ -192,8 +192,29 @@ export type AdminCreatorListSegment =
   | "listed_incomplete"
   | "featured";
 
-export interface AdminCreatorsListQueryDto extends PendingApprovalsQueryDto {
+/**
+ * Search and filters that apply to the creator list regardless of stage.
+ *
+ * The tab counts take the identical shape, which is the point: a tab's number
+ * is computed from the same predicate as the rows, so it tells you where the
+ * creator you searched for actually is instead of how many exist in total.
+ */
+export interface AdminCreatorListFilters {
+  search?: string;
+  /** CreatorFacetOption slug in the CONTENT_CATEGORY dimension. */
+  niche?: string;
+  city?: string;
+}
+
+export interface AdminCreatorsListQueryDto
+  extends PendingApprovalsQueryDto,
+    AdminCreatorListFilters {
   segment: AdminCreatorListSegment;
+}
+
+export interface AdminCreatorFilterOptionsDto {
+  niches: { slug: string; label: string }[];
+  cities: string[];
 }
 
 export interface AdminCreatorSegmentCountsDto {

@@ -7,9 +7,11 @@ import {
 } from '@prisma/client';
 import {
   buildAdminCreatorApprovalSearchWhere,
+  buildAdminCreatorExtraFilterWhere,
   buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
   buildCreatorListSearchWhere,
+  withAdminCreatorExtraFilters,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
@@ -551,6 +553,59 @@ describe('creator-list-filters.util', () => {
           },
         ],
       });
+    });
+  });
+});
+
+describe('admin creator extra filters', () => {
+  it('is null when nothing is filtered, so callers can skip the AND', () => {
+    expect(buildAdminCreatorExtraFilterWhere(undefined)).toBeNull();
+    expect(buildAdminCreatorExtraFilterWhere({})).toBeNull();
+    // Blank and whitespace-only values are "no filter", not "match empty".
+    expect(
+      buildAdminCreatorExtraFilterWhere({ niche: '', city: '  ' }),
+    ).toBeNull();
+  });
+
+  it('matches a niche through its CONTENT_CATEGORY facet slug', () => {
+    expect(buildAdminCreatorExtraFilterWhere({ niche: 'beauty' })).toEqual({
+      facetSelections: {
+        some: {
+          option: {
+            dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+            slug: 'beauty',
+          },
+        },
+      },
+    });
+  });
+
+  it('matches a city without caring about case', () => {
+    expect(buildAdminCreatorExtraFilterWhere({ city: 'Mumbai' })).toEqual({
+      city: { equals: 'Mumbai', mode: 'insensitive' },
+    });
+  });
+
+  it('requires both when both are set', () => {
+    const where = buildAdminCreatorExtraFilterWhere({
+      niche: 'beauty',
+      city: 'Mumbai',
+    });
+    expect(where).toHaveProperty('AND');
+    expect((where as { AND: unknown[] }).AND).toHaveLength(2);
+  });
+
+  it('leaves the base clause untouched when nothing is filtered', () => {
+    const base = { isListed: true };
+    expect(withAdminCreatorExtraFilters(base, undefined)).toBe(base);
+  });
+
+  it('ANDs onto the base rather than replacing it', () => {
+    // The segment predicate has to survive, or a filter would widen the tab
+    // instead of narrowing it.
+    const base = { isListed: true };
+    expect(withAdminCreatorExtraFilters(base, { city: 'Mumbai' })).toEqual({
+      AND: [base, { city: { equals: 'Mumbai', mode: 'insensitive' } }],
     });
   });
 });

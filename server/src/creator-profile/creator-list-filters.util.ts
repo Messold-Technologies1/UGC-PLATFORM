@@ -392,6 +392,60 @@ export function buildAdminCreatorApprovalSearchWhere(
   };
 }
 
+/**
+ * Filters the admin creator list applies ON TOP of a segment and its search.
+ *
+ * Kept separate from `buildAdminCreatorsListWhere` rather than folded into it
+ * so the same clauses can be ANDed onto a segment count, an export, or the
+ * listed-completeness sweep without each of those growing its own copy. Every
+ * surface that shows a number for a tab has to apply exactly the same filter,
+ * or the tab counts stop agreeing with the rows under them.
+ */
+export interface AdminCreatorExtraFilters {
+  /** `CreatorFacetOption.slug` within the CONTENT_CATEGORY dimension. */
+  niche?: string;
+  /** City exactly as stored on the profile; matched case-insensitively. */
+  city?: string;
+}
+
+/** `null` when no extra filter is set, so callers can skip the AND. */
+export function buildAdminCreatorExtraFilterWhere(
+  filters: AdminCreatorExtraFilters | undefined,
+): Prisma.CreatorProfileWhereInput | null {
+  const clauses: Prisma.CreatorProfileWhereInput[] = [];
+
+  const niche = filters?.niche?.trim();
+  if (niche) {
+    clauses.push({
+      facetSelections: {
+        some: {
+          option: {
+            dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+            slug: niche,
+          },
+        },
+      },
+    });
+  }
+
+  const city = filters?.city?.trim();
+  if (city) {
+    clauses.push({ city: { equals: city, mode: 'insensitive' } });
+  }
+
+  if (clauses.length === 0) return null;
+  return clauses.length === 1 ? clauses[0] : { AND: clauses };
+}
+
+/** AND an optional extra-filter clause onto a segment clause. */
+export function withAdminCreatorExtraFilters(
+  base: Prisma.CreatorProfileWhereInput,
+  filters: AdminCreatorExtraFilters | undefined,
+): Prisma.CreatorProfileWhereInput {
+  const extra = buildAdminCreatorExtraFilterWhere(filters);
+  return extra ? { AND: [base, extra] } : base;
+}
+
 /** Admin unified creator list segments. */
 export function buildAdminCreatorsListWhere(
   segment: AdminCreatorListSegment,

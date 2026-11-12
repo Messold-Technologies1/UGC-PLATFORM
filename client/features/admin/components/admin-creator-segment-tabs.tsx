@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -17,7 +16,6 @@ export function AdminCreatorSegmentTabs({
   counts,
   countsLoading = false,
   onChange,
-  trailing,
   analyticsActive = false,
   onSelectAnalytics,
 }: {
@@ -25,7 +23,6 @@ export function AdminCreatorSegmentTabs({
   counts?: AdminCreatorSegmentCountsDto;
   countsLoading?: boolean;
   onChange: (segment: AdminCreatorListSegment) => void;
-  trailing?: ReactNode;
   /** When true, no segment tab is highlighted and the Analytics tab is active. */
   analyticsActive?: boolean;
   /** When provided, an "Analytics" tab is rendered after the segment tabs. */
@@ -108,9 +105,6 @@ export function AdminCreatorSegmentTabs({
           </button>
         ) : null}
         </div>
-        {trailing ? (
-          <div className="w-full shrink-0 pb-2 sm:w-auto sm:pb-3">{trailing}</div>
-        ) : null}
       </div>
     </nav>
   );

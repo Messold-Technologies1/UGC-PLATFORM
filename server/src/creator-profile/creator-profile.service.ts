@@ -64,7 +64,9 @@ import {
   AdminCreatorListSegment,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
+  AdminCreatorFilterOptionsDto,
   AdminCreatorSegmentCountsDto,
+  AdminCreatorSegmentCountsQueryDto,
 } from './dto/admin-creator-list.dto';
 import type {
   FirstOrderFreeCreatorsQueryDto,
@@ -82,6 +84,8 @@ import {
   buildAdminCreatorsListWhere,
   buildCreatorListRelationsInclude,
   buildListCreatorsWhere,
+  withAdminCreatorExtraFilters,
+  type AdminCreatorExtraFilters,
 } from './creator-list-filters.util';
 import { isProfileFirstOnboardingMode } from '../config/creator-onboarding-mode';
 import { nextReshuffleAt } from './creator-ranking.constants';
@@ -2011,7 +2015,10 @@ export class CreatorProfileService {
       });
     }
 
-    const where = buildAdminCreatorsListWhere(query.segment, query.search);
+    const where = withAdminCreatorExtraFilters(
+      buildAdminCreatorsListWhere(query.segment, query.search),
+      query,
+    );
 
     const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] =
       query.segment === AdminCreatorListSegment.PENDING
@@ -2445,11 +2452,12 @@ export class CreatorProfileService {
   private async evaluateListedCreatorsCompleteness(params: {
     search?: string;
     requirePayoutDetails: boolean;
+    filters?: AdminCreatorExtraFilters;
   }): Promise<Map<string, string[]>> {
-    const { search, requirePayoutDetails } = params;
-    const where: Prisma.CreatorProfileWhereInput = buildAdminCreatorsListWhere(
-      AdminCreatorListSegment.LISTED,
-      search,
+    const { search, requirePayoutDetails, filters } = params;
+    const where: Prisma.CreatorProfileWhereInput = withAdminCreatorExtraFilters(
+      buildAdminCreatorsListWhere(AdminCreatorListSegment.LISTED, search),
+      filters,
     );
 
     const [profiles, addOnNames] = await Promise.all([
@@ -2653,7 +2661,10 @@ export class CreatorProfileService {
     return { items, total, page, limit };
   }
 
-  async getAdminCreatorSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {
+  async getAdminCreatorSegmentCounts(
+    query: AdminCreatorSegmentCountsQueryDto = {},
+  ): Promise<AdminCreatorSegmentCountsDto> {
+    const { search } = query;
     const segments = [
       AdminCreatorListSegment.PENDING,
       AdminCreatorListSegment.APPROVED,
@@ -2670,19 +2681,32 @@ export class CreatorProfileService {
       this.prisma.$transaction(
         segments.map((segment) =>
           this.prisma.creatorProfile.count({
-            where: buildAdminCreatorsListWhere(segment),
+            where: withAdminCreatorExtraFilters(
+              buildAdminCreatorsListWhere(segment, search),
+              query,
+            ),
           }),
         ),
       ),
       this.prisma.creatorFeature.count({
         where: {
-          creator: { isListed: true },
+          // Featured counts the same creators the other tabs do, so the
+          // search and filters have to reach through the relation too.
+          creator: withAdminCreatorExtraFilters(
+            buildAdminCreatorsListWhere(
+              AdminCreatorListSegment.LISTED,
+              search,
+            ),
+            query,
+          ),
           OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
         },
       }),
       // Derived from the live checklist, so it cannot be a SQL count.
       // Counts behind those same tabs, so the same rule.
       this.evaluateListedCreatorsCompleteness({
+        search,
+        filters: query,
         requirePayoutDetails: false,
       }),
     ]);
@@ -2704,6 +2728,45 @@ export class CreatorProfileService {
       listedIncomplete: listedMissing.size - listedComplete,
       featured: featuredCount,
     };
+  }
+
+  /**
+   * Values for the admin list's filter dropdowns.
+   *
+   * Built from the creators that actually exist, not from the facet catalog
+   * or a city table: an option that matches nobody is a dead end the admin
+   * has to discover by clicking it. Niches come back with their labels so the
+   * dropdown can show "Beauty" while filtering on the slug.
+   */
+  async getAdminCreatorFilterOptions(): Promise<AdminCreatorFilterOptionsDto> {
+    const [nicheRows, cityRows] = await Promise.all([
+      this.prisma.creatorProfileFacetSelection.findMany({
+        where: {
+          option: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
+        },
+        select: { option: { select: { slug: true, label: true } } },
+        distinct: ['optionId'],
+      }),
+      this.prisma.creatorProfile.findMany({
+        where: { city: { not: null } },
+        select: { city: true },
+        distinct: ['city'],
+      }),
+    ]);
+
+    const niches = nicheRows
+      .map((row) => row.option)
+      .filter((option): option is { slug: string; label: string } =>
+        Boolean(option?.slug),
+      )
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    const cities = cityRows
+      .map((row) => row.city?.trim())
+      .filter((city): city is string => Boolean(city))
+      .sort((a, b) => a.localeCompare(b));
+
+    return { niches, cities };
   }
 
   /**

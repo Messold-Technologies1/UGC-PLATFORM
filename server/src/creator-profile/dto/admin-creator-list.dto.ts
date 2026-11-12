@@ -64,6 +64,80 @@ export class AdminCreatorsListQueryDto {
   @IsString()
   @MaxLength(120)
   search?: string;
+
+  @ApiPropertyOptional({
+    example: 'beauty',
+    description:
+      'CreatorFacetOption slug in the CONTENT_CATEGORY dimension. Narrows to ' +
+      'creators who selected that niche.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  niche?: string;
+
+  @ApiPropertyOptional({
+    example: 'Mumbai',
+    description: 'City as stored on the profile; matched case-insensitively.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+}
+
+/**
+ * The same search and filters the list takes, for the tab counts.
+ *
+ * The counts have to be computed against the identical predicate the rows
+ * are, or a tab advertises a number you cannot get to by clicking it.
+ */
+export class AdminCreatorSegmentCountsQueryDto {
+  @ApiPropertyOptional({ example: 'jane' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  search?: string;
+
+  @ApiPropertyOptional({
+    example: 'beauty',
+    description:
+      'CreatorFacetOption slug in the CONTENT_CATEGORY dimension. Narrows to ' +
+      'creators who selected that niche.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  niche?: string;
+
+  @ApiPropertyOptional({
+    example: 'Mumbai',
+    description: 'City as stored on the profile; matched case-insensitively.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+}
+
+/**
+ * Values the admin filter dropdowns offer.
+ *
+ * Derived from the creators that exist rather than from the full catalog, so
+ * every option in the list leads to at least one result somewhere.
+ */
+export class AdminCreatorFilterOptionsDto {
+  @ApiProperty({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: { slug: { type: 'string' }, label: { type: 'string' } },
+    },
+  })
+  niches!: { slug: string; label: string }[];
+
+  @ApiProperty({ example: ['Bengaluru', 'Mumbai'], type: [String] })
+  cities!: string[];
 }
 
 export class AdminCreatorListItemDto {

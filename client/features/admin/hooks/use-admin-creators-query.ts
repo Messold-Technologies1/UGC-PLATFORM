@@ -9,6 +9,8 @@ export const adminCreatorsQueryKey = (query: AdminCreatorsListQueryDto) => [
   query.page ?? 1,
   query.limit ?? 20,
   query.search?.trim() || "",
+  query.niche || "",
+  query.city || "",
 ];
 
 export function useAdminCreatorsQuery(

@@ -44,7 +44,9 @@ import {
   AdminSaveBrowseOrderDto,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
+  AdminCreatorFilterOptionsDto,
   AdminCreatorSegmentCountsDto,
+  AdminCreatorSegmentCountsQueryDto,
 } from './dto/admin-creator-list.dto';
 import {
   FirstOrderFreeCreatorsQueryDto,
@@ -68,10 +70,27 @@ export class AdminCreatorController {
   ) {}
 
   @Get('segment-counts')
-  @ApiOperation({ summary: 'Counts for each admin creator list segment' })
+  @ApiOperation({
+    summary: 'Counts for each admin creator list segment',
+    description:
+      'Takes the same search and filters as the list, so the number on a tab ' +
+      'is what clicking it returns. With none of them set these are the ' +
+      'totals for every segment.',
+  })
   @ApiOkResponse({ type: AdminCreatorSegmentCountsDto })
-  async getSegmentCounts(): Promise<AdminCreatorSegmentCountsDto> {
-    return this.creatorProfileService.getAdminCreatorSegmentCounts();
+  async getSegmentCounts(
+    @Query() query: AdminCreatorSegmentCountsQueryDto,
+  ): Promise<AdminCreatorSegmentCountsDto> {
+    return this.creatorProfileService.getAdminCreatorSegmentCounts(query);
+  }
+
+  @Get('filter-options')
+  @ApiOperation({
+    summary: 'Niches and cities present across creators, for the filter menus',
+  })
+  @ApiOkResponse({ type: AdminCreatorFilterOptionsDto })
+  async getFilterOptions(): Promise<AdminCreatorFilterOptionsDto> {
+    return this.creatorProfileService.getAdminCreatorFilterOptions();
   }
 
   @Get('building-profile-analytics')

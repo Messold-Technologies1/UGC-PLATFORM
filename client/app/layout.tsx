@@ -91,16 +91,32 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Go Collab",
   },
-  // `summary`, not `summary_large_image`: nothing here sets an og:image, and
-  // the large-image card makes Slack reserve a picture area it then renders as
-  // an empty grey placeholder.
-  twitter: {
-    card: "summary",
-  },
+  // No `twitter` block at all, deliberately.
+  //
+  // `summary` and `summary_large_image` are both CARD types, and a card has
+  // an image slot. Declaring either tells Slack this link renders as a card,
+  // so it draws the picture area and — with no og:image or twitter:image
+  // anywhere in the app — leaves it as an empty grey placeholder. Downgrading
+  // the card from large to small only shrank the box; it did not remove it.
+  //
+  // Omitting the block is not enough — Next synthesizes `twitter:card:
+  // summary` from the title and description on its own. `null` is the
+  // documented way to suppress a metadata field outright.
+  //
+  // With no card declared, Slack and X fall back to plain Open Graph: title,
+  // description, site name, no image slot. Set this back to a real card the
+  // day there is an og:image to put in it.
+  twitter: null,
+  // No `apple` entry. `apple-touch-icon` is the tag link unfurlers promote to
+  // a preview thumbnail when a page has no og:image, and the only icon here
+  // is a 226x171 transparent PNG — the wrong shape and the wrong background
+  // for that slot, which is why Slack drew a broken-image box beside every
+  // link. The browser-tab icons stay.
+  //
+  // iOS home-screen installs fall back to the icons in manifest.webmanifest.
   icons: {
     icon: [{ url: "/logo.png", type: "image/png" }],
     shortcut: "/logo.png",
-    apple: "/logo.png",
   },
   // Required for web push on iOS, which only delivers to a site the user has
   // added to their Home Screen — and that requires a manifest with a

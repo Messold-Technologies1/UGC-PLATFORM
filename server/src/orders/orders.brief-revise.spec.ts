@@ -70,6 +70,7 @@ describe('OrdersService brief revision', () => {
       events as never,
       { get: () => undefined } as never,
       { enabledFor: () => false, sendEvent: jest.fn() } as never,
+      {} as never,
     );
     return { service, orderUpdate, orderRealtime, events };
   }

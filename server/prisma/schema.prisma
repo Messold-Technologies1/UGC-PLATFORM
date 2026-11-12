@@ -1757,14 +1757,20 @@ model CreatorPackage {
   title              String?
   deliverables       Json // array of strings e.g. ["1 Video", "Basic editing"]
   videoLengthSeconds Int      @default(60)
-  /// ALWAYS rupees. Orders, platform fees, payouts and the browse price
-  /// filter are all built on this, so it stays the canonical figure whatever
-  /// currency the creator typed.
+  /// Rupees, but DERIVED whenever `priceCurrency` is not INR -- it is a
+  /// search and display figure, not the price. Browse needs one comparable
+  /// column to show, filter and sort on (see the @@index below), and that is
+  /// all this is for. It is only as fresh as the last rate refresh.
+  ///
+  /// It is NOT what anyone is charged. Checkout re-converts
+  /// `priceAmountOriginal` live and freezes the result into the order's
+  /// `priceAmountSnapshot`, which is what Razorpay charges and what credits
+  /// and payouts are computed from. Never move money off this column.
   priceAmount        Decimal  @db.Decimal(12, 2)
-  /// What the creator actually entered, when that was not rupees. Kept so the
-  /// pricing form can show them their own currency back instead of a
-  /// converted number they never chose. `INR` means they typed rupees and
-  /// `priceAmountOriginal` is null.
+  /// The authoritative price for a creator outside India: what they actually
+  /// entered, in the currency they entered it in. `INR` means they typed
+  /// rupees and `priceAmountOriginal` is null, so `priceAmount` is then the
+  /// real price rather than a derived one.
   priceCurrency      String   @default("INR")
   priceAmountOriginal Decimal? @db.Decimal(12, 2)
   deliveryDays       Int      @default(5)

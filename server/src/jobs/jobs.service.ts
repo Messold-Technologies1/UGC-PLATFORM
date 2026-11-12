@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+
+/** Daily, well outside Indian business hours. */
+const PACKAGE_PRICE_REFRESH_CRON = '0 0 20 * * *';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PREVIEW_RECONCILE_CRON,
@@ -12,6 +16,7 @@ import {
   introNormalizeOwedWhere,
   portfolioNormalizeOwedWhere,
 } from '../media-normalize/media-normalize.reconcile';
+import { FxService } from '../fx/fx.service';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -36,12 +41,14 @@ export class JobsService {
   private reconcileRunning = false;
   private previewReconcileRunning = false;
   private normalizeReconcileRunning = false;
+  private priceRefreshRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly watermarkQueue: WatermarkQueueService,
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
+    private readonly fx: FxService,
   ) {}
 
   /**
@@ -302,4 +309,81 @@ export class JobsService {
       this.normalizeReconcileRunning = false;
     }
   }
+
+  /**
+   * Keep the DERIVED rupee figure on foreign-currency packages roughly current.
+   *
+   * A creator outside India prices in their own currency; `priceAmount` holds
+   * a rupee conversion purely so browse has one column to display, filter and
+   * sort on. Nobody is charged from it -- checkout re-converts live -- but
+   * left alone it would freeze at whatever the rate was on the day the
+   * creator saved, and the browse price would drift further from the checkout
+   * price with every passing month. Once a day is plenty: it only has to be
+   * close enough that a brand is not surprised at checkout.
+   *
+   * Rates are fetched once per currency, not once per package, and a failure
+   * for one currency leaves those rows at their previous value rather than
+   * abandoning the whole sweep.
+   */
+  @Cron(PACKAGE_PRICE_REFRESH_CRON)
+  async refreshForeignPackagePrices(): Promise<void> {
+    if (this.priceRefreshRunning) return;
+    this.priceRefreshRunning = true;
+
+    try {
+      const packages = await this.prisma.creatorPackage.findMany({
+        where: {
+          priceCurrency: { not: 'INR' },
+          priceAmountOriginal: { not: null },
+        },
+        select: { id: true, priceCurrency: true, priceAmountOriginal: true },
+      });
+      if (packages.length === 0) return;
+
+      let updated = 0;
+      const failedCurrencies = new Set<string>();
+
+      for (const pkg of packages) {
+        const currency = pkg.priceCurrency.trim().toUpperCase();
+        if (failedCurrencies.has(currency) || pkg.priceAmountOriginal == null) {
+          continue;
+        }
+
+        const converted = await this.fx.convertToInr(
+          Number(pkg.priceAmountOriginal),
+          currency,
+        );
+        if (!converted) {
+          // Note it once and skip every other package in that currency.
+          failedCurrencies.add(currency);
+          continue;
+        }
+
+        await this.prisma.creatorPackage.update({
+          where: { id: pkg.id },
+          data: {
+            priceAmount: new Prisma.Decimal(converted.inr.toFixed(2)),
+          },
+        });
+        updated += 1;
+      }
+
+      if (failedCurrencies.size > 0) {
+        this.logger.warn(
+          `price refresh: could not get rates for ${[...failedCurrencies].join(', ')}; ` +
+            'those packages keep their previous rupee figure.',
+        );
+      }
+      this.logger.log(
+        `price refresh: updated ${updated}/${packages.length} foreign-currency packages`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `price refresh failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      this.priceRefreshRunning = false;
+    }
+  }
+
 }

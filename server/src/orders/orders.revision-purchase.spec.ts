@@ -88,7 +88,8 @@ describe('OrdersService extra-revisions purchase', () => {
       {} as never, // wallet
       events as never, // notification events
       { get: () => undefined } as never, // config
-      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests,
+      {} as never,
     );
     return { service, prisma, razorpay, events, orderRealtime, orderUpdate };
   }

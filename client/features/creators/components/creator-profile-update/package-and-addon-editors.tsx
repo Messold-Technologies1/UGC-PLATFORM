@@ -169,18 +169,21 @@ export function PackageEditor({
             <p id="packagePriceConverted" className={helpClass}>
               {priceConverter.convertedInr != null ? (
                 <>
-                  Brands pay{" "}
+                  Brands see about{" "}
                   <strong className="text-foreground">
                     ₹{priceConverter.convertedInr.toLocaleString("en-IN")}
-                  </strong>
-                  . Prices are listed in ₹ and rounded to the nearest ₹500
+                  </strong>{" "}
+                  today
                   {priceConverter.rateDate
-                    ? `, using the rate from ${priceConverter.rateDate}`
+                    ? `, at the rate from ${priceConverter.rateDate}`
                     : ""}
-                  .
+                  . Your price stays {priceConverter.currency}{" "}
+                  {priceConverter.amount || "—"}; the rupee amount is worked
+                  out again at the rate on the day a brand checks out, so it
+                  will move a little.
                 </>
               ) : (
-                "Enter an amount to see what brands will pay in ₹."
+                "Enter an amount to see roughly what brands will pay in ₹."
               )}
             </p>
             {errors?.priceAmount ? (

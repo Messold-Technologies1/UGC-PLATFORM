@@ -64,11 +64,14 @@ export class CreatorPackageService {
       );
     }
 
-    const stepped =
-      Math.round(converted.inr / this.PRICE_STEP) * this.PRICE_STEP;
-
+    // Deliberately NOT snapped to PRICE_STEP. That step is a convention for
+    // prices a creator actually chose in rupees; here the rupee figure is
+    // derived, and checkout re-converts from `priceAmountOriginal` without
+    // snapping. Rounding only this one would make browse and the amount
+    // charged differ by an arbitrary few hundred rupees on top of whatever
+    // the rate has done since.
     return {
-      priceAmount: Math.max(stepped, this.PRICE_STEP),
+      priceAmount: Number(converted.inr.toFixed(2)),
       priceCurrency: currency,
       priceAmountOriginal: new Prisma.Decimal(entered.toFixed(2)),
     };
@@ -89,13 +92,22 @@ export class CreatorPackageService {
 
     const { priceAmount: price, priceCurrency, priceAmountOriginal } =
       await this.resolvePrice(pkg);
-    if (!Number.isFinite(price) || !Number.isInteger(price)) {
-      throw new BadRequestException('priceAmount must be a whole number.');
-    }
-    if (price < this.PRICE_STEP || price % this.PRICE_STEP !== 0) {
-      throw new BadRequestException(
-        `priceAmount must be >= ${this.PRICE_STEP} and in steps of ${this.PRICE_STEP}.`,
-      );
+    // The whole-number and ?500-step rules describe a price a creator CHOSE,
+    // so they only apply when the creator chose rupees. For a foreign-currency
+    // package `price` is a derived conversion -- a figure nobody typed, which
+    // will rarely be a whole number and almost never a multiple of 500 -- and
+    // the creator's own amount is what gets validated instead, in resolvePrice.
+    if (priceCurrency === 'INR') {
+      if (!Number.isFinite(price) || !Number.isInteger(price)) {
+        throw new BadRequestException('priceAmount must be a whole number.');
+      }
+      if (price < this.PRICE_STEP || price % this.PRICE_STEP !== 0) {
+        throw new BadRequestException(
+          `priceAmount must be >= ${this.PRICE_STEP} and in steps of ${this.PRICE_STEP}.`,
+        );
+      }
+    } else if (!Number.isFinite(price) || price <= 0) {
+      throw new BadRequestException('Converted price is not a valid amount.');
     }
 
     const videoLengthSeconds =

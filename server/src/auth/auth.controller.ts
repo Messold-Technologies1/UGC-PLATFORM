@@ -49,6 +49,7 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AUTH_COOKIE_NAMES, AuthService } from './auth.service';
 import { PasswordService } from './password.service';
+import { singleQueryString } from '../common/http/query-value.util';
 
 function readCookie(req: Request, name: string): string | undefined {
   const cookies = req.cookies as Record<string, unknown> | undefined;
@@ -211,10 +212,14 @@ export class AuthController {
       'Optional intended workspace. BRAND provisions brand role and may require post-signup brand setup.',
   })
   @ApiResponse({ status: 302, description: 'Redirect to Google sign-in' })
-  google(@Query('role') role: string | undefined, @Res() res: Response) {
+  google(@Query('role') role: unknown, @Res() res: Response) {
     const state = randomBytes(32).toString('hex');
     setOAuthStateCookie(res, state);
-    const intendedRole = parseOAuthIntendedRole(role?.toUpperCase());
+    // `?role[x]=1` makes this an object under the extended query parser, and
+    // `.toUpperCase()` on it would 500 a public endpoint.
+    const intendedRole = parseOAuthIntendedRole(
+      singleQueryString(role)?.toUpperCase(),
+    );
     if (intendedRole) {
       setOAuthRoleCookie(res, intendedRole);
     }
@@ -230,8 +235,8 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Invalid state or Google error' })
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const code = req.query.code as string | undefined;
-    const state = req.query.state as string | undefined;
+    const code = singleQueryString(req.query.code);
+    const state = singleQueryString(req.query.state);
     const storedState = readCookie(req, OAUTH_STATE_COOKIE);
     const intendedRole = parseOAuthIntendedRole(
       readCookie(req, OAUTH_ROLE_COOKIE),

@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { parse as parseQuery } from 'node:querystring';
+import { parse as parseExtendedQuery } from 'qs';
 
 import {
   AdminCreatorListSegment,
@@ -29,7 +30,7 @@ const asQuery = (metatype: new () => object) => ({
 
 describe('admin creator list query DTOs', () => {
   it('accepts an inherited array filter on the list query', async () => {
-    const value = await pipe.transform(
+    const value: unknown = await pipe.transform(
       { segment: AdminCreatorListSegment.SELF_COMPLETED, creatorType: ['mom'] },
       asQuery(AdminCreatorsListQueryDto),
     );
@@ -37,7 +38,7 @@ describe('admin creator list query DTOs', () => {
   });
 
   it('accepts an inherited array filter on the counts query', async () => {
-    const value = await pipe.transform(
+    const value: unknown = await pipe.transform(
       { creatorType: ['mom'] },
       asQuery(AdminCreatorSegmentCountsQueryDto),
     );
@@ -45,7 +46,7 @@ describe('admin creator list query DTOs', () => {
   });
 
   it('accepts every inherited filter at once', async () => {
-    const value = await pipe.transform(
+    const value: unknown = await pipe.transform(
       {
         segment: AdminCreatorListSegment.LISTED,
         city: 'Mumbai',
@@ -93,7 +94,7 @@ describe('admin creator list query, as it arrives off the wire', () => {
   // one into a 400 for the whole request rather than an ignored param.
 
   it('accepts an array sent as repeated keys', async () => {
-    const value = await pipe.transform(
+    const value: unknown = await pipe.transform(
       parseQuery('segment=listed&creatorType=mom&creatorType=ugc'),
       asQuery(AdminCreatorsListQueryDto),
     );
@@ -101,18 +102,30 @@ describe('admin creator list query, as it arrives off the wire', () => {
   });
 
   it('accepts a single repeated-key value as an array', async () => {
-    const value = await pipe.transform(
+    const value: unknown = await pipe.transform(
       parseQuery('segment=listed&creatorType=mom'),
       asQuery(AdminCreatorsListQueryDto),
     );
     expect(value).toMatchObject({ creatorType: ['mom'] });
   });
 
-  it("rejects axios's default bracket format, which is what broke in prod", async () => {
-    // `creatorType[]=mom` parses to a property literally named
-    // `creatorType[]`, which is not on the DTO:
+  it('accepts the bracket format once Express parses it with qs', async () => {
+    // main.ts sets `query parser: 'extended'`, so brackets now become a real
+    // array instead of a property named `creatorType[]`. Both shapes work;
+    // the client still sends repeated keys, so neither side depends on the
+    // other having been fixed.
+    const value: unknown = await pipe.transform(
+      parseExtendedQuery('segment=listed&creatorType[]=mom&creatorType[]=ugc'),
+      asQuery(AdminCreatorsListQueryDto),
+    );
+    expect(value).toMatchObject({ creatorType: ['mom', 'ugc'] });
+  });
+
+  it("rejects the bracket format under Express 5's default parser", async () => {
+    // What production actually did before this was fixed. Kept as the
+    // record of the failure: with the `simple` parser, `creatorType[]=mom`
+    // is a property literally named `creatorType[]`, which is not on the DTO:
     //   400 {"message":["property creatorType[] should not exist"]}
-    // The client serializes with repeated keys to avoid exactly this.
     expect(parseQuery('creatorType[]=mom')).toEqual({ 'creatorType[]': 'mom' });
     await expect(
       pipe.transform(
@@ -123,7 +136,7 @@ describe('admin creator list query, as it arrives off the wire', () => {
   });
 
   it('accepts the counts query the same way', async () => {
-    const value = await pipe.transform(
+    const value: unknown = await pipe.transform(
       parseQuery('search=jane&contentCategory=beauty&contentCategory=tech'),
       asQuery(AdminCreatorSegmentCountsQueryDto),
     );

@@ -35,6 +35,12 @@ const METRICS_WINDOW_DAYS = 30;
 const SYNC_INTERVAL_DAYS = 3;
 /** Refresh a long-lived token when it is within this window of expiring. */
 const TOKEN_REFRESH_THRESHOLD_MS = 7 * 24 * 60 * 60_000;
+/**
+ * Meta refuses to refresh a long-lived token until it is 24h old, so a
+ * connection younger than this is left alone rather than burning a call that
+ * cannot succeed.
+ */
+const MIN_TOKEN_AGE_MS = 24 * 60 * 60_000;
 
 interface DemographicRecord {
   [key: string]: number;
@@ -652,15 +658,37 @@ export class SocialConnectionsService {
     }
   }
 
-  /** Decrypt the token, refreshing + persisting it if it is near expiry. */
-  private async ensureFreshInstagramToken(
+  /**
+   * Is this connection's token due for a refresh?
+   *
+   * A null `tokenExpiresAt` means the exchange never reported `expires_in`,
+   * NOT that the token lasts forever — it still dies 60 days after it was
+   * issued. Treating null as "not due" left those connections untouched until
+   * they expired for good, so they are refreshed once they are old enough to
+   * be eligible, which also populates the real expiry and self-heals the row.
+   */
+  private isTokenDueForRefresh(conn: SocialConnection): boolean {
+    if (conn.tokenExpiresAt === null) {
+      return Date.now() - conn.connectedAt.getTime() >= MIN_TOKEN_AGE_MS;
+    }
+    return (
+      conn.tokenExpiresAt.getTime() - Date.now() < TOKEN_REFRESH_THRESHOLD_MS
+    );
+  }
+
+  /**
+   * Decrypt the token, refreshing + persisting it if it is due.
+   *
+   * Returns whether a refresh actually happened, so a caller counting them
+   * does not report a failure as a success.
+   */
+  private async refreshInstagramTokenIfDue(
     conn: SocialConnection,
-  ): Promise<string> {
+  ): Promise<{ token: string; refreshed: boolean }> {
     const current = decryptSecret(conn.accessToken, this.encKey());
-    const nearExpiry =
-      conn.tokenExpiresAt != null &&
-      conn.tokenExpiresAt.getTime() - Date.now() < TOKEN_REFRESH_THRESHOLD_MS;
-    if (!nearExpiry) return current;
+    if (!this.isTokenDueForRefresh(conn)) {
+      return { token: current, refreshed: false };
+    }
 
     try {
       const refreshed = await this.instagram.refreshToken(current);
@@ -671,13 +699,23 @@ export class SocialConnectionsService {
           tokenExpiresAt: refreshed.expiresAt,
         },
       });
-      return refreshed.accessToken;
+      return { token: refreshed.accessToken, refreshed: true };
     } catch (err) {
       this.logger.warn(
         `social token refresh failed for ${conn.id}: ${(err as Error)?.message}`,
       );
-      return current; // fall back to the existing token for this run
+      // Fall back to the existing token for this run. It may still work: a
+      // refresh can fail for reasons that do not invalidate the token.
+      return { token: current, refreshed: false };
     }
+  }
+
+  /** Decrypt the token, refreshing + persisting it if it is near expiry. */
+  private async ensureFreshInstagramToken(
+    conn: SocialConnection,
+  ): Promise<string> {
+    const { token } = await this.refreshInstagramTokenIfDue(conn);
+    return token;
   }
 
   /**
@@ -709,28 +747,62 @@ export class SocialConnectionsService {
 
   /** Refresh tokens nearing expiry (used by the token-refresh cron). */
   async refreshExpiringTokens(): Promise<number> {
-    if (
-      !this.instagram.isConfigured() ||
-      !this.config.get('SOCIAL_TOKEN_ENC_KEY')
-    ) {
+    // Loud, not silent. This used to return 0 with no log, which is
+    // indistinguishable from "nothing was due" — so a deployment missing
+    // either of these would quietly never refresh a token until every
+    // connection had expired past recovery.
+    if (!this.instagram.isConfigured()) {
+      this.logger.warn(
+        'social token refresh skipped: Instagram app credentials are not ' +
+          'configured (INSTAGRAM_CLIENT_ID / _SECRET / _CALLBACK_URL). ' +
+          'Long-lived tokens expire 60 days after issue and cannot be ' +
+          'recovered afterwards.',
+      );
       return 0;
     }
+    if (!this.config.get('SOCIAL_TOKEN_ENC_KEY')) {
+      this.logger.warn(
+        'social token refresh skipped: SOCIAL_TOKEN_ENC_KEY is not set, so ' +
+          'stored tokens cannot be decrypted. Long-lived tokens expire 60 ' +
+          'days after issue and cannot be recovered afterwards.',
+      );
+      return 0;
+    }
+
     const threshold = new Date(Date.now() + TOKEN_REFRESH_THRESHOLD_MS);
+    const oldEnough = new Date(Date.now() - MIN_TOKEN_AGE_MS);
     const due = await this.prisma.socialConnection.findMany({
       where: {
         platform: SocialPlatform.INSTAGRAM,
-        status: SocialConnectionStatus.ACTIVE,
-        tokenExpiresAt: { not: null, lte: threshold },
+        // ERROR as well as ACTIVE. ERROR means repeated SYNC failures — a
+        // rate limit, a 5xx, a bad media payload — none of which invalidate
+        // the token. Excluding it turned a transient sync fault into a dead
+        // connection 60 days later. EXPIRED and REVOKED stay out: those are
+        // genuinely finished and only a reconnect fixes them.
+        status: {
+          in: [SocialConnectionStatus.ACTIVE, SocialConnectionStatus.ERROR],
+        },
+        OR: [
+          { tokenExpiresAt: { lte: threshold } },
+          // Unknown expiry. Never swept before, so these died at 60 days.
+          { tokenExpiresAt: null, connectedAt: { lte: oldEnough } },
+        ],
       },
     });
+
     let refreshed = 0;
+    let failed = 0;
     for (const conn of due) {
-      try {
-        await this.ensureFreshInstagramToken(conn);
-        refreshed++;
-      } catch {
-        // logged inside ensureFreshInstagramToken
-      }
+      const result = await this.refreshInstagramTokenIfDue(conn);
+      if (result.refreshed) refreshed++;
+      else failed++;
+    }
+    if (failed > 0) {
+      this.logger.warn(
+        `social token refresh: ${failed} of ${due.length} due connection(s) ` +
+          'could not be refreshed. Each one is 60 days from issue before it ' +
+          'is unrecoverable.',
+      );
     }
     return refreshed;
   }

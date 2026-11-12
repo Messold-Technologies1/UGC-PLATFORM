@@ -80,18 +80,22 @@ export const metadata: Metadata = {
   description:
     "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
   metadataBase: new URL(SITE_URL),
+  // No `title`/`description` here on purpose. Next inherits a parent's
+  // `openGraph` block wholesale when a child does not declare one, so spelling
+  // them out pinned the marketing pitch onto every link in the product — a
+  // wishlist shared in Slack unfurled as "The marketplace for authentic
+  // user-generated content…". Left out, Next derives og:title and
+  // og:description from whatever title and description the page resolves to,
+  // so a page-specific title is all a route needs.
   openGraph: {
     type: "website",
     siteName: "Go Collab",
-    title: "Go Collab — Where Creators Meet Brands",
-    description:
-      "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
   },
+  // `summary`, not `summary_large_image`: nothing here sets an og:image, and
+  // the large-image card makes Slack reserve a picture area it then renders as
+  // an empty grey placeholder.
   twitter: {
-    card: "summary_large_image",
-    title: "Go Collab — Where Creators Meet Brands",
-    description:
-      "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
+    card: "summary",
   },
   icons: {
     icon: [{ url: "/logo.png", type: "image/png" }],

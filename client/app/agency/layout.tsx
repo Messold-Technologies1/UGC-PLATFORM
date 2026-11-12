@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: {
     default: "Agency Workspace",
-    template: "%s - Agency | Collabry",
+    template: "%s - Agency | Go Collab",
   },
   description: "Browse creators and manage client workspaces as an agency.",
 };

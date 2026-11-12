@@ -97,7 +97,7 @@ export async function openRazorpayCheckout({
     key: session.razorpayKeyId,
     amount: session.amountPaise,
     currency: session.currency,
-    name: "Collabry",
+    name: "Go Collab",
     description,
     order_id: session.razorpayOrderId,
     prefill: {

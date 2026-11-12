@@ -214,11 +214,13 @@ export const OTP_VERIFICATION_REQUIREMENT: GoLiveRequirement = {
 };
 
 /**
- * Listed-admin only: a bank account or UPI ID to pay the creator with.
+ * A bank account or UPI ID to pay the creator with.
  *
  * Deliberately not a Go-Live requirement — a creator should be able to get
  * listed and start receiving orders before sorting out their bank details.
- * It only becomes a gap once they are live and could actually be owed money.
+ * It only becomes a gap once money is actually owed, which is why it is
+ * opt-in per caller via {@link ListedCompletenessOptions.requirePayoutDetails}
+ * rather than part of the checklist unconditionally.
  */
 export const PAYOUT_DETAILS_REQUIREMENT: GoLiveRequirement = {
   key: 'payoutDetails',
@@ -240,11 +242,34 @@ export interface ListedProfileCompletenessInput extends ProfileCompletenessInput
   hasPayoutDetails: boolean;
 }
 
+export interface ListedCompletenessOptions {
+  /**
+   * Whether a payout method counts toward completeness.
+   *
+   * The two callers are asking different questions and need different
+   * answers, which is why this has no default — a new caller has to say which
+   * one it means.
+   *
+   * `true` for the creator's own checklist. That one gates releasing money:
+   * the brand has approved the work, and the payout cannot go out without an
+   * account to send it to. A missing bank account genuinely blocks it.
+   *
+   * `false` for the admin "Listed · incomplete" segment. That segment asks
+   * whether a creator's PROFILE is presentable to brands, and a bank account
+   * says nothing about that — it is invisible to brands and does not stop a
+   * creator being discovered, booked or delivering. Counting it there buried
+   * the profiles with real gaps (no portfolio, no Instagram) under hundreds of
+   * creators whose only omission was bank details they are not yet owed
+   * anything against.
+   */
+  requirePayoutDetails: boolean;
+}
+
 /**
  * "Is this LISTED creator's profile actually finished?" — the Go-Live checklist
- * re-evaluated live, plus the two things only a live creator needs: OTP
- * verification on the linked user (`phoneOtpLastStatus === 'approved'`) and a
- * payout method we can send their earnings to. Intro video stays optional.
+ * re-evaluated live, plus OTP verification on the linked user
+ * (`phoneOtpLastStatus === 'approved'`), and optionally a payout method. Intro
+ * video stays optional.
  *
  * Distinct from `evaluateProfileCompleteness` because
  * `CreatorProfile.completeProfile` is a one-way latch stamped at Go Live and
@@ -254,10 +279,11 @@ export interface ListedProfileCompletenessInput extends ProfileCompletenessInput
  * requirement that did not exist when they went live.
  *
  * That gap is the point: this is what drives the admin "listed, profile
- * incomplete" segment and the outreach that follows from it.
+ * incomplete" segment and the creator-facing payout gate.
  */
 export function evaluateListedProfileCompleteness(
   input: ListedProfileCompletenessInput,
+  options: ListedCompletenessOptions,
 ): ProfileCompletenessResult {
   const { missing } = evaluateProfileCompleteness(input);
 
@@ -265,7 +291,7 @@ export function evaluateListedProfileCompleteness(
     missing.push(OTP_VERIFICATION_REQUIREMENT.label);
   }
 
-  if (!input.hasPayoutDetails) {
+  if (options.requirePayoutDetails && !input.hasPayoutDetails) {
     missing.push(PAYOUT_DETAILS_REQUIREMENT.label);
   }
 
@@ -286,7 +312,11 @@ export function requirementForLabel(label: string): GoLiveRequirement {
   );
 }
 
-/** Every requirement a LISTED creator is measured against, in display order. */
+/**
+ * Every requirement a LISTED creator can be measured against, in display
+ * order. Still includes payout details: the creator-facing checklist emits
+ * that label, and `requirementForLabel` has to resolve it.
+ */
 export const LISTED_PROFILE_REQUIREMENTS: readonly GoLiveRequirement[] = [
   ...GO_LIVE_REQUIREMENTS,
   OTP_VERIFICATION_REQUIREMENT,

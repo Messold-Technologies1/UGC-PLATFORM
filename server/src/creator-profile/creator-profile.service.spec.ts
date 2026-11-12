@@ -5,7 +5,14 @@ import { CreatorPackageService } from '../creator-package/creator-package.servic
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatorPackageCreateDto } from './dto/create-creator-profile.dto';
 import type { CreateCreatorProfileAtSignupInput } from './dto/create-creator-profile-at-signup.input';
-import { CreatorFacetDimension } from '@prisma/client';
+import { CreatorFacetDimension, CreatorGender } from '@prisma/client';
+import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
+import {
+  MIN_PORTFOLIO_VIDEOS,
+  PAYOUT_DETAILS_REQUIREMENT,
+  REQUIRED_FACET_DIMENSIONS,
+  REQUIRED_SECONDARY_NICHES,
+} from './creator-profile-completeness.util';
 import { CreatorProfileService } from './creator-profile.service';
 import { CreatorReviewsService } from '../creator-reviews/creator-reviews.service';
 import { StorageService } from '../storage/storage.service';
@@ -134,6 +141,8 @@ describe('CreatorProfileService', () => {
     },
     creatorAddOnOption: {
       findUnique: jest.fn().mockResolvedValue({ name: 'Travel within City' }),
+      // Used by `mandatoryAddOnNames` in the listed-completeness sweep.
+      findMany: jest.fn().mockResolvedValue([]),
     },
     creatorProfile: {
       findUnique: txMock.creatorProfile.findUnique,
@@ -740,6 +749,114 @@ describe('CreatorProfileService', () => {
         'Fashion',
         'Travel',
       ]);
+    });
+  });
+
+  describe('payout details across the listed cohorts', () => {
+    // Two cohorts are derived from the same sweep and must disagree about
+    // payout details: the admin "Listed · incomplete" tab ignores them (a
+    // bank account says nothing about whether a profile is presentable),
+    // while outreach counts them (having no way to pay someone is worth a
+    // nudge). A single shared answer here would be the regression.
+
+    /** A listed profile that is complete apart from having no payout method. */
+    const payoutOnlyGap = {
+      id: 'profile-1',
+      profileImageUrl: 'https://cdn/img.jpg',
+      displayName: 'Jane Doe',
+      contactEmail: 'jane@example.com',
+      bio: 'I make great content.',
+      countryName: 'India',
+      stateName: 'Karnataka',
+      city: 'Bengaluru',
+      gender: CreatorGender.FEMALE,
+      dateOfBirth: new Date('1995-04-15'),
+      shippingAddress: '221B Baker Street',
+      isListed: true,
+      user: { phoneOtpLastStatus: 'approved' },
+      payoutDetails: null,
+      facetSelections: [
+        ...REQUIRED_FACET_DIMENSIONS.map((dimension) => ({
+          rank: 0,
+          option: { dimension },
+        })),
+        {
+          rank: 0,
+          option: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
+        },
+        ...Array.from({ length: REQUIRED_SECONDARY_NICHES }, (_, i) => ({
+          rank: i + 1,
+          option: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
+        })),
+      ],
+      addOns: [],
+      _count: { profileLanguages: 1, packages: 1, restrictions: 1 },
+      portfolioVideos: Array.from({ length: MIN_PORTFOLIO_VIDEOS }, (_, i) => ({
+        id: `video-${i}`,
+      })),
+      socialConnections: [{ id: 'ig-1' }],
+    };
+
+    it('outreach still lists a creator whose only gap is payout details', async () => {
+      prismaMock.creatorProfile.findMany
+        .mockResolvedValueOnce([payoutOnlyGap])
+        .mockResolvedValueOnce([
+          {
+            id: 'profile-1',
+            displayName: 'Jane Doe',
+            contactEmail: 'jane@example.com',
+            user: { id: 'user-1', phone: '+919876543210', phoneVerified: true },
+          },
+        ]);
+
+      const cohort = await service.listListedCreatorsWithIncompleteProfiles();
+
+      expect(cohort).toHaveLength(1);
+      expect(cohort[0].missing).toEqual([PAYOUT_DETAILS_REQUIREMENT.label]);
+    });
+
+    it('the admin tab treats that same creator as complete', async () => {
+      prismaMock.creatorProfile.findMany.mockResolvedValueOnce([payoutOnlyGap]);
+
+      // Through the public entry point, so this exercises the same path the
+      // admin tab does.
+      const page = await service.listAdminCreators({
+        segment: AdminCreatorListSegment.LISTED_INCOMPLETE,
+        page: 1,
+        limit: 10,
+      });
+
+      expect(page.total).toBe(0);
+    });
+
+    it('outreach and the admin tab agree on a real profile gap', async () => {
+      // Instagram disconnected: not a payout question, so both must see it.
+      const realGap = { ...payoutOnlyGap, socialConnections: [] };
+
+      prismaMock.creatorProfile.findMany
+        // The completeness sweep, then the page of rows it narrowed to. Only
+        // the count matters here, so the page itself can come back empty.
+        .mockResolvedValueOnce([realGap])
+        .mockResolvedValueOnce([]);
+      const page = await service.listAdminCreators({
+        segment: AdminCreatorListSegment.LISTED_INCOMPLETE,
+        page: 1,
+        limit: 10,
+      });
+      expect(page.total).toBe(1);
+
+      prismaMock.creatorProfile.findMany
+        .mockResolvedValueOnce([realGap])
+        .mockResolvedValueOnce([
+          {
+            id: 'profile-1',
+            displayName: 'Jane Doe',
+            contactEmail: 'jane@example.com',
+            user: { id: 'user-1', phone: null, phoneVerified: false },
+          },
+        ]);
+      const cohort = await service.listListedCreatorsWithIncompleteProfiles();
+      expect(cohort[0].missing).toContain('Instagram connected');
     });
   });
 });

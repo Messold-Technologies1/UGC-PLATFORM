@@ -152,6 +152,8 @@ describe('CreatorProfileService', () => {
     creatorFeature: {
       upsert: jest.fn(),
       deleteMany: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
     },
     creatorFacetOption: {
       findMany: jest.fn(),
@@ -749,6 +751,71 @@ describe('CreatorProfileService', () => {
         'Fashion',
         'Travel',
       ]);
+    });
+  });
+
+  describe('filters reach every segment, not just the simple ones', () => {
+    // Two segments cannot be expressed as a single Prisma `where` and take
+    // their own code path. Both were skipping the filters while the tab
+    // COUNT applied them, so "Mom creator" showed a UGC creator and the
+    // number above the list disagreed with the rows in it.
+
+    /** The `where` handed to the first creatorProfile.findMany of a call. */
+    const firstWhere = (): string => {
+      const call = prismaMock.creatorProfile.findMany.mock.calls[0] as [
+        { where?: unknown },
+      ];
+      return JSON.stringify(call[0]?.where ?? {});
+    };
+
+    beforeEach(() => {
+      prismaMock.creatorProfile.findMany.mockReset();
+      prismaMock.creatorProfile.findMany.mockResolvedValue([]);
+    });
+
+    it('applies them on the Listed · complete tab', async () => {
+      await service.listAdminCreators({
+        segment: AdminCreatorListSegment.LISTED_COMPLETE,
+        page: 1,
+        limit: 10,
+        creatorType: ['mom'],
+      });
+      expect(firstWhere()).toContain('mom');
+    });
+
+    it('applies them on the Listed · incomplete tab', async () => {
+      await service.listAdminCreators({
+        segment: AdminCreatorListSegment.LISTED_INCOMPLETE,
+        page: 1,
+        limit: 10,
+        creatorType: ['mom'],
+      });
+      expect(firstWhere()).toContain('mom');
+    });
+
+    it('applies them on an ordinary segment', async () => {
+      await service.listAdminCreators({
+        segment: AdminCreatorListSegment.SELF_COMPLETED,
+        page: 1,
+        limit: 10,
+        creatorType: ['mom'],
+      });
+      expect(firstWhere()).toContain('mom');
+    });
+
+    it('applies them on the Featured tab', async () => {
+      prismaMock.creatorFeature.count.mockResolvedValue(0);
+      prismaMock.creatorFeature.findMany.mockResolvedValue([]);
+      await service.listAdminCreators({
+        segment: AdminCreatorListSegment.FEATURED,
+        page: 1,
+        limit: 10,
+        creatorType: ['mom'],
+      });
+      const call = prismaMock.creatorFeature.count.mock.calls[0] as [
+        { where?: unknown },
+      ];
+      expect(JSON.stringify(call[0]?.where ?? {})).toContain('mom');
     });
   });
 

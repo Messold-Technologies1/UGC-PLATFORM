@@ -45,8 +45,10 @@ import {
   useCreatorFacetOptionsQuery,
 } from "../hooks/use-creator-suggestion-queries";
 import {
+  AGE_GROUP_OPTIONS,
   CREATOR_PRICE_MAX,
   CREATOR_PRICE_MIN,
+  GENDER_OPTIONS,
   DELIVERY_WITHIN_OPTIONS,
   FOLLOWER_RANGE_OPTIONS,
   // DEFAULT_FILTERS,
@@ -82,20 +84,6 @@ function CustomMatchFilterButton({ className }: { className?: string }) {
 }
 
 const PRICE_STEP = 250;
-
-const GENDER_OPTIONS = [
-  { value: "MALE", label: "Male" },
-  { value: "FEMALE", label: "Female" },
-  { value: "OTHER", label: "Other" },
-] as const;
-
-const AGE_GROUP_OPTIONS = [
-  { value: "AGE_18_24", label: "18 – 24" },
-  { value: "AGE_25_34", label: "25 – 34" },
-  { value: "AGE_35_44", label: "35 – 44" },
-  { value: "AGE_45_54", label: "45 – 54" },
-  { value: "AGE_55_PLUS", label: "55+" },
-] as const;
 
 const MORE_FACET_SECTIONS: {
   dimension: string;

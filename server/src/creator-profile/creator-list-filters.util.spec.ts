@@ -1,15 +1,19 @@
 import {
   ApprovalStatus,
   CreatorFacetDimension,
+  CreatorGender,
   PortfolioVisibilityStatus,
   SocialConnectionStatus,
   SocialPlatform,
 } from '@prisma/client';
 import {
   buildAdminCreatorApprovalSearchWhere,
+  buildAdminCreatorExtraFilterWhere,
   buildAdminCreatorsListWhere,
+  type AdminCreatorExtraFilters,
   buildCreatorListRelationsInclude,
   buildCreatorListSearchWhere,
+  withAdminCreatorExtraFilters,
   buildListCreatorsWhere,
 } from './creator-list-filters.util';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
@@ -551,6 +555,96 @@ describe('creator-list-filters.util', () => {
           },
         ],
       });
+    });
+  });
+});
+
+describe('admin creator extra filters', () => {
+  // The admin list takes the browse page's whole filter set, built by the
+  // browse page's own builder, so the two cannot mean different things by
+  // "niche" or "city".
+
+  it('is null when nothing is filtered, so callers can skip the AND', () => {
+    expect(buildAdminCreatorExtraFilterWhere(undefined)).toBeNull();
+    expect(buildAdminCreatorExtraFilterWhere({})).toBeNull();
+  });
+
+  it('does not force listed-only — admins browse every stage', () => {
+    // buildListCreatorsWhere defaults to requireApproved, which would hide
+    // every creator who is not live and break tabs like "Building profile".
+    const where = buildAdminCreatorExtraFilterWhere({
+      gender: CreatorGender.FEMALE,
+    });
+    expect(JSON.stringify(where)).not.toContain('isListed');
+  });
+
+  it('ignores a free-text search that rides along on the query object', () => {
+    // The service passes the whole list query as the filters, and that object
+    // carries the admin's own `search` — name, email, phone — which
+    // buildAdminCreatorsListWhere has already applied. The browse search is a
+    // different predicate (location, bio, niche labels, never the name), so
+    // letting it through would AND a second, unrelated text match.
+    const queryWithSearch = { search: 'jane' } as AdminCreatorExtraFilters;
+    expect(buildAdminCreatorExtraFilterWhere(queryWithSearch)).toBeNull();
+  });
+
+  it('matches a niche through its CONTENT_CATEGORY facet slug', () => {
+    expect(
+      buildAdminCreatorExtraFilterWhere({ contentCategory: ['beauty'] }),
+    ).toEqual({
+      facetSelections: {
+        some: {
+          option: {
+            dimension: CreatorFacetDimension.CONTENT_CATEGORY,
+            slug: { in: ['beauty'] },
+          },
+        },
+      },
+    });
+  });
+
+  it('matches a city case-insensitively', () => {
+    expect(buildAdminCreatorExtraFilterWhere({ city: 'Mumbai' })).toEqual({
+      city: { contains: 'Mumbai', mode: 'insensitive' },
+    });
+  });
+
+  it('carries the rest of the browse filters through', () => {
+    const where = buildAdminCreatorExtraFilterWhere({
+      gender: CreatorGender.FEMALE,
+      minFollowers: 1000,
+      maxPrice: 5000,
+      maxDeliveryDays: 7,
+      language: ['hindi'],
+      onLocationAvailable: true,
+    });
+    const json = JSON.stringify(where);
+    expect(json).toContain('FEMALE');
+    expect(json).toContain('followersCount');
+    expect(json).toContain('deliveryDays');
+    expect(json).toContain('onLocationAvailable');
+  });
+
+  it('requires every filter at once rather than any of them', () => {
+    const where = buildAdminCreatorExtraFilterWhere({
+      city: 'Mumbai',
+      gender: CreatorGender.FEMALE,
+    });
+    expect(where).toHaveProperty('AND');
+    expect((where as { AND: unknown[] }).AND).toHaveLength(2);
+  });
+
+  it('leaves the base clause untouched when nothing is filtered', () => {
+    const base = { isListed: true };
+    expect(withAdminCreatorExtraFilters(base, undefined)).toBe(base);
+  });
+
+  it('ANDs onto the base rather than replacing it', () => {
+    // The segment predicate has to survive, or a filter would widen the tab
+    // instead of narrowing it.
+    const base = { isListed: true };
+    expect(withAdminCreatorExtraFilters(base, { city: 'Mumbai' })).toEqual({
+      AND: [base, { city: { contains: 'Mumbai', mode: 'insensitive' } }],
     });
   });
 });

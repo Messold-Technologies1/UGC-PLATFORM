@@ -240,6 +240,7 @@ export const ENDPOINTS = {
     CREATORS: {
       LIST: "/api/admin/creators",
       SEGMENT_COUNTS: "/api/admin/creators/segment-counts",
+      FILTER_OPTIONS: "/api/admin/creators/filter-options",
       BUILDING_PROFILE_ANALYTICS:
         "/api/admin/creators/building-profile-analytics",
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",

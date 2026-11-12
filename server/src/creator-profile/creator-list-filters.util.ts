@@ -6,7 +6,10 @@ import {
   SocialConnectionStatus,
   SocialPlatform,
 } from '@prisma/client';
-import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
+import type {
+  CreatorFilterQueryDto,
+  ListCreatorsQueryDto,
+} from './dto/list-creators-query.dto';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import {
   type CreatorOnboardingMode,
@@ -390,6 +393,55 @@ export function buildAdminCreatorApprovalSearchWhere(
       { user: { phone: { contains: q } } },
     ],
   };
+}
+
+/**
+ * Filters the admin creator list applies ON TOP of a segment and its search.
+ *
+ * Exactly the browse page's filter set — `CreatorFilterQueryDto` is shared,
+ * and the clauses are built by `buildListCreatorsWhere` itself, so "filter by
+ * niche" means the same thing to an admin as it does to a brand and cannot
+ * drift.
+ *
+ * Kept separate from `buildAdminCreatorsListWhere` so the same clauses can be
+ * ANDed onto a segment count, an export, or the listed-completeness sweep
+ * without each growing its own copy. Every surface that shows a number for a
+ * tab has to apply exactly the same filter, or the tab counts stop agreeing
+ * with the rows under them.
+ */
+export type AdminCreatorExtraFilters = CreatorFilterQueryDto;
+
+/** `null` when no filter is set, so callers can skip the AND. */
+export function buildAdminCreatorExtraFilterWhere(
+  filters: AdminCreatorExtraFilters | undefined,
+): Prisma.CreatorProfileWhereInput | null {
+  if (!filters) return null;
+
+  const where = buildListCreatorsWhere(
+    {
+      ...filters,
+      // The admin list has its own search — name, email and phone — which
+      // `buildAdminCreatorsListWhere` has already applied. The browse search
+      // is a different predicate entirely (location, bio, niche labels, and
+      // deliberately never the name), so letting it run here would quietly
+      // AND a second, unrelated text match onto the query.
+      search: undefined,
+    },
+    // Admins look at creators at every stage, so the browse page's implicit
+    // "listed only" must not come along. The segment clause decides that.
+    { requireApproved: false },
+  );
+
+  return Object.keys(where).length === 0 ? null : where;
+}
+
+/** AND an optional filter clause onto a segment clause. */
+export function withAdminCreatorExtraFilters(
+  base: Prisma.CreatorProfileWhereInput,
+  filters: AdminCreatorExtraFilters | undefined,
+): Prisma.CreatorProfileWhereInput {
+  const extra = buildAdminCreatorExtraFilterWhere(filters);
+  return extra ? { AND: [base, extra] } : base;
 }
 
 /** Admin unified creator list segments. */

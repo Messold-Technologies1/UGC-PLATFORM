@@ -192,8 +192,57 @@ export type AdminCreatorListSegment =
   | "listed_incomplete"
   | "featured";
 
-export interface AdminCreatorsListQueryDto extends PendingApprovalsQueryDto {
+/**
+ * Search and filters that apply to the creator list regardless of stage.
+ *
+ * The filter half is the browse page's set, field for field — the server
+ * shares `CreatorFilterQueryDto` between the two and builds both with
+ * `buildListCreatorsWhere`, so "niche" means the same thing to an admin as it
+ * does to a brand.
+ *
+ * `search` is the exception: the admin one matches name, email and phone,
+ * where the browse one matches location, bio and niche labels and never the
+ * name. The server applies the admin one and drops this object's search
+ * before handing the rest to the shared builder.
+ *
+ * The tab counts take the identical shape, which is the point: a tab's number
+ * is computed from the same predicate as the rows, so it tells you where the
+ * creator you searched for actually is instead of how many exist in total.
+ */
+export interface AdminCreatorListFilters {
+  search?: string;
+  city?: string;
+  gender?: string;
+  ageGroup?: string;
+  /** Facet slugs. */
+  contentCategory?: string[];
+  creatorType?: string[];
+  appearance?: string[];
+  occupation?: string[];
+  language?: string[];
+  restrictions?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  maxDeliveryDays?: number;
+  minFollowers?: number;
+  maxFollowers?: number;
+  onLocationAvailable?: boolean;
+}
+
+export interface AdminCreatorsListQueryDto
+  extends PendingApprovalsQueryDto,
+    AdminCreatorListFilters {
   segment: AdminCreatorListSegment;
+}
+
+/**
+ * Cities in use across creators. Facet options (niche, creator type,
+ * appearance, occupation, language) come from the shared catalog the browse
+ * page reads, so both offer the same lists; there is no equivalent catalog
+ * for cities, which are free text on the profile.
+ */
+export interface AdminCreatorFilterOptionsDto {
+  cities: string[];
 }
 
 export interface AdminCreatorSegmentCountsDto {

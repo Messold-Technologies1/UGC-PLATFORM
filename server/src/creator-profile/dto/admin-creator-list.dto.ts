@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { CreatorFilterQueryDto } from './list-creators-query.dto';
 import {
   ArrayMaxSize,
   IsArray,
@@ -33,7 +34,7 @@ export enum AdminCreatorListSegment {
   FEATURED = 'featured',
 }
 
-export class AdminCreatorsListQueryDto {
+export class AdminCreatorsListQueryDto extends CreatorFilterQueryDto {
   @ApiProperty({
     enum: AdminCreatorListSegment,
     example: AdminCreatorListSegment.LISTED,
@@ -64,6 +65,34 @@ export class AdminCreatorsListQueryDto {
   @IsString()
   @MaxLength(120)
   search?: string;
+
+}
+
+/**
+ * The same search and filters the list takes, for the tab counts.
+ *
+ * The counts have to be computed against the identical predicate the rows
+ * are, or a tab advertises a number you cannot get to by clicking it.
+ */
+export class AdminCreatorSegmentCountsQueryDto extends CreatorFilterQueryDto {
+  @ApiPropertyOptional({ example: 'jane' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  search?: string;
+}
+
+/**
+ * Cities in use across creators, for the admin filter menu.
+ *
+ * Derived from the creators that exist rather than a catalog, so every option
+ * leads to at least one result somewhere. The facet filters (niche, creator
+ * type, appearance, occupation, language) read the same shared catalog the
+ * browse page does and need nothing here.
+ */
+export class AdminCreatorFilterOptionsDto {
+  @ApiProperty({ example: ['Bengaluru', 'Mumbai'], type: [String] })
+  cities!: string[];
 }
 
 export class AdminCreatorListItemDto {

@@ -8,9 +8,9 @@ export const adminCreatorSegmentCountsQueryKey = (
   "admin",
   "creators",
   "segment-counts",
-  filters.search?.trim() || "",
-  filters.niche || "",
-  filters.city || "",
+  // Serialized whole: the filter set is wide enough that listing each key
+  // here would be a second place to update every time one is added.
+  JSON.stringify({ ...filters, search: filters.search?.trim() || "" }),
 ];
 
 /**

@@ -1,6 +1,7 @@
 import {
   ApprovalStatus,
   CreatorFacetDimension,
+  CreatorGender,
   PortfolioVisibilityStatus,
   SocialConnectionStatus,
   SocialPlatform,
@@ -9,6 +10,7 @@ import {
   buildAdminCreatorApprovalSearchWhere,
   buildAdminCreatorExtraFilterWhere,
   buildAdminCreatorsListWhere,
+  type AdminCreatorExtraFilters,
   buildCreatorListRelationsInclude,
   buildCreatorListSearchWhere,
   withAdminCreatorExtraFilters,
@@ -558,38 +560,75 @@ describe('creator-list-filters.util', () => {
 });
 
 describe('admin creator extra filters', () => {
+  // The admin list takes the browse page's whole filter set, built by the
+  // browse page's own builder, so the two cannot mean different things by
+  // "niche" or "city".
+
   it('is null when nothing is filtered, so callers can skip the AND', () => {
     expect(buildAdminCreatorExtraFilterWhere(undefined)).toBeNull();
     expect(buildAdminCreatorExtraFilterWhere({})).toBeNull();
-    // Blank and whitespace-only values are "no filter", not "match empty".
-    expect(
-      buildAdminCreatorExtraFilterWhere({ niche: '', city: '  ' }),
-    ).toBeNull();
+  });
+
+  it('does not force listed-only — admins browse every stage', () => {
+    // buildListCreatorsWhere defaults to requireApproved, which would hide
+    // every creator who is not live and break tabs like "Building profile".
+    const where = buildAdminCreatorExtraFilterWhere({
+      gender: CreatorGender.FEMALE,
+    });
+    expect(JSON.stringify(where)).not.toContain('isListed');
+  });
+
+  it('ignores a free-text search that rides along on the query object', () => {
+    // The service passes the whole list query as the filters, and that object
+    // carries the admin's own `search` — name, email, phone — which
+    // buildAdminCreatorsListWhere has already applied. The browse search is a
+    // different predicate (location, bio, niche labels, never the name), so
+    // letting it through would AND a second, unrelated text match.
+    const queryWithSearch = { search: 'jane' } as AdminCreatorExtraFilters;
+    expect(buildAdminCreatorExtraFilterWhere(queryWithSearch)).toBeNull();
   });
 
   it('matches a niche through its CONTENT_CATEGORY facet slug', () => {
-    expect(buildAdminCreatorExtraFilterWhere({ niche: 'beauty' })).toEqual({
+    expect(
+      buildAdminCreatorExtraFilterWhere({ contentCategory: ['beauty'] }),
+    ).toEqual({
       facetSelections: {
         some: {
           option: {
             dimension: CreatorFacetDimension.CONTENT_CATEGORY,
-            slug: 'beauty',
+            slug: { in: ['beauty'] },
           },
         },
       },
     });
   });
 
-  it('matches a city without caring about case', () => {
+  it('matches a city case-insensitively', () => {
     expect(buildAdminCreatorExtraFilterWhere({ city: 'Mumbai' })).toEqual({
-      city: { equals: 'Mumbai', mode: 'insensitive' },
+      city: { contains: 'Mumbai', mode: 'insensitive' },
     });
   });
 
-  it('requires both when both are set', () => {
+  it('carries the rest of the browse filters through', () => {
     const where = buildAdminCreatorExtraFilterWhere({
-      niche: 'beauty',
+      gender: CreatorGender.FEMALE,
+      minFollowers: 1000,
+      maxPrice: 5000,
+      maxDeliveryDays: 7,
+      language: ['hindi'],
+      onLocationAvailable: true,
+    });
+    const json = JSON.stringify(where);
+    expect(json).toContain('FEMALE');
+    expect(json).toContain('followersCount');
+    expect(json).toContain('deliveryDays');
+    expect(json).toContain('onLocationAvailable');
+  });
+
+  it('requires every filter at once rather than any of them', () => {
+    const where = buildAdminCreatorExtraFilterWhere({
       city: 'Mumbai',
+      gender: CreatorGender.FEMALE,
     });
     expect(where).toHaveProperty('AND');
     expect((where as { AND: unknown[] }).AND).toHaveLength(2);
@@ -605,7 +644,7 @@ describe('admin creator extra filters', () => {
     // instead of narrowing it.
     const base = { isListed: true };
     expect(withAdminCreatorExtraFilters(base, { city: 'Mumbai' })).toEqual({
-      AND: [base, { city: { equals: 'Mumbai', mode: 'insensitive' } }],
+      AND: [base, { city: { contains: 'Mumbai', mode: 'insensitive' } }],
     });
   });
 });

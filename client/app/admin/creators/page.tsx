@@ -77,9 +77,8 @@ function AdminCreatorsPageInner() {
       segment,
       page,
       limit,
+      ...filters,
       search: search.trim() || undefined,
-      niche: filters.niche,
-      city: filters.city,
     },
     segment !== "featured",
   );

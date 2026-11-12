@@ -9,8 +9,7 @@ export const adminCreatorsQueryKey = (query: AdminCreatorsListQueryDto) => [
   query.page ?? 1,
   query.limit ?? 20,
   query.search?.trim() || "",
-  query.niche || "",
-  query.city || "",
+  JSON.stringify({ ...query, segment: undefined, page: undefined, limit: undefined, search: undefined }),
 ];
 
 export function useAdminCreatorsQuery(

@@ -2731,42 +2731,26 @@ export class CreatorProfileService {
   }
 
   /**
-   * Values for the admin list's filter dropdowns.
+   * Cities in use across creators, for the admin filter menu.
    *
-   * Built from the creators that actually exist, not from the facet catalog
-   * or a city table: an option that matches nobody is a dead end the admin
-   * has to discover by clicking it. Niches come back with their labels so the
-   * dropdown can show "Beauty" while filtering on the slug.
+   * Built from the creators that exist rather than a catalog: a city that
+   * matches nobody is a dead end the admin has to discover by clicking it.
+   * The facet filters need nothing here — they read the same shared catalog
+   * the browse page does.
    */
   async getAdminCreatorFilterOptions(): Promise<AdminCreatorFilterOptionsDto> {
-    const [nicheRows, cityRows] = await Promise.all([
-      this.prisma.creatorProfileFacetSelection.findMany({
-        where: {
-          option: { dimension: CreatorFacetDimension.CONTENT_CATEGORY },
-        },
-        select: { option: { select: { slug: true, label: true } } },
-        distinct: ['optionId'],
-      }),
-      this.prisma.creatorProfile.findMany({
-        where: { city: { not: null } },
-        select: { city: true },
-        distinct: ['city'],
-      }),
-    ]);
+    const rows = await this.prisma.creatorProfile.findMany({
+      where: { city: { not: null } },
+      select: { city: true },
+      distinct: ['city'],
+    });
 
-    const niches = nicheRows
-      .map((row) => row.option)
-      .filter((option): option is { slug: string; label: string } =>
-        Boolean(option?.slug),
-      )
-      .sort((a, b) => a.label.localeCompare(b.label));
-
-    const cities = cityRows
+    const cities = rows
       .map((row) => row.city?.trim())
       .filter((city): city is string => Boolean(city))
       .sort((a, b) => a.localeCompare(b));
 
-    return { niches, cities };
+    return { cities };
   }
 
   /**

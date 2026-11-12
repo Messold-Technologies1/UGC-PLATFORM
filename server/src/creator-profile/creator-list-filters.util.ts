@@ -6,7 +6,10 @@ import {
   SocialConnectionStatus,
   SocialPlatform,
 } from '@prisma/client';
-import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
+import type {
+  CreatorFilterQueryDto,
+  ListCreatorsQueryDto,
+} from './dto/list-creators-query.dto';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import {
   type CreatorOnboardingMode,
@@ -395,49 +398,44 @@ export function buildAdminCreatorApprovalSearchWhere(
 /**
  * Filters the admin creator list applies ON TOP of a segment and its search.
  *
- * Kept separate from `buildAdminCreatorsListWhere` rather than folded into it
- * so the same clauses can be ANDed onto a segment count, an export, or the
- * listed-completeness sweep without each of those growing its own copy. Every
- * surface that shows a number for a tab has to apply exactly the same filter,
- * or the tab counts stop agreeing with the rows under them.
+ * Exactly the browse page's filter set — `CreatorFilterQueryDto` is shared,
+ * and the clauses are built by `buildListCreatorsWhere` itself, so "filter by
+ * niche" means the same thing to an admin as it does to a brand and cannot
+ * drift.
+ *
+ * Kept separate from `buildAdminCreatorsListWhere` so the same clauses can be
+ * ANDed onto a segment count, an export, or the listed-completeness sweep
+ * without each growing its own copy. Every surface that shows a number for a
+ * tab has to apply exactly the same filter, or the tab counts stop agreeing
+ * with the rows under them.
  */
-export interface AdminCreatorExtraFilters {
-  /** `CreatorFacetOption.slug` within the CONTENT_CATEGORY dimension. */
-  niche?: string;
-  /** City exactly as stored on the profile; matched case-insensitively. */
-  city?: string;
-}
+export type AdminCreatorExtraFilters = CreatorFilterQueryDto;
 
-/** `null` when no extra filter is set, so callers can skip the AND. */
+/** `null` when no filter is set, so callers can skip the AND. */
 export function buildAdminCreatorExtraFilterWhere(
   filters: AdminCreatorExtraFilters | undefined,
 ): Prisma.CreatorProfileWhereInput | null {
-  const clauses: Prisma.CreatorProfileWhereInput[] = [];
+  if (!filters) return null;
 
-  const niche = filters?.niche?.trim();
-  if (niche) {
-    clauses.push({
-      facetSelections: {
-        some: {
-          option: {
-            dimension: CreatorFacetDimension.CONTENT_CATEGORY,
-            slug: niche,
-          },
-        },
-      },
-    });
-  }
+  const where = buildListCreatorsWhere(
+    {
+      ...filters,
+      // The admin list has its own search — name, email and phone — which
+      // `buildAdminCreatorsListWhere` has already applied. The browse search
+      // is a different predicate entirely (location, bio, niche labels, and
+      // deliberately never the name), so letting it run here would quietly
+      // AND a second, unrelated text match onto the query.
+      search: undefined,
+    },
+    // Admins look at creators at every stage, so the browse page's implicit
+    // "listed only" must not come along. The segment clause decides that.
+    { requireApproved: false },
+  );
 
-  const city = filters?.city?.trim();
-  if (city) {
-    clauses.push({ city: { equals: city, mode: 'insensitive' } });
-  }
-
-  if (clauses.length === 0) return null;
-  return clauses.length === 1 ? clauses[0] : { AND: clauses };
+  return Object.keys(where).length === 0 ? null : where;
 }
 
-/** AND an optional extra-filter clause onto a segment clause. */
+/** AND an optional filter clause onto a segment clause. */
 export function withAdminCreatorExtraFilters(
   base: Prisma.CreatorProfileWhereInput,
   filters: AdminCreatorExtraFilters | undefined,

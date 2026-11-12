@@ -18,9 +18,11 @@ import {
 /**
  * Reading the listed-profile checklist out of the database, in one place.
  *
- * Three callers need the same answer — the admin "Listed · incomplete" sweep,
- * the creator's own completeness endpoint, and the brief-acceptance gate — and
- * a second copy of this query is exactly how the three would drift apart.
+ * Several callers need the same answer — the admin "Listed · incomplete"
+ * sweep, the creator's own completeness endpoint and the payout gate that
+ * reads it — and a second copy of this query is exactly how they would drift
+ * apart. They differ only in whether payout details count, which is passed in
+ * rather than forked here.
  */
 
 /**
@@ -157,6 +159,10 @@ export async function loadCreatorCompleteness(
 
   const { complete, missing } = evaluateListedProfileCompleteness(
     toListedCompletenessInput(profile, addOnNames),
+    // This checklist is what the post-approval payout gate reads: the brand
+    // has signed off and the money cannot be sent without an account to send
+    // it to, so a missing payout method genuinely belongs here.
+    { requirePayoutDetails: true },
   );
 
   return {

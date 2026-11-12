@@ -240,9 +240,16 @@ describe('evaluateListedProfileCompleteness', () => {
     ...overrides,
   });
 
+  /** The creator-facing payout gate. */
+  const WITH_PAYOUT = { requirePayoutDetails: true } as const;
+  /** The admin "Listed · incomplete" segment. */
+  const WITHOUT_PAYOUT = { requirePayoutDetails: false } as const;
+
   it('is complete when the go-live checklist is met, OTP is approved and payouts are set', () => {
-    const { complete, missing } =
-      evaluateListedProfileCompleteness(listedInput());
+    const { complete, missing } = evaluateListedProfileCompleteness(
+      listedInput(),
+      WITH_PAYOUT,
+    );
     expect(complete).toBe(true);
     expect(missing).toEqual([]);
   });
@@ -250,9 +257,9 @@ describe('evaluateListedProfileCompleteness', () => {
   it('does not require an intro video for listed · complete', () => {
     // Intro video still affects wizard Profile Strength, not the admin segment.
     expect(INTRO_VIDEO_REQUIREMENT.label).toBe('Intro video');
-    expect(evaluateListedProfileCompleteness(listedInput()).complete).toBe(
-      true,
-    );
+    expect(
+      evaluateListedProfileCompleteness(listedInput(), WITH_PAYOUT).complete,
+    ).toBe(true);
   });
 
   it.each([[null], [undefined], [''], ['pending'], ['expired']])(
@@ -260,6 +267,7 @@ describe('evaluateListedProfileCompleteness', () => {
     (phoneOtpLastStatus) => {
       const { complete, missing } = evaluateListedProfileCompleteness(
         listedInput({ phoneOtpLastStatus }),
+        WITH_PAYOUT,
       );
       expect(complete).toBe(false);
       expect(missing).toEqual([OTP_VERIFICATION_REQUIREMENT.label]);
@@ -269,12 +277,15 @@ describe('evaluateListedProfileCompleteness', () => {
   it('does not add OTP to the go-live gate', () => {
     const input = listedInput({ phoneOtpLastStatus: null });
     expect(evaluateProfileCompleteness(input).complete).toBe(true);
-    expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
+    expect(evaluateListedProfileCompleteness(input, WITH_PAYOUT).complete).toBe(
+      false,
+    );
   });
 
   it('flags payout details when neither a bank account nor a UPI ID is on file', () => {
     const { complete, missing } = evaluateListedProfileCompleteness(
       listedInput({ hasPayoutDetails: false }),
+      WITH_PAYOUT,
     );
     expect(complete).toBe(false);
     expect(missing).toEqual([PAYOUT_DETAILS_REQUIREMENT.label]);
@@ -284,7 +295,9 @@ describe('evaluateListedProfileCompleteness', () => {
     // A creator gets listed first and sorts out their bank details after.
     const input = listedInput({ hasPayoutDetails: false });
     expect(evaluateProfileCompleteness(input).complete).toBe(true);
-    expect(evaluateListedProfileCompleteness(input).complete).toBe(false);
+    expect(evaluateListedProfileCompleteness(input, WITH_PAYOUT).complete).toBe(
+      false,
+    );
   });
 
   it('reports checklist gaps without treating intro as required', () => {
@@ -293,6 +306,7 @@ describe('evaluateListedProfileCompleteness', () => {
         instagramConnected: false,
         publicVideoCount: 0,
       }),
+      WITH_PAYOUT,
     );
     expect(complete).toBe(false);
     expect(missing).toEqual(
@@ -302,6 +316,50 @@ describe('evaluateListedProfileCompleteness', () => {
       ]),
     );
     expect(missing).not.toContain(INTRO_VIDEO_REQUIREMENT.label);
+  });
+
+  it('omits payout details when the caller does not require them', () => {
+    // The admin "Listed · incomplete" segment. A creator with no bank account
+    // on file is still a finished, bookable profile as far as brands are
+    // concerned, so this must come back complete.
+    const { complete, missing } = evaluateListedProfileCompleteness(
+      listedInput({ hasPayoutDetails: false }),
+      WITHOUT_PAYOUT,
+    );
+    expect(complete).toBe(true);
+    expect(missing).toEqual([]);
+  });
+
+  it('still reports real profile gaps when payouts are not required', () => {
+    // Dropping the payout rule must not soften anything else.
+    const { complete, missing } = evaluateListedProfileCompleteness(
+      listedInput({
+        hasPayoutDetails: false,
+        instagramConnected: false,
+        phoneOtpLastStatus: null,
+      }),
+      WITHOUT_PAYOUT,
+    );
+    expect(complete).toBe(false);
+    expect(missing).toEqual(
+      expect.arrayContaining([
+        'Instagram connected',
+        OTP_VERIFICATION_REQUIREMENT.label,
+      ]),
+    );
+    expect(missing).not.toContain(PAYOUT_DETAILS_REQUIREMENT.label);
+  });
+
+  it('is unaffected by the flag when payout details are on file', () => {
+    const withPayout = evaluateListedProfileCompleteness(
+      listedInput(),
+      WITH_PAYOUT,
+    );
+    const withoutPayout = evaluateListedProfileCompleteness(
+      listedInput(),
+      WITHOUT_PAYOUT,
+    );
+    expect(withPayout).toEqual(withoutPayout);
   });
 
   it('extends the go-live catalog with OTP verification and payout details', () => {
@@ -314,27 +372,30 @@ describe('evaluateListedProfileCompleteness', () => {
 
   it('every label it can emit maps back to a catalog entry', () => {
     // Guards the WhatsApp templating: a label with no stable key is unusable.
-    const { missing } = evaluateListedProfileCompleteness({
-      ...listedInput({ phoneOtpLastStatus: null, hasPayoutDetails: false }),
-      profileImageUrl: null,
-      displayName: '',
-      contactEmail: '',
-      bio: '',
-      countryName: '',
-      stateName: '',
-      city: '',
-      gender: null,
-      dateOfBirth: null,
-      shippingAddress: '',
-      selectedFacetDimensions: [],
-      nichePrimaryCount: 0,
-      nicheSecondaryCount: 0,
-      languageCount: 0,
-      packageCount: 0,
-      publicVideoCount: 0,
-      mandatoryAddOnsPriced: false,
-      instagramConnected: false,
-    });
+    const { missing } = evaluateListedProfileCompleteness(
+      {
+        ...listedInput({ phoneOtpLastStatus: null, hasPayoutDetails: false }),
+        profileImageUrl: null,
+        displayName: '',
+        contactEmail: '',
+        bio: '',
+        countryName: '',
+        stateName: '',
+        city: '',
+        gender: null,
+        dateOfBirth: null,
+        shippingAddress: '',
+        selectedFacetDimensions: [],
+        nichePrimaryCount: 0,
+        nicheSecondaryCount: 0,
+        languageCount: 0,
+        packageCount: 0,
+        publicVideoCount: 0,
+        mandatoryAddOnsPriced: false,
+        instagramConnected: false,
+      },
+      WITH_PAYOUT,
+    );
 
     const catalogLabels = LISTED_PROFILE_REQUIREMENTS.map((r) => r.label);
     expect(missing.length).toBe(LISTED_PROFILE_REQUIREMENTS.length);

@@ -2460,6 +2460,11 @@ export class CreatorProfileService {
     for (const profile of profiles) {
       const { missing } = evaluateListedProfileCompleteness(
         toListedCompletenessInput(profile, addOnNames),
+        // Payout details are deliberately not counted here. This segment is
+        // about whether a profile is presentable to brands; bank details are
+        // invisible to them and block nothing until money is owed, where the
+        // creator-facing gate picks them up instead.
+        { requirePayoutDetails: false },
       );
       byCreatorId.set(profile.id, missing);
     }

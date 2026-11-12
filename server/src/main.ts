@@ -31,6 +31,20 @@ async function bootstrap() {
   // straight through the rate limiter.
   app.set('trust proxy', 1);
 
+  // Express 5 defaults `query parser` to `simple` (Node's querystring), which
+  // does not understand bracket notation: `?tag[]=a&tag[]=b` arrives as a
+  // property literally named `tag[]`. Axios serializes arrays that way by
+  // default, and with `forbidNonWhitelisted` on the pipe that is not an
+  // ignored param but a 400 for the whole request. `extended` (qs) parses it
+  // into a real array, as Express 4 did.
+  //
+  // The cost is that a caller now controls the SHAPE of a value, not just its
+  // text — `?role[x]=1` yields an object. Params read through a DTO are safe
+  // (class-validator rejects the wrong type); the few read as bare strings go
+  // through `singleQueryString`, which reduces anything that is not a string
+  // to undefined rather than letting `.trim()` throw a 500.
+  app.set('query parser', 'extended');
+
   // Route every NestJS log (framework + all `Logger` calls, including the
   // [admin-action] audit lines) through the structured pino logger.
   app.useLogger(app.get(PinoLogger));

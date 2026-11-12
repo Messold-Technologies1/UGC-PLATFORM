@@ -46,6 +46,7 @@ import {
   IG_SYNC_PRIORITY,
   InstagramMediaQueueService,
 } from './instagram-media-queue.service';
+import { singleQueryString } from '../common/http/query-value.util';
 
 const IG_STATE_COOKIE = 'ig_oauth_state';
 /** Where to send the creator after the callback (see sanitizeReturnPath). */
@@ -58,8 +59,11 @@ const IG_RETURN_COOKIE = 'ig_oauth_return';
  * (which some browsers normalise to `/`) is discarded, so neither a caller nor
  * a tampered cookie can redirect the creator off-site after connecting.
  */
-export function sanitizeReturnPath(raw: string | undefined): string | null {
-  const value = raw?.trim();
+export function sanitizeReturnPath(raw: unknown): string | null {
+  // `raw` comes straight off the query string, so under the extended parser
+  // it can be an object or an array, not just the string it is typed as at
+  // the call site.
+  const value = singleQueryString(raw)?.trim();
   if (!value) return null;
   if (!value.startsWith('/')) return null;
   if (value.startsWith('//')) return null;
@@ -393,7 +397,7 @@ export class SocialConnectionsController {
   async instagramConnectUrl(
     @Req() req: Request & { user: { id: string } },
     @Res({ passthrough: true }) res: Response,
-    @Query('returnTo') returnTo?: string,
+    @Query('returnTo') returnTo?: unknown,
   ): Promise<SocialConnectUrlResponseDto> {
     const { url, nonce } = await this.service.buildInstagramConnectUrl(
       req.user.id,
@@ -435,8 +439,8 @@ export class SocialConnectionsController {
       maxAge: 0,
     });
 
-    const code = req.query.code as string | undefined;
-    const state = req.query.state as string | undefined;
+    const code = singleQueryString(req.query.code);
+    const state = singleQueryString(req.query.state);
     const nonce = readCookie(req, IG_STATE_COOKIE);
     res.cookie(IG_STATE_COOKIE, '', { ...stateCookieOptions(), maxAge: 0 });
 

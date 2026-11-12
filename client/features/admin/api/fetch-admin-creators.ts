@@ -1,5 +1,6 @@
 import api from "@/lib/api";
 import { ENDPOINTS } from "@/lib/endpoints";
+import { serializeQueryParams } from "./serialize-query-params";
 import type {
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
@@ -10,7 +11,7 @@ export async function fetchAdminCreators(
 ): Promise<AdminCreatorsListResponseDto> {
   const { data } = await api.get<AdminCreatorsListResponseDto>(
     ENDPOINTS.ADMIN.CREATORS.LIST,
-    { params: query },
+    { params: query, paramsSerializer: serializeQueryParams },
   );
   return data;
 }

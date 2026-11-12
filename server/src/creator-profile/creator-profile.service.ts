@@ -1993,12 +1993,17 @@ export class CreatorProfileService {
     const limit = Math.min(query.limit ?? 20, 50);
     const skip = (page - 1) * limit;
 
+    // Both branches below take `filters` as well as `search`. They are the
+    // segments that cannot be expressed as a single `where`, and forgetting
+    // to pass the filters on is what let a "Mom creator" filter return a UGC
+    // creator: the tab COUNT was filtered and the rows under it were not.
     if (query.segment === AdminCreatorListSegment.FEATURED) {
       return this.listFeaturedCreators({
         page,
         limit,
         skip,
         search: query.search,
+        filters: query,
       });
     }
 
@@ -2011,6 +2016,7 @@ export class CreatorProfileService {
         limit,
         skip,
         search: query.search,
+        filters: query,
         wantComplete: query.segment === AdminCreatorListSegment.LISTED_COMPLETE,
       });
     }
@@ -2572,12 +2578,14 @@ export class CreatorProfileService {
     limit: number;
     skip: number;
     search?: string;
+    filters?: AdminCreatorExtraFilters;
     wantComplete: boolean;
   }): Promise<AdminCreatorsListResponseDto> {
-    const { page, limit, skip, search, wantComplete } = query;
+    const { page, limit, skip, search, filters, wantComplete } = query;
 
     const missingByCreatorId = await this.evaluateListedCreatorsCompleteness({
       search,
+      filters,
       // The "Listed · incomplete" / "Listed · complete" tabs. Bank details
       // are invisible to brands and block nothing, so they do not decide
       // whether a profile reads as finished.
@@ -2619,6 +2627,7 @@ export class CreatorProfileService {
     limit: number;
     skip: number;
     search?: string;
+    filters?: AdminCreatorExtraFilters;
   }): Promise<AdminCreatorsListResponseDto> {
     const { page, limit, skip } = query;
     const now = new Date();
@@ -2633,10 +2642,13 @@ export class CreatorProfileService {
       : {};
 
     const where = {
-      creator: {
-        isListed: true,
-        ...searchClause,
-      },
+      creator: withAdminCreatorExtraFilters(
+        {
+          isListed: true,
+          ...searchClause,
+        },
+        query.filters,
+      ),
       OR: [{ featuredUntil: null }, { featuredUntil: { gt: now } }],
     };
 

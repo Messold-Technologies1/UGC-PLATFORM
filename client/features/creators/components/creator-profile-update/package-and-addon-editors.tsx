@@ -113,9 +113,13 @@ export function PackageEditor({
   defaultsConfirmedError?: string;
   /**
    * Set only for a creator who does not price in rupees. They type their own
-   * currency and the rupee field becomes a read-only preview of what will be
-   * stored — the server converts again on save, so this is a preview, not the
-   * number being submitted.
+   * currency and the rupee field is replaced by a line showing what brands
+   * will pay.
+   *
+   * `convertedInr` is a preview, not the number submitted: the server
+   * converts again on save from the creator's own amount, so a client that
+   * lied about the rate gets nowhere. Both round through the same price step,
+   * so the preview and the stored figure agree.
    */
   priceConverter?: {
     currency: string;
@@ -178,9 +182,8 @@ export function PackageEditor({
                   {priceConverter.rateDate
                     ? ` the rate from ${priceConverter.rateDate}`
                     : " today's rate"}
-                  , rounded to the nearest ₹500. Every price on GoCollab is
-                  set in steps of ₹500. We refresh this each night as the
-                  rate moves.
+                  , rounded to the nearest ₹500 like every other price on
+                  GoCollab. We refresh it each night as the rate moves.
                 </>
               ) : (
                 "Enter an amount to see what brands will pay in ₹."

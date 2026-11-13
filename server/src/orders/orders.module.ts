@@ -12,7 +12,6 @@ import { CreatorReviewsModule } from '../creator-reviews/creator-reviews.module'
 import { JobsModule } from '../jobs/jobs.module';
 import { CreatorPortfolioModule } from '../creator-portfolio/creator-portfolio.module';
 import { CouponsModule } from '../coupons/coupons.module';
-import { FxModule } from '../fx/fx.module';
 import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
@@ -27,7 +26,6 @@ import { WalletModule } from '../wallet/wallet.module';
     CreatorPortfolioModule,
     CouponsModule,
     WalletModule,
-    FxModule,
   ],
   controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService, OrderAutoAcceptService],

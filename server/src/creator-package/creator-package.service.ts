@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { CreatorPackageCreateDto } from '../creator-profile/dto/create-creator-profile.dto';
 import { FxService } from '../fx/fx.service';
+import { roundConvertedInr } from '../fx/round-converted-inr';
 
 /** Client passed to interactive `$transaction` callbacks */
 type PrismaTransactionClient = Omit<
@@ -64,14 +65,8 @@ export class CreatorPackageService {
       );
     }
 
-    // Deliberately NOT snapped to PRICE_STEP. That step is a convention for
-    // prices a creator actually chose in rupees; here the rupee figure is
-    // derived, and checkout re-converts from `priceAmountOriginal` without
-    // snapping. Rounding only this one would make browse and the amount
-    // charged differ by an arbitrary few hundred rupees on top of whatever
-    // the rate has done since.
     return {
-      priceAmount: Number(converted.inr.toFixed(2)),
+      priceAmount: roundConvertedInr(converted.inr),
       priceCurrency: currency,
       priceAmountOriginal: new Prisma.Decimal(entered.toFixed(2)),
     };
@@ -165,6 +160,8 @@ export class CreatorPackageService {
         priceAmount: new Prisma.Decimal(String(price)),
         priceCurrency,
         priceAmountOriginal,
+        // Null for rupee prices: there is nothing to re-convert.
+        priceInrUpdatedAt: priceCurrency === 'INR' ? null : new Date(),
         deliveryDays,
         maxRevisions,
       },

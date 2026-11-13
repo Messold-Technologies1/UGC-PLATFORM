@@ -43,8 +43,7 @@ describe('OrdersService.acceptDelivery → portfolio sync', () => {
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
       { get: () => undefined } as never, // config
-      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests,
-      {} as never,
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests
     );
     return { service, orderUpdateMany, orderPortfolioSync };
   }
@@ -156,8 +155,7 @@ describe('OrdersService.autoAcceptDueOrder', () => {
       {} as never, // wallet
       events as never,
       { get: () => undefined } as never, // config
-      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi off,
-      {} as never,
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi off
     );
     return { service, orderUpdateMany, orderPortfolioSync, events };
   }
@@ -283,8 +281,7 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
       {} as never, // wallet
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
       { get: () => undefined } as never, // config
-      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests,
-      {} as never,
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi: off, so the Purchase event stays out of these tests
     );
 
     await service.adminRejectOrder({

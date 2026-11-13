@@ -33,7 +33,7 @@ describe('JobsService.refreshForeignPackagePrices', () => {
     return { service, prisma, update };
   }
 
-  it('rewrites the derived rupee figure at the current rate', async () => {
+  it('rewrites the rupee price at the current rate', async () => {
     const convertToInr = jest
       .fn()
       .mockResolvedValue({ inr: 9345.79, rate: 93.4579, date: '2026-11-12' });
@@ -54,7 +54,8 @@ describe('JobsService.refreshForeignPackagePrices', () => {
     expect(update).toHaveBeenCalledTimes(1);
     const data = update.mock.calls[0][0];
     expect(data.where).toEqual({ id: 'pkg-1' });
-    expect(Number(data.data.priceAmount)).toBe(9345.79);
+    expect(Number(data.data.priceAmount)).toBe(9300);
+    expect(data.data.priceInrUpdatedAt).toBeInstanceOf(Date);
   });
 
   it('skips a whole currency after its first failure', async () => {

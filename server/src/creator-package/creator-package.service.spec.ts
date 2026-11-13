@@ -102,14 +102,16 @@ describe('CreatorPackageService', () => {
       expect(fx.convertToInr).toHaveBeenCalledWith(100, 'USD');
       expect(createMock).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          // Stored as the plain conversion. It is a derived browse figure,
-          // not a chosen price, so it is not snapped to the ?500 step.
+          // 9345.79 rounded to the nearest 100. Not the ?500 step: that
+          // would amplify small rate moves into visible price jumps.
           priceAmount: expect.objectContaining({ s: 1 }),
           priceCurrency: 'USD',
         }),
       });
       const data = createMock.mock.calls[0][0].data;
-      expect(Number(data.priceAmount)).toBe(9345.79);
+      expect(Number(data.priceAmount)).toBe(9300);
+      // Stamped so a refresh that stops running shows up as a stale date.
+      expect(data.priceInrUpdatedAt).toBeInstanceOf(Date);
       expect(Number(data.priceAmountOriginal)).toBe(100);
     });
 
@@ -129,9 +131,7 @@ describe('CreatorPackageService', () => {
         },
       ]);
 
-      expect(Number(createMock.mock.calls[0][0].data.priceAmount)).toBe(
-        9345.79,
-      );
+      expect(Number(createMock.mock.calls[0][0].data.priceAmount)).toBe(9300);
     });
 
     it('refuses a currency it cannot convert, naming it', async () => {

@@ -18,6 +18,7 @@ import {
   convertToInr,
   currencyForCountry,
   needsPriceConversion,
+  roundConvertedInr,
 } from "@/features/creators/lib/price-currency";
 
 import { CwCard, CwFieldWarn } from "../wizard-ui";
@@ -191,11 +192,10 @@ export function PricingStep({
 
   const toInr = (amount: string): number | null => {
     if (!localCurrency || !fx?.available) return null;
-    // Not snapped to the ?500 step: this is an indication of today's
-    // conversion, and checkout converts afresh without snapping. Rounding it
-    // here would just put the preview further from what a brand is charged.
+    // Rounded exactly as the server rounds it on save, so the figure shown
+    // here is the figure stored and shown to brands.
     const raw = convertToInr(Number(amount), localCurrency, fx.rates);
-    return raw == null ? null : Math.round(raw);
+    return raw == null ? null : roundConvertedInr(raw);
   };
 
   const convertedInr = converting ? toInr(localPriceAmount) : null;

@@ -93,7 +93,6 @@ describe('OrdersService Purchase Meta event', () => {
       { emit: jest.fn().mockResolvedValue(undefined) } as never, // notification events
       { get: () => undefined } as never, // config
       metaCapi as never,
-      {} as never,
     );
     return { service, sendEvent, prisma };
   }

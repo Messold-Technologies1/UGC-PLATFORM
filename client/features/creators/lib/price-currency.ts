@@ -58,3 +58,19 @@ export function convertToInr(
 export function snapToPriceStep(inr: number): number {
   return Math.max(Math.round(inr / PRICE_STEP) * PRICE_STEP, PRICE_STEP);
 }
+
+/**
+ * Rounding for a CONVERTED price. Mirrors the server's
+ * CONVERTED_PRICE_ROUNDING: converted prices are rounded to ?100 rather than
+ * onto the ?500 grid, so a small rate move does not visibly jump the price.
+ * Keeping the two in step is what makes the preview the figure that is saved.
+ */
+export const CONVERTED_PRICE_ROUNDING = 100;
+
+export function roundConvertedInr(inr: number): number {
+  if (!Number.isFinite(inr) || inr <= 0) return 0;
+  return Math.max(
+    Math.round(inr / CONVERTED_PRICE_ROUNDING) * CONVERTED_PRICE_ROUNDING,
+    CONVERTED_PRICE_ROUNDING,
+  );
+}

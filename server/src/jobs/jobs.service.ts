@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
-/** Daily, well outside Indian business hours. */
+/** Nightly, well outside Indian business hours (20:00 UTC is ~01:30 IST). */
 const PACKAGE_PRICE_REFRESH_CRON = '0 0 20 * * *';
+
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -17,6 +18,7 @@ import {
   portfolioNormalizeOwedWhere,
 } from '../media-normalize/media-normalize.reconcile';
 import { FxService } from '../fx/fx.service';
+import { roundConvertedInr } from '../fx/round-converted-inr';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -311,19 +313,23 @@ export class JobsService {
   }
 
   /**
-   * Keep the DERIVED rupee figure on foreign-currency packages roughly current.
+   * Re-convert the rupee price of every package priced in another currency.
    *
-   * A creator outside India prices in their own currency; `priceAmount` holds
-   * a rupee conversion purely so browse has one column to display, filter and
-   * sort on. Nobody is charged from it -- checkout re-converts live -- but
-   * left alone it would freeze at whatever the rate was on the day the
-   * creator saved, and the browse price would drift further from the checkout
-   * price with every passing month. Once a day is plenty: it only has to be
-   * close enough that a brand is not surprised at checkout.
+   * A creator outside India names their price in their own currency, and
+   * `priceAmount` holds the rupee conversion of it. That rupee figure is the
+   * real price -- what brands browse and what Razorpay charges -- so nothing
+   * converts at checkout and a brand always pays the number they were shown.
+   *
+   * The cost of that is a price which would otherwise freeze at whatever the
+   * rate was the day the creator saved, so this run is what keeps it honest.
+   * Nightly is the right cadence: it bounds how far a price can lag the
+   * market at roughly a day, which for the major pairs is a fraction of a
+   * percent, while leaving the price fixed for the whole of any one visit.
    *
    * Rates are fetched once per currency, not once per package, and a failure
    * for one currency leaves those rows at their previous value rather than
-   * abandoning the whole sweep.
+   * abandoning the whole sweep. `priceInrUpdatedAt` is what makes a run that
+   * has been quietly failing visible after the fact.
    */
   @Cron(PACKAGE_PRICE_REFRESH_CRON)
   async refreshForeignPackagePrices(): Promise<void> {
@@ -362,7 +368,12 @@ export class JobsService {
         await this.prisma.creatorPackage.update({
           where: { id: pkg.id },
           data: {
-            priceAmount: new Prisma.Decimal(converted.inr.toFixed(2)),
+            // Same rounding as the save path and the pricing form, so a
+            // package's price does not shift the first time this touches it.
+            priceAmount: new Prisma.Decimal(
+              roundConvertedInr(converted.inr),
+            ),
+            priceInrUpdatedAt: new Date(),
           },
         });
         updated += 1;

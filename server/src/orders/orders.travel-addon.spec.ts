@@ -139,8 +139,7 @@ describe('OrdersService travel add-on', () => {
       {} as never, // wallet
       events as never, // notification events
       { get: () => undefined } as never, // config
-      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi off,
-      {} as never,
+      { enabledFor: () => false, sendEvent: jest.fn() } as never, // meta capi off
     );
     return { service, prisma, razorpay, events, orderRealtime, orderUpdate };
   }

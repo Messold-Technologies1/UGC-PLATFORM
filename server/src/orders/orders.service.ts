@@ -76,7 +76,6 @@ import type {
   OrderRevisionItemDto,
 } from './dto/order-revisions-response.dto';
 import { BrandAccessService } from '../brand-access/brand-access.service';
-import { FxService } from '../fx/fx.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../razorpay/razorpay.service';
 import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
@@ -618,53 +617,8 @@ export class OrdersService {
     private readonly events: NotificationEventsService,
     private readonly config: ConfigService,
     private readonly metaCapi: MetaCapiService,
-    private readonly fx: FxService,
   ) {}
 
-  /**
-   * What this package costs in rupees, right now.
-   *
-   * A creator outside India prices in their own currency, and that pair --
-   * `priceAmountOriginal` + `priceCurrency` -- is the authoritative price.
-   * The rupee figure stored in `priceAmount` alongside it is DERIVED: it
-   * exists so browse can display, filter and sort on a single comparable
-   * column, and it is only ever as fresh as the last rate refresh. It is
-   * deliberately not what anyone is charged.
-   *
-   * The conversion that matters happens here, when an order is created. The
-   * result is frozen into `priceAmountSnapshot` and drives
-   * `expectedAmountPaise`, which is what Razorpay charges, what wallet
-   * credits are applied against, and what the creator's payout is computed
-   * from. Whatever the rate is at that moment is the rate for that order,
-   * and nothing moves afterwards.
-   *
-   * If the rates cannot be reached, the derived rupee figure is charged
-   * rather than failing the purchase: a slightly stale price is recoverable,
-   * a checkout that will not complete is not.
-   */
-  private async packagePriceInr(pkg: {
-    priceAmount: Prisma.Decimal;
-    priceCurrency?: string | null;
-    priceAmountOriginal?: Prisma.Decimal | null;
-  }): Promise<Prisma.Decimal> {
-    const currency = pkg.priceCurrency?.trim().toUpperCase();
-    if (!currency || currency === 'INR' || pkg.priceAmountOriginal == null) {
-      return pkg.priceAmount;
-    }
-
-    const converted = await this.fx.convertToInr(
-      Number(pkg.priceAmountOriginal),
-      currency,
-    );
-    if (!converted) {
-      this.logger.warn(
-        `orders: could not convert ${currency} to INR at checkout; ` +
-          'charging the last stored rupee price instead.',
-      );
-      return pkg.priceAmount;
-    }
-    return new Prisma.Decimal(converted.inr.toFixed(2));
-  }
 
 
   /**
@@ -1107,15 +1061,6 @@ export class OrdersService {
     if (!pkg) {
       throw new NotFoundException('Creator package not found');
     }
-
-    // A creator outside India prices in their own currency. Convert to rupees
-    // HERE, at checkout, and overwrite the derived rupee figure on the loaded
-    // row: everything downstream -- packageAmountPaise, the coupon and credit
-    // math, expectedAmountPaise, the Razorpay charge and every
-    // priceAmountSnapshot -- reads pkg.priceAmount, so doing it once at the
-    // single load point keeps the quoted price, the charge and the snapshot
-    // from ever disagreeing with each other.
-    pkg.priceAmount = await this.packagePriceInr(pkg);
 
     const addOnIdList = [...new Set((params.addOnIds ?? []).filter(Boolean))];
     let addOnRows: CreatorAddOn[] = [];

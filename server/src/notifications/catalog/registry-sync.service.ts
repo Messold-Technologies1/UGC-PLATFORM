@@ -60,6 +60,9 @@ export class NotificationRegistrySyncService {
           // template link is left null until the seeder or an admin sets it;
           // the renderer falls back to the same-named template meanwhile.
           whatsappTemplateName: defaultWhatsAppTemplateName(key),
+          // Only at creation; `update` above never touches isActive, so an
+          // admin's choice survives every later deploy.
+          isActive: def.defaultActive ?? true,
         },
       });
       upserted += 1;

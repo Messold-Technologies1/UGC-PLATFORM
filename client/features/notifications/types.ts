@@ -253,7 +253,8 @@ export type BroadcastAudienceKey =
   | "CREATORS_WITH_OPEN_TO"
   | "LISTED_CREATORS"
   | "ACTIVE_BRANDS"
-  | "ACTIVE_AGENCIES";
+  | "ACTIVE_AGENCIES"
+  | "ORDERS_AWAITING_PAYMENT";
 
 export type BroadcastStatus = "PENDING" | "SENDING" | "COMPLETED" | "FAILED";
 
@@ -268,6 +269,11 @@ export interface BroadcastAudienceInfo {
    * at send time and recorded in the delivery log.
    */
   size: number;
+  /**
+   * Whether the underlying event is switched on. A switched-off event cannot
+   * send — the server refuses rather than queueing jobs that would all skip.
+   */
+  isActive: boolean;
 }
 
 export interface BroadcastRun {

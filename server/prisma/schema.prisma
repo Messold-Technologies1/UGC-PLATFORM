@@ -2570,6 +2570,10 @@ enum BroadcastAudience {
   ACTIVE_BRANDS
   /// Every agency whose user account is ACTIVE.
   ACTIVE_AGENCIES
+  /// Brands and agencies that owe money: the payer on any order still sitting
+  /// in PENDING_PAYMENT. One entry per payer, not per order, so a brand with
+  /// three unpaid orders is chased once.
+  ORDERS_AWAITING_PAYMENT
 }
 
 enum BroadcastStatus {

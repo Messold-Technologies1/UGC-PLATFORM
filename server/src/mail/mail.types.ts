@@ -46,6 +46,7 @@ export enum EmailTemplateKey {
   BROADCAST_CREATORS_LISTED = 'broadcast-creators-listed',
   BROADCAST_BRANDS = 'broadcast-brands',
   BROADCAST_AGENCIES = 'broadcast-agencies',
+  BROADCAST_ORDERS_AWAITING_PAYMENT = 'broadcast-orders-awaiting-payment',
   PASSWORD_RESET = 'password-reset',
 }
 

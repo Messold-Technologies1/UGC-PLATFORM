@@ -17,6 +17,9 @@ export const ENDPOINTS = {
     LOGOUT: "/api/auth/logout",
     WS_TOKEN: "/api/auth/ws-token",
   },
+  FX: {
+    RATES: "/api/fx/rates",
+  },
   CREATORS: {
     LIST: "/api/creators",
     FIRST_ORDER_FREE_ELIGIBLE: "/api/creators/first-order-free-eligible",

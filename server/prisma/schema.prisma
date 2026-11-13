@@ -1757,7 +1757,28 @@ model CreatorPackage {
   title              String?
   deliverables       Json // array of strings e.g. ["1 Video", "Basic editing"]
   videoLengthSeconds Int      @default(60)
+  /// ALWAYS rupees, and always THE price -- what browse shows, what Razorpay
+  /// charges, and what fees and payouts are built on. Orders snapshot it at
+  /// purchase, so a price change never reaches an order already placed.
+  ///
+  /// When `priceCurrency` is not INR this is a conversion of
+  /// `priceAmountOriginal` rather than a figure the creator typed, refreshed
+  /// nightly by JobsService.refreshForeignPackagePrices. It is deliberately
+  /// still the single price: converting again at checkout would charge a
+  /// brand something other than the amount they browsed.
   priceAmount        Decimal  @db.Decimal(12, 2)
+  /// What a creator outside India actually entered, in their own currency.
+  /// This is what the nightly refresh re-converts, and what the pricing form
+  /// shows them back instead of a rupee number they never chose. `INR` means
+  /// they typed rupees and `priceAmountOriginal` is null.
+  priceCurrency      String   @default("INR")
+  priceAmountOriginal Decimal? @db.Decimal(12, 2)
+  /// When `priceAmount` was last re-converted. Null for rupee prices, which
+  /// need no refreshing. A timestamp drifting days old means the nightly
+  /// refresh has been failing and foreign prices have stopped tracking the
+  /// market -- the one failure mode of pricing this way that is otherwise
+  /// invisible.
+  priceInrUpdatedAt  DateTime?
   deliveryDays       Int      @default(5)
   maxRevisions       Int      @default(1)
   createdAt          DateTime @default(now())

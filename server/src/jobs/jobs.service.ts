@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+
+/** Nightly, well outside Indian business hours (20:00 UTC is ~01:30 IST). */
+const PACKAGE_PRICE_REFRESH_CRON = '0 0 20 * * *';
+
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PREVIEW_RECONCILE_CRON,
@@ -12,6 +17,8 @@ import {
   introNormalizeOwedWhere,
   portfolioNormalizeOwedWhere,
 } from '../media-normalize/media-normalize.reconcile';
+import { FxService } from '../fx/fx.service';
+import { roundConvertedInr } from '../fx/round-converted-inr';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -36,12 +43,14 @@ export class JobsService {
   private reconcileRunning = false;
   private previewReconcileRunning = false;
   private normalizeReconcileRunning = false;
+  private priceRefreshRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly watermarkQueue: WatermarkQueueService,
     private readonly previewQueue: PreviewVideoQueueService,
     private readonly mediaNormalizeQueue: MediaNormalizeQueueService,
+    private readonly fx: FxService,
   ) {}
 
   /**
@@ -302,4 +311,90 @@ export class JobsService {
       this.normalizeReconcileRunning = false;
     }
   }
+
+  /**
+   * Re-convert the rupee price of every package priced in another currency.
+   *
+   * A creator outside India names their price in their own currency, and
+   * `priceAmount` holds the rupee conversion of it. That rupee figure is the
+   * real price -- what brands browse and what Razorpay charges -- so nothing
+   * converts at checkout and a brand always pays the number they were shown.
+   *
+   * The cost of that is a price which would otherwise freeze at whatever the
+   * rate was the day the creator saved, so this run is what keeps it honest.
+   * Nightly is the right cadence: it bounds how far a price can lag the
+   * market at roughly a day, which for the major pairs is a fraction of a
+   * percent, while leaving the price fixed for the whole of any one visit.
+   *
+   * Rates are fetched once per currency, not once per package, and a failure
+   * for one currency leaves those rows at their previous value rather than
+   * abandoning the whole sweep. `priceInrUpdatedAt` is what makes a run that
+   * has been quietly failing visible after the fact.
+   */
+  @Cron(PACKAGE_PRICE_REFRESH_CRON)
+  async refreshForeignPackagePrices(): Promise<void> {
+    if (this.priceRefreshRunning) return;
+    this.priceRefreshRunning = true;
+
+    try {
+      const packages = await this.prisma.creatorPackage.findMany({
+        where: {
+          priceCurrency: { not: 'INR' },
+          priceAmountOriginal: { not: null },
+        },
+        select: { id: true, priceCurrency: true, priceAmountOriginal: true },
+      });
+      if (packages.length === 0) return;
+
+      let updated = 0;
+      const failedCurrencies = new Set<string>();
+
+      for (const pkg of packages) {
+        const currency = pkg.priceCurrency.trim().toUpperCase();
+        if (failedCurrencies.has(currency) || pkg.priceAmountOriginal == null) {
+          continue;
+        }
+
+        const converted = await this.fx.convertToInr(
+          Number(pkg.priceAmountOriginal),
+          currency,
+        );
+        if (!converted) {
+          // Note it once and skip every other package in that currency.
+          failedCurrencies.add(currency);
+          continue;
+        }
+
+        await this.prisma.creatorPackage.update({
+          where: { id: pkg.id },
+          data: {
+            // Same rounding as the save path and the pricing form, so a
+            // package's price does not shift the first time this touches it.
+            priceAmount: new Prisma.Decimal(
+              roundConvertedInr(converted.inr),
+            ),
+            priceInrUpdatedAt: new Date(),
+          },
+        });
+        updated += 1;
+      }
+
+      if (failedCurrencies.size > 0) {
+        this.logger.warn(
+          `price refresh: could not get rates for ${[...failedCurrencies].join(', ')}; ` +
+            'those packages keep their previous rupee figure.',
+        );
+      }
+      this.logger.log(
+        `price refresh: updated ${updated}/${packages.length} foreign-currency packages`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `price refresh failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      this.priceRefreshRunning = false;
+    }
+  }
+
 }

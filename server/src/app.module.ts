@@ -17,6 +17,7 @@ import { OrdersModule } from './orders/orders.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { WalletModule } from './wallet/wallet.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { FxModule } from './fx/fx.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { OrderChatModule } from './order-chat/order-chat.module';
@@ -79,6 +80,7 @@ import { PushModule } from './push/push.module';
     OrderChatModule,
     ChatsModule,
     WebhooksModule,
+    FxModule,
     JobsModule,
     RealtimeModule,
     LegalPagesModule,

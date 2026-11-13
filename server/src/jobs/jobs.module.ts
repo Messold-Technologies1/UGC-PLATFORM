@@ -1,3 +1,4 @@
+import { FxModule } from '../fx/fx.module';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WatermarkModule } from '../watermark/watermark.module';
@@ -24,6 +25,7 @@ const SCHEDULER_ENABLED =
 
 @Module({
   imports: [
+    FxModule,
     ...(SCHEDULER_ENABLED ? [ScheduleModule.forRoot()] : []),
     WatermarkModule,
     PreviewVideoModule,

@@ -10,6 +10,10 @@ export type CreatorProfileCategoryApi = {
 };
 
 export type CreatorProfilePackageApi = {
+  /** Set when the creator priced in their own currency; `priceAmount` is the
+   *  rupee conversion the server stored. */
+  priceCurrency?: string | null;
+  priceAmountOriginal?: string | number | null;
   id: string;
   name: string;
   deliverables: string[];

@@ -18,7 +18,7 @@ import {
   portfolioNormalizeOwedWhere,
 } from '../media-normalize/media-normalize.reconcile';
 import { FxService } from '../fx/fx.service';
-import { roundConvertedInr } from '../fx/round-converted-inr';
+import { refreshForeignPackagePrices } from '../fx/refresh-package-prices';
 import { WatermarkQueueService } from './watermark-queue.service';
 
 function isPrismaPoolTimeout(err: unknown): boolean {
@@ -337,56 +337,17 @@ export class JobsService {
     this.priceRefreshRunning = true;
 
     try {
-      const packages = await this.prisma.creatorPackage.findMany({
-        where: {
-          priceCurrency: { not: 'INR' },
-          priceAmountOriginal: { not: null },
-        },
-        select: { id: true, priceCurrency: true, priceAmountOriginal: true },
-      });
-      if (packages.length === 0) return;
+      const { considered, updated, failedCurrencies } =
+        await refreshForeignPackagePrices(this.prisma, this.fx);
 
-      let updated = 0;
-      const failedCurrencies = new Set<string>();
-
-      for (const pkg of packages) {
-        const currency = pkg.priceCurrency.trim().toUpperCase();
-        if (failedCurrencies.has(currency) || pkg.priceAmountOriginal == null) {
-          continue;
-        }
-
-        const converted = await this.fx.convertToInr(
-          Number(pkg.priceAmountOriginal),
-          currency,
-        );
-        if (!converted) {
-          // Note it once and skip every other package in that currency.
-          failedCurrencies.add(currency);
-          continue;
-        }
-
-        await this.prisma.creatorPackage.update({
-          where: { id: pkg.id },
-          data: {
-            // Same rounding as the save path and the pricing form, so a
-            // package's price does not shift the first time this touches it.
-            priceAmount: new Prisma.Decimal(
-              roundConvertedInr(converted.inr),
-            ),
-            priceInrUpdatedAt: new Date(),
-          },
-        });
-        updated += 1;
-      }
-
-      if (failedCurrencies.size > 0) {
+      if (failedCurrencies.length > 0) {
         this.logger.warn(
-          `price refresh: could not get rates for ${[...failedCurrencies].join(', ')}; ` +
+          `price refresh: could not get rates for ${failedCurrencies.join(', ')}; ` +
             'those packages keep their previous rupee figure.',
         );
       }
       this.logger.log(
-        `price refresh: updated ${updated}/${packages.length} foreign-currency packages`,
+        `price refresh: updated ${updated}/${considered} foreign-currency packages`,
       );
     } catch (err) {
       this.logger.error(

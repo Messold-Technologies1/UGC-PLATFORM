@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   BroadcastAudience,
   BroadcastStatus,
@@ -27,13 +32,26 @@ export class NotificationBroadcastService {
       [BroadcastAudience, (typeof BROADCAST_AUDIENCES)[BroadcastAudience]]
     >;
     return Promise.all(
-      entries.map(async ([audience, def]) => ({
-        audience,
-        eventKey: def.eventKey,
-        label: def.label,
-        description: def.description,
-        size: await def.count(this.prisma),
-      })),
+      entries.map(async ([audience, def]) => {
+        const [size, event] = await Promise.all([
+          def.count(this.prisma),
+          this.prisma.notificationEvent.findUnique({
+            where: { key: def.eventKey },
+            select: { isActive: true },
+          }),
+        ]);
+        return {
+          audience,
+          eventKey: def.eventKey,
+          label: def.label,
+          description: def.description,
+          size,
+          // An event switched off in the Events list cannot send. Surfaced
+          // here so the UI can say so up front, rather than the admin pressing
+          // Send and getting a refusal.
+          isActive: event?.isActive ?? false,
+        };
+      }),
     );
   }
 
@@ -73,6 +91,25 @@ export class NotificationBroadcastService {
     createdByUserId?: string | null;
   }) {
     const def = this.audienceDef(input.audience);
+
+    // Every job would reach the step worker, find the event switched off and
+    // record `event_inactive`. That is thousands of skip rows and an admin
+    // told "queued 1,284" while nothing was sent, so refuse here instead.
+    const event = await this.prisma.notificationEvent.findUnique({
+      where: { key: def.eventKey },
+      select: { isActive: true },
+    });
+    if (!event) {
+      throw new NotFoundException(
+        `${def.eventKey} is not in the event registry yet. Boot the API once so the catalog syncs, then try again.`,
+      );
+    }
+    if (!event.isActive) {
+      throw new UnprocessableEntityException(
+        `${def.eventKey} is switched off. Turn it on in Notifications → Events before sending this broadcast.`,
+      );
+    }
+
     const matched = await def.count(this.prisma);
 
     const run = await this.prisma.notificationBroadcast.create({

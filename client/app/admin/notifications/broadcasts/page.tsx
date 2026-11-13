@@ -67,8 +67,13 @@ export default function BroadcastsPage() {
         : [...current, channel],
     );
 
+  // A switched-off event cannot send: the server refuses, and queueing jobs
+  // that would all skip is worse than the button being disabled.
   const canSend =
-    Boolean(selected) && channels.length > 0 && !send.isPending;
+    Boolean(selected) &&
+    Boolean(selected?.isActive) &&
+    channels.length > 0 &&
+    !send.isPending;
 
   const onSend = () => {
     if (!selected) return;
@@ -129,6 +134,7 @@ export default function BroadcastsPage() {
                 {audiences?.map((a) => (
                   <SelectItem key={a.audience} value={a.audience}>
                     {a.label} — {a.size.toLocaleString()}
+                    {!a.isActive && " · off"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -138,6 +144,15 @@ export default function BroadcastsPage() {
             <p className="text-muted-foreground text-xs">
               {selected.description} Sends through{" "}
               <span className="font-mono">{selected.eventKey}</span>.
+            </p>
+          )}
+          {selected && !selected.isActive && (
+            <p className="flex items-start gap-1.5 text-xs text-amber-700">
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                This event is switched off, so nothing can be sent through it
+                yet. Turn it on in Notifications → Events first.
+              </span>
             </p>
           )}
         </div>

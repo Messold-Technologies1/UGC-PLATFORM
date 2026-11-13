@@ -54,7 +54,7 @@ describe('JobsService.refreshForeignPackagePrices', () => {
     expect(update).toHaveBeenCalledTimes(1);
     const data = update.mock.calls[0][0];
     expect(data.where).toEqual({ id: 'pkg-1' });
-    expect(Number(data.data.priceAmount)).toBe(9300);
+    expect(Number(data.data.priceAmount)).toBe(9500);
     expect(data.data.priceInrUpdatedAt).toBeInstanceOf(Date);
   });
 

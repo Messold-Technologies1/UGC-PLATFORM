@@ -1,19 +1,27 @@
 import {
-  CONVERTED_PRICE_ROUNDING,
+  PRICE_STEP_INR,
   roundConvertedInr,
 } from './round-converted-inr';
 
 describe('roundConvertedInr', () => {
-  it('rounds to the nearest 100', () => {
-    expect(roundConvertedInr(9345.79)).toBe(9300);
-    expect(roundConvertedInr(9355.0)).toBe(9400);
-    expect(roundConvertedInr(9300)).toBe(9300);
+  it('rounds onto the 500 price grid', () => {
+    // $100 at ~93.5 is 9,345.79, which a brand sees as 9,500.
+    expect(roundConvertedInr(9345.79)).toBe(9500);
+    expect(roundConvertedInr(9249)).toBe(9000);
+    expect(roundConvertedInr(9500)).toBe(9500);
+  });
+
+  it('lands on the same multiples a rupee price can take', () => {
+    // The point of the grid: a brand cannot tell which creators typed rupees.
+    for (const inr of [1234, 5678, 9345.79, 42_000.5]) {
+      expect(roundConvertedInr(inr) % 500).toBe(0);
+    }
   });
 
   it('never rounds a real price down to nothing', () => {
     // A tiny foreign amount must not become a free package.
-    expect(roundConvertedInr(1)).toBe(CONVERTED_PRICE_ROUNDING);
-    expect(roundConvertedInr(49)).toBe(CONVERTED_PRICE_ROUNDING);
+    expect(roundConvertedInr(1)).toBe(PRICE_STEP_INR);
+    expect(roundConvertedInr(49)).toBe(PRICE_STEP_INR);
   });
 
   it('refuses nonsense rather than producing a negative price', () => {
@@ -22,19 +30,15 @@ describe('roundConvertedInr', () => {
     expect(roundConvertedInr(Number.NaN)).toBe(0);
   });
 
-  it('damps a small rate move instead of amplifying it', () => {
-    // The reason this is not the ?500 price step: a ~0.5% move should not
-    // visibly jump the shop window.
-    // A price sitting near a ?500 boundary is where the difference shows.
+  it('can move a whole step on a sub-percent rate move', () => {
+    // Documenting the known cost of a grid this coarse rather than hiding
+    // it: near a boundary, a half-percent move shifts the shown price by 500.
+    // Accepted so that converted prices sit on the same grid as rupee ones.
     const base = 9249;
     const moved = base * 1.005; // ~9295, a half-percent move
 
-    expect(Math.abs(roundConvertedInr(moved) - roundConvertedInr(base))).toBe(
-      100,
-    );
-
-    const stepped = (n: number) => Math.round(n / 500) * 500;
-    expect(Math.abs(stepped(moved) - stepped(base))).toBe(500);
+    expect(roundConvertedInr(base)).toBe(9000);
+    expect(roundConvertedInr(moved)).toBe(9500);
   });
 
   it('is stable: saving then refreshing at the same rate changes nothing', () => {

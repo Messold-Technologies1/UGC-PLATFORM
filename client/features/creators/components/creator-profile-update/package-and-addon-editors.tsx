@@ -173,12 +173,14 @@ export function PackageEditor({
                   <strong className="text-foreground">
                     ₹{priceConverter.convertedInr.toLocaleString("en-IN")}
                   </strong>
+                  {" — your "}
+                  {priceConverter.currency} {priceConverter.amount || "—"} at
                   {priceConverter.rateDate
-                    ? `, at the rate from ${priceConverter.rateDate}`
-                    : ""}
-                  . Your price stays {priceConverter.currency}{" "}
-                  {priceConverter.amount || "—"} — we update the ₹ figure
-                  every night so it keeps up with the exchange rate.
+                    ? ` the rate from ${priceConverter.rateDate}`
+                    : " today's rate"}
+                  , rounded to the nearest ₹500. Every price on GoCollab is
+                  set in steps of ₹500. We refresh this each night as the
+                  rate moves.
                 </>
               ) : (
                 "Enter an amount to see what brands will pay in ₹."

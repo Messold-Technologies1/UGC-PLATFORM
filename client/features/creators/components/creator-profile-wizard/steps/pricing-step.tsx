@@ -18,7 +18,7 @@ import {
   convertToInr,
   currencyForCountry,
   needsPriceConversion,
-  roundConvertedInr,
+  snapToPriceStep,
 } from "@/features/creators/lib/price-currency";
 
 import { CwCard, CwFieldWarn } from "../wizard-ui";
@@ -195,7 +195,7 @@ export function PricingStep({
     // Rounded exactly as the server rounds it on save, so the figure shown
     // here is the figure stored and shown to brands.
     const raw = convertToInr(Number(amount), localCurrency, fx.rates);
-    return raw == null ? null : roundConvertedInr(raw);
+    return raw == null ? null : snapToPriceStep(raw);
   };
 
   const convertedInr = converting ? toInr(localPriceAmount) : null;

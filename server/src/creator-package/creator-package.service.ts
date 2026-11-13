@@ -2,7 +2,10 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { CreatorPackageCreateDto } from '../creator-profile/dto/create-creator-profile.dto';
 import { FxService } from '../fx/fx.service';
-import { roundConvertedInr } from '../fx/round-converted-inr';
+import {
+  PRICE_STEP_INR,
+  roundConvertedInr,
+} from '../fx/round-converted-inr';
 
 /** Client passed to interactive `$transaction` callbacks */
 type PrismaTransactionClient = Omit<
@@ -18,7 +21,8 @@ export class CreatorPackageService {
   private readonly DEFAULT_MAX_REVISIONS = 2;
   private readonly MIN_DELIVERY_DAYS = 1;
   private readonly MAX_DELIVERY_DAYS = 30;
-  private readonly PRICE_STEP = 500;
+  /** The grid every price sits on, converted or chosen. */
+  private readonly PRICE_STEP = PRICE_STEP_INR;
 
   constructor(private readonly fx: FxService) {}
 
@@ -87,22 +91,17 @@ export class CreatorPackageService {
 
     const { priceAmount: price, priceCurrency, priceAmountOriginal } =
       await this.resolvePrice(pkg);
-    // The whole-number and ?500-step rules describe a price a creator CHOSE,
-    // so they only apply when the creator chose rupees. For a foreign-currency
-    // package `price` is a derived conversion -- a figure nobody typed, which
-    // will rarely be a whole number and almost never a multiple of 500 -- and
-    // the creator's own amount is what gets validated instead, in resolvePrice.
-    if (priceCurrency === 'INR') {
-      if (!Number.isFinite(price) || !Number.isInteger(price)) {
-        throw new BadRequestException('priceAmount must be a whole number.');
-      }
-      if (price < this.PRICE_STEP || price % this.PRICE_STEP !== 0) {
-        throw new BadRequestException(
-          `priceAmount must be >= ${this.PRICE_STEP} and in steps of ${this.PRICE_STEP}.`,
-        );
-      }
-    } else if (!Number.isFinite(price) || price <= 0) {
-      throw new BadRequestException('Converted price is not a valid amount.');
+    // Applies to converted prices too, not just chosen ones: resolvePrice
+    // rounds a conversion onto the same grid, so one rule covers both and a
+    // conversion that somehow landed off-grid is caught here rather than
+    // reaching browse as the one odd price in the list.
+    if (!Number.isFinite(price) || !Number.isInteger(price)) {
+      throw new BadRequestException('priceAmount must be a whole number.');
+    }
+    if (price < this.PRICE_STEP || price % this.PRICE_STEP !== 0) {
+      throw new BadRequestException(
+        `priceAmount must be >= ${this.PRICE_STEP} and in steps of ${this.PRICE_STEP}.`,
+      );
     }
 
     const videoLengthSeconds =

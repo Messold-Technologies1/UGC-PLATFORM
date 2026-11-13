@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 
 import { classifyPhoneRepair } from '../common/phone/phone-e164.util';
+import { loadServerEnv } from './load-server-env';
 
 /**
  * Read-only audit of every stored phone number. Writes nothing to the
@@ -41,6 +42,12 @@ import { classifyPhoneRepair } from '../common/phone/phone-e164.util';
  *
  * Locally, against a dev database: npm run audit:phones:dev
  */
+
+// PM2 gets the server's secrets because deploy.sh sources them; an
+// interactive shell does not, so load them here rather than failing on a
+// missing DATABASE_URL that looks like a broken script.
+const envFile = loadServerEnv();
+if (envFile) console.error(`(using ${envFile})`);
 
 const prisma = new PrismaClient();
 

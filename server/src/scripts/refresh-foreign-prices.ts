@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 
 import { FxService } from '../fx/fx.service';
 import { refreshForeignPackagePrices } from '../fx/refresh-package-prices';
+import { loadServerEnv } from './load-server-env';
 
 /**
  * Re-convert every foreign-currency package price to rupees, now.
@@ -24,6 +25,12 @@ import { refreshForeignPackagePrices } from '../fx/refresh-package-prices';
  */
 const APPLY = process.argv.includes('--apply');
 
+// PM2 gets the server's secrets because deploy.sh sources them; an
+// interactive shell does not, so load them here rather than failing on a
+// missing DATABASE_URL that looks like a broken script.
+const envFile = loadServerEnv();
+if (envFile) console.error(`(using ${envFile})`);
+
 const prisma = new PrismaClient();
 
 /**
@@ -38,7 +45,10 @@ async function main(): Promise<void> {
   const fx = new FxService(config);
 
   const before = await prisma.creatorPackage.findMany({
-    where: { priceCurrency: { not: 'INR' }, priceAmountOriginal: { not: null } },
+    where: {
+      priceCurrency: { not: 'INR' },
+      priceAmountOriginal: { not: null },
+    },
     select: {
       id: true,
       priceAmount: true,

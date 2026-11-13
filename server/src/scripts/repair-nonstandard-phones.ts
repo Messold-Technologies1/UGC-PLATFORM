@@ -10,6 +10,7 @@ import {
   type PlannedRepair,
   type RepairPolicy,
 } from '../common/phone/phone-repair-plan';
+import { loadServerEnv } from './load-server-env';
 
 /**
  * Rewrite stored phone numbers into canonical E.164.
@@ -55,6 +56,12 @@ import {
  *
  * Locally: npm run repair:phones:dev
  */
+
+// PM2 gets the server's secrets because deploy.sh sources them; an
+// interactive shell does not, so load them here rather than failing on a
+// missing DATABASE_URL that looks like a broken script.
+const envFile = loadServerEnv();
+if (envFile) console.error(`(using ${envFile})`);
 
 const prisma = new PrismaClient();
 

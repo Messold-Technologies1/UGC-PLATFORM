@@ -186,9 +186,29 @@ export function PricingStep({
   const localCurrency = currencyForCountry(countryName);
   const { data: fx } = useFxRatesQuery({ enabled: converting });
 
+  /**
+   * A creator who set a rupee price before this feature existed has no
+   * `priceAmountOriginal`, so their own-currency field would open empty and
+   * their price would look lost. Show it back to them converted instead.
+   *
+   * Nothing is written to the draft here: leave the field alone and the
+   * package stays priced in rupees exactly as it was, because `priceCurrency`
+   * is only set once they actually type. Touch it and it becomes a price in
+   * their currency.
+   */
+  const existingPriceInLocalCurrency = (): string => {
+    if (!localCurrency || !fx?.available) return "";
+    const perInr = fx.rates[localCurrency];
+    const inr = Number(packageDraft.priceAmount);
+    if (!perInr || !Number.isFinite(inr) || inr <= 0) return "";
+    return String(Math.round(inr * perInr * 100) / 100);
+  };
+
   // The typed amount lives on the draft, so it survives step navigation and
   // reaches the save payload without any extra wizard state.
-  const localPriceAmount = packageDraft.priceAmountOriginal ?? "";
+  const localPriceAmount =
+    packageDraft.priceAmountOriginal ??
+    (converting ? existingPriceInLocalCurrency() : "");
 
   const toInr = (amount: string): number | null => {
     if (!localCurrency || !fx?.available) return null;

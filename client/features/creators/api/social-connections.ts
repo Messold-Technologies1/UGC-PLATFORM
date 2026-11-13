@@ -11,6 +11,11 @@ export type SocialConnectionStatusApi =
 export interface DemographicBucketApi {
   key: string;
   value: number;
+  /**
+   * Fraction of the total, NOT a percentage: 0.12 means 12%. Multiply by 100
+   * before display. Absent on older snapshots, where it can be derived from
+   * `value` over the sum of the bucket list.
+   */
   share?: number;
 }
 

@@ -54,23 +54,34 @@ export function formatCompact(value: number): string {
 /**
  * Normalise an API demographic bucket list into percentage shares.
  *
- * The API may send either absolute counts or a precomputed `share`; the
- * designs always draw percentages, so derive one when it is missing.
+ * `share` is a FRACTION of 1, not a percentage — the server documents it as
+ * `{ key: "Mumbai, Maharashtra", value: 800, share: 0.12 }` meaning 12%. It
+ * has to be multiplied by 100 before display; rounding it directly turns 65%
+ * into 1% and everything under half a percent into 0%. The dashboard's own
+ * Instagram panel does the same `* 100` (see `instagram-insights.tsx`).
+ *
+ * Falls back to deriving the share from the raw counts when the API omits it.
  */
 function toBuckets(rows: DemographicBucketApi[] | undefined): AudienceBucket[] {
   const list = rows ?? [];
   const total = list.reduce((sum, row) => sum + (row.value || 0), 0);
   return list
-    .map((row) => ({
-      key: row.key,
-      value: row.value,
-      share:
+    .map((row) => {
+      const fraction =
         typeof row.share === "number"
-          ? Math.round(row.share)
+          ? row.share
           : total > 0
-            ? Math.round((row.value / total) * 100)
-            : 0,
-    }))
+            ? row.value / total
+            : 0;
+      return {
+        key: row.key,
+        value: row.value,
+        share: Math.round(fraction * 100),
+      };
+    })
+    // A bucket that rounds to 0% is still kept when it has real people behind
+    // it, matching the dashboard panel, which lists "0%" rows rather than
+    // dropping them.
     .filter((row) => row.share > 0 || row.value > 0);
 }
 

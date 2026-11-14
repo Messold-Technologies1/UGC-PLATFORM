@@ -15,6 +15,9 @@ describe('OrdersService.getOrderDetailsForAdmin — agency-placed orders', () =>
     const prisma = {
       order: { findUnique },
       orderDispute: { findFirst: jest.fn().mockResolvedValue(null) },
+      creatorProfile: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'creator-1' }),
+      },
     };
     const wallet = {
       getCompletionCreditForOrder: jest.fn().mockResolvedValue(null),
@@ -158,5 +161,43 @@ describe('OrdersService.getOrderDetailsForAdmin — agency-placed orders', () =>
     const select = findUnique.mock.calls[0][0].select;
     expect(select.agency).toBeDefined();
     expect(select.briefRef).toBeDefined();
+  });
+
+  /**
+   * The creator-facing detail endpoint builds the same buyer snapshot from the
+   * same nullable brand, so it is checked here rather than assumed safe.
+   */
+  describe('creator-facing detail for the same orders', () => {
+    it('describes an agency buyer without throwing', async () => {
+      const { service } = makeService(
+        orderRow({
+          creatorId: 'creator-1',
+          revisionCount: 0,
+          agency: { id: 'agency-1', name: 'Best Agency', logoUrl: null },
+          briefRef: { brandName: 'Acme Beauty' },
+        }),
+      );
+
+      const res = await service.getOrderDetailsForCreator({
+        orderId: ORDER_ID,
+        creatorUserId: 'user-1',
+      });
+
+      expect(res.brand.brandName).toBe('Acme Beauty');
+    });
+
+    it('survives an order with neither buyer set', async () => {
+      const { service } = makeService(
+        orderRow({ creatorId: 'creator-1', revisionCount: 0 }),
+      );
+
+      const res = await service.getOrderDetailsForCreator({
+        orderId: ORDER_ID,
+        creatorUserId: 'user-1',
+      });
+
+      // Degrades to an empty snapshot rather than throwing.
+      expect(res.brand.brandName).toBeNull();
+    });
   });
 });

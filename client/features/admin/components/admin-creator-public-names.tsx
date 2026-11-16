@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, EyeOff, Loader2, Search } from "lucide-react";
+import { ExternalLink, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -244,35 +244,17 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3 self-center">
+        <div className="shrink-0 self-center text-right">
           {revealed && publicUrl ? (
-            <>
-              <a
-                href={publicUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                <ExternalLink className="size-3 shrink-0" />
-                <span>/{canonicalSlug}</span>
-              </a>
-              {/*
-                Does the same as clearing the checkbox. Kept as its own button
-                because "stop showing this name" is the consequential action
-                here, and an admin should not have to work out that unticking
-                is how you undo it.
-              */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={mutation.isPending}
-                onClick={() => mutation.mutate(false)}
-              >
-                <EyeOff className="size-3.5" />
-                Hide name
-              </Button>
-            </>
+            <a
+              href={publicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <ExternalLink className="size-3 shrink-0" />
+              <span>/{canonicalSlug}</span>
+            </a>
           ) : (
             <span className="text-xs text-muted-foreground">
               Anonymous · /{creator.publicSlug}

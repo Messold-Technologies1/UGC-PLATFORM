@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 import type { AdminCreatorEventApi, AdminEventStatus } from "../api/types";
 import {
   useAdminEventsQuery,
-  useHideEventMutation,
   useUnhideEventMutation,
 } from "../hooks/use-admin-events";
+import { HideEventDialog } from "./hide-event-dialog";
 
 const TABS: { value: AdminEventStatus; label: string }[] = [
   { value: "all", label: "All" },
@@ -26,41 +26,38 @@ function formatPosted(iso: string): string {
   });
 }
 
-function HideButton({ event }: { event: AdminCreatorEventApi }) {
-  const hide = useHideEventMutation();
+const ROW_ACTION_CLASS =
+  "inline-flex min-h-9 items-center rounded-full border border-border bg-card px-4 text-[13px] font-bold text-gc-ink-soft hover:bg-muted disabled:opacity-60";
+
+/**
+ * Hiding opens a dialog (the reason it collects is what the creator reads on
+ * their own card, so it deserves a real field). Unhiding takes no reason, so
+ * it stays a single click.
+ */
+function RowAction({
+  event,
+  onHide,
+}: {
+  event: AdminCreatorEventApi;
+  onHide: (event: AdminCreatorEventApi) => void;
+}) {
   const unhide = useUnhideEventMutation();
-  const pending = hide.isPending || unhide.isPending;
 
   if (event.hiddenAt) {
     return (
       <button
         type="button"
         onClick={() => unhide.mutate(event.id)}
-        disabled={pending}
-        className="inline-flex min-h-9 items-center rounded-full border border-border bg-card px-4 text-[13px] font-bold text-gc-ink-soft hover:bg-muted disabled:opacity-60"
+        disabled={unhide.isPending}
+        className={ROW_ACTION_CLASS}
       >
-        Unhide
+        {unhide.isPending ? "Unhiding…" : "Unhide"}
       </button>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        // A reason is optional but strongly wanted: it is what the creator
-        // reads on their own card, so "hidden, no explanation" is the one
-        // outcome worth nudging away from.
-        const reason = window.prompt(
-          "Why is this being hidden? The creator sees this.",
-          "",
-        );
-        if (reason === null) return;
-        hide.mutate({ id: event.id, reason: reason.trim() || undefined });
-      }}
-      disabled={pending}
-      className="inline-flex min-h-9 items-center rounded-full border border-border bg-card px-4 text-[13px] font-bold text-gc-ink-soft hover:bg-muted disabled:opacity-60"
-    >
+    <button type="button" onClick={() => onHide(event)} className={ROW_ACTION_CLASS}>
       Hide
     </button>
   );
@@ -68,6 +65,7 @@ function HideButton({ event }: { event: AdminCreatorEventApi }) {
 
 export function AdminEventsTable() {
   const [status, setStatus] = useState<AdminEventStatus>("all");
+  const [hiding, setHiding] = useState<AdminCreatorEventApi | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
@@ -197,7 +195,7 @@ export function AdminEventsTable() {
                     )}
                   </td>
                   <td className="border-b border-border/60 px-5 py-3 text-right align-top">
-                    <HideButton event={row} />
+                    <RowAction event={row} onHide={setHiding} />
                   </td>
                 </tr>
               ))
@@ -223,6 +221,8 @@ export function AdminEventsTable() {
         reason, so nothing disappears on them unexplained. It is reversible and
         never deletes the post.
       </p>
+
+      <HideEventDialog event={hiding} onClose={() => setHiding(null)} />
     </div>
   );
 }

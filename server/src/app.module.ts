@@ -17,12 +17,14 @@ import { OrdersModule } from './orders/orders.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { WalletModule } from './wallet/wallet.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { FxModule } from './fx/fx.module';
 import { JobsModule } from './jobs/jobs.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { OrderChatModule } from './order-chat/order-chat.module';
 import { ChatsModule } from './chats/chats.module';
 import { BriefsModule } from './briefs/briefs.module';
 import { WishlistsModule } from './wishlists/wishlists.module';
+import { CreatorEventsModule } from './creator-events/creator-events.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
 import { AgencyBrandLinkModule } from './agency-brand-link/agency-brand-link.module';
@@ -76,9 +78,11 @@ import { PushModule } from './push/push.module';
     WalletModule,
     BriefsModule,
     WishlistsModule,
+    CreatorEventsModule,
     OrderChatModule,
     ChatsModule,
     WebhooksModule,
+    FxModule,
     JobsModule,
     RealtimeModule,
     LegalPagesModule,

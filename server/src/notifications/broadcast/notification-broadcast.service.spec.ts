@@ -28,6 +28,9 @@ function build(opts: { pages?: string[][] } = {}) {
       findMany: jest.fn(),
     },
     agency: { count: jest.fn().mockResolvedValue(3), findMany: jest.fn() },
+    notificationEvent: {
+      findUnique: jest.fn().mockResolvedValue({ isActive: true }),
+    },
     notificationBroadcast: {
       create: jest.fn().mockResolvedValue(created),
       update: jest
@@ -174,7 +177,7 @@ describe('NotificationBroadcastService.preview', () => {
 });
 
 describe('NotificationBroadcastService.listAudiences', () => {
-  it('describes all four audiences with their event keys', async () => {
+  it('describes every audience with its event key', async () => {
     const { service } = build();
 
     const list = await service.listAudiences();
@@ -184,6 +187,49 @@ describe('NotificationBroadcastService.listAudiences', () => {
       'broadcast-brands',
       'broadcast-creators-listed',
       'broadcast-creators-open-to',
+      'broadcast-orders-awaiting-payment',
     ]);
+  });
+
+  it('reports whether each audience’s event is switched on', async () => {
+    const { service, prisma } = build();
+    prisma.notificationEvent.findUnique.mockResolvedValue({ isActive: false });
+
+    const list = await service.listAudiences();
+
+    // The UI says so up front rather than letting an admin press Send and
+    // collect a refusal.
+    expect(list.every((a) => a.isActive === false)).toBe(true);
+  });
+
+  it('treats an event with no registry row as not sendable', async () => {
+    const { service, prisma } = build();
+    prisma.notificationEvent.findUnique.mockResolvedValue(null);
+
+    const list = await service.listAudiences();
+
+    expect(list.every((a) => a.isActive === false)).toBe(true);
+  });
+});
+
+describe('NotificationBroadcastService.send — the active gate', () => {
+  it('refuses to send through an event that is switched off', async () => {
+    const { service, prisma, queues } = build();
+    prisma.notificationEvent.findUnique.mockResolvedValue({ isActive: false });
+
+    // Otherwise every job reaches the worker, finds the event off and records
+    // `event_inactive` — thousands of skip rows, and an admin told the
+    // broadcast was queued while nothing was sent.
+    await expect(service.send(input)).rejects.toThrow(/switched off/i);
+    expect(queues.enqueueStep).not.toHaveBeenCalled();
+    expect(prisma.notificationBroadcast.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the event is not in the registry at all', async () => {
+    const { service, prisma, queues } = build();
+    prisma.notificationEvent.findUnique.mockResolvedValue(null);
+
+    await expect(service.send(input)).rejects.toThrow(/event registry/i);
+    expect(queues.enqueueStep).not.toHaveBeenCalled();
   });
 });

@@ -20,8 +20,9 @@ import {
   buildE164Phone,
   findPhoneCountryByIso,
   getPhoneCountryOptions,
+  isValidE164Phone,
   maxNationalDigits,
-  PHONE_E164_REGEX,
+  normalizeE164Phone,
   splitE164Phone,
 } from "@/features/auth/lib/phone-country-codes";
 import { cn } from "@/lib/utils";
@@ -35,11 +36,22 @@ function formatResendCountdown(totalSeconds: number): string {
   return `${totalSeconds}s`;
 }
 
+/**
+ * The canonical E.164 form of a number held in form state.
+ *
+ * Canonicalizing here is what lets a number already saved in its broken form
+ * (country code followed by a national trunk prefix, e.g. `+9108122064860`)
+ * seed the field as the real number it stands for, so the creator is shown
+ * "Verified" rather than being made to re-run an OTP for a number that was
+ * genuinely verified. A value that cannot be parsed is returned digits-only,
+ * and `isValidE164Phone` is what reports it as unusable.
+ */
 export function normalizePhoneForOtp(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
   if (!trimmed.startsWith("+")) return trimmed;
-  return `+${trimmed.replace(/\D/g, "")}`;
+  const digitsOnly = `+${trimmed.replace(/\D/g, "")}`;
+  return normalizeE164Phone(digitsOnly) ?? digitsOnly;
 }
 
 function initialCountryAndNational(initialPhone?: string): {
@@ -162,7 +174,7 @@ export function PhoneVerificationField({
     ? Boolean(normalizedPhone) &&
       (verifiedPhone === normalizedPhone ||
         initialVerifiedPhone === normalizedPhone)
-    : PHONE_E164_REGEX.test(normalizedPhone);
+    : isValidE164Phone(normalizedPhone);
   const activeOtpPhone =
     otpSentToPhone === normalizedPhone ? otpSentToPhone : null;
 
@@ -284,7 +296,7 @@ export function PhoneVerificationField({
 
   const handleSendPhoneOtp = useCallback(() => {
     const phone = normalizePhoneForOtp(phoneInput);
-    if (!PHONE_E164_REGEX.test(phone)) {
+    if (!isValidE164Phone(phone)) {
       const message = "Enter a valid phone number with country code.";
       setPhoneError(message);
       toast.error(message);
@@ -368,7 +380,7 @@ export function PhoneVerificationField({
               disabled ||
               phoneOtpPending ||
               phoneVerified ||
-              !PHONE_E164_REGEX.test(normalizedPhone) ||
+              !isValidE164Phone(normalizedPhone) ||
               resendSecondsRemaining > 0
             }
             className={cn(

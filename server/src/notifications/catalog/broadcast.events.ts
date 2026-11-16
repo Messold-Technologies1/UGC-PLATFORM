@@ -4,6 +4,10 @@ import {
   resolveBrandMailDisplayName,
 } from '../../mail/brand-mail.recipient';
 import {
+  AGENCY,
+  BRAND as BRAND_PREFIX,
+} from '../broadcast/broadcast-audiences';
+import {
   ALWAYS_RELEVANT,
   defineEvents,
   type EventContext,
@@ -147,7 +151,43 @@ const broadcastVars = {
   actionUrl: { type: 'url', example: '/creator' },
 } as const;
 
+/**
+ * The only audience whose entity may be either table, so the id carries its
+ * own type. See BRAND / AGENCY in broadcast-audiences.ts.
+ */
+async function payerRecipient(
+  ctx: EventContext,
+  prefixedId: string,
+): Promise<ResolvedRecipient | null> {
+  const separator = prefixedId.indexOf(':');
+  // An unprefixed id is not a brand we should guess at — it is a job written
+  // by a version of the audience that no longer exists. Null, so the log says
+  // entity_gone rather than silently addressing the wrong account.
+  if (separator === -1) return null;
+
+  const kind = prefixedId.slice(0, separator);
+  const id = prefixedId.slice(separator + 1);
+
+  if (kind === AGENCY) return agencyRecipient(ctx, id);
+  if (kind === BRAND_PREFIX) return brandRecipient(ctx, id);
+  return null;
+}
+
 export const BROADCAST_EVENTS = defineEvents({
+  'broadcast-orders-awaiting-payment': {
+    label: 'Announcement — brands & agencies with an order awaiting payment',
+    description:
+      'Whoever owes money on an order still in PENDING_PAYMENT. Sent only when an admin runs a broadcast, and switched off until someone turns it on.',
+    recipient: BRAND,
+    vars: { ...broadcastVars, actionUrl: { type: 'url', example: '/brand' } },
+    resolve: payerRecipient,
+    stillRelevant: ALWAYS_RELEVANT,
+    // Arrives switched OFF. Nothing emits it, and chasing people for money is
+    // not something that should become possible by deploying — an admin turns
+    // it on in the Events list when they mean to use it.
+    defaultActive: false,
+  },
+
   'broadcast-creators-open-to': {
     label: 'Announcement — creators with an "Open to" category',
     description:

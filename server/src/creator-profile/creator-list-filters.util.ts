@@ -6,7 +6,10 @@ import {
   SocialConnectionStatus,
   SocialPlatform,
 } from '@prisma/client';
-import type { ListCreatorsQueryDto } from './dto/list-creators-query.dto';
+import type {
+  CreatorFilterQueryDto,
+  ListCreatorsQueryDto,
+} from './dto/list-creators-query.dto';
 import { AdminCreatorListSegment } from './dto/admin-creator-list.dto';
 import {
   type CreatorOnboardingMode,
@@ -374,7 +377,7 @@ export function buildCreatorListSearchWhere(
   // Note: the creator's real name is intentionally never matched (privacy).
 }
 
-/** Admin queues: search by name, email, phone, or public slug. */
+/** Admin queues: search by name, email, phone, or either public slug. */
 export function buildAdminCreatorApprovalSearchWhere(
   search?: string,
 ): Prisma.CreatorProfileWhereInput | undefined {
@@ -386,10 +389,60 @@ export function buildAdminCreatorApprovalSearchWhere(
       { displayName: like },
       { contactEmail: like },
       { publicSlug: like },
+      { publicNameSlug: like },
       { user: { email: like } },
       { user: { phone: { contains: q } } },
     ],
   };
+}
+
+/**
+ * Filters the admin creator list applies ON TOP of a segment and its search.
+ *
+ * Exactly the browse page's filter set — `CreatorFilterQueryDto` is shared,
+ * and the clauses are built by `buildListCreatorsWhere` itself, so "filter by
+ * niche" means the same thing to an admin as it does to a brand and cannot
+ * drift.
+ *
+ * Kept separate from `buildAdminCreatorsListWhere` so the same clauses can be
+ * ANDed onto a segment count, an export, or the listed-completeness sweep
+ * without each growing its own copy. Every surface that shows a number for a
+ * tab has to apply exactly the same filter, or the tab counts stop agreeing
+ * with the rows under them.
+ */
+export type AdminCreatorExtraFilters = CreatorFilterQueryDto;
+
+/** `null` when no filter is set, so callers can skip the AND. */
+export function buildAdminCreatorExtraFilterWhere(
+  filters: AdminCreatorExtraFilters | undefined,
+): Prisma.CreatorProfileWhereInput | null {
+  if (!filters) return null;
+
+  const where = buildListCreatorsWhere(
+    {
+      ...filters,
+      // The admin list has its own search — name, email and phone — which
+      // `buildAdminCreatorsListWhere` has already applied. The browse search
+      // is a different predicate entirely (location, bio, niche labels, and
+      // deliberately never the name), so letting it run here would quietly
+      // AND a second, unrelated text match onto the query.
+      search: undefined,
+    },
+    // Admins look at creators at every stage, so the browse page's implicit
+    // "listed only" must not come along. The segment clause decides that.
+    { requireApproved: false },
+  );
+
+  return Object.keys(where).length === 0 ? null : where;
+}
+
+/** AND an optional filter clause onto a segment clause. */
+export function withAdminCreatorExtraFilters(
+  base: Prisma.CreatorProfileWhereInput,
+  filters: AdminCreatorExtraFilters | undefined,
+): Prisma.CreatorProfileWhereInput {
+  const extra = buildAdminCreatorExtraFilterWhere(filters);
+  return extra ? { AND: [base, extra] } : base;
 }
 
 /** Admin unified creator list segments. */
@@ -462,10 +515,11 @@ export function buildAdminCreatorsListWhere(
     case AdminCreatorListSegment.LISTED:
     // Both completeness segments start from the same set of listed creators —
     // the split between them is derived live from the Go-Live checklist plus
-    // OTP verification and payout details (never the intro video, which stays
-    // optional), which Prisma's `where` cannot express (it has no "at least N
-    // related rows" filter, and the mandatory add-ons rule is a comparison
-    // against the catalog). `listListedCreatorsByCompleteness` narrows it.
+    // OTP verification (never the intro video or payout details, which stay
+    // outside this segment), which Prisma's `where` cannot express (it has no
+    // "at least N related rows" filter, and the mandatory add-ons rule is a
+    // comparison against the catalog). `listListedCreatorsByCompleteness`
+    // narrows it.
     case AdminCreatorListSegment.LISTED_COMPLETE:
     case AdminCreatorListSegment.LISTED_INCOMPLETE:
       segmentClause = { isListed: true };

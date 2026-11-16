@@ -187,6 +187,16 @@ function toOrderBrandSnapshotDto(
   };
 }
 
+/** What `adminOrderBrandSnapshotSelect` returns for a brand-placed order. */
+type AdminOrderBrandSnapshot = {
+  id: string;
+  brandName?: string | null;
+  logoUrl?: string | null;
+  contactFullName?: string | null;
+  contactEmail?: string | null;
+  user?: { name?: string | null; email?: string | null } | null;
+};
+
 function toAgencyOrderSnapshotDto(params: {
   agency: {
     id: string;
@@ -206,17 +216,26 @@ function toAgencyOrderSnapshotDto(params: {
   };
 }
 
-function toAdminOrderBrandSnapshotDto(brand: unknown): OrderBrandSnapshotDto {
-  const b = brand as OrderBrandSnapshotDto & {
-    user?: { name?: string | null; email?: string | null } | null;
-  };
+/**
+ * Admin view of the brand that placed an order.
+ *
+ * Takes a non-null brand on purpose. `Order.brandId` is null for every
+ * agency-placed order, and the previous `unknown` parameter plus a cast
+ * asserted that away — so an agency order reached this function as `null` and
+ * threw on the first property read. Callers must branch on the buyer first;
+ * the compiler now holds them to it.
+ */
+function toAdminOrderBrandSnapshotDto(
+  brand: AdminOrderBrandSnapshot,
+): OrderBrandSnapshotDto {
   const contactFullName =
-    b.contactFullName?.trim() || b.user?.name?.trim() || null;
-  const contactEmail = b.contactEmail?.trim() || b.user?.email?.trim() || null;
+    brand.contactFullName?.trim() || brand.user?.name?.trim() || null;
+  const contactEmail =
+    brand.contactEmail?.trim() || brand.user?.email?.trim() || null;
   return {
-    id: b.id,
-    brandName: b.brandName ?? null,
-    logoUrl: b.logoUrl ?? null,
+    id: brand.id,
+    brandName: brand.brandName ?? null,
+    logoUrl: brand.logoUrl ?? null,
     contactFullName,
     contactEmail,
   };
@@ -5442,6 +5461,15 @@ export class OrdersService {
         brand: {
           select: adminOrderBrandSnapshotSelect,
         },
+        // brandId and agencyId are mutually exclusive (see the XOR invariant on
+        // the Order model), so an agency-placed order has no brand at all.
+        // Selecting both is what lets the response describe either buyer.
+        agency: {
+          select: { id: true, name: true, logoUrl: true },
+        },
+        briefRef: {
+          select: { brandName: true },
+        },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -5449,6 +5477,8 @@ export class OrdersService {
     const {
       creator,
       brand,
+      agency,
+      briefRef,
       revisionPurchases,
       usageRightsPurchases,
       ...orderFields
@@ -5551,7 +5581,14 @@ export class OrdersService {
         profileImageUrl: creator.profileImageUrl ?? null,
         city: creator.city ?? null,
       },
-      brand: toAdminOrderBrandSnapshotDto(brand),
+      brand: brand
+        ? toAdminOrderBrandSnapshotDto(brand)
+        : agency
+          ? toAgencyOrderSnapshotDto({
+              agency,
+              clientBrandName: briefRef?.brandName,
+            })
+          : { id: '', brandName: null, logoUrl: null },
     };
   }
 

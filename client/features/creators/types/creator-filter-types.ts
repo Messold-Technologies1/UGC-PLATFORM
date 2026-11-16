@@ -17,6 +17,20 @@ export interface Filters {
   ageGroup: string;
 }
 
+export const GENDER_OPTIONS = [
+  { value: "MALE", label: "Male" },
+  { value: "FEMALE", label: "Female" },
+  { value: "OTHER", label: "Other" },
+] as const;
+
+export const AGE_GROUP_OPTIONS = [
+  { value: "AGE_18_24", label: "18 – 24" },
+  { value: "AGE_25_34", label: "25 – 34" },
+  { value: "AGE_35_44", label: "35 – 44" },
+  { value: "AGE_45_54", label: "45 – 54" },
+  { value: "AGE_55_PLUS", label: "55+" },
+] as const;
+
 export const CREATOR_PRICE_MIN = 0;
 export const CREATOR_PRICE_MAX = 10_000;
 

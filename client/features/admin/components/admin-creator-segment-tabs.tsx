@@ -1,7 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, IdCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getAdminCreatorTabs,
@@ -17,26 +16,31 @@ export function AdminCreatorSegmentTabs({
   counts,
   countsLoading = false,
   onChange,
-  trailing,
   analyticsActive = false,
   onSelectAnalytics,
+  publicNamesActive = false,
+  onSelectPublicNames,
 }: {
   value: AdminCreatorListSegment;
   counts?: AdminCreatorSegmentCountsDto;
   countsLoading?: boolean;
   onChange: (segment: AdminCreatorListSegment) => void;
-  trailing?: ReactNode;
   /** When true, no segment tab is highlighted and the Analytics tab is active. */
   analyticsActive?: boolean;
   /** When provided, an "Analytics" tab is rendered after the segment tabs. */
   onSelectAnalytics?: () => void;
+  /** When true, no segment tab is highlighted and the Public names tab is active. */
+  publicNamesActive?: boolean;
+  /** When provided, a "Public names" tab is rendered after the segment tabs. */
+  onSelectPublicNames?: () => void;
 }) {
   return (
     <nav className="border-b border-border/60">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto scrollbar-none sm:gap-2">
         {getAdminCreatorTabs().map((tab) => {
-          const isActive = !analyticsActive && tab.value === value;
+          const isActive =
+            !analyticsActive && !publicNamesActive && tab.value === value;
           const count = getAdminCreatorSegmentCount(counts, tab.value);
           const Icon = tab.icon;
 
@@ -107,10 +111,37 @@ export function AdminCreatorSegmentTabs({
             />
           </button>
         ) : null}
-        </div>
-        {trailing ? (
-          <div className="w-full shrink-0 pb-2 sm:w-auto sm:pb-3">{trailing}</div>
+
+        {onSelectPublicNames ? (
+          <button
+            type="button"
+            title="Reveal a creator's real name on their public page (public page only)."
+            onClick={onSelectPublicNames}
+            className={cn(
+              "group relative flex shrink-0 items-center gap-2 px-3 pb-3 pt-1 text-sm font-medium transition-colors sm:px-4",
+              publicNamesActive
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <IdCard
+              className={cn(
+                "size-4 shrink-0",
+                publicNamesActive
+                  ? "text-foreground"
+                  : "text-muted-foreground/70",
+              )}
+            />
+            <span className="whitespace-nowrap">Public names</span>
+            <span
+              className={cn(
+                "absolute inset-x-0 bottom-0 h-0.5 rounded-full transition-opacity",
+                publicNamesActive ? "bg-foreground opacity-100" : "opacity-0",
+              )}
+            />
+          </button>
         ) : null}
+        </div>
       </div>
     </nav>
   );

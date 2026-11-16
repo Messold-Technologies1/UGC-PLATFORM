@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation";
 import { LandingPageContent } from "@/components/landing/landing-page-content";
+import { MARKETING_FAQS } from "@/components/landing/marketing/marketing-faqs";
+import { JsonLd } from "@/components/seo/json-ld";
 import { resolveLandingWorkspacePath } from "@/features/auth/lib/post-auth-destination";
+import {
+  faqPageSchema,
+  organizationSchema,
+  websiteSchema,
+} from "@/lib/seo/structured-data";
 import {
   fetchServerAuthUserState,
   redirectToHomeSessionRestoreIfPossible,
@@ -41,5 +48,24 @@ export default async function Home({
     if (!user) await redirectToHomeSessionRestoreIfPossible();
   }
 
-  return <LandingPageContent />;
+  // Structured data lives on `/` because this is the page the markup
+  // describes: it is the canonical home URL for Organization and WebSite, and
+  // it renders the FAQ the FAQPage graph marks up. A signed-in visitor is
+  // redirected above and never reaches this, which is fine — crawlers arrive
+  // without a session.
+  //
+  // No SearchAction is emitted with the WebSite graph. The sitelinks searchbox
+  // it feeds needs a URL that performs a search, and no route takes a search
+  // term from the URL yet: `/creators` is a marketing page, and the browse
+  // list at `/brand/creators` reads only `?creatorId=`. Once a crawlable
+  // route accepts a query parameter, add `potentialAction` in
+  // lib/seo/structured-data.ts.
+  return (
+    <>
+      <JsonLd id="ld-organization" schema={organizationSchema()} />
+      <JsonLd id="ld-website" schema={websiteSchema()} />
+      <JsonLd id="ld-faq" schema={faqPageSchema(MARKETING_FAQS)} />
+      <LandingPageContent />
+    </>
+  );
 }

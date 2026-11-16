@@ -81,6 +81,21 @@ export class CreatorPackageResponseDto {
   @ApiProperty({ example: '500' })
   priceAmount!: string;
 
+  @ApiPropertyOptional({
+    example: 'USD',
+    description:
+      "Currency the creator typed their price in. INR when they priced in " +
+      'rupees, in which case priceAmountOriginal is null.',
+  })
+  priceCurrency?: string;
+
+  @ApiPropertyOptional({
+    example: '100',
+    description: 'The amount as typed, in priceCurrency.',
+    nullable: true,
+  })
+  priceAmountOriginal?: string | null;
+
   @ApiProperty({ example: 5 })
   deliveryDays!: number;
 
@@ -142,6 +157,25 @@ export class CreatorProfileResponseDto {
       'Unique public profile URL slug (lowercase, no spaces). May include a numeric suffix on collision (e.g. janedoe-4821).',
   })
   publicSlug!: string;
+
+  @ApiPropertyOptional({
+    example: 'Riya Sharma',
+    nullable: true,
+    description:
+      "Admin-revealed real name, returned ONLY by the public-profile-by-slug " +
+      'endpoint that the public page renders from. Null (the default) keeps ' +
+      'the creator anonymous. Never present on orders, chat or brand browse.',
+  })
+  publicDisplayName?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'riya-sharma',
+    nullable: true,
+    description:
+      'Canonical public URL segment while a name is revealed. Requests on ' +
+      '`publicSlug` redirect here.',
+  })
+  publicNameSlug?: string | null;
 
   @ApiProperty({
     example: 'v3',

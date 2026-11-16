@@ -33,6 +33,37 @@ source "$ENV_FILE"
 set +a
 PORT="${PORT:-4000}"
 
+# `pm2 ... --update-env` refreshes variables a process ALREADY has, but it does
+# not reliably introduce one that is new since the last start — the process
+# simply never sees it, and the only symptom is a feature that stays off while
+# the env file plainly says it is on. (That is an hour of your life, once.)
+#
+# So compare the SET OF KEYS against the last successful deploy. Same keys means
+# a reload is safe and keeps the processes up; a new or removed key means they
+# have to be recreated, which costs a couple of seconds of downtime and is the
+# only way to guarantee the new environment is real. Values are never read here,
+# only names — nothing secret is written to disk.
+ENV_KEYS_FILE="$APP_DIR/shared/.env-keys"
+ENV_KEYS_NOW="$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$ENV_FILE" | tr -d '=' | sort -u)"
+ENV_KEYS_WAS="$(cat "$ENV_KEYS_FILE" 2>/dev/null || true)"
+if [[ "$ENV_KEYS_NOW" == "$ENV_KEYS_WAS" ]]; then
+    PROCESS_MODE=reload
+else
+    PROCESS_MODE=recreate
+fi
+
+# Bring the processes up against the current symlink. `recreate` deletes first
+# so the environment is built from scratch rather than patched.
+apply_processes() {
+    local ecosystem="$APP_DIR/current/ecosystem.config.js"
+    if [[ "$PROCESS_MODE" == recreate ]]; then
+        pm2 delete "$ecosystem" >/dev/null 2>&1 || true
+        pm2 start "$ecosystem"
+    else
+        pm2 startOrReload "$ecosystem" --update-env
+    fi
+}
+
 RELEASE_ID="$(date -u +%Y%m%d%H%M%S)-$(basename "$ARTIFACT" .tar.gz)"
 # basename already strips any directory, but a stray slash here would make
 # RELEASE_DIR a nested path and silently break the symlink flip.
@@ -94,10 +125,10 @@ npx prisma migrate deploy
 say "Switching to $RELEASE_ID"
 ln -sfn "$RELEASE_DIR" "$APP_DIR/current"
 
-# --update-env so the processes pick up this shell's environment (the sourced
-# env file) rather than the one captured at their last start. Without it, an
-# env-file change would need a full `pm2 delete` to take effect.
-pm2 startOrReload "$APP_DIR/current/ecosystem.config.js" --update-env
+if [[ "$PROCESS_MODE" == recreate ]]; then
+    say "Env file gained or lost a variable - recreating processes"
+fi
+apply_processes
 
 # ---------------------------------------------------------------------------
 say "Health check (up to ${HEALTH_TIMEOUT}s)"
@@ -116,7 +147,7 @@ if [[ "$healthy" != true ]]; then
     if [[ -n "$PREVIOUS" && -d "$PREVIOUS" && "$PREVIOUS" != "$RELEASE_DIR" ]]; then
         echo "!!! rolling back to $(basename "$PREVIOUS")" >&2
         ln -sfn "$PREVIOUS" "$APP_DIR/current"
-        pm2 startOrReload "$APP_DIR/current/ecosystem.config.js" --update-env
+        apply_processes
     fi
     exit 1
 fi
@@ -124,6 +155,10 @@ fi
 # Only now: persist the process list so `pm2 resurrect` at boot brings back a
 # release that is known to serve traffic, not one that failed its health check.
 pm2 save --force
+# Recorded only now: a deploy that failed its health check must not teach the
+# next one that these keys are already live.
+mkdir -p "$(dirname "$ENV_KEYS_FILE")"
+printf '%s\n' "$ENV_KEYS_NOW" > "$ENV_KEYS_FILE"
 
 # ---------------------------------------------------------------------------
 say "Pruning old releases (keeping $KEEP_RELEASES)"

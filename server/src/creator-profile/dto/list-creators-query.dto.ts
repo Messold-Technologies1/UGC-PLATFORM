@@ -89,34 +89,16 @@ function trimOrUndefined(value: unknown): string | undefined {
   return s.length ? s : undefined;
 }
 
-export class ListCreatorsQueryDto {
-  @ApiPropertyOptional({
-    example: 'fashion',
-    description:
-      'Free-text keyword search (case-insensitive substring). Matches location, bio, niche/category labels, package names, and open-to restrictions. Never matches the creator name.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => trimOrUndefined(value))
-  @IsString()
-  @MaxLength(100)
-  search?: string;
-
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(10_000)
-  page?: number;
-
-  @ApiPropertyOptional({ example: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  limit?: number;
-
+/**
+ * Every filter the public browse page offers, with none of its paging or its
+ * own free-text search.
+ *
+ * Split out of {@link ListCreatorsQueryDto} so the admin creator list can
+ * accept the identical set without a second copy of twenty decorated fields
+ * drifting away from this one. `ListCreatorsQueryDto` extends it, so the
+ * browse contract is unchanged.
+ */
+export class CreatorFilterQueryDto {
   @ApiPropertyOptional({
     example: 'Kolkata',
     description: 'Substring match on city (case-insensitive).',
@@ -298,4 +280,33 @@ export class ListCreatorsQueryDto {
   @IsInt()
   @Min(0)
   maxFollowers?: number;
+}
+
+export class ListCreatorsQueryDto extends CreatorFilterQueryDto {
+  @ApiPropertyOptional({
+    example: 'fashion',
+    description:
+      'Free-text keyword search (case-insensitive substring). Matches location, bio, niche/category labels, package names, and open-to restrictions. Never matches the creator name.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => trimOrUndefined(value))
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
 }

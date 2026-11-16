@@ -97,6 +97,7 @@ export function PackageEditor({
   defaultsConfirmed,
   onDefaultsConfirmedChange,
   defaultsConfirmedError,
+  priceConverter,
   children,
 }: {
   draft: PackageDraft;
@@ -110,12 +111,91 @@ export function PackageEditor({
   defaultsConfirmed?: boolean;
   onDefaultsConfirmedChange?: (confirmed: boolean) => void;
   defaultsConfirmedError?: string;
+  /**
+   * Set only for a creator who does not price in rupees. They type their own
+   * currency and the rupee field is replaced by a line showing what brands
+   * will pay.
+   *
+   * `convertedInr` is a preview, not the number submitted: the server
+   * converts again on save from the creator's own amount, so a client that
+   * lied about the rate gets nowhere. Both round through the same price step,
+   * so the preview and the stored figure agree.
+   */
+  priceConverter?: {
+    currency: string;
+    /** As typed, in `currency`. */
+    amount: string;
+    onAmountChange: (amount: string) => void;
+    /** Converted and snapped to the price step, or null if not convertible. */
+    convertedInr: number | null;
+    /** Rates could not be fetched, or do not cover this currency. */
+    unavailable: boolean;
+    rateDate?: string;
+  };
   children?: ReactNode;
 }) {
   return (
     <div className={pkgClass}>
       {children}
       <div className="grid grid-cols-1 gap-4 min-[769px]:grid-cols-2">
+        {priceConverter && !priceConverter.unavailable ? (
+          <div className={fieldClass}>
+            <label htmlFor="packagePriceLocal" className={fieldLabelClass}>
+              Price ({priceConverter.currency}){" "}
+              <span
+                className="font-bold text-destructive"
+                aria-label="Required"
+              >
+                *
+              </span>
+            </label>
+            <div className="relative">
+              <span
+                className="pointer-events-none absolute top-1/2 left-[13px] -translate-y-1/2 text-[13.5px] text-muted-foreground"
+                aria-hidden
+              >
+                {priceConverter.currency}
+              </span>
+              <input
+                id="packagePriceLocal"
+                className={cn(inputClass, "pl-[52px]")}
+                disabled={disabled}
+                value={priceConverter.amount}
+                inputMode="decimal"
+                placeholder="100"
+                onChange={(e) =>
+                  priceConverter.onAmountChange(e.target.value)
+                }
+                aria-invalid={!!errors?.priceAmount}
+                aria-describedby="packagePriceConverted"
+              />
+            </div>
+            <p id="packagePriceConverted" className={helpClass}>
+              {priceConverter.convertedInr != null ? (
+                <>
+                  Brands pay{" "}
+                  <strong className="text-foreground">
+                    ₹{priceConverter.convertedInr.toLocaleString("en-IN")}
+                  </strong>
+                  {" — your "}
+                  {priceConverter.currency} {priceConverter.amount || "—"} at
+                  {priceConverter.rateDate
+                    ? ` the rate from ${priceConverter.rateDate}`
+                    : " today's rate"}
+                  , rounded to the nearest ₹500 like every other price on
+                  GoCollab. We refresh it each night as the rate moves.
+                </>
+              ) : (
+                "Enter an amount to see what brands will pay in ₹."
+              )}
+            </p>
+            {errors?.priceAmount ? (
+              <p className={cn(helpClass, "text-destructive")}>
+                {errors.priceAmount}
+              </p>
+            ) : null}
+          </div>
+        ) : (
         <div className={fieldClass}>
           <label htmlFor="packagePriceAmount" className={fieldLabelClass}>
             Price (₹){" "}
@@ -146,12 +226,19 @@ export function PackageEditor({
               aria-invalid={!!errors?.priceAmount}
             />
           </div>
+          {priceConverter?.unavailable ? (
+            <p className={helpClass}>
+              We cannot convert {priceConverter.currency} automatically, so
+              enter your price in ₹.
+            </p>
+          ) : null}
           {errors?.priceAmount ? (
             <p className={cn(helpClass, "text-destructive")}>
               {errors.priceAmount}
             </p>
           ) : null}
         </div>
+        )}
 
         <div className={fieldClass}>
           <label htmlFor="packageDeliveryDays" className={fieldLabelClass}>

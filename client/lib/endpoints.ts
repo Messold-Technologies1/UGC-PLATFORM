@@ -17,6 +17,9 @@ export const ENDPOINTS = {
     LOGOUT: "/api/auth/logout",
     WS_TOKEN: "/api/auth/ws-token",
   },
+  FX: {
+    RATES: "/api/fx/rates",
+  },
   CREATORS: {
     LIST: "/api/creators",
     FIRST_ORDER_FREE_ELIGIBLE: "/api/creators/first-order-free-eligible",
@@ -178,6 +181,19 @@ export const ENDPOINTS = {
     IMPORT_SHARED: (shareToken: string) =>
       `/api/wishlists/public/${encodeURIComponent(shareToken)}/import`,
   },
+  CREATOR_EVENTS: {
+    MINE: "/api/creator-events/me",
+    QUOTA: "/api/creator-events/me/quota",
+    CREATE: "/api/creator-events",
+    UPDATE: (id: string) => `/api/creator-events/${encodeURIComponent(id)}`,
+    DELETE: (id: string) => `/api/creator-events/${encodeURIComponent(id)}`,
+    FEED: "/api/creator-events/feed",
+    ADMIN_LIST: "/api/admin/creator-events",
+    ADMIN_HIDE: (id: string) =>
+      `/api/admin/creator-events/${encodeURIComponent(id)}/hide`,
+    ADMIN_UNHIDE: (id: string) =>
+      `/api/admin/creator-events/${encodeURIComponent(id)}/unhide`,
+  },
   CHATS: {
     CREATOR: "/api/chats/creator",
     BRAND: "/api/chats/brand",
@@ -233,9 +249,14 @@ export const ENDPOINTS = {
     BY_SLUG: (slug: string) => `/api/legal-pages/${encodeURIComponent(slug)}`,
   },
   ADMIN: {
+    CREATOR_SEARCH: {
+      ANALYTICS: "/api/admin/creator-search/analytics",
+      ACTORS: "/api/admin/creator-search/actors",
+    },
     CREATORS: {
       LIST: "/api/admin/creators",
       SEGMENT_COUNTS: "/api/admin/creators/segment-counts",
+      FILTER_OPTIONS: "/api/admin/creators/filter-options",
       BUILDING_PROFILE_ANALYTICS:
         "/api/admin/creators/building-profile-analytics",
       PENDING_APPROVALS: "/api/admin/creators/pending-approvals",
@@ -254,6 +275,8 @@ export const ENDPOINTS = {
       FIRST_ORDER_FREE_LIST: "/api/admin/creators/first-order-free",
       PAYOUT_DETAILS: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/payout-details`,
+      PUBLIC_NAME: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/public-name`,
     },
     BRANDS: {
       LIST: "/api/admin/brands",

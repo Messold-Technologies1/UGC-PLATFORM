@@ -63,6 +63,35 @@ export class CreatorPackageCreateDto {
   priceAmount!: string;
 
   @ApiPropertyOptional({
+    example: 'USD',
+    description:
+      'ISO code of the currency the creator typed in. Omit or send INR for ' +
+      'a rupee price. Anything else is converted to rupees SERVER-side at ' +
+      'the current rate — `priceAmount` is ignored when this is set, so a ' +
+      'client cannot choose its own rate.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z]{3}$/, {
+    message: 'priceCurrency must be a 3-letter ISO code',
+  })
+  priceCurrency?: string;
+
+  @ApiPropertyOptional({
+    example: '100',
+    description:
+      'The amount in `priceCurrency`, as typed. Required when ' +
+      '`priceCurrency` is set to anything other than INR.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'priceAmountOriginal must be a number with at most 2 decimals',
+  })
+  priceAmountOriginal?: string;
+
+
+  @ApiPropertyOptional({
     example: 5,
     description: 'Delivery timeline in days (1–30).',
   })
@@ -108,6 +137,35 @@ export class CreatorAddOnCreateDto {
   })
   @Matches(/^\d+$/, { message: 'priceAmount must be a whole number string' })
   priceAmount!: string;
+
+  @ApiPropertyOptional({
+    example: 'USD',
+    description:
+      'ISO code of the currency the creator typed in. Omit or send INR for ' +
+      'a rupee price. Anything else is converted to rupees SERVER-side at ' +
+      'the current rate — `priceAmount` is ignored when this is set, so a ' +
+      'client cannot choose its own rate.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z]{3}$/, {
+    message: 'priceCurrency must be a 3-letter ISO code',
+  })
+  priceCurrency?: string;
+
+  @ApiPropertyOptional({
+    example: '100',
+    description:
+      'The amount in `priceCurrency`, as typed. Required when ' +
+      '`priceCurrency` is set to anything other than INR.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'priceAmountOriginal must be a number with at most 2 decimals',
+  })
+  priceAmountOriginal?: string;
+
 
   @ApiPropertyOptional({
     example: 'Travel and setup for in-store shoots',

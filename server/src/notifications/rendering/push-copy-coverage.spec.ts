@@ -57,7 +57,7 @@ describe('push copy, across the whole catalog', () => {
   }
 
   it('covers every row the import writes', () => {
-    expect(templates).toHaveLength(50);
+    expect(templates).toHaveLength(51);
   });
 
   it.each(templates.map((t) => [t.name, t] as const))(

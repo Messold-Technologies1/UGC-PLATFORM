@@ -18,14 +18,14 @@ describe('bundled-templates', () => {
   // 41 keys x 3 parts = the 123 .hbs files the build asserts on.
   it('finds every template key on disk', () => {
     const keys = listBundledKeys(dir);
-    expect(keys).toHaveLength(45);
+    expect(keys).toHaveLength(46);
     expect(keys).toContain('creator-profile-completion-reminder');
   });
 
-  // 45 keys, with the 2 drips split into 4 and 3 stages: 43 + 4 + 3 = 50.
+  // 46 keys, with the 2 drips split into 4 and 3 stages: 44 + 4 + 3 = 51.
   it('builds a row for every key without throwing', () => {
     const templates = readBundledTemplates(dir);
-    expect(templates).toHaveLength(50);
+    expect(templates).toHaveLength(51);
     for (const t of templates) {
       expect(t.name).not.toHaveLength(0);
       expect(t.subjectHbs).not.toHaveLength(0);

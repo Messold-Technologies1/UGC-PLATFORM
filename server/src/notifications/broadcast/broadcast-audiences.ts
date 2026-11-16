@@ -1,4 +1,4 @@
-import { BroadcastAudience, UserStatus } from '@prisma/client';
+import { BroadcastAudience, OrderStatus, UserStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 
 /**
@@ -35,6 +35,28 @@ export type AudienceDefinition = {
 
 /** Accounts that are not ACTIVE are excluded up front rather than per row. */
 const activeUser = { user: { status: UserStatus.ACTIVE } } as const;
+
+/**
+ * Entity-id prefixes for the one audience that spans two tables.
+ *
+ * The delivery log keys a send on `entityId`, and a bare UUID would not say
+ * whether it is a brand or an agency — so `resolve` would have to try one
+ * table and fall back to the other, which reads a deleted brand as "might be
+ * an agency". The prefix makes it explicit at both ends.
+ */
+export const BRAND = 'brand';
+export const AGENCY = 'agency';
+
+/** Still owes money: the payer on an order that never got past checkout. */
+const owesOnAnOrder = {
+  orders: { some: { status: OrderStatus.PENDING_PAYMENT } },
+} as const;
+
+const brandsOwing = { ...activeUser, ...owesOnAnOrder } as const;
+const agenciesOwing = {
+  owner: { status: UserStatus.ACTIVE },
+  ...owesOnAnOrder,
+} as const;
 
 export const BROADCAST_AUDIENCES: Record<
   BroadcastAudience,
@@ -93,6 +115,61 @@ export const BROADCAST_AUDIENCES: Record<
         select: { id: true },
       });
       return rows.map((r) => r.id);
+    },
+  },
+
+  [BroadcastAudience.ORDERS_AWAITING_PAYMENT]: {
+    eventKey: 'broadcast-orders-awaiting-payment',
+    label: 'Brands & agencies with an order awaiting payment',
+    description:
+      'Whoever owes money on an order still in PENDING_PAYMENT — the brand, or the agency when the agency is the buyer. One entry per payer, so a brand with three unpaid orders is chased once, not three times.',
+    count: async (prisma) => {
+      const [brands, agencies] = await Promise.all([
+        prisma.brandProfile.count({ where: brandsOwing }),
+        prisma.agency.count({ where: agenciesOwing }),
+      ]);
+      return brands + agencies;
+    },
+    // Two tables behind one audience, so the cursor has to say which half it
+    // is in. Brands are walked first, then agencies; the prefix on each id is
+    // what `resolve` reads to know which table to look in, and it is what
+    // keeps the cursor unambiguous when a page lands on the boundary.
+    page: async (prisma, cursor, take) => {
+      // Written as a null check rather than `cursor?.startsWith(AGENCY)` so
+      // the compiler knows `cursor` is a string below this block.
+      if (cursor === null || cursor.startsWith(`${BRAND}:`)) {
+        const brandCursor = cursor ? cursor.slice(BRAND.length + 1) : null;
+        const brands = await prisma.brandProfile.findMany({
+          where: brandsOwing,
+          orderBy: { id: 'asc' },
+          take,
+          ...(brandCursor ? { cursor: { id: brandCursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        const ids = brands.map((b) => `${BRAND}:${b.id}`);
+        if (ids.length === take) return ids;
+
+        // Brands ran out mid-page: top the page up from the agencies rather
+        // than returning short, so the caller's loop does not read a partial
+        // page as the end of the audience.
+        const agencies = await prisma.agency.findMany({
+          where: agenciesOwing,
+          orderBy: { id: 'asc' },
+          take: take - ids.length,
+          select: { id: true },
+        });
+        return [...ids, ...agencies.map((a) => `${AGENCY}:${a.id}`)];
+      }
+
+      const agencies = await prisma.agency.findMany({
+        where: agenciesOwing,
+        orderBy: { id: 'asc' },
+        take,
+        cursor: { id: cursor.slice(AGENCY.length + 1) },
+        skip: 1,
+        select: { id: true },
+      });
+      return agencies.map((a) => `${AGENCY}:${a.id}`);
     },
   },
 

@@ -70,6 +70,16 @@ export function useCreatorPackagesForm({
         videoLengthSeconds: PACKAGE_VIDEO_LENGTH_SECONDS,
         basicEditing: true,
         priceAmount: price,
+        // Sent so the server can convert authoritatively; it ignores the
+        // rupee figure above when a currency is present.
+        ...(packageDraft.priceCurrency &&
+        packageDraft.priceCurrency !== "INR" &&
+        packageDraft.priceAmountOriginal
+          ? {
+              priceCurrency: packageDraft.priceCurrency,
+              priceAmountOriginal: packageDraft.priceAmountOriginal,
+            }
+          : {}),
         deliveryDays,
         maxRevisions: PACKAGE_DEFAULT_MAX_REVISIONS,
       },

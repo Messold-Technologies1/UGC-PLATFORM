@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import ReviewDrawer from "@/components/admin/ReviewDrawer";
 import { AdminCreatorListRow } from "@/features/admin/components/admin-creator-list-row";
 import { AdminCreatorBrowseOrderBoard } from "@/features/admin/components/admin-creator-browse-order-board";
-import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
+import { AdminCreatorListFiltersBar } from "@/features/admin/components/admin-creator-list-filters";
 import { AdminCreatorSegmentTabs } from "@/features/admin/components/admin-creator-segment-tabs";
 import { AdminBuildingProfileAnalytics } from "@/features/admin/components/admin-building-profile-analytics";
+import { AdminCreatorPublicNames } from "@/features/admin/components/admin-creator-public-names";
 import { AdminListedCreatorsExportButton } from "@/features/admin/components/admin-listed-creators-export-button";
 import {
   getAdminCreatorEmptyMessage,
@@ -17,6 +18,7 @@ import {
 import { useAdminCreatorsQuery } from "@/features/admin/hooks/use-admin-creators-query";
 import { useAdminCreatorSegmentCountsQuery } from "@/features/admin/hooks/use-admin-creator-segment-counts-query";
 import type {
+  AdminCreatorListFilters,
   AdminCreatorListItemDto,
   AdminCreatorListSegment,
 } from "@/features/admin/types";
@@ -47,6 +49,7 @@ function AdminCreatorsPageInner() {
   const tabParam = searchParams.get("tab");
   const viewParam = searchParams.get("view");
   const analyticsActive = viewParam === "analytics";
+  const publicNamesActive = viewParam === "public-names";
   const highlightedCreatorId = searchParams.get("highlightedCreatorId");
 
   const [segment, setSegment] = useState<AdminCreatorListSegment>(
@@ -54,7 +57,8 @@ function AdminCreatorsPageInner() {
   );
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<AdminCreatorListFilters>({});
+  const search = filters.search ?? "";
   const [selectedCreator, setSelectedCreator] =
     useState<AdminCreatorListItemDto | null>(null);
 
@@ -65,14 +69,17 @@ function AdminCreatorsPageInner() {
     }
   }, [tabParam, segment]);
 
+  // Counted against the same search and filters as the rows, so each tab
+  // says how many matches it holds rather than how many creators exist.
   const { data: counts, isLoading: countsLoading } =
-    useAdminCreatorSegmentCountsQuery();
+    useAdminCreatorSegmentCountsQuery(filters);
   // The featured board fetches its own cards, so the row list is skipped there.
   const { data, isLoading, isFetching, isError } = useAdminCreatorsQuery(
     {
       segment,
       page,
       limit,
+      ...filters,
       search: search.trim() || undefined,
     },
     segment !== "featured",
@@ -89,7 +96,8 @@ function AdminCreatorsPageInner() {
   // creator, as the card brands see, so no row list, no search and no
   // pagination. Search is left out on purpose — dragging inside a filtered
   // list would save positions that do not line up with the real board.
-  const isBrowseOrderBoard = segment === "featured" && !analyticsActive;
+  const isBrowseOrderBoard =
+    segment === "featured" && !analyticsActive && !publicNamesActive;
 
   const handleTabChange = (next: AdminCreatorListSegment) => {
     setSegment(next);
@@ -108,10 +116,37 @@ function AdminCreatorsPageInner() {
     router.replace(`/admin/creators?${params.toString()}`);
   };
 
+  const handleSelectPublicNames = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "public-names");
+    params.delete("highlightedCreatorId");
+    router.replace(`/admin/creators?${params.toString()}`);
+  };
+
   return (
     <>
       <div className="space-y-8 p-8">
      
+
+        {/*
+          Above the tabs on purpose. These are not the active tab's controls —
+          they apply to every stage at once, and each tab's count is computed
+          from them, so a creator can be found without first guessing which
+          stage they are sitting in. Hidden for the two views that are not a
+          filtered list: analytics, and the drag-to-arrange featured board
+          (reordering a filtered board would save positions that do not match
+          the real one).
+        */}
+        {analyticsActive || publicNamesActive || isBrowseOrderBoard ? null : (
+          <AdminCreatorListFiltersBar
+            filters={filters}
+            isLoading={searchLoading}
+            onChange={(next) => {
+              setFilters(next);
+              setPage(1);
+            }}
+          />
+        )}
 
         <AdminCreatorSegmentTabs
           value={segment}
@@ -120,23 +155,14 @@ function AdminCreatorsPageInner() {
           onChange={handleTabChange}
           analyticsActive={analyticsActive}
           onSelectAnalytics={handleSelectAnalytics}
-          trailing={
-            analyticsActive || isBrowseOrderBoard ? null : (
-              <AdminCreatorListSearch
-                value={search}
-                isLoading={searchLoading}
-                onChange={(next) => {
-                  setSearch(next);
-                  setPage(1);
-                }}
-                className="relative w-full sm:w-64"
-              />
-            )
-          }
+          publicNamesActive={publicNamesActive}
+          onSelectPublicNames={handleSelectPublicNames}
         />
 
         {analyticsActive ? (
           <AdminBuildingProfileAnalytics enabled={analyticsActive} />
+        ) : publicNamesActive ? (
+          <AdminCreatorPublicNames />
         ) : isBrowseOrderBoard ? (
           <AdminCreatorBrowseOrderBoard />
         ) : isError && !isLoading ? (

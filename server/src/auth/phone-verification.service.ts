@@ -12,6 +12,7 @@ import {
   randomInt,
   timingSafeEqual,
 } from 'node:crypto';
+import { normalizeE164 } from '../common/phone/phone-e164.util';
 import { phoneOtpRequired } from '../config/feature-flags.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppCloudTransport } from '../whatsapp/whatsapp-cloud.transport';
@@ -243,10 +244,18 @@ export class PhoneVerificationService implements OnModuleInit {
     return createHash('sha256').update(trimmed).digest('hex');
   }
 
-  /** E.164 with a leading `+`, which is how phones are stored on `User`. */
+  /**
+   * Canonical E.164, which is how phones are stored on `User`. Empty string
+   * when the input is not a real number, which callers turn into a 400.
+   *
+   * This parses against libphonenumber metadata rather than just counting
+   * digits. The digit count alone let `+9108122064860` through — `+91` plus
+   * the national trunk `0` that Indian numbers are printed with — which is not
+   * a dialable number even though WhatsApp happened to deliver to it. The
+   * parse also repairs that case, returning `+918122064860`.
+   */
   private normalizePhone(raw: string): string {
-    const digits = (raw ?? '').replace(/\D/g, '');
-    return digits ? `+${digits}` : '';
+    return normalizeE164(raw) ?? '';
   }
 
   private generateCode(): string {

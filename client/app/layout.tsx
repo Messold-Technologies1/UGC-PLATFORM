@@ -8,6 +8,7 @@ import { AppShellProviders } from "@/providers/app-providers";
 import { GlobalVideoManager } from "@/components/global-video-manager";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { ClarityInit, ClarityUserSync } from "@/components/clarity";
+import { SITE_URL } from "@/config/site";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -78,26 +79,44 @@ export const metadata: Metadata = {
   },
   description:
     "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://gocollab.io",
-  ),
+  metadataBase: new URL(SITE_URL),
+  // No `title`/`description` here on purpose. Next inherits a parent's
+  // `openGraph` block wholesale when a child does not declare one, so spelling
+  // them out pinned the marketing pitch onto every link in the product — a
+  // wishlist shared in Slack unfurled as "The marketplace for authentic
+  // user-generated content…". Left out, Next derives og:title and
+  // og:description from whatever title and description the page resolves to,
+  // so a page-specific title is all a route needs.
   openGraph: {
     type: "website",
     siteName: "Go Collab",
-    title: "Go Collab — Where Creators Meet Brands",
-    description:
-      "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Go Collab — Where Creators Meet Brands",
-    description:
-      "The marketplace for authentic user-generated content. Connect with vetted creators, collaborate, and create content that drives real results.",
-  },
+  // No `twitter` block at all, deliberately.
+  //
+  // `summary` and `summary_large_image` are both CARD types, and a card has
+  // an image slot. Declaring either tells Slack this link renders as a card,
+  // so it draws the picture area and — with no og:image or twitter:image
+  // anywhere in the app — leaves it as an empty grey placeholder. Downgrading
+  // the card from large to small only shrank the box; it did not remove it.
+  //
+  // Omitting the block is not enough — Next synthesizes `twitter:card:
+  // summary` from the title and description on its own. `null` is the
+  // documented way to suppress a metadata field outright.
+  //
+  // With no card declared, Slack and X fall back to plain Open Graph: title,
+  // description, site name, no image slot. Set this back to a real card the
+  // day there is an og:image to put in it.
+  twitter: null,
+  // No `apple` entry. `apple-touch-icon` is the tag link unfurlers promote to
+  // a preview thumbnail when a page has no og:image, and the only icon here
+  // is a 226x171 transparent PNG — the wrong shape and the wrong background
+  // for that slot, which is why Slack drew a broken-image box beside every
+  // link. The browser-tab icons stay.
+  //
+  // iOS home-screen installs fall back to the icons in manifest.webmanifest.
   icons: {
     icon: [{ url: "/logo.png", type: "image/png" }],
     shortcut: "/logo.png",
-    apple: "/logo.png",
   },
   // Required for web push on iOS, which only delivers to a site the user has
   // added to their Home Screen — and that requires a manifest with a

@@ -8,6 +8,7 @@ import {
   MARKETING_CREATORS as C,
   creatorMeta,
 } from "@/components/landing/marketing/marketing-creators";
+import { MARKETING_FAQS } from "@/components/landing/marketing/marketing-faqs";
 import { SITE_NAME } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -181,37 +182,6 @@ const TESTIMONIALS = [
     name: "Priya Nambiar",
     role: "Marketing lead, D2C skincare",
     img: C.disha.img,
-  },
-];
-
-const MARKETING_FAQS = [
-  {
-    q: `What is ${SITE_NAME}?`,
-    a: `${SITE_NAME} is a marketplace where brands find and hire creators, and creators create a profile that brands can discover, understand and order from.`,
-  },
-  {
-    q: `Is ${SITE_NAME} free?`,
-    a: "Creating an account is free for both brands and creators. Brands can browse creators without any payment, and creators join without a joining fee.",
-  },
-  {
-    q: "Can brands browse creators before paying?",
-    a: "Yes. Search, filters, portfolios, pricing and delivery timelines are visible before you place an order.",
-  },
-  {
-    q: "How do creators get discovered?",
-    a: `Brands search ${SITE_NAME} by category, location, budget, followers and delivery time. Profiles matching those requirements appear in the results.`,
-  },
-  {
-    q: "How does an order work?",
-    a: "A brand selects a creator’s service, agrees the deliverables and timeline, and places the order. The collaboration then moves through clearly defined stages until delivery.",
-  },
-  {
-    q: "What happens after content is delivered?",
-    a: "The brand reviews the delivery, can request revisions where applicable, and approves it to complete the order.",
-  },
-  {
-    q: "How are revisions handled?",
-    a: "Revisions are part of the agreed service. Creators list how many are included, and additional revisions can be offered as an add-on.",
   },
 ];
 
@@ -785,14 +755,21 @@ export function MarketingLanding() {
                       </span>
                     </button>
                   </h3>
-                  {open ? (
-                    <p
-                      id={`marketing-faq-${i}`}
-                      className="text-muted-foreground px-[26px] pb-6 text-[15px] leading-[1.62] text-pretty"
-                    >
-                      {f.a}
-                    </p>
-                  ) : null}
+                  {/*
+                    Always mounted, hidden with the `hidden` attribute when
+                    collapsed. The FAQPage structured data on this route marks
+                    up every answer, and Google requires the marked-up text to
+                    be present in the page HTML — behind an expander is fine,
+                    missing from the DOM is not. Visually identical: `hidden`
+                    resolves to `display: none`.
+                  */}
+                  <p
+                    hidden={!open}
+                    id={`marketing-faq-${i}`}
+                    className="text-muted-foreground px-[26px] pb-6 text-[15px] leading-[1.62] text-pretty"
+                  >
+                    {f.a}
+                  </p>
                 </div>
               );
             })}

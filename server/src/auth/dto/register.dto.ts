@@ -3,10 +3,14 @@ import {
   IsEmail,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+
+import {
+  IsE164Phone,
+  NormalizeE164Phone,
+} from '../../common/phone/phone-e164.util';
 
 export class RegisterDto {
   @ApiPropertyOptional({ example: 'Jane Doe' })
@@ -37,9 +41,8 @@ export class RegisterDto {
   @ApiPropertyOptional({ example: '+919876543210' })
   @IsOptional()
   @IsString()
-  @Matches(/^\+\d{8,15}$/, {
-    message: 'phone must be E.164 (e.g. +919876543210)',
-  })
+  @NormalizeE164Phone()
+  @IsE164Phone()
   phone?: string;
 
   @ApiPropertyOptional({ example: '123456' })

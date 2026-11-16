@@ -220,6 +220,20 @@ export type EventDefinition = {
   suppressWhenViewing?: boolean;
 
   /**
+   * Whether the event arrives switched ON the first time the registry sync
+   * creates its row. Defaults to true, which is right for an event the product
+   * emits: it exists because something happens, and it should notify.
+   *
+   * False is for an event nothing emits — a broadcast audience an admin has to
+   * reach for deliberately. It keeps the row out of the "active" count until
+   * someone turns it on, so the Events list reflects what is really in play.
+   *
+   * Read only at creation. `isActive` is admin-owned after that, so flipping
+   * this in code never overrides a choice someone made in the UI.
+   */
+  defaultActive?: boolean;
+
+  /**
    * Present when this event is swept rather than emitted. See
    * {@link PopulationSpec}.
    */

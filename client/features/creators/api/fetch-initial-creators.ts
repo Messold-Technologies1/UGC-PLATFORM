@@ -11,6 +11,13 @@ import type { CreatorsListResult } from "../hooks/use-creators-list-query";
  * default filters). Fail-open: any error returns null and the client fetches as
  * before. Cached for 60s, but tagged so admin actions can explicitly
  * invalidate it when featured ordering changes.
+ *
+ * Sends no cookies on purpose: the response is shared between viewers and
+ * cached, so keying it to one person's session would serve their view to
+ * everyone else. That makes it anonymous to the API, which is why it marks
+ * itself as a prefetch — without the header every browse page load was
+ * recorded as a signed-out visitor running an unfiltered search, which nobody
+ * can actually do, and those rows were two thirds of the Filter insights page.
  */
 export async function fetchInitialCreatorsList(
   limit: number,
@@ -18,6 +25,7 @@ export async function fetchInitialCreatorsList(
   try {
     const url = `${env.apiUrl}${ENDPOINTS.CREATORS.LIST}?page=1&limit=${limit}`;
     const res = await fetch(url, {
+      headers: { "x-gocollab-prefetch": "1" },
       next: { revalidate: 60, tags: ["creators-list"] },
     });
     if (!res.ok) return null;

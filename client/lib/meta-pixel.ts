@@ -117,6 +117,26 @@ export type MetaPixelEventOptions = {
 };
 
 /**
+ * Say, in development only, why an event was dropped.
+ *
+ * Every send here is deliberately a silent no-op when the pixel is missing, so
+ * a conversion that never arrives looks identical to one that was never
+ * triggered. That is fine in production and useless while building: without
+ * this, the only way to tell an unconfigured pixel from a bug in the call site
+ * is to read the source.
+ */
+function devPixelWarn(event: string, audience: MetaPixelAudience): void {
+  if (process.env.NODE_ENV === "production") return;
+  if (typeof console === "undefined") return;
+  const reason = !pixelIdFor(audience)
+    ? audience === "brand"
+      ? "no NEXT_PUBLIC_META_BRAND_PIXEL_ID (and no NEXT_PUBLIC_META_PIXEL_ID to fall back to)"
+      : "no NEXT_PUBLIC_META_PIXEL_ID"
+    : "window.fbq has not loaded (ad-blocker, or the loader has not run yet)";
+  console.warn(`[meta-pixel] skipped ${event} (${audience}): ${reason}`);
+}
+
+/**
  * Send one event to exactly one pixel. `trackSingle`/`trackSingleCustom` are
  * Meta's per-pixel variants — required here because more than one pixel can be
  * initialized on the page and a plain `track` would report to all of them.
@@ -131,7 +151,10 @@ function trackOnPixel(
   options?: MetaPixelEventOptions,
 ): boolean {
   const audience = options?.audience ?? "creator";
-  if (!pixelReady(audience)) return false;
+  if (!pixelReady(audience)) {
+    devPixelWarn(event, audience);
+    return false;
+  }
   const pixelId = pixelIdFor(audience);
   try {
     if (options?.eventId) {

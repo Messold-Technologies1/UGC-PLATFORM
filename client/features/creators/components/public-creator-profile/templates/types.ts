@@ -108,6 +108,10 @@ export type PublicProfileViewModel = {
   /** `headline` split for templates that style the last word differently. */
   headlineLead: string;
   headlineTail: string;
+  /** Niche-derived headline ("Beauty Creator"), used when no name is revealed. */
+  nicheLabel: string;
+  /** The admin-revealed real name, or null while the creator is anonymous. */
+  revealedName: string | null;
   initials: string;
   avatarUrl: string | null;
   /** Admin-approved; every reachable public profile is approved. */

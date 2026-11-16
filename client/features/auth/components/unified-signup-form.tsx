@@ -26,8 +26,8 @@ import {
   buildE164Phone,
   findPhoneCountryByIso,
   getPhoneCountryOptions,
+  isValidE164Phone,
   maxNationalDigits,
-  PHONE_E164_REGEX,
 } from "@/features/auth/lib/phone-country-codes";
 import { PhoneCountryCodeSelect } from "@/features/auth/components/phone-country-code-select";
 import { GoogleMark } from "./google-mark";
@@ -53,7 +53,7 @@ const signupSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   phone: z
     .string()
-    .regex(PHONE_E164_REGEX, "Enter a valid phone number with country code"),
+    .refine(isValidE164Phone, "Enter a valid phone number with country code"),
   // Only demanded while the OTP step is switched on; with it off the field is
   // never rendered, so a required schema would deadlock the form.
   phoneOtpCode: env.phoneOtpEnabled
@@ -107,7 +107,7 @@ export function UnifiedSignupForm() {
     },
   });
   const phoneValue = form.watch("phone");
-  const phoneComplete = PHONE_E164_REGEX.test(phoneValue ?? "");
+  const phoneComplete = isValidE164Phone(phoneValue ?? "");
 
   /**
    * With the OTP step switched off the code box never appears and no code is

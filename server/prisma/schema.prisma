@@ -255,6 +255,7 @@ model User {
   passwordResetTokens         PasswordResetToken[]
   contactMessagesRead         ContactMessage[]           @relation("ContactMessageReadBy")
   pushSubscriptions           PushSubscription[]
+  hiddenCreatorEvents         CreatorEvent[]             @relation("CreatorEventHiddenBy")
 
   @@index([status])
   @@index([deletedAt])
@@ -375,6 +376,13 @@ model CreatorProfile {
   displayName                  String
   /// Unique URL slug for public profile (e.g. "riyasharma" or "riyasharma-4821").
   publicSlug                   String                      @unique
+  /// Set when an admin has chosen to reveal this creator's real name on their
+  /// PUBLIC profile page. Holds the URL slug derived from `displayName` at
+  /// reveal time (e.g. "riya-sharma"); null (the default) keeps the creator
+  /// anonymous. The name itself is read live from `displayName`, so there is
+  /// no second copy to drift. `publicSlug` stays valid and redirects here.
+  /// Never used on orders, chat, the brand browse drawer or anywhere else.
+  publicNameSlug               String?                     @unique
   /// Which public-page template the creator's public profile renders with.
   /// Plain string (not an enum) so adding a template needs no migration; the
   /// client falls back to the default when the id is not in its registry.
@@ -496,6 +504,7 @@ model CreatorProfile {
   unavailability    CreatorUnavailability?
   socialConnections SocialConnection[]
   engagementDays    CreatorEngagementDaily[]
+  events            CreatorEvent[]
 
   @@index([city])
   @@index([countryName])
@@ -1750,6 +1759,58 @@ model CreatorUnavailability {
   @@index([startsOn, endsOn])
 }
 
+/// A creator's short free-text status post — "travelling to Jaipur this week",
+/// "set up a home studio", "off sick until Monday". Deliberately text-only: no
+/// media, no date range, no reactions. Brands read these as one chronological
+/// feed at /brand/events.
+///
+/// Carries NO availability meaning. A creator writing "taking a break" here
+/// does not touch `CreatorUnavailability`, which stays the one explicit place
+/// bookable dates are set — otherwise a post would silently stop orders.
+model CreatorEvent {
+  id        String @id @default(uuid()) @db.Uuid
+  creatorId String @db.Uuid
+
+  /// The whole post. 1–500 characters after trimming. Newlines are kept and
+  /// the client renders with `white-space: pre-line`; everything else is plain
+  /// text, escaped at render. No HTML, no markdown, no autolinking.
+  body String @db.VarChar(500)
+
+  /// Set the first time the body changes, so the card can show "edited". Null
+  /// means never edited. Distinct from `updatedAt`, which also moves when an
+  /// admin hides the post.
+  editedAt DateTime?
+
+  /// Soft moderation. Non-null removes the post from the brand feed at once.
+  /// The CREATOR still sees it in their own list with a Hidden banner, so
+  /// nothing vanishes on them without an explanation. Never a hard delete: the
+  /// row is the evidence for the decision.
+  ///
+  /// The free-text body is the one field where a creator could publish their
+  /// own real name or phone number, which the rest of the platform keeps
+  /// private behind `publicSlug`. That — not profanity — is what this is for.
+  hiddenAt       DateTime?
+  hiddenByUserId String?   @db.Uuid
+  hiddenReason   String?   @db.VarChar(200)
+
+  /// Creator-initiated removal. Separate from `hiddenAt` so a creator tidying
+  /// their own feed is never confused with a moderation action in the admin
+  /// table or in a support conversation.
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator      CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  hiddenByUser User?          @relation("CreatorEventHiddenBy", fields: [hiddenByUserId], references: [id], onDelete: SetNull)
+
+  /// The creator's own list, newest first.
+  @@index([creatorId, createdAt(sort: Desc)])
+  /// The brand feed's keyset page: ORDER BY createdAt DESC, id DESC.
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([hiddenByUserId])
+}
+
 model CreatorPackage {
   id                 String   @id @default(uuid()) @db.Uuid
   creatorId          String   @unique @db.Uuid
@@ -1757,7 +1818,28 @@ model CreatorPackage {
   title              String?
   deliverables       Json // array of strings e.g. ["1 Video", "Basic editing"]
   videoLengthSeconds Int      @default(60)
+  /// ALWAYS rupees, and always THE price -- what browse shows, what Razorpay
+  /// charges, and what fees and payouts are built on. Orders snapshot it at
+  /// purchase, so a price change never reaches an order already placed.
+  ///
+  /// When `priceCurrency` is not INR this is a conversion of
+  /// `priceAmountOriginal` rather than a figure the creator typed, refreshed
+  /// nightly by JobsService.refreshForeignPackagePrices. It is deliberately
+  /// still the single price: converting again at checkout would charge a
+  /// brand something other than the amount they browsed.
   priceAmount        Decimal  @db.Decimal(12, 2)
+  /// What a creator outside India actually entered, in their own currency.
+  /// This is what the nightly refresh re-converts, and what the pricing form
+  /// shows them back instead of a rupee number they never chose. `INR` means
+  /// they typed rupees and `priceAmountOriginal` is null.
+  priceCurrency      String   @default("INR")
+  priceAmountOriginal Decimal? @db.Decimal(12, 2)
+  /// When `priceAmount` was last re-converted. Null for rupee prices, which
+  /// need no refreshing. A timestamp drifting days old means the nightly
+  /// refresh has been failing and foreign prices have stopped tracking the
+  /// market -- the one failure mode of pricing this way that is otherwise
+  /// invisible.
+  priceInrUpdatedAt  DateTime?
   deliveryDays       Int      @default(5)
   maxRevisions       Int      @default(1)
   createdAt          DateTime @default(now())
@@ -2570,6 +2652,10 @@ enum BroadcastAudience {
   ACTIVE_BRANDS
   /// Every agency whose user account is ACTIVE.
   ACTIVE_AGENCIES
+  /// Brands and agencies that owe money: the payer on any order still sitting
+  /// in PENDING_PAYMENT. One entry per payer, not per order, so a brand with
+  /// three unpaid orders is chased once.
+  ORDERS_AWAITING_PAYMENT
 }
 
 enum BroadcastStatus {
@@ -2624,4 +2710,52 @@ model NotificationBroadcast {
 
   @@index([createdAt(sort: Desc)])
   @@index([audience, createdAt(sort: Desc)])
+}
+
+/// One search against the creator browse list.
+///
+/// Written fire-and-forget from the browse CONTROLLER, never the service:
+/// `listCreators` is also called internally by the admin order board
+/// (creator-profile.service.ts listCreatorsForBrowseOrderBoard), and those
+/// calls are not somebody searching.
+///
+/// Only page 1 is recorded. Infinite scroll asks for pages 2..n with the same
+/// filters, which is the same search continuing, not a new one.
+model CreatorSearchEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+
+  /// Null for a signed-out visitor on the public list.
+  actorUserId String? @db.Uuid
+  /// The brand whose workspace the search ran in. Null for a guest, and for an
+  /// agency that has not switched into a brand.
+  brandProfileId String? @db.Uuid
+  /// The agency that did the searching, when one did. Set whether or not it had
+  /// switched into a brand, so an agency is never invisible: following the same
+  /// shape as Order.placedByAgencyId, where a record is OWNED by the brand and
+  /// ATTRIBUTED to the agency that acted. Without it, an agency working inside
+  /// a brand's workspace was indistinguishable from the brand itself, and one
+  /// browsing its own workspace had no brand and vanished from the breakdown.
+  agencyId String? @db.Uuid
+  /// BRAND | AGENCY | GUEST | OTHER. Denormalized so the admin view can split
+  /// by audience without joining through users on every query. OTHER is a
+  /// creator or an admin browsing, which must not be counted as a brand.
+  audience String
+
+  /// The filters that were actually set — defaults and empties excluded — in
+  /// the shape they arrived in. Kept raw so new questions can be asked of old
+  /// rows without a backfill.
+  filters Json
+  /// Just the names of the set filters, e.g. ["city", "contentCategory"].
+  /// Redundant with `filters`, deliberately: "which filters are used most" is
+  /// then one array aggregate instead of unpacking JSON across every row.
+  filterKeys String[]
+  /// How many creators matched. 0 is the interesting case — demand the
+  /// catalogue could not supply.
+  resultCount Int
+
+  @@index([createdAt])
+  @@index([brandProfileId, createdAt])
+  @@index([audience, createdAt])
+  @@index([agencyId, createdAt])
 }

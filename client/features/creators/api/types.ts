@@ -10,6 +10,10 @@ export type CreatorProfileCategoryApi = {
 };
 
 export type CreatorProfilePackageApi = {
+  /** Set when the creator priced in their own currency; `priceAmount` is the
+   *  rupee conversion the server stored. */
+  priceCurrency?: string | null;
+  priceAmountOriginal?: string | number | null;
   id: string;
   name: string;
   deliverables: string[];
@@ -114,6 +118,14 @@ export type CreatorProfileItemApi = {
   displayName: string;
   /** Unique public URL slug; may be absent until API migration is applied. */
   publicSlug?: string;
+  /**
+   * Admin-revealed real name, sent ONLY by the public-profile-by-slug endpoint
+   * the public page renders from. Absent/null everywhere else, which keeps the
+   * creator anonymous on orders, chat and brand browse.
+   */
+  publicDisplayName?: string | null;
+  /** Canonical public URL segment while a name is revealed. */
+  publicNameSlug?: string | null;
   /**
    * Which public-page template the creator has chosen (see the template
    * registry). Unknown or missing values fall back to the default template.

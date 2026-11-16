@@ -1,3 +1,4 @@
+import { AdminShell } from "@/components/admin/admin-shell";
 import { Navbar } from "@/components/navbar/navbar";
 import React from "react";
 import { AuthenticatedAppProviders } from "@/providers/app-providers";
@@ -21,11 +22,13 @@ export default function AdminLayout({
           rel="stylesheet"
         />
 
-        <Navbar />
+        {/* AdminShell renders the rail and offsets this content by its
+            current width, so the two can never disagree. */}
+        <AdminShell>
+          <Navbar />
 
-        <main className="flex-1 relative min-h-screen">
-          {children}
-        </main>
+          <main className="relative min-h-screen flex-1">{children}</main>
+        </AdminShell>
       </div>
     </AuthenticatedAppProviders>
   );

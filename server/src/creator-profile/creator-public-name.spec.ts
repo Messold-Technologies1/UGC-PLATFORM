@@ -138,128 +138,98 @@ describe('creator public name reveal', () => {
       );
     });
 
-    describe('setCreatorPublicDisplayName', () => {
-      it('saves the name and mints a slug from it', async () => {
-        prismaMock.creatorProfile.findUnique.mockResolvedValue({
-          id: 'creator-1',
-          publicSlug: 'k7m2p9qx',
-        });
-        prismaMock.creatorProfile.findFirst.mockResolvedValue(null);
-        prismaMock.creatorProfile.update.mockResolvedValue({
-          id: 'creator-1',
-          publicSlug: 'k7m2p9qx',
-          publicDisplayName: 'Riya Sharma',
-          publicNameSlug: 'riya-sharma',
-        });
+    describe('setCreatorPublicNameRevealed', () => {
+      const profile = (over = {}) => ({
+        id: 'creator-1',
+        publicSlug: 'k7m2p9qx',
+        displayName: 'Riya Sharma',
+        ...over,
+      });
 
-        const result = await service.setCreatorPublicDisplayName(
+      it("mints the URL from the creator's own name", async () => {
+        prismaMock.creatorProfile.findUnique.mockResolvedValue(profile());
+        prismaMock.creatorProfile.findFirst.mockResolvedValue(null);
+        prismaMock.creatorProfile.update.mockImplementation(
+          async ({ data }: any) => ({ ...profile(), ...data }),
+        );
+
+        const result = await service.setCreatorPublicNameRevealed(
           'creator-1',
-          '  Riya Sharma  ',
+          true,
         );
 
         expect(prismaMock.creatorProfile.update).toHaveBeenCalledWith(
           expect.objectContaining({
             where: { id: 'creator-1' },
-            data: {
-              publicDisplayName: 'Riya Sharma',
-              publicNameSlug: 'riya-sharma',
-            },
+            data: { publicNameSlug: 'riya-sharma' },
           }),
         );
+        expect(result.publicNameRevealed).toBe(true);
+        expect(result.publicDisplayName).toBe('Riya Sharma');
         expect(result.canonicalSlug).toBe('riya-sharma');
         // The opaque slug is never rewritten, so links already shared still
         // resolve (and redirect to the name URL).
         expect(result.publicSlug).toBe('k7m2p9qx');
       });
 
-      it('clears both fields when the name is empty, back to anonymous', async () => {
-        prismaMock.creatorProfile.findUnique.mockResolvedValue({
-          id: 'creator-1',
-          publicSlug: 'k7m2p9qx',
-        });
-        prismaMock.creatorProfile.update.mockResolvedValue({
-          id: 'creator-1',
-          publicSlug: 'k7m2p9qx',
-          publicDisplayName: null,
-          publicNameSlug: null,
-        });
+      it('clears only the slug when hidden, back to anonymous', async () => {
+        prismaMock.creatorProfile.findUnique.mockResolvedValue(profile());
+        prismaMock.creatorProfile.update.mockResolvedValue({ id: 'creator-1' });
 
-        const result = await service.setCreatorPublicDisplayName(
+        const result = await service.setCreatorPublicNameRevealed(
           'creator-1',
-          '   ',
+          false,
         );
 
         expect(prismaMock.creatorProfile.update).toHaveBeenCalledWith(
-          expect.objectContaining({
-            data: { publicDisplayName: null, publicNameSlug: null },
-          }),
+          expect.objectContaining({ data: { publicNameSlug: null } }),
         );
+        expect(result.publicNameRevealed).toBe(false);
         expect(result.publicDisplayName).toBeNull();
         expect(result.canonicalSlug).toBe('k7m2p9qx');
-      });
-
-      it('rejects a name that cannot produce a URL', async () => {
-        prismaMock.creatorProfile.findUnique.mockResolvedValue({
-          id: 'creator-1',
-          publicSlug: 'k7m2p9qx',
-        });
-
-        await expect(
-          service.setCreatorPublicDisplayName('creator-1', '###'),
-        ).rejects.toBeInstanceOf(BadRequestException);
-        expect(prismaMock.creatorProfile.update).not.toHaveBeenCalled();
       });
 
       it('gives a second creator with the same name its own URL', async () => {
         // Two real "Riya Sharma"s: the first keeps /riya-sharma, the second
         // gets /riya-sharma-2. Both pages are reachable and distinct.
-        prismaMock.creatorProfile.findUnique.mockResolvedValue({
-          id: 'creator-2',
-          publicSlug: 'b4t8w1zr',
-        });
+        prismaMock.creatorProfile.findUnique.mockResolvedValue(
+          profile({ id: 'creator-2', publicSlug: 'b4t8w1zr' }),
+        );
         prismaMock.creatorProfile.findFirst
           // riya-sharma is already creator-1's
           .mockResolvedValueOnce({ id: 'creator-1' })
           .mockResolvedValueOnce(null);
         prismaMock.creatorProfile.update.mockImplementation(
           async ({ data }: any) => ({
-            id: 'creator-2',
-            publicSlug: 'b4t8w1zr',
+            ...profile({ id: 'creator-2', publicSlug: 'b4t8w1zr' }),
             ...data,
           }),
         );
 
-        const result = await service.setCreatorPublicDisplayName(
+        const result = await service.setCreatorPublicNameRevealed(
           'creator-2',
-          'Riya Sharma',
+          true,
         );
 
-        expect(result.publicDisplayName).toBe('Riya Sharma');
         expect(result.publicNameSlug).toBe('riya-sharma-2');
+        expect(result.publicNameShared).toBe(true);
       });
 
-      it('re-saving the same name does not grow another suffix', async () => {
-        // The uniqueness check excludes the creator being edited, so saving
-        // "Riya Sharma" over "Riya Sharma" keeps /riya-sharma.
-        prismaMock.creatorProfile.findUnique.mockResolvedValue({
-          id: 'creator-1',
-          publicSlug: 'k7m2p9qx',
-        });
+      it('re-revealing does not grow another suffix', async () => {
+        prismaMock.creatorProfile.findUnique.mockResolvedValue(profile());
         prismaMock.creatorProfile.findFirst.mockResolvedValue(null);
         prismaMock.creatorProfile.update.mockImplementation(
-          async ({ data }: any) => ({
-            id: 'creator-1',
-            publicSlug: 'k7m2p9qx',
-            ...data,
-          }),
+          async ({ data }: any) => ({ ...profile(), ...data }),
         );
 
-        const result = await service.setCreatorPublicDisplayName(
+        const result = await service.setCreatorPublicNameRevealed(
           'creator-1',
-          'Riya Sharma',
+          true,
         );
 
         expect(result.publicNameSlug).toBe('riya-sharma');
+        expect(result.publicNameShared).toBe(false);
+        // The uniqueness check excludes the creator being edited.
         expect(prismaMock.creatorProfile.findFirst).toHaveBeenCalledWith(
           expect.objectContaining({
             where: expect.objectContaining({ NOT: { id: 'creator-1' } }),
@@ -267,26 +237,38 @@ describe('creator public name reveal', () => {
         );
       });
 
+      it('refuses a profile name with no URL in it', async () => {
+        prismaMock.creatorProfile.findUnique.mockResolvedValue(
+          profile({ displayName: '###' }),
+        );
+
+        await expect(
+          service.setCreatorPublicNameRevealed('creator-1', true),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prismaMock.creatorProfile.update).not.toHaveBeenCalled();
+      });
+
       it('404s for an unknown creator', async () => {
         prismaMock.creatorProfile.findUnique.mockResolvedValue(null);
 
         await expect(
-          service.setCreatorPublicDisplayName('nope', 'Riya'),
+          service.setCreatorPublicNameRevealed('nope', true),
         ).rejects.toBeInstanceOf(NotFoundException);
       });
     });
 
     describe('getCreatorByPublicSlug', () => {
       beforeEach(() => {
-        jest
-          .spyOn(service, 'getCreatorById')
-          .mockResolvedValue({ id: 'creator-1', displayName: 'k7m2p9qx' } as any);
+        jest.spyOn(service, 'getCreatorById').mockResolvedValue({
+          id: 'creator-1',
+          displayName: 'k7m2p9qx',
+        } as any);
       });
 
       it('resolves either slug column', async () => {
         prismaMock.creatorProfile.findFirst.mockResolvedValue({
           id: 'creator-1',
-          publicDisplayName: null,
+          displayName: 'Riya Sharma',
           publicNameSlug: null,
         });
 
@@ -295,10 +277,7 @@ describe('creator public name reveal', () => {
         expect(prismaMock.creatorProfile.findFirst).toHaveBeenCalledWith(
           expect.objectContaining({
             where: {
-              OR: [
-                { publicNameSlug: 'k7m2p9qx' },
-                { publicSlug: 'k7m2p9qx' },
-              ],
+              OR: [{ publicNameSlug: 'k7m2p9qx' }, { publicSlug: 'k7m2p9qx' }],
             },
           }),
         );
@@ -307,7 +286,7 @@ describe('creator public name reveal', () => {
       it('attaches the revealed name and its canonical slug', async () => {
         prismaMock.creatorProfile.findFirst.mockResolvedValue({
           id: 'creator-1',
-          publicDisplayName: 'Riya Sharma',
+          displayName: 'Riya Sharma',
           publicNameSlug: 'riya-sharma',
         });
 
@@ -317,10 +296,12 @@ describe('creator public name reveal', () => {
         expect(dto.publicNameSlug).toBe('riya-sharma');
       });
 
-      it('sends null for a creator with no name revealed', async () => {
+      it('withholds the name until an admin reveals it', async () => {
+        // displayName is right there in the row — it must not reach the
+        // public page while publicNameSlug is null.
         prismaMock.creatorProfile.findFirst.mockResolvedValue({
           id: 'creator-1',
-          publicDisplayName: null,
+          displayName: 'Riya Sharma',
           publicNameSlug: null,
         });
 
@@ -345,7 +326,7 @@ describe('creator public name reveal', () => {
         // the public page reads.
         prismaMock.creatorProfile.findFirst.mockResolvedValue({
           id: 'creator-1',
-          publicDisplayName: 'Riya Sharma',
+          displayName: 'Riya Sharma',
           publicNameSlug: 'riya-sharma',
         });
 

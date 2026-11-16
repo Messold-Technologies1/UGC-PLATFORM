@@ -149,9 +149,9 @@ export async function allocateUniqueCreatorPublicNameSlug(
  * them to spot the "-2".
  */
 export function isSharedCreatorPublicName(
-  publicDisplayName: string | null,
+  displayName: string | null,
   publicNameSlug: string | null,
 ): boolean {
-  if (!publicDisplayName || !publicNameSlug) return false;
-  return publicNameSlug !== slugifyCreatorPublicName(publicDisplayName);
+  if (!displayName || !publicNameSlug) return false;
+  return publicNameSlug !== slugifyCreatorPublicName(displayName);
 }

@@ -304,21 +304,23 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   /** Opaque public profile slug — always resolves, even once a name is set. */
   publicSlug: string;
   /**
-   * Admin-revealed real name. Null keeps the creator anonymous. Used by the
-   * public profile page only — orders, chat and brand browse never show it.
+   * True when an admin has chosen to show this creator's name on their public
+   * page. The name shown there is `displayName`. Orders, chat and brand browse
+   * stay anonymous either way.
    */
-  publicDisplayName?: string | null;
-  /** Canonical public URL segment while a name is revealed. */
+  publicNameRevealed?: boolean;
+  /** Canonical public URL segment while the name is shown. */
   publicNameSlug?: string | null;
   /**
-   * True when another creator already has this exact name, so this one's URL
-   * carries a numeric suffix (/riya-sharma-2) to keep the pages apart.
+   * True when another creator has the same name, so this one's URL carries a
+   * numeric suffix (/riya-sharma-2) to keep the pages apart.
    */
   publicNameShared?: boolean;
 }
 
 export interface AdminCreatorPublicNameResultDto {
   id: string;
+  publicNameRevealed: boolean;
   publicDisplayName: string | null;
   publicNameSlug: string | null;
   publicSlug: string;

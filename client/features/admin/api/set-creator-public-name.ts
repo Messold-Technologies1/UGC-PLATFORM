@@ -3,18 +3,19 @@ import { ENDPOINTS } from "@/lib/endpoints";
 import type { AdminCreatorPublicNameResultDto } from "../types";
 
 /**
- * Reveal a creator's real name on their public profile page, or clear it.
+ * Show or hide a creator's real name on their public profile page.
  *
- * Passing a name also mints the URL slug the page is served from. Passing null
- * returns the page to the anonymous niche headline on its opaque slug.
+ * Revealing also mints the URL the page is served from, out of the creator's
+ * own profile name. Hiding returns the page to the anonymous niche headline on
+ * its opaque slug.
  */
 export async function setCreatorPublicName(
   id: string,
-  publicDisplayName: string | null,
+  reveal: boolean,
 ): Promise<AdminCreatorPublicNameResultDto> {
   const { data } = await api.patch<AdminCreatorPublicNameResultDto>(
     ENDPOINTS.ADMIN.CREATORS.PUBLIC_NAME(id),
-    { publicDisplayName },
+    { reveal },
   );
   return data;
 }

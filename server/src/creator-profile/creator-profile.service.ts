@@ -1857,7 +1857,7 @@ export class CreatorProfileService {
       },
       select: {
         id: true,
-        publicDisplayName: true,
+        displayName: true,
         publicNameSlug: true,
       },
     });
@@ -1871,55 +1871,51 @@ export class CreatorProfileService {
       brandProfileId,
     );
 
-    // The revealed name rides on this endpoint ONLY. Every other surface
-    // (orders, chat, the brand browse drawer) goes through getCreatorById,
-    // which keeps the creator anonymous.
+    // The revealed name rides on this endpoint ONLY, and only once an admin
+    // has set a name slug. Every other surface (orders, chat, the brand
+    // browse drawer) goes through getCreatorById, which keeps the creator
+    // anonymous. The name is read live off `displayName` — there is no second
+    // copy of it to fall out of step with the profile.
     return {
       ...dto,
-      publicDisplayName: profile.publicDisplayName ?? null,
+      publicDisplayName: profile.publicNameSlug ? profile.displayName : null,
       publicNameSlug: profile.publicNameSlug ?? null,
     };
   }
 
   /**
-   * Reveal (or hide) a creator's real name on their public profile page.
+   * Show (or hide) a creator's real name on their public profile page.
    *
-   * Passing a name mints a URL slug from it and makes that the canonical
-   * public URL; passing null clears both fields and the page goes back to the
-   * anonymous niche headline on its opaque slug. `publicSlug` is never
-   * rewritten either way, so old links keep resolving.
+   * Revealing mints a URL slug from the creator's own `displayName` and makes
+   * it the canonical public URL; hiding clears the slug and the page goes back
+   * to the anonymous niche headline on its opaque slug. `publicSlug` is never
+   * rewritten either way, so links already shared keep resolving.
    */
-  async setCreatorPublicDisplayName(
+  async setCreatorPublicNameRevealed(
     creatorProfileId: string,
-    rawName: string | null | undefined,
+    reveal: boolean,
   ): Promise<AdminCreatorPublicNameResultDto> {
     const existing = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorProfileId },
-      select: { id: true, publicSlug: true },
+      select: { id: true, publicSlug: true, displayName: true },
     });
     if (!existing) {
       throw new NotFoundException('Creator not found');
     }
 
-    const name = typeof rawName === 'string' ? rawName.trim() : '';
-
-    if (!name) {
-      const cleared = await this.prisma.creatorProfile.update({
+    if (!reveal) {
+      await this.prisma.creatorProfile.update({
         where: { id: creatorProfileId },
-        data: { publicDisplayName: null, publicNameSlug: null },
-        select: {
-          id: true,
-          publicSlug: true,
-          publicDisplayName: true,
-          publicNameSlug: true,
-        },
+        data: { publicNameSlug: null },
+        select: { id: true },
       });
       return {
-        id: cleared.id,
+        id: existing.id,
+        publicNameRevealed: false,
         publicDisplayName: null,
         publicNameSlug: null,
-        publicSlug: cleared.publicSlug,
-        canonicalSlug: cleared.publicSlug,
+        publicSlug: existing.publicSlug,
+        canonicalSlug: existing.publicSlug,
         publicNameShared: false,
       };
     }
@@ -1928,34 +1924,32 @@ export class CreatorProfileService {
       this.prisma as unknown as Parameters<
         typeof allocateUniqueCreatorPublicNameSlug
       >[0],
-      name,
+      existing.displayName,
       creatorProfileId,
     );
     if (!nameSlug) {
+      // e.g. a profile name that is only emoji or punctuation — there is no
+      // URL to make from it, so the reveal cannot go ahead.
       throw new BadRequestException(
-        'That name has no letters or digits to build a URL from.',
+        "This creator's name has no letters or digits to build a URL from.",
       );
     }
 
     const updated = await this.prisma.creatorProfile.update({
       where: { id: creatorProfileId },
-      data: { publicDisplayName: name, publicNameSlug: nameSlug },
-      select: {
-        id: true,
-        publicSlug: true,
-        publicDisplayName: true,
-        publicNameSlug: true,
-      },
+      data: { publicNameSlug: nameSlug },
+      select: { id: true, publicSlug: true, displayName: true, publicNameSlug: true },
     });
 
     return {
       id: updated.id,
-      publicDisplayName: updated.publicDisplayName,
+      publicNameRevealed: true,
+      publicDisplayName: updated.displayName,
       publicNameSlug: updated.publicNameSlug,
       publicSlug: updated.publicSlug,
       canonicalSlug: updated.publicNameSlug ?? updated.publicSlug,
       publicNameShared: isSharedCreatorPublicName(
-        updated.publicDisplayName,
+        updated.displayName,
         updated.publicNameSlug,
       ),
     };
@@ -2063,10 +2057,10 @@ export class CreatorProfileService {
       instagramFollowers: instagram?.followersCount ?? null,
       instagramUsername: instagram?.username ?? null,
       publicSlug: profile.publicSlug,
-      publicDisplayName: profile.publicDisplayName ?? null,
+      publicNameRevealed: !!profile.publicNameSlug,
       publicNameSlug: profile.publicNameSlug ?? null,
       publicNameShared: isSharedCreatorPublicName(
-        profile.publicDisplayName ?? null,
+        profile.displayName,
         profile.publicNameSlug ?? null,
       ),
     };

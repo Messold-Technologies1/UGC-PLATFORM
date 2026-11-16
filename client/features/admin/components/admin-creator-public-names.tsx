@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ExternalLink, Loader2, Search, X } from "lucide-react";
+import { ExternalLink, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,12 +27,13 @@ import type {
 const PAGE_SIZE = 10;
 
 /**
- * Admin control for revealing a creator's real name on their public page.
+ * Admin control for showing a creator's real name on their public page.
  *
  * Creators are anonymous by default — the public page shows a niche headline
- * ("Beauty Creator") on an opaque URL. Saving a name here makes it the
- * headline and the URL segment for that creator's PUBLIC PAGE ONLY. Orders,
- * chat and the brand browse drawer keep using the opaque slug either way.
+ * ("Beauty Creator") on an opaque URL. Ticking a creator here puts their own
+ * profile name at the top of that page and moves it to a matching URL. It
+ * changes the PUBLIC PAGE ONLY: orders, chat and the brand browse drawer keep
+ * using the opaque slug either way.
  */
 export function AdminCreatorPublicNames() {
   const [segment, setSegment] = useState<AdminCreatorListSegment>("listed");
@@ -39,7 +41,7 @@ export function AdminCreatorPublicNames() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  // Debounced so typing a name doesn't fire a request per keystroke.
+  // Debounced so typing doesn't fire a request per keystroke.
   useEffect(() => {
     const id = setTimeout(() => {
       setSearch(searchInput.trim());
@@ -73,10 +75,10 @@ export function AdminCreatorPublicNames() {
         <h2 className="text-base font-semibold">Public page names</h2>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Creators are anonymous by default: their public page shows a niche
-          headline on a random URL. Add a name here and that creator&apos;s
-          public page shows the name and moves to a matching URL. The old link
-          keeps working and redirects. Nothing else changes — orders, chat and
-          the brand browse list stay anonymous.
+          headline on a random URL. Tick a creator and their page shows their
+          name and moves to a matching URL. The old link keeps working and
+          redirects. Nothing else changes — orders, chat and the brand browse
+          list stay anonymous.
         </p>
       </div>
 
@@ -117,7 +119,7 @@ export function AdminCreatorPublicNames() {
       ) : isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-24 w-full rounded-2xl" />
+            <Skeleton key={index} className="h-20 w-full rounded-2xl" />
           ))}
         </div>
       ) : creators.length === 0 ? (
@@ -129,13 +131,7 @@ export function AdminCreatorPublicNames() {
       ) : (
         <div className="space-y-3">
           {creators.map((creator) => (
-            // Keyed by the saved name as well as the id: a successful save
-            // remounts the row so the field shows what is stored, without an
-            // effect fighting the user's typing.
-            <PublicNameRow
-              key={`${creator.id}:${creator.publicDisplayName ?? ""}`}
-              creator={creator}
-            />
+            <PublicNameRow key={creator.id} creator={creator} />
           ))}
         </div>
       )}
@@ -175,118 +171,103 @@ export function AdminCreatorPublicNames() {
 
 function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
   const queryClient = useQueryClient();
-  const saved = creator.publicDisplayName ?? "";
-  const [value, setValue] = useState(saved);
 
   const mutation = useMutation({
-    mutationFn: (name: string | null) => setCreatorPublicName(creator.id, name),
+    mutationFn: (reveal: boolean) => setCreatorPublicName(creator.id, reveal),
     onSuccess: (result) => {
-      if (!result.publicDisplayName) {
-        toast.success("Public page is anonymous again");
+      if (!result.publicNameRevealed) {
+        toast.success(`${creator.displayName}'s page is anonymous again`);
       } else if (result.publicNameShared) {
-        // Another creator already has this name, so this page is at
-        // /riya-sharma-2. Say so rather than leaving the admin to spot it.
+        // The plain name URL was taken by another creator with the same name,
+        // so this one fell to a suffix. Say so rather than leaving the admin
+        // to spot the "-2".
         toast.success(
-          `Saved — another creator already uses that name, so this page is at /${result.canonicalSlug}`,
+          `Shown — that name URL was taken, so this page is at /${result.canonicalSlug}`,
         );
       } else {
-        toast.success(
-          `Public page now shows "${result.publicDisplayName}" at /${result.canonicalSlug}`,
-        );
+        toast.success(`Now showing on the public page at /${result.canonicalSlug}`);
       }
       void queryClient.invalidateQueries({ queryKey: ["admin", "creators"] });
     },
     onError: () => {
-      toast.error("Could not save that name. Try again.");
+      toast.error("Could not change that. Try again.");
     },
   });
 
-  const trimmed = value.trim();
-  const dirty = trimmed !== saved.trim();
+  // While the request is in flight, show what was asked for rather than the
+  // stale list value — no local state, so nothing to keep in step afterwards.
+  const revealed = mutation.isPending
+    ? (mutation.variables ?? false)
+    : !!creator.publicNameRevealed;
+
   const canonicalSlug = creator.publicNameSlug ?? creator.publicSlug;
   const publicUrl = canonicalSlug
     ? creatorPublicProfileUrl(canonicalSlug)
     : null;
+  const checkboxId = `reveal-name-${creator.id}`;
 
   return (
     <div className="rounded-2xl border border-border/10 bg-card/10 p-4 glass-panel">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 lg:w-64">
-          <div className="truncate text-sm font-semibold">
+      <div className="flex items-start gap-3 sm:gap-4">
+        <div className="flex size-5 shrink-0 items-center justify-center pt-0.5">
+          {mutation.isPending ? (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          ) : (
+            <Checkbox
+              id={checkboxId}
+              checked={revealed}
+              onCheckedChange={(next) => mutation.mutate(next === true)}
+            />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <label
+            htmlFor={checkboxId}
+            className="cursor-pointer text-sm font-semibold"
+          >
             {creator.displayName}
-          </div>
+          </label>
           <div className="mt-0.5 truncate text-xs text-muted-foreground">
             {creator.city ?? "—"}
             {creator.instagramUsername ? ` · @${creator.instagramUsername}` : ""}
+            {/*
+              The opaque id is the one value that stays unique per creator once
+              a name is shown, so two creators with the same real name are
+              still tellable apart in this list.
+            */}
+            {` · id `}
+            <span className="font-mono">{creator.publicSlug}</span>
           </div>
-          {/*
-            Always shown, even once a name is revealed: it is the one value
-            that is unique per creator, so two creators with the same real
-            name stay tellable apart in this list.
-          */}
-          <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground/70">
-            id {creator.publicSlug}
-          </div>
-          {publicUrl && (
+        </div>
+
+        <div className="shrink-0 text-right">
+          {revealed && publicUrl ? (
             <a
               href={publicUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <ExternalLink className="size-3 shrink-0" />
-              <span className="truncate">/{canonicalSlug}</span>
+              <span>/{canonicalSlug}</span>
             </a>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Anonymous · /{creator.publicSlug}
+            </span>
           )}
-        </div>
-
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-          <Input
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            placeholder="Leave empty to stay anonymous"
-            maxLength={80}
-            disabled={mutation.isPending}
-            className="flex-1"
-          />
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              disabled={!dirty || mutation.isPending}
-              onClick={() => mutation.mutate(trimmed || null)}
-            >
-              {mutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Check className="size-4" />
-              )}
-              Save
-            </Button>
-            {saved && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={mutation.isPending}
-                onClick={() => {
-                  setValue("");
-                  mutation.mutate(null);
-                }}
-              >
-                <X className="size-4" />
-                Hide name
-              </Button>
-            )}
-          </div>
         </div>
       </div>
 
-      {creator.publicNameShared && (
-        <p className="mt-2 text-xs text-amber-700 lg:ml-68">
-          Another creator also uses this name, so this page is at{" "}
-          <span className="font-medium">/{canonicalSlug}</span>. Both pages
-          work and stay separate.
+      {/*
+        Stated as a fact about the URL, not about the other creator: they may
+        since have been un-ticked, but this page keeps the URL it was given.
+      */}
+      {revealed && creator.publicNameShared && (
+        <p className="mt-2 pl-8 text-xs text-amber-700">
+          Another creator shares this name, so the plain name URL was taken and
+          this page is at <span className="font-medium">/{canonicalSlug}</span>.
         </p>
       )}
     </div>

@@ -65,7 +65,6 @@ export class AdminCreatorsListQueryDto extends CreatorFilterQueryDto {
   @IsString()
   @MaxLength(120)
   search?: string;
-
 }
 
 /**
@@ -247,27 +246,27 @@ export class AdminCreatorListItemDto {
   })
   publicSlug!: string;
 
-  @ApiPropertyOptional({
-    example: 'Riya Sharma',
-    nullable: true,
+  @ApiProperty({
+    example: false,
     description:
-      'Admin-revealed real name. Null keeps the creator anonymous. Shown ' +
-      'ONLY on the public profile page — never on orders, chat or browse.',
+      "True when an admin has revealed this creator's name on their public " +
+      'page. The name shown there is `displayName`. Orders, chat and browse ' +
+      'stay anonymous either way.',
   })
-  publicDisplayName?: string | null;
+  publicNameRevealed!: boolean;
 
   @ApiPropertyOptional({
     example: 'riya-sharma',
     nullable: true,
-    description: 'Canonical URL segment while a name is revealed.',
+    description: 'Canonical URL segment while the name is revealed.',
   })
   publicNameSlug?: string | null;
 
   @ApiProperty({
     example: false,
     description:
-      'True when this name is already another creator\'s, so the URL carries ' +
-      'a numeric suffix (/riya-sharma-2) to keep the two pages apart.',
+      'True when another creator has the same name, so this URL carries a ' +
+      'numeric suffix (/riya-sharma-2) to keep the two pages apart.',
   })
   publicNameShared!: boolean;
 
@@ -412,22 +411,22 @@ export class AdminBrowseOrderListResponseDto {
 }
 
 export class AdminCreatorPublicNameDto {
-  @ApiPropertyOptional({
-    example: 'Riya Sharma',
-    nullable: true,
+  @ApiProperty({
+    example: true,
     description:
-      'Name to reveal on the creator public page. Send null or an empty ' +
-      'string to hide the name again and return the page to anonymous.',
+      "Show the creator's name (their profile `displayName`) on their public " +
+      'page. False returns the page to the anonymous niche headline.',
   })
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  publicDisplayName?: string | null;
+  @IsBoolean()
+  reveal!: boolean;
 }
 
 export class AdminCreatorPublicNameResultDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
+
+  @ApiProperty({ example: true })
+  publicNameRevealed!: boolean;
 
   @ApiPropertyOptional({ example: 'Riya Sharma', nullable: true })
   publicDisplayName!: string | null;
@@ -449,7 +448,7 @@ export class AdminCreatorPublicNameResultDto {
   @ApiProperty({
     example: false,
     description:
-      'True when another creator already has this name, so this one\'s URL ' +
+      "True when another creator already has this name, so this one's URL " +
       'got a numeric suffix.',
   })
   publicNameShared!: boolean;

@@ -301,6 +301,32 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
    */
   instagramFollowers?: number | null;
   instagramUsername?: string | null;
+  /** Opaque public profile slug — always resolves, even once a name is set. */
+  publicSlug: string;
+  /**
+   * True when an admin has chosen to show this creator's name on their public
+   * page. The name shown there is `displayName`. Orders, chat and brand browse
+   * stay anonymous either way.
+   */
+  publicNameRevealed?: boolean;
+  /** Canonical public URL segment while the name is shown. */
+  publicNameSlug?: string | null;
+  /**
+   * True when another creator has the same name, so this one's URL carries a
+   * numeric suffix (/riya-sharma-2) to keep the pages apart.
+   */
+  publicNameShared?: boolean;
+}
+
+export interface AdminCreatorPublicNameResultDto {
+  id: string;
+  publicNameRevealed: boolean;
+  publicDisplayName: string | null;
+  publicNameSlug: string | null;
+  publicSlug: string;
+  /** Slug the public page is served from now (name slug, else opaque slug). */
+  canonicalSlug: string;
+  publicNameShared: boolean;
 }
 
 export interface AdminCreatorsListResponseDto {

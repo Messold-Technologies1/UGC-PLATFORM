@@ -65,7 +65,6 @@ export class AdminCreatorsListQueryDto extends CreatorFilterQueryDto {
   @IsString()
   @MaxLength(120)
   search?: string;
-
 }
 
 /**
@@ -239,6 +238,38 @@ export class AdminCreatorListItemDto {
   })
   missingRequirements?: string[];
 
+  @ApiProperty({
+    example: 'k7m2p9qx',
+    description:
+      'Opaque public profile slug. Always valid; redirects to the name URL ' +
+      'once a name has been revealed.',
+  })
+  publicSlug!: string;
+
+  @ApiProperty({
+    example: false,
+    description:
+      "True when an admin has revealed this creator's name on their public " +
+      'page. The name shown there is `displayName`. Orders, chat and browse ' +
+      'stay anonymous either way.',
+  })
+  publicNameRevealed!: boolean;
+
+  @ApiPropertyOptional({
+    example: 'riya-sharma',
+    nullable: true,
+    description: 'Canonical URL segment while the name is revealed.',
+  })
+  publicNameSlug?: string | null;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True when another creator has the same name, so this URL carries a ' +
+      'numeric suffix (/riya-sharma-2) to keep the two pages apart.',
+  })
+  publicNameShared!: boolean;
+
   @ApiProperty()
   submittedAt!: Date;
 }
@@ -377,4 +408,48 @@ export class AdminBrowseOrderListResponseDto {
     description: 'When the next scheduled reshuffle will rewrite it.',
   })
   nextReshuffleAt!: string;
+}
+
+export class AdminCreatorPublicNameDto {
+  @ApiProperty({
+    example: true,
+    description:
+      "Show the creator's name (their profile `displayName`) on their public " +
+      'page. False returns the page to the anonymous niche headline.',
+  })
+  @IsBoolean()
+  reveal!: boolean;
+}
+
+export class AdminCreatorPublicNameResultDto {
+  @ApiProperty({ example: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: true })
+  publicNameRevealed!: boolean;
+
+  @ApiPropertyOptional({ example: 'Riya Sharma', nullable: true })
+  publicDisplayName!: string | null;
+
+  @ApiPropertyOptional({ example: 'riya-sharma', nullable: true })
+  publicNameSlug!: string | null;
+
+  @ApiProperty({ example: 'k7m2p9qx' })
+  publicSlug!: string;
+
+  @ApiProperty({
+    example: 'riya-sharma',
+    description:
+      'Slug the public page is served from now: the name slug when a name is ' +
+      'revealed, otherwise the opaque slug.',
+  })
+  canonicalSlug!: string;
+
+  @ApiProperty({
+    example: false,
+    description:
+      "True when another creator already has this name, so this one's URL " +
+      'got a numeric suffix.',
+  })
+  publicNameShared!: boolean;
 }

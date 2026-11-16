@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { fetchPublicPortfolioVideosByCreatorIdServer } from "@/features/creator-portfolio/api/fetch-public-portfolio-videos.server";
 import { fetchCreatorProfileByPublicSlug } from "@/features/creators/api/fetch-creator-profile-by-slug";
 import { PublicProfileTemplateHost } from "@/features/creators/components/public-creator-profile/templates/public-profile-template-host";
@@ -36,14 +36,19 @@ export async function generateMetadata({
   const result = await fetchCreatorProfileByPublicSlug(displayName);
   if (!result.ok) return { title: "Creator" };
 
-  // Creators are anonymous to brands — the title/description never carry the
-  // real name or the opaque slug. Lead with the niche when available.
+  // Creators are anonymous by default — the title never carries the opaque
+  // slug, and carries the real name only for creators an admin has chosen to
+  // reveal. Lead with the niche otherwise.
   const niche = result.profile.facetSelections?.find(
     (f) => f.dimension === "CONTENT_CATEGORY",
   )?.label;
-  const title = niche
+  const revealedName = result.profile.publicDisplayName?.trim();
+  const nicheTitle = niche
     ? `${niche} Creator · GoCollab`
     : "UGC Creator · GoCollab";
+  const title = revealedName
+    ? `${revealedName} · ${niche ? `${niche} Creator` : "UGC Creator"} · GoCollab`
+    : nicheTitle;
   return {
     title,
     description:
@@ -67,6 +72,15 @@ export default async function PublicCreatorProfileByDisplayNamePage({
       throw new Error("Unable to load creator profile. Please try again.");
     }
     notFound();
+  }
+
+  // Once a name is revealed the name slug is canonical. The opaque slug keeps
+  // resolving so links already shared never break — it just lands here first
+  // and is redirected, which also stops the same page being served from two
+  // URLs.
+  const canonicalSlug = result.profile.publicNameSlug?.trim();
+  if (canonicalSlug && canonicalSlug !== displayName.toLowerCase()) {
+    redirect(`/${encodeURIComponent(canonicalSlug)}`);
   }
 
   const portfolioVideos = await fetchPublicPortfolioVideosByCreatorIdServer(

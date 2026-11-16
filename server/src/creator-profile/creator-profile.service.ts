@@ -49,7 +49,9 @@ import {
   toListedCompletenessInput,
 } from './listed-completeness.query';
 import {
+  allocateUniqueCreatorPublicNameSlug,
   allocateUniqueCreatorPublicSlug,
+  isSharedCreatorPublicName,
   normalizeCreatorPublicProfileSlug,
 } from './creator-public-slug.util';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
@@ -61,6 +63,7 @@ import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
 import {
   AdminBrowseOrderListResponseDto,
   AdminCreatorListItemDto,
+  AdminCreatorPublicNameResultDto,
   AdminCreatorListSegment,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
@@ -1844,15 +1847,112 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator not found');
     }
 
-    const profile = await this.prisma.creatorProfile.findUnique({
-      where: { publicSlug: normalized },
-      select: { id: true },
+    // Either slug resolves: the opaque `publicSlug` keeps working forever so
+    // links already shared don't break, and `publicNameSlug` is the canonical
+    // URL once an admin reveals the name. The caller redirects to
+    // `publicNameSlug` when the request came in on the opaque one.
+    const profile = await this.prisma.creatorProfile.findFirst({
+      where: {
+        OR: [{ publicNameSlug: normalized }, { publicSlug: normalized }],
+      },
+      select: {
+        id: true,
+        displayName: true,
+        publicNameSlug: true,
+      },
     });
     if (!profile) {
       throw new NotFoundException('Creator not found');
     }
 
-    return this.getCreatorById(viewerUserId, profile.id, brandProfileId);
+    const dto = await this.getCreatorById(
+      viewerUserId,
+      profile.id,
+      brandProfileId,
+    );
+
+    // The revealed name rides on this endpoint ONLY, and only once an admin
+    // has set a name slug. Every other surface (orders, chat, the brand
+    // browse drawer) goes through getCreatorById, which keeps the creator
+    // anonymous. The name is read live off `displayName` — there is no second
+    // copy of it to fall out of step with the profile.
+    return {
+      ...dto,
+      publicDisplayName: profile.publicNameSlug ? profile.displayName : null,
+      publicNameSlug: profile.publicNameSlug ?? null,
+    };
+  }
+
+  /**
+   * Show (or hide) a creator's real name on their public profile page.
+   *
+   * Revealing mints a URL slug from the creator's own `displayName` and makes
+   * it the canonical public URL; hiding clears the slug and the page goes back
+   * to the anonymous niche headline on its opaque slug. `publicSlug` is never
+   * rewritten either way, so links already shared keep resolving.
+   */
+  async setCreatorPublicNameRevealed(
+    creatorProfileId: string,
+    reveal: boolean,
+  ): Promise<AdminCreatorPublicNameResultDto> {
+    const existing = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: { id: true, publicSlug: true, displayName: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Creator not found');
+    }
+
+    if (!reveal) {
+      await this.prisma.creatorProfile.update({
+        where: { id: creatorProfileId },
+        data: { publicNameSlug: null },
+        select: { id: true },
+      });
+      return {
+        id: existing.id,
+        publicNameRevealed: false,
+        publicDisplayName: null,
+        publicNameSlug: null,
+        publicSlug: existing.publicSlug,
+        canonicalSlug: existing.publicSlug,
+        publicNameShared: false,
+      };
+    }
+
+    const nameSlug = await allocateUniqueCreatorPublicNameSlug(
+      this.prisma as unknown as Parameters<
+        typeof allocateUniqueCreatorPublicNameSlug
+      >[0],
+      existing.displayName,
+      creatorProfileId,
+    );
+    if (!nameSlug) {
+      // e.g. a profile name that is only emoji or punctuation — there is no
+      // URL to make from it, so the reveal cannot go ahead.
+      throw new BadRequestException(
+        "This creator's name has no letters or digits to build a URL from.",
+      );
+    }
+
+    const updated = await this.prisma.creatorProfile.update({
+      where: { id: creatorProfileId },
+      data: { publicNameSlug: nameSlug },
+      select: { id: true, publicSlug: true, displayName: true, publicNameSlug: true },
+    });
+
+    return {
+      id: updated.id,
+      publicNameRevealed: true,
+      publicDisplayName: updated.displayName,
+      publicNameSlug: updated.publicNameSlug,
+      publicSlug: updated.publicSlug,
+      canonicalSlug: updated.publicNameSlug ?? updated.publicSlug,
+      publicNameShared: isSharedCreatorPublicName(
+        updated.displayName,
+        updated.publicNameSlug,
+      ),
+    };
   }
 
   private mapPendingCreatorApprovalListItem(
@@ -1956,6 +2056,13 @@ export class CreatorProfileService {
       ),
       instagramFollowers: instagram?.followersCount ?? null,
       instagramUsername: instagram?.username ?? null,
+      publicSlug: profile.publicSlug,
+      publicNameRevealed: !!profile.publicNameSlug,
+      publicNameSlug: profile.publicNameSlug ?? null,
+      publicNameShared: isSharedCreatorPublicName(
+        profile.displayName,
+        profile.publicNameSlug ?? null,
+      ),
     };
   }
 

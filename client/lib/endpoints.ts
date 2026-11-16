@@ -262,6 +262,8 @@ export const ENDPOINTS = {
       FIRST_ORDER_FREE_LIST: "/api/admin/creators/first-order-free",
       PAYOUT_DETAILS: (id: string) =>
         `/api/admin/creators/${encodeURIComponent(id)}/payout-details`,
+      PUBLIC_NAME: (id: string) =>
+        `/api/admin/creators/${encodeURIComponent(id)}/public-name`,
     },
     BRANDS: {
       LIST: "/api/admin/brands",

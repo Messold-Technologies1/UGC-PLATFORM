@@ -375,6 +375,13 @@ model CreatorProfile {
   displayName                  String
   /// Unique URL slug for public profile (e.g. "riyasharma" or "riyasharma-4821").
   publicSlug                   String                      @unique
+  /// Set when an admin has chosen to reveal this creator's real name on their
+  /// PUBLIC profile page. Holds the URL slug derived from `displayName` at
+  /// reveal time (e.g. "riya-sharma"); null (the default) keeps the creator
+  /// anonymous. The name itself is read live from `displayName`, so there is
+  /// no second copy to drift. `publicSlug` stays valid and redirects here.
+  /// Never used on orders, chat, the brand browse drawer or anywhere else.
+  publicNameSlug               String?                     @unique
   /// Which public-page template the creator's public profile renders with.
   /// Plain string (not an enum) so adding a template needs no migration; the
   /// client falls back to the default when the id is not in its registry.

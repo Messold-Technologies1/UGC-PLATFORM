@@ -1,6 +1,7 @@
 import {
   Bell,
   Building2,
+  CalendarClock,
   ChartBar,
   FileText,
   Link2,
@@ -51,6 +52,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: "Content",
     items: [
       { href: "/admin/demo-videos", label: "Demo videos", icon: Video },
+      { href: "/admin/events", label: "Creator events", icon: CalendarClock },
       { href: "/admin/legal", label: "Legal pages", icon: FileText },
     ],
   },

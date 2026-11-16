@@ -24,6 +24,7 @@ import { OrderChatModule } from './order-chat/order-chat.module';
 import { ChatsModule } from './chats/chats.module';
 import { BriefsModule } from './briefs/briefs.module';
 import { WishlistsModule } from './wishlists/wishlists.module';
+import { CreatorEventsModule } from './creator-events/creator-events.module';
 import { BrandAccessModule } from './brand-access/brand-access.module';
 import { AgencyModule } from './agency/agency.module';
 import { AgencyBrandLinkModule } from './agency-brand-link/agency-brand-link.module';
@@ -77,6 +78,7 @@ import { PushModule } from './push/push.module';
     WalletModule,
     BriefsModule,
     WishlistsModule,
+    CreatorEventsModule,
     OrderChatModule,
     ChatsModule,
     WebhooksModule,

@@ -255,6 +255,7 @@ model User {
   passwordResetTokens         PasswordResetToken[]
   contactMessagesRead         ContactMessage[]           @relation("ContactMessageReadBy")
   pushSubscriptions           PushSubscription[]
+  hiddenCreatorEvents         CreatorEvent[]             @relation("CreatorEventHiddenBy")
 
   @@index([status])
   @@index([deletedAt])
@@ -503,6 +504,7 @@ model CreatorProfile {
   unavailability    CreatorUnavailability?
   socialConnections SocialConnection[]
   engagementDays    CreatorEngagementDaily[]
+  events            CreatorEvent[]
 
   @@index([city])
   @@index([countryName])
@@ -1755,6 +1757,58 @@ model CreatorUnavailability {
   creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@index([startsOn, endsOn])
+}
+
+/// A creator's short free-text status post — "travelling to Jaipur this week",
+/// "set up a home studio", "off sick until Monday". Deliberately text-only: no
+/// media, no date range, no reactions. Brands read these as one chronological
+/// feed at /brand/events.
+///
+/// Carries NO availability meaning. A creator writing "taking a break" here
+/// does not touch `CreatorUnavailability`, which stays the one explicit place
+/// bookable dates are set — otherwise a post would silently stop orders.
+model CreatorEvent {
+  id        String @id @default(uuid()) @db.Uuid
+  creatorId String @db.Uuid
+
+  /// The whole post. 1–500 characters after trimming. Newlines are kept and
+  /// the client renders with `white-space: pre-line`; everything else is plain
+  /// text, escaped at render. No HTML, no markdown, no autolinking.
+  body String @db.VarChar(500)
+
+  /// Set the first time the body changes, so the card can show "edited". Null
+  /// means never edited. Distinct from `updatedAt`, which also moves when an
+  /// admin hides the post.
+  editedAt DateTime?
+
+  /// Soft moderation. Non-null removes the post from the brand feed at once.
+  /// The CREATOR still sees it in their own list with a Hidden banner, so
+  /// nothing vanishes on them without an explanation. Never a hard delete: the
+  /// row is the evidence for the decision.
+  ///
+  /// The free-text body is the one field where a creator could publish their
+  /// own real name or phone number, which the rest of the platform keeps
+  /// private behind `publicSlug`. That — not profanity — is what this is for.
+  hiddenAt       DateTime?
+  hiddenByUserId String?   @db.Uuid
+  hiddenReason   String?   @db.VarChar(200)
+
+  /// Creator-initiated removal. Separate from `hiddenAt` so a creator tidying
+  /// their own feed is never confused with a moderation action in the admin
+  /// table or in a support conversation.
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator      CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  hiddenByUser User?          @relation("CreatorEventHiddenBy", fields: [hiddenByUserId], references: [id], onDelete: SetNull)
+
+  /// The creator's own list, newest first.
+  @@index([creatorId, createdAt(sort: Desc)])
+  /// The brand feed's keyset page: ORDER BY createdAt DESC, id DESC.
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([hiddenByUserId])
 }
 
 model CreatorPackage {

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { setCreatorPublicName } from "@/features/admin/api/set-creator-public-name";
+import { CreatorAvatar } from "@/features/admin/components/admin-creator-list-row";
 import { getAdminCreatorTabs } from "@/features/admin/constants/admin-creator-tabs";
 import { useAdminCreatorsQuery } from "@/features/admin/hooks/use-admin-creators-query";
 import { creatorPublicProfileUrl } from "@/features/creators/lib/creator-public-profile-url";
@@ -208,8 +209,8 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
 
   return (
     <div className="rounded-2xl border border-border/10 bg-card/10 p-4 glass-panel">
-      <div className="flex items-start gap-3 sm:gap-4">
-        <div className="flex size-5 shrink-0 items-center justify-center pt-0.5">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex size-5 shrink-0 items-center justify-center self-center">
           {mutation.isPending ? (
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
           ) : (
@@ -220,6 +221,8 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
             />
           )}
         </div>
+
+        <CreatorAvatar creator={creator} size="sm" />
 
         <div className="min-w-0 flex-1">
           <label
@@ -241,7 +244,7 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
           </div>
         </div>
 
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 self-center text-right">
           {revealed && publicUrl ? (
             <a
               href={publicUrl}
@@ -265,7 +268,7 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
         since have been un-ticked, but this page keeps the URL it was given.
       */}
       {revealed && creator.publicNameShared && (
-        <p className="mt-2 pl-8 text-xs text-amber-700">
+        <p className="mt-2 pl-[4.25rem] text-xs text-amber-700">
           Another creator shares this name, so the plain name URL was taken and
           this page is at <span className="font-medium">/{canonicalSlug}</span>.
         </p>

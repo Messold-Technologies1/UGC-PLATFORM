@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
@@ -95,7 +96,19 @@ function getRowDateColumn(
   };
 }
 
-function CreatorAvatar({ creator }: { creator: AdminCreatorListItemDto }) {
+const CREATOR_AVATAR_SIZES = {
+  sm: { box: "h-10 w-10", text: "text-sm", px: "40px" },
+  md: { box: "h-14 w-14", text: "text-lg", px: "56px" },
+} as const;
+
+export function CreatorAvatar({
+  creator,
+  size = "md",
+}: {
+  creator: Pick<AdminCreatorListItemDto, "displayName" | "profileImageUrl">;
+  size?: keyof typeof CREATOR_AVATAR_SIZES;
+}) {
+  const { box, text, px } = CREATOR_AVATAR_SIZES[size];
   const initials = creator.displayName
     .split(" ")
     .filter(Boolean)
@@ -106,24 +119,36 @@ function CreatorAvatar({ creator }: { creator: AdminCreatorListItemDto }) {
 
   if (creator.profileImageUrl) {
     return (
-      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-border bg-muted">
-        {/* unoptimized: 56px avatar loaded straight from the CDN. The Next image
-            optimizer chokes when a whole list of large source photos is resized
-            at once, which left the avatars broken while the raw URLs load fine. */}
+      <div
+        className={cn(
+          "relative shrink-0 overflow-hidden rounded-full border-2 border-border bg-muted",
+          box,
+        )}
+      >
+        {/* unoptimized: a small avatar loaded straight from the CDN. The Next
+            image optimizer chokes when a whole list of large source photos is
+            resized at once, which left the avatars broken while the raw URLs
+            load fine. */}
         <Image
           src={creator.profileImageUrl}
           alt={`${creator.displayName} profile`}
           fill
           unoptimized
           className="object-cover"
-          sizes="56px"
+          sizes={px}
         />
       </div>
     );
   }
 
   return (
-    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-border bg-primary/10 font-headline text-lg font-bold text-primary">
+    <div
+      className={cn(
+        "relative flex shrink-0 items-center justify-center rounded-full border-2 border-border bg-primary/10 font-headline font-bold text-primary",
+        box,
+        text,
+      )}
+    >
       {initials || creator.displayName.charAt(0).toUpperCase()}
     </div>
   );

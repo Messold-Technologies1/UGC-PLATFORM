@@ -8,6 +8,7 @@ import { AdminCreatorBrowseOrderBoard } from "@/features/admin/components/admin-
 import { AdminCreatorListFiltersBar } from "@/features/admin/components/admin-creator-list-filters";
 import { AdminCreatorSegmentTabs } from "@/features/admin/components/admin-creator-segment-tabs";
 import { AdminBuildingProfileAnalytics } from "@/features/admin/components/admin-building-profile-analytics";
+import { AdminCreatorPublicNames } from "@/features/admin/components/admin-creator-public-names";
 import { AdminListedCreatorsExportButton } from "@/features/admin/components/admin-listed-creators-export-button";
 import {
   getAdminCreatorEmptyMessage,
@@ -48,6 +49,7 @@ function AdminCreatorsPageInner() {
   const tabParam = searchParams.get("tab");
   const viewParam = searchParams.get("view");
   const analyticsActive = viewParam === "analytics";
+  const publicNamesActive = viewParam === "public-names";
   const highlightedCreatorId = searchParams.get("highlightedCreatorId");
 
   const [segment, setSegment] = useState<AdminCreatorListSegment>(
@@ -94,7 +96,8 @@ function AdminCreatorsPageInner() {
   // creator, as the card brands see, so no row list, no search and no
   // pagination. Search is left out on purpose — dragging inside a filtered
   // list would save positions that do not line up with the real board.
-  const isBrowseOrderBoard = segment === "featured" && !analyticsActive;
+  const isBrowseOrderBoard =
+    segment === "featured" && !analyticsActive && !publicNamesActive;
 
   const handleTabChange = (next: AdminCreatorListSegment) => {
     setSegment(next);
@@ -113,6 +116,13 @@ function AdminCreatorsPageInner() {
     router.replace(`/admin/creators?${params.toString()}`);
   };
 
+  const handleSelectPublicNames = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "public-names");
+    params.delete("highlightedCreatorId");
+    router.replace(`/admin/creators?${params.toString()}`);
+  };
+
   return (
     <>
       <div className="space-y-8 p-8">
@@ -127,7 +137,7 @@ function AdminCreatorsPageInner() {
           (reordering a filtered board would save positions that do not match
           the real one).
         */}
-        {analyticsActive || isBrowseOrderBoard ? null : (
+        {analyticsActive || publicNamesActive || isBrowseOrderBoard ? null : (
           <AdminCreatorListFiltersBar
             filters={filters}
             isLoading={searchLoading}
@@ -145,10 +155,14 @@ function AdminCreatorsPageInner() {
           onChange={handleTabChange}
           analyticsActive={analyticsActive}
           onSelectAnalytics={handleSelectAnalytics}
+          publicNamesActive={publicNamesActive}
+          onSelectPublicNames={handleSelectPublicNames}
         />
 
         {analyticsActive ? (
           <AdminBuildingProfileAnalytics enabled={analyticsActive} />
+        ) : publicNamesActive ? (
+          <AdminCreatorPublicNames />
         ) : isBrowseOrderBoard ? (
           <AdminCreatorBrowseOrderBoard />
         ) : isError && !isLoading ? (

@@ -377,7 +377,7 @@ export function buildCreatorListSearchWhere(
   // Note: the creator's real name is intentionally never matched (privacy).
 }
 
-/** Admin queues: search by name, email, phone, or public slug. */
+/** Admin queues: search by name, email, phone, or either public slug. */
 export function buildAdminCreatorApprovalSearchWhere(
   search?: string,
 ): Prisma.CreatorProfileWhereInput | undefined {
@@ -389,6 +389,7 @@ export function buildAdminCreatorApprovalSearchWhere(
       { displayName: like },
       { contactEmail: like },
       { publicSlug: like },
+      { publicNameSlug: like },
       { user: { email: like } },
       { user: { phone: { contains: q } } },
     ],

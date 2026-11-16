@@ -49,6 +49,7 @@ import {
   toListedCompletenessInput,
 } from './listed-completeness.query';
 import {
+  allocateUniqueCreatorPublicNameSlug,
   allocateUniqueCreatorPublicSlug,
   normalizeCreatorPublicProfileSlug,
 } from './creator-public-slug.util';
@@ -61,6 +62,7 @@ import { PendingApprovalsQueryDto } from './dto/admin-creator-approval.dto';
 import {
   AdminBrowseOrderListResponseDto,
   AdminCreatorListItemDto,
+  AdminCreatorPublicNameResultDto,
   AdminCreatorListSegment,
   AdminCreatorsListQueryDto,
   AdminCreatorsListResponseDto,
@@ -1844,15 +1846,113 @@ export class CreatorProfileService {
       throw new NotFoundException('Creator not found');
     }
 
-    const profile = await this.prisma.creatorProfile.findUnique({
-      where: { publicSlug: normalized },
-      select: { id: true },
+    // Either slug resolves: the opaque `publicSlug` keeps working forever so
+    // links already shared don't break, and `publicNameSlug` is the canonical
+    // URL once an admin reveals the name. The caller redirects to
+    // `publicNameSlug` when the request came in on the opaque one.
+    const profile = await this.prisma.creatorProfile.findFirst({
+      where: {
+        OR: [{ publicNameSlug: normalized }, { publicSlug: normalized }],
+      },
+      select: {
+        id: true,
+        publicDisplayName: true,
+        publicNameSlug: true,
+      },
     });
     if (!profile) {
       throw new NotFoundException('Creator not found');
     }
 
-    return this.getCreatorById(viewerUserId, profile.id, brandProfileId);
+    const dto = await this.getCreatorById(
+      viewerUserId,
+      profile.id,
+      brandProfileId,
+    );
+
+    // The revealed name rides on this endpoint ONLY. Every other surface
+    // (orders, chat, the brand browse drawer) goes through getCreatorById,
+    // which keeps the creator anonymous.
+    return {
+      ...dto,
+      publicDisplayName: profile.publicDisplayName ?? null,
+      publicNameSlug: profile.publicNameSlug ?? null,
+    };
+  }
+
+  /**
+   * Reveal (or hide) a creator's real name on their public profile page.
+   *
+   * Passing a name mints a URL slug from it and makes that the canonical
+   * public URL; passing null clears both fields and the page goes back to the
+   * anonymous niche headline on its opaque slug. `publicSlug` is never
+   * rewritten either way, so old links keep resolving.
+   */
+  async setCreatorPublicDisplayName(
+    creatorProfileId: string,
+    rawName: string | null | undefined,
+  ): Promise<AdminCreatorPublicNameResultDto> {
+    const existing = await this.prisma.creatorProfile.findUnique({
+      where: { id: creatorProfileId },
+      select: { id: true, publicSlug: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Creator not found');
+    }
+
+    const name = typeof rawName === 'string' ? rawName.trim() : '';
+
+    if (!name) {
+      const cleared = await this.prisma.creatorProfile.update({
+        where: { id: creatorProfileId },
+        data: { publicDisplayName: null, publicNameSlug: null },
+        select: {
+          id: true,
+          publicSlug: true,
+          publicDisplayName: true,
+          publicNameSlug: true,
+        },
+      });
+      return {
+        id: cleared.id,
+        publicDisplayName: null,
+        publicNameSlug: null,
+        publicSlug: cleared.publicSlug,
+        canonicalSlug: cleared.publicSlug,
+      };
+    }
+
+    const nameSlug = await allocateUniqueCreatorPublicNameSlug(
+      this.prisma as unknown as Parameters<
+        typeof allocateUniqueCreatorPublicNameSlug
+      >[0],
+      name,
+      creatorProfileId,
+    );
+    if (!nameSlug) {
+      throw new BadRequestException(
+        'That name has no letters or digits to build a URL from.',
+      );
+    }
+
+    const updated = await this.prisma.creatorProfile.update({
+      where: { id: creatorProfileId },
+      data: { publicDisplayName: name, publicNameSlug: nameSlug },
+      select: {
+        id: true,
+        publicSlug: true,
+        publicDisplayName: true,
+        publicNameSlug: true,
+      },
+    });
+
+    return {
+      id: updated.id,
+      publicDisplayName: updated.publicDisplayName,
+      publicNameSlug: updated.publicNameSlug,
+      publicSlug: updated.publicSlug,
+      canonicalSlug: updated.publicNameSlug ?? updated.publicSlug,
+    };
   }
 
   private mapPendingCreatorApprovalListItem(
@@ -1956,6 +2056,9 @@ export class CreatorProfileService {
       ),
       instagramFollowers: instagram?.followersCount ?? null,
       instagramUsername: instagram?.username ?? null,
+      publicSlug: profile.publicSlug,
+      publicDisplayName: profile.publicDisplayName ?? null,
+      publicNameSlug: profile.publicNameSlug ?? null,
     };
   }
 

@@ -142,9 +142,13 @@ export function usePublicProfileViewModel({
   );
   const creatorTypeLabel = facetsByDimension.CREATOR_TYPE?.[0] ?? null;
 
-  // Creators are anonymous to brands: the public page shows a niche-derived
-  // headline and never `displayName`.
-  const headline = categories[0] ? `${categories[0]} Creator` : "UGC Creator";
+  // Creators are anonymous by default: the headline is derived from the niche
+  // and never from `displayName`. An admin can reveal a real name per creator
+  // (`publicDisplayName`), which the API sends on this endpoint only — the
+  // niche stays on as the category pills below the headline.
+  const nicheLabel = categories[0] ? `${categories[0]} Creator` : "UGC Creator";
+  const revealedName = profile.publicDisplayName?.trim() || null;
+  const headline = revealedName ?? nicheLabel;
   const headlineWords = headline.split(" ");
   const headlineTail = headlineWords[headlineWords.length - 1];
   const headlineLead = headlineWords.slice(0, -1).join(" ");
@@ -426,6 +430,8 @@ export function usePublicProfileViewModel({
     headline,
     headlineLead,
     headlineTail,
+    nicheLabel,
+    revealedName,
     initials,
     avatarUrl: profile.profileImageUrl ?? null,
     verified: profile.approvalStatus === "APPROVED",

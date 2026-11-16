@@ -47,6 +47,8 @@ import {
   AdminCreatorFilterOptionsDto,
   AdminCreatorSegmentCountsDto,
   AdminCreatorSegmentCountsQueryDto,
+  AdminCreatorPublicNameDto,
+  AdminCreatorPublicNameResultDto,
 } from './dto/admin-creator-list.dto';
 import {
   FirstOrderFreeCreatorsQueryDto,
@@ -326,6 +328,29 @@ export class AdminCreatorController {
     @Body() dto: AdminFirstOrderFreeDto,
   ): Promise<AdminCreatorListItemDto> {
     return this.creatorProfileService.setFirstOrderFree(id, dto.enabled);
+  }
+
+  @Patch(':id/public-name')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Reveal (or hide) a creator's real name on their public page",
+    description:
+      'Setting a name makes it the headline on the public profile page and ' +
+      'mints a URL slug from it (e.g. /riya-sharma), which becomes the ' +
+      'canonical public URL. The opaque slug keeps resolving and redirects ' +
+      'there. Sending null or an empty name clears both and the page returns ' +
+      'to the anonymous niche headline. The name is used by the public page ' +
+      'only — orders, chat and brand browse stay anonymous.',
+  })
+  @ApiOkResponse({ type: AdminCreatorPublicNameResultDto })
+  async setCreatorPublicName(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminCreatorPublicNameDto,
+  ): Promise<AdminCreatorPublicNameResultDto> {
+    return this.creatorProfileService.setCreatorPublicDisplayName(
+      id,
+      dto.publicDisplayName ?? null,
+    );
   }
 
   @Patch(':id')

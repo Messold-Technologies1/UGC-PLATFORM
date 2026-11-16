@@ -158,6 +158,25 @@ export class CreatorProfileResponseDto {
   })
   publicSlug!: string;
 
+  @ApiPropertyOptional({
+    example: 'Riya Sharma',
+    nullable: true,
+    description:
+      "Admin-revealed real name, returned ONLY by the public-profile-by-slug " +
+      'endpoint that the public page renders from. Null (the default) keeps ' +
+      'the creator anonymous. Never present on orders, chat or brand browse.',
+  })
+  publicDisplayName?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'riya-sharma',
+    nullable: true,
+    description:
+      'Canonical public URL segment while a name is revealed. Requests on ' +
+      '`publicSlug` redirect here.',
+  })
+  publicNameSlug?: string | null;
+
   @ApiProperty({
     example: 'v3',
     description:

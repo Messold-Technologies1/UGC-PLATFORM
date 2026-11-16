@@ -239,6 +239,30 @@ export class AdminCreatorListItemDto {
   })
   missingRequirements?: string[];
 
+  @ApiProperty({
+    example: 'k7m2p9qx',
+    description:
+      'Opaque public profile slug. Always valid; redirects to the name URL ' +
+      'once a name has been revealed.',
+  })
+  publicSlug!: string;
+
+  @ApiPropertyOptional({
+    example: 'Riya Sharma',
+    nullable: true,
+    description:
+      'Admin-revealed real name. Null keeps the creator anonymous. Shown ' +
+      'ONLY on the public profile page — never on orders, chat or browse.',
+  })
+  publicDisplayName?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'riya-sharma',
+    nullable: true,
+    description: 'Canonical URL segment while a name is revealed.',
+  })
+  publicNameSlug?: string | null;
+
   @ApiProperty()
   submittedAt!: Date;
 }
@@ -377,4 +401,40 @@ export class AdminBrowseOrderListResponseDto {
     description: 'When the next scheduled reshuffle will rewrite it.',
   })
   nextReshuffleAt!: string;
+}
+
+export class AdminCreatorPublicNameDto {
+  @ApiPropertyOptional({
+    example: 'Riya Sharma',
+    nullable: true,
+    description:
+      'Name to reveal on the creator public page. Send null or an empty ' +
+      'string to hide the name again and return the page to anonymous.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  publicDisplayName?: string | null;
+}
+
+export class AdminCreatorPublicNameResultDto {
+  @ApiProperty({ example: 'uuid' })
+  id!: string;
+
+  @ApiPropertyOptional({ example: 'Riya Sharma', nullable: true })
+  publicDisplayName!: string | null;
+
+  @ApiPropertyOptional({ example: 'riya-sharma', nullable: true })
+  publicNameSlug!: string | null;
+
+  @ApiProperty({ example: 'k7m2p9qx' })
+  publicSlug!: string;
+
+  @ApiProperty({
+    example: 'riya-sharma',
+    description:
+      'Slug the public page is served from now: the name slug when a name is ' +
+      'revealed, otherwise the opaque slug.',
+  })
+  canonicalSlug!: string;
 }

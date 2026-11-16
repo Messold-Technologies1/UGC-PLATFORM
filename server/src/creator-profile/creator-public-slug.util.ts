@@ -60,3 +60,84 @@ export async function allocateUniqueCreatorPublicSlug(
   // Extremely unlikely fallback: widen the token to stay unique.
   return `${generateCreatorPublicSlug()}${generateCreatorPublicSlug()}`;
 }
+
+/**
+ * Route segments the public profile route cannot use, mirrored from the
+ * client's RESERVED_PUBLIC_SLUGS. A revealed name that slugifies to one of
+ * these gets a numeric suffix instead.
+ */
+const RESERVED_PUBLIC_SLUGS = new Set([
+  'brands',
+  'creators',
+  'about',
+  'contact',
+  'legal',
+  'login',
+  'register',
+  'admin',
+  'brand',
+  'creator',
+  'wishlists',
+  'api',
+]);
+
+const NAME_SLUG_MAX_LENGTH = 60;
+
+/**
+ * Turn an admin-entered display name into a URL segment ("Riya  Sharma" ->
+ * "riya-sharma"). Returns '' when the name has nothing sluggable in it.
+ */
+export function slugifyCreatorPublicName(name: string): string {
+  return name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, NAME_SLUG_MAX_LENGTH)
+    .replace(/-+$/, '');
+}
+
+export type CreatorPublicNameSlugLookupClient = {
+  creatorProfile: {
+    findFirst: (args: {
+      where: {
+        OR: Array<{ publicSlug?: string; publicNameSlug?: string }>;
+        NOT?: { id: string };
+      };
+      select: { id: true };
+    }) => Promise<{ id: string } | null>;
+  };
+};
+
+/**
+ * Pick a unique URL segment for a revealed name. Checks BOTH slug columns so a
+ * name slug can never shadow another creator's opaque slug, and appends -2, -3
+ * ... on collision. Returns null when the name has no sluggable characters.
+ */
+export async function allocateUniqueCreatorPublicNameSlug(
+  client: CreatorPublicNameSlugLookupClient,
+  name: string,
+  excludeCreatorId?: string,
+): Promise<string | null> {
+  const base = slugifyCreatorPublicName(name);
+  if (!base) return null;
+
+  const notSelf = excludeCreatorId ? { NOT: { id: excludeCreatorId } } : {};
+
+  for (let attempt = 1; attempt <= 50; attempt++) {
+    const candidate = attempt === 1 ? base : `${base}-${attempt}`;
+    if (RESERVED_PUBLIC_SLUGS.has(candidate)) continue;
+
+    const taken = await client.creatorProfile.findFirst({
+      where: {
+        OR: [{ publicSlug: candidate }, { publicNameSlug: candidate }],
+        ...notSelf,
+      },
+      select: { id: true },
+    });
+    if (!taken) return candidate;
+  }
+
+  return `${base}-${generateCreatorPublicSlug()}`;
+}

@@ -301,6 +301,24 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
    */
   instagramFollowers?: number | null;
   instagramUsername?: string | null;
+  /** Opaque public profile slug — always resolves, even once a name is set. */
+  publicSlug: string;
+  /**
+   * Admin-revealed real name. Null keeps the creator anonymous. Used by the
+   * public profile page only — orders, chat and brand browse never show it.
+   */
+  publicDisplayName?: string | null;
+  /** Canonical public URL segment while a name is revealed. */
+  publicNameSlug?: string | null;
+}
+
+export interface AdminCreatorPublicNameResultDto {
+  id: string;
+  publicDisplayName: string | null;
+  publicNameSlug: string | null;
+  publicSlug: string;
+  /** Slug the public page is served from now (name slug, else opaque slug). */
+  canonicalSlug: string;
 }
 
 export interface AdminCreatorsListResponseDto {

@@ -141,3 +141,17 @@ export async function allocateUniqueCreatorPublicNameSlug(
 
   return `${base}-${generateCreatorPublicSlug()}`;
 }
+
+/**
+ * True when a creator's name slug carries a collision suffix — i.e. another
+ * creator already has this exact name, so the two public pages live at
+ * /riya-sharma and /riya-sharma-2. Lets the admin UI say so instead of leaving
+ * them to spot the "-2".
+ */
+export function isSharedCreatorPublicName(
+  publicDisplayName: string | null,
+  publicNameSlug: string | null,
+): boolean {
+  if (!publicDisplayName || !publicNameSlug) return false;
+  return publicNameSlug !== slugifyCreatorPublicName(publicDisplayName);
+}

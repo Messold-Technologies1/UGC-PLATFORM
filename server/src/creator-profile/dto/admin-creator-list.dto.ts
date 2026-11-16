@@ -263,6 +263,14 @@ export class AdminCreatorListItemDto {
   })
   publicNameSlug?: string | null;
 
+  @ApiProperty({
+    example: false,
+    description:
+      'True when this name is already another creator\'s, so the URL carries ' +
+      'a numeric suffix (/riya-sharma-2) to keep the two pages apart.',
+  })
+  publicNameShared!: boolean;
+
   @ApiProperty()
   submittedAt!: Date;
 }
@@ -437,4 +445,12 @@ export class AdminCreatorPublicNameResultDto {
       'revealed, otherwise the opaque slug.',
   })
   canonicalSlug!: string;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True when another creator already has this name, so this one\'s URL ' +
+      'got a numeric suffix.',
+  })
+  publicNameShared!: boolean;
 }

@@ -310,6 +310,11 @@ export interface AdminCreatorListItemDto extends PendingCreatorApprovalListItemD
   publicDisplayName?: string | null;
   /** Canonical public URL segment while a name is revealed. */
   publicNameSlug?: string | null;
+  /**
+   * True when another creator already has this exact name, so this one's URL
+   * carries a numeric suffix (/riya-sharma-2) to keep the pages apart.
+   */
+  publicNameShared?: boolean;
 }
 
 export interface AdminCreatorPublicNameResultDto {
@@ -319,6 +324,7 @@ export interface AdminCreatorPublicNameResultDto {
   publicSlug: string;
   /** Slug the public page is served from now (name slug, else opaque slug). */
   canonicalSlug: string;
+  publicNameShared: boolean;
 }
 
 export interface AdminCreatorsListResponseDto {

@@ -181,11 +181,19 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
   const mutation = useMutation({
     mutationFn: (name: string | null) => setCreatorPublicName(creator.id, name),
     onSuccess: (result) => {
-      toast.success(
-        result.publicDisplayName
-          ? `Public page now shows "${result.publicDisplayName}"`
-          : "Public page is anonymous again",
-      );
+      if (!result.publicDisplayName) {
+        toast.success("Public page is anonymous again");
+      } else if (result.publicNameShared) {
+        // Another creator already has this name, so this page is at
+        // /riya-sharma-2. Say so rather than leaving the admin to spot it.
+        toast.success(
+          `Saved — another creator already uses that name, so this page is at /${result.canonicalSlug}`,
+        );
+      } else {
+        toast.success(
+          `Public page now shows "${result.publicDisplayName}" at /${result.canonicalSlug}`,
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: ["admin", "creators"] });
     },
     onError: () => {
@@ -210,6 +218,14 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
           <div className="mt-0.5 truncate text-xs text-muted-foreground">
             {creator.city ?? "—"}
             {creator.instagramUsername ? ` · @${creator.instagramUsername}` : ""}
+          </div>
+          {/*
+            Always shown, even once a name is revealed: it is the one value
+            that is unique per creator, so two creators with the same real
+            name stay tellable apart in this list.
+          */}
+          <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground/70">
+            id {creator.publicSlug}
           </div>
           {publicUrl && (
             <a
@@ -265,6 +281,14 @@ function PublicNameRow({ creator }: { creator: AdminCreatorListItemDto }) {
           </div>
         </div>
       </div>
+
+      {creator.publicNameShared && (
+        <p className="mt-2 text-xs text-amber-700 lg:ml-68">
+          Another creator also uses this name, so this page is at{" "}
+          <span className="font-medium">/{canonicalSlug}</span>. Both pages
+          work and stay separate.
+        </p>
+      )}
     </div>
   );
 }

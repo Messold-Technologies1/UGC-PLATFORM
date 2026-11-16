@@ -210,6 +210,63 @@ describe('creator public name reveal', () => {
         expect(prismaMock.creatorProfile.update).not.toHaveBeenCalled();
       });
 
+      it('gives a second creator with the same name its own URL', async () => {
+        // Two real "Riya Sharma"s: the first keeps /riya-sharma, the second
+        // gets /riya-sharma-2. Both pages are reachable and distinct.
+        prismaMock.creatorProfile.findUnique.mockResolvedValue({
+          id: 'creator-2',
+          publicSlug: 'b4t8w1zr',
+        });
+        prismaMock.creatorProfile.findFirst
+          // riya-sharma is already creator-1's
+          .mockResolvedValueOnce({ id: 'creator-1' })
+          .mockResolvedValueOnce(null);
+        prismaMock.creatorProfile.update.mockImplementation(
+          async ({ data }: any) => ({
+            id: 'creator-2',
+            publicSlug: 'b4t8w1zr',
+            ...data,
+          }),
+        );
+
+        const result = await service.setCreatorPublicDisplayName(
+          'creator-2',
+          'Riya Sharma',
+        );
+
+        expect(result.publicDisplayName).toBe('Riya Sharma');
+        expect(result.publicNameSlug).toBe('riya-sharma-2');
+      });
+
+      it('re-saving the same name does not grow another suffix', async () => {
+        // The uniqueness check excludes the creator being edited, so saving
+        // "Riya Sharma" over "Riya Sharma" keeps /riya-sharma.
+        prismaMock.creatorProfile.findUnique.mockResolvedValue({
+          id: 'creator-1',
+          publicSlug: 'k7m2p9qx',
+        });
+        prismaMock.creatorProfile.findFirst.mockResolvedValue(null);
+        prismaMock.creatorProfile.update.mockImplementation(
+          async ({ data }: any) => ({
+            id: 'creator-1',
+            publicSlug: 'k7m2p9qx',
+            ...data,
+          }),
+        );
+
+        const result = await service.setCreatorPublicDisplayName(
+          'creator-1',
+          'Riya Sharma',
+        );
+
+        expect(result.publicNameSlug).toBe('riya-sharma');
+        expect(prismaMock.creatorProfile.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ NOT: { id: 'creator-1' } }),
+          }),
+        );
+      });
+
       it('404s for an unknown creator', async () => {
         prismaMock.creatorProfile.findUnique.mockResolvedValue(null);
 

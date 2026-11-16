@@ -51,6 +51,7 @@ import {
 import {
   allocateUniqueCreatorPublicNameSlug,
   allocateUniqueCreatorPublicSlug,
+  isSharedCreatorPublicName,
   normalizeCreatorPublicProfileSlug,
 } from './creator-public-slug.util';
 import { CreatorsListResponseDto } from './dto/creators-list-response.dto';
@@ -1919,6 +1920,7 @@ export class CreatorProfileService {
         publicNameSlug: null,
         publicSlug: cleared.publicSlug,
         canonicalSlug: cleared.publicSlug,
+        publicNameShared: false,
       };
     }
 
@@ -1952,6 +1954,10 @@ export class CreatorProfileService {
       publicNameSlug: updated.publicNameSlug,
       publicSlug: updated.publicSlug,
       canonicalSlug: updated.publicNameSlug ?? updated.publicSlug,
+      publicNameShared: isSharedCreatorPublicName(
+        updated.publicDisplayName,
+        updated.publicNameSlug,
+      ),
     };
   }
 
@@ -2059,6 +2065,10 @@ export class CreatorProfileService {
       publicSlug: profile.publicSlug,
       publicDisplayName: profile.publicDisplayName ?? null,
       publicNameSlug: profile.publicNameSlug ?? null,
+      publicNameShared: isSharedCreatorPublicName(
+        profile.publicDisplayName ?? null,
+        profile.publicNameSlug ?? null,
+      ),
     };
   }
 

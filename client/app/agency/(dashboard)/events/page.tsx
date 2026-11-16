@@ -10,8 +10,10 @@ export const metadata: Metadata = { title: "Events" };
  */
 export default function AgencyEventsPage() {
   return (
-    <div className="mx-auto w-full max-w-2xl pt-4 lg:pt-5">
-      <EventFeedList />
+    <div className="w-full min-w-0 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10 2xl:px-12">
+      <div className="mx-auto w-full max-w-3xl">
+        <EventFeedList />
+      </div>
     </div>
   );
 }

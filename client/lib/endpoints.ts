@@ -181,6 +181,19 @@ export const ENDPOINTS = {
     IMPORT_SHARED: (shareToken: string) =>
       `/api/wishlists/public/${encodeURIComponent(shareToken)}/import`,
   },
+  CREATOR_EVENTS: {
+    MINE: "/api/creator-events/me",
+    QUOTA: "/api/creator-events/me/quota",
+    CREATE: "/api/creator-events",
+    UPDATE: (id: string) => `/api/creator-events/${encodeURIComponent(id)}`,
+    DELETE: (id: string) => `/api/creator-events/${encodeURIComponent(id)}`,
+    FEED: "/api/creator-events/feed",
+    ADMIN_LIST: "/api/admin/creator-events",
+    ADMIN_HIDE: (id: string) =>
+      `/api/admin/creator-events/${encodeURIComponent(id)}/hide`,
+    ADMIN_UNHIDE: (id: string) =>
+      `/api/admin/creator-events/${encodeURIComponent(id)}/unhide`,
+  },
   CHATS: {
     CREATOR: "/api/chats/creator",
     BRAND: "/api/chats/brand",

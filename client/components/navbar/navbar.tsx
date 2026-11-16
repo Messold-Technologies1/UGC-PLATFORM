@@ -22,6 +22,7 @@ import {
   Handshake,
   Heart,
   Wallet,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,10 @@ const CREATOR_NAV_GATED_HREFS = new Set([
   "/creator/orders",
   "/creator/messages",
   "/creator/portfolio",
+  // An unlisted creator has no audience — the brand feed filters them out —
+  // so sending them to the under-review page beats letting them post into
+  // nothing.
+  "/creator/events",
 ]);
 
 interface NavItem {
@@ -69,6 +74,12 @@ const roleConfigs: Record<string, NavItem[]> = {
       label: "Creators",
       icon: Users,
       tourId: "nav-brand-creators",
+    },
+    {
+      href: "/brand/events",
+      label: "Events",
+      icon: CalendarClock,
+      tourId: "nav-brand-events",
     },
     {
       href: "/brand/orders",
@@ -113,6 +124,12 @@ const roleConfigs: Record<string, NavItem[]> = {
       label: "Creators",
       icon: Users,
       tourId: "nav-brand-creators",
+    },
+    {
+      href: "/agency/events",
+      label: "Events",
+      icon: CalendarClock,
+      tourId: "nav-agency-events",
     },
     {
       href: "/agency/orders",
@@ -169,6 +186,12 @@ const roleConfigs: Record<string, NavItem[]> = {
       label: "Portfolio",
       icon: Briefcase,
       tourId: "nav-creator-portfolio",
+    },
+    {
+      href: "/creator/events",
+      label: "Events",
+      icon: CalendarClock,
+      tourId: "nav-creator-events",
     },
   ],
 };

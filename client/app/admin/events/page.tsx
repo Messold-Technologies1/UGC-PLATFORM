@@ -9,7 +9,7 @@ import { AdminEventsTable } from "@/features/creator-events/components/admin-eve
  */
 export default function AdminEventsPage() {
   return (
-    <div className="pt-4 lg:pt-5">
+    <div className="w-full min-w-0 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 xl:px-10 2xl:px-12">
       <AdminEventsTable />
     </div>
   );

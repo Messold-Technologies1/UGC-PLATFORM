@@ -2,9 +2,17 @@
 
 import { Fragment, useEffect, useRef } from "react";
 import Link from "next/link";
-import { List } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowUp, List, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEventFeedQuery } from "../hooks/use-event-feed-query";
+import {
+  eventFeedQueryKey,
+  useEventFeedQuery,
+} from "../hooks/use-event-feed-query";
+import {
+  newEventsProbeQueryKey,
+  useNewEventsIndicator,
+} from "../hooks/use-new-events-indicator";
 import { eventDayLabel } from "../lib/format-event-time";
 import { EventFeedCard } from "./event-feed-card";
 
@@ -37,7 +45,17 @@ export function EventFeedList() {
     isFetchingNextPage,
   } = useEventFeedQuery();
 
+  const queryClient = useQueryClient();
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const topEventId = data?.pages[0]?.items[0]?.id;
+  const { newCount, atLeast } = useNewEventsIndicator(topEventId);
+
+  function showNewPosts() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    void queryClient.invalidateQueries({ queryKey: eventFeedQueryKey });
+    void queryClient.invalidateQueries({ queryKey: newEventsProbeQueryKey });
+  }
 
   // Infinite scroll. The observer is the only trigger, so a page never loads
   // because of a re-render — `isFetchingNextPage` guards the repeat entry an
@@ -113,6 +131,22 @@ export function EventFeedList() {
 
   return (
     <div>
+      {/* Posts published since this feed loaded. The list itself stays put —
+          splicing them in would move the text under the reader's eyes. */}
+      {newCount > 0 ? (
+        <div className="mb-5 flex justify-center">
+          <button
+            type="button"
+            onClick={showNewPosts}
+            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-gc-brand-muted bg-card px-5 text-[13px] font-bold text-deep-pink shadow-pop hover:bg-gc-brand-soft"
+          >
+            <ArrowUp className="size-3.5" aria-hidden="true" />
+            {newCount}
+            {atLeast ? "+" : ""} new post{newCount === 1 && !atLeast ? "" : "s"}
+          </button>
+        </div>
+      ) : null}
+
       {dated.map(({ event, day, startsDay: newDay }) => {
         return (
           <Fragment key={event.id}>
@@ -142,10 +176,25 @@ export function EventFeedList() {
         </div>
       ) : null}
 
+      {/* The end of a short feed is the most likely place for a brand to run
+          out of things to do, so it points somewhere rather than stopping. */}
       {!hasNextPage ? (
-        <p className="py-4 text-center text-xs font-semibold text-gc-muted-soft">
-          That&rsquo;s everything for now.
-        </p>
+        <div className="mt-2 flex flex-col items-center gap-3 rounded-gc-lg border border-dashed border-border bg-card px-5 py-8 text-center">
+          <p className="text-[13px] font-bold">
+            That&rsquo;s everything for now
+          </p>
+          <p className="max-w-72 text-xs leading-relaxed text-gc-ink-muted">
+            New posts appear here as creators publish them. In the meantime,
+            there are plenty more creators to look through.
+          </p>
+          <Link
+            href="/brand/creators"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-gc-ink px-4 text-[13px] font-bold text-white hover:opacity-90"
+          >
+            <Users className="size-3.5" aria-hidden="true" />
+            Browse creators
+          </Link>
+        </div>
       ) : null}
     </div>
   );

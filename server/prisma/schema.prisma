@@ -1771,10 +1771,14 @@ model CreatorEvent {
   id        String @id @default(uuid()) @db.Uuid
   creatorId String @db.Uuid
 
-  /// The whole post. 1–500 characters after trimming. Newlines are kept and
+  /// The whole post. 1–1000 characters after trimming. Newlines are kept and
   /// the client renders with `white-space: pre-line`; everything else is plain
   /// text, escaped at render. No HTML, no markdown, no autolinking.
-  body String @db.VarChar(500)
+  ///
+  /// The width and CREATOR_EVENT_MAX_LENGTH must move together: validation
+  /// rejects at the constant, Postgres rejects at the column, and only the
+  /// first produces a message a creator can act on.
+  body String @db.VarChar(1000)
 
   /// Set the first time the body changes, so the card can show "edited". Null
   /// means never edited. Distinct from `updatedAt`, which also moves when an

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, MapPin, Star } from "lucide-react";
+import { ArrowUpRight, MapPin, Star } from "lucide-react";
 import { formatEventTime } from "../lib/format-event-time";
 import { nicheTint } from "../lib/niche-tint";
 import type { FeedCreatorEventApi } from "../api/types";
@@ -19,11 +19,22 @@ function formatPrice(rupees: number): string {
   }).format(rupees);
 }
 
+/**
+ * A profile opens in a new tab: the feed is something a brand scrolls, and
+ * following a post should not cost them their place in it.
+ */
+const NEW_TAB = { target: "_blank", rel: "noopener noreferrer" } as const;
+
 export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
   const { creator } = event;
   const tint = nicheTint(creator.categories[0]);
   const profileHref = `/${creator.publicSlug}`;
+
+  // The rating comes from reviews, so it is counted in reviews. Pairing it
+  // with completed orders read as "5.0 · 0 orders" for a creator whose first
+  // review landed before their first order closed.
   const hasRating = Boolean(creator.avgRating) && creator.reviewCount > 0;
+  const secondaryNiches = creator.categories.slice(1, 3);
 
   return (
     <article className="overflow-hidden rounded-gc-lg border border-border bg-card shadow-pop">
@@ -36,8 +47,9 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
       >
         <Link
           href={profileHref}
+          {...NEW_TAB}
           className="size-11 shrink-0 overflow-hidden rounded-full bg-gc-ink text-white"
-          aria-label={`View ${creator.name}'s profile`}
+          aria-label={`View ${creator.name}'s profile (opens in a new tab)`}
         >
           {creator.profileImageUrl ? (
             <Image
@@ -60,6 +72,7 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
                 see everywhere else on GoCollab. */}
             <Link
               href={profileHref}
+              {...NEW_TAB}
               className="text-base font-extrabold tracking-tight text-gc-ink hover:underline"
             >
               {creator.name}
@@ -72,18 +85,31 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
                 {creator.categories[0]}
               </span>
             ) : null}
+            {/* Secondary niches, outlined rather than solid so the primary one
+                stays the thing the eye lands on. */}
+            {secondaryNiches.map((niche) => (
+              <span
+                key={niche}
+                className="rounded-full border px-2.5 py-1 text-[11px] font-bold"
+                style={{ borderColor: tint.pill, color: tint.ink }}
+              >
+                {niche}
+              </span>
+            ))}
           </div>
           <div
             className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-semibold"
             style={{ color: tint.ink }}
           >
             {creator.city ? (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="size-3" aria-hidden="true" />
-                {creator.city}
-              </span>
+              <>
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="size-3" aria-hidden="true" />
+                  {creator.city}
+                </span>
+                <span aria-hidden="true">·</span>
+              </>
             ) : null}
-            {creator.city ? <span aria-hidden="true">·</span> : null}
             <time dateTime={event.createdAt}>
               {formatEventTime(event.createdAt)}
             </time>
@@ -107,8 +133,8 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
                 {Number(creator.avgRating).toFixed(1)}
               </span>
               <span className="text-xs font-semibold text-gc-ink-muted">
-                · {creator.ordersCompleted} order
-                {creator.ordersCompleted === 1 ? "" : "s"}
+                · {creator.reviewCount} review
+                {creator.reviewCount === 1 ? "" : "s"}
               </span>
             </>
           ) : (
@@ -138,6 +164,12 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
               {creator.deliveryDays}-day delivery
             </span>
           ) : null}
+          {creator.ordersCompleted > 0 ? (
+            <span className="text-xs font-semibold text-gc-muted">
+              {creator.ordersCompleted} order
+              {creator.ordersCompleted === 1 ? "" : "s"} delivered
+            </span>
+          ) : null}
           {creator.onLocationShoot ? (
             <span className="rounded-full bg-gc-success-soft px-2.5 py-1 text-[11px] font-bold text-gc-success-ink">
               Travels for shoots
@@ -152,10 +184,12 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
 
         <Link
           href={profileHref}
+          {...NEW_TAB}
           className="inline-flex min-h-10.5 items-center gap-1.5 rounded-full bg-gc-ink px-5 text-[13px] font-bold text-white hover:opacity-90"
         >
           View profile
-          <ArrowRight className="size-3.5" aria-hidden="true" />
+          <span className="sr-only">(opens in a new tab)</span>
+          <ArrowUpRight className="size-3.5" aria-hidden="true" />
         </Link>
       </div>
     </article>

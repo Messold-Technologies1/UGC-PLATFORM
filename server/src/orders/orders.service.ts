@@ -510,6 +510,28 @@ function parseDispatchDateUtcYmd(ymd: string): Date {
   return dt;
 }
 
+/**
+ * Where to put an order whose dispute is being unwound but whose
+ * `preDisputeStatus` is NULL — every dispute opened before that column was
+ * added.
+ *
+ * The old fallback was a flat DELIVERED, which told the rest of the system
+ * content existed when none did — see
+ * {@link OrdersService.restoreOrderFromDispute}. A delivered order still goes
+ * back to DELIVERED; one with nothing submitted lands in whichever state
+ * {@link canCreatorUploadOrSubmitDelivery} lets its creator submit from, so it
+ * returns to the creator's court rather than the brand's.
+ */
+function disputeRestoreFallbackStatus(order: {
+  deliveredAt: Date | null;
+  requiresPhysicalProductShipment: boolean;
+}): OrderStatus {
+  if (order.deliveredAt) return 'DELIVERED';
+  return order.requiresPhysicalProductShipment
+    ? 'PRODUCT_RECEIVED'
+    : 'BRIEF_ACCEPTED';
+}
+
 function canCreatorUploadOrSubmitDelivery(order: {
   status: OrderStatus | string;
   requiresPhysicalProductShipment: boolean;
@@ -5562,6 +5584,11 @@ export class OrdersService {
       ),
     };
 
+    // The brand and creator detail paths both attach this; the admin one did
+    // not, so the admin order page had no revision number, no date and no
+    // brand feedback to show — its Order Journey simply skipped the revision.
+    await this.attachRevisionSnapshots(mappedOrder, order);
+
     // Surface the latest dispute so admins can see which party raised it, the
     // reason, and (once resolved) the resolution note.
     const dispute = await this.loadLatestDispute(order.id);
@@ -6245,6 +6272,12 @@ export class OrdersService {
           id: order.id,
           acceptedAt: null,
           status: { in: ['DELIVERED', 'REVISION_SUBMITTED'] },
+          // Belt to restoreOrderFromDispute's braces. An order can only be
+          // accepted against content that exists, whatever its status column
+          // says — so a row that reached DELIVERED without a delivery (a
+          // dispute unwound onto a NULL preDisputeStatus, a bad backfill, a
+          // hand-edited row) can never be closed in the brand's name.
+          deliveredAt: { not: null },
           // An order that auto-accepts must still have a clock running. The
           // sweep selects on this too, but re-checking it inside the claim is
           // what makes a revision requested mid-sweep win the race.
@@ -6419,6 +6452,8 @@ export class OrdersService {
         creatorId: true,
         status: true,
         preDisputeStatus: true,
+        deliveredAt: true,
+        requiresPhysicalProductShipment: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -6462,10 +6497,20 @@ export class OrdersService {
           resolutionNotes: 'Withdrawn by opener',
         },
       });
-      await this.restoreOrderFromDispute(tx, order.id, order.preDisputeStatus);
+      await this.restoreOrderFromDispute(
+        tx,
+        {
+          id: order.id,
+          deliveredAt: order.deliveredAt,
+          requiresPhysicalProductShipment:
+            order.requiresPhysicalProductShipment,
+        },
+        order.preDisputeStatus,
+      );
     });
 
-    const restoredStatus = order.preDisputeStatus ?? 'DELIVERED';
+    const restoredStatus =
+      order.preDisputeStatus ?? disputeRestoreFallbackStatus(order);
     void this.orderRealtime
       .emitOrderDisputeResolved({
         orderId: order.id,
@@ -6491,7 +6536,13 @@ export class OrdersService {
   }): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: params.orderId },
-      select: { id: true, status: true, preDisputeStatus: true },
+      select: {
+        id: true,
+        status: true,
+        preDisputeStatus: true,
+        deliveredAt: true,
+        requiresPhysicalProductShipment: true,
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -6516,7 +6567,16 @@ export class OrdersService {
           resolutionNotes: params.resolutionNotes ?? null,
         },
       });
-      await this.restoreOrderFromDispute(tx, order.id, order.preDisputeStatus);
+      await this.restoreOrderFromDispute(
+        tx,
+        {
+          id: order.id,
+          deliveredAt: order.deliveredAt,
+          requiresPhysicalProductShipment:
+            order.requiresPhysicalProductShipment,
+        },
+        order.preDisputeStatus,
+      );
     });
 
     // Notify both parties that the dispute was resolved and the order continues.
@@ -6529,7 +6589,8 @@ export class OrdersService {
         occurrenceKey: openDispute?.id ?? order.id,
       });
     }
-    const restoredStatus = order.preDisputeStatus ?? 'DELIVERED';
+    const restoredStatus =
+      order.preDisputeStatus ?? disputeRestoreFallbackStatus(order);
     void this.orderRealtime
       .emitOrderDisputeResolved({
         orderId: order.id,
@@ -6546,21 +6607,41 @@ export class OrdersService {
 
   /**
    * Move an order out of DISPUTED and back to the status it held before the
-   * dispute was raised, clearing the remembered status. Falls back to
-   * DELIVERED when the pre-dispute status is unknown (older disputes).
+   * dispute was raised, clearing the remembered status.
+   *
+   * `preDisputeStatus` is NULL for any dispute opened before the column
+   * existed, and the fallback has to pick something. DELIVERED is the only
+   * sensible guess — but it is a guess, so it is only allowed for an order
+   * that really was delivered. Without that check, closing one of those
+   * disputes promoted an order with nothing submitted to DELIVERED, armed the
+   * auto-accept clock, and the sweep then accepted work nobody had made:
+   * the brand paid, the creator was queued for payout and the delivery was
+   * published to their portfolio, with no human involved.
    */
   private async restoreOrderFromDispute(
     tx: Prisma.TransactionClient,
-    orderId: string,
+    order: {
+      id: string;
+      deliveredAt: Date | null;
+      requiresPhysicalProductShipment: boolean;
+    },
     preDisputeStatus: OrderStatus | null,
   ): Promise<void> {
-    const restored = preDisputeStatus ?? 'DELIVERED';
+    const orderId = order.id;
+    const restored: OrderStatus =
+      preDisputeStatus ?? disputeRestoreFallbackStatus(order);
     // A restored order is awaiting the brand again, so the review clock starts
     // again — from NOW, not from the original delivery. Recomputing from the
     // delivery would hand back a deadline that expired during the dispute, and
     // the next sweep would accept the order the moment the dispute closed.
+    //
+    // `deliveredAt` is part of the condition and not merely of the status:
+    // a status restored from a NULL fallback, or an order whose delivery was
+    // somehow rolled back, must never get a clock running against content that
+    // does not exist.
     const awaitingBrand =
-      restored === 'DELIVERED' || restored === 'REVISION_SUBMITTED';
+      (restored === 'DELIVERED' || restored === 'REVISION_SUBMITTED') &&
+      order.deliveredAt != null;
     await this.updateOrder(
       {
         where: { id: orderId },

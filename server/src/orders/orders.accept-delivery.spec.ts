@@ -292,3 +292,94 @@ describe('OrdersService.adminRejectOrder → removes collab tile', () => {
     expect(orderPortfolioSync.removeForOrder).toHaveBeenCalledWith('order-9');
   });
 });
+
+/**
+ * The acceptance claim is the last gate before an order closes and its money
+ * moves, so it checks for the delivery itself rather than trusting the status
+ * column. A row can reach DELIVERED without one — a dispute unwound onto a
+ * NULL `preDisputeStatus`, a bad backfill, a hand-edited row — and accepting
+ * it would pay for content that does not exist.
+ */
+describe('OrdersService — acceptance requires a real delivery', () => {
+  function makeService(order: Record<string, unknown>) {
+    const orderUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const orderClient = {
+      findUnique: jest.fn().mockResolvedValue(order),
+      updateMany: orderUpdateMany,
+      update: jest.fn().mockResolvedValue({}),
+    };
+    const prisma = {
+      order: orderClient,
+      $transaction: jest.fn(
+        async (fn: (tx: unknown) => Promise<unknown>) =>
+          await fn({ order: orderClient }),
+      ),
+    };
+    const orderPortfolioSync = {
+      syncAcceptedOrder: jest.fn().mockResolvedValue({ status: 'created' }),
+    };
+    const service = new OrdersService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      createBrandAccessMock() as never,
+      {} as never,
+      orderPortfolioSync as never,
+      {} as never,
+      {} as never, // wallet
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: () => undefined } as never,
+      { enabledFor: () => false, sendEvent: jest.fn() } as never,
+    );
+    return { service, orderUpdateMany, orderPortfolioSync };
+  }
+
+  const deliveredOrder = {
+    id: 'order-1',
+    brandId: 'brand-1',
+    status: 'DELIVERED',
+    acceptedAt: null,
+    lastChatMessageId: null,
+  };
+
+  it('puts deliveredAt in the claim when the brand accepts', async () => {
+    const { service, orderUpdateMany } = makeService(deliveredOrder);
+
+    await service.acceptDelivery({
+      actorUserId: 'user-1',
+      brandProfileId: 'brand-1',
+      orderId: 'order-1',
+    });
+
+    expect(orderUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deliveredAt: { not: null } }),
+      }),
+    );
+  });
+
+  it('puts deliveredAt in the claim on the automatic path too', async () => {
+    const { service, orderUpdateMany } = makeService({
+      ...deliveredOrder,
+      autoAcceptAt: new Date(Date.now() - 1000),
+    });
+
+    await service.autoAcceptDueOrder('order-1');
+
+    expect(orderUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deliveredAt: { not: null } }),
+      }),
+    );
+  });
+
+  it('reports no acceptance when the claim matches nothing', async () => {
+    // count: 0 is what an undelivered row produces. Nothing may follow from
+    // it: no completion mail, no payout, no portfolio tile.
+    const { service, orderPortfolioSync } = makeService(deliveredOrder);
+
+    await expect(service.autoAcceptDueOrder('order-1')).resolves.toBe(false);
+    expect(orderPortfolioSync.syncAcceptedOrder).not.toHaveBeenCalled();
+  });
+});

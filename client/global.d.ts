@@ -63,4 +63,6 @@ interface Window {
   /** Meta (Facebook) Pixel queue, installed by the loader in app/layout.tsx. */
   fbq?: (...args: unknown[]) => void;
   _fbq?: unknown;
+  /** Google Tag Manager queue, installed by the loader in app/layout.tsx. */
+  dataLayer?: Record<string, unknown>[];
 }

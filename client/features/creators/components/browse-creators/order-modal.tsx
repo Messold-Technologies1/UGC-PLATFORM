@@ -13,6 +13,7 @@ import {
 import type { CreatorProfile, Package, AddOn } from "../../types";
 import { useRazorpayCheckout } from "@/features/payments/hooks/use-razorpay-checkout";
 import { trackCheckoutInitiate } from "@/features/analytics/lib/buyer-pixel-events";
+import { pushBeginCheckout } from "@/features/analytics/lib/gtm-ecommerce";
 import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import { useAvailableCoupons } from "@/features/payments/hooks/use-available-coupons";
 import { CouponInput } from "@/features/payments/components/coupon-input";
@@ -379,6 +380,13 @@ const OrderModalContent = React.memo(function OrderModalContent({
 
   const handleCheckout = useCallback(() => {
     if (!selectedPackage || isProcessing) return;
+    // GA4's begin_checkout. Fired before the identity lookup below, which it
+    // does not need, so a slow or failed profile read cannot cost it the event.
+    pushBeginCheckout({
+      creatorId: creator.id,
+      creatorName: creator.name,
+      value: netTotal,
+    });
     // Step 5 of the buyer funnel, reported only on the clicks that really hand
     // off to payment. `netTotal` is what the buyer owes after coupon and
     // credits, so a free or fully-credited order reports a value of 0 rather
@@ -400,6 +408,7 @@ const OrderModalContent = React.memo(function OrderModalContent({
     startCheckout,
     resolveBuyerIdentity,
     creator.id,
+    creator.name,
     netTotal,
     selectedAddOns.length,
     selectedCouponCode,

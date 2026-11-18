@@ -48,6 +48,7 @@ import { DisputeResolvedBanner } from "../dispute-resolved-banner";
 import { OrderChatWidget } from "@/features/orders/components/order-chat-widget";
 import { BriefSummaryCard } from "../brand-order-detail/brief-summary-card";
 
+import { CreatorContentPolicyNote } from "./creator-content-policy-note";
 import { CreatorOrderProgressStepper } from "./creator-order-progress-stepper";
 import { CreatorOrderActivityTimeline } from "./creator-order-activity-timeline";
 import { CreatorOrderSummaryCard } from "./creator-order-summary-card";
@@ -950,6 +951,11 @@ export function CreatorOrderDetailsView({
         brand={brand}
         showMessageBrand={showChat}
       />
+
+      {/* Above the stepper and the upload card: the decision to send a file
+          straight to the brand gets made on this screen, so the note has to
+          be read before the work is. */}
+      <CreatorContentPolicyNote />
 
       <CreatorOrderProgressStepper order={order} />
 

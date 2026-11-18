@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { CreatorContentPolicyNote } from "./creator-content-policy-note";
 import { useGetCreatorOrdersQuery } from "../../hooks/use-get-creator-orders-query";
 import type { CreatorOrderListItem } from "../../api/get-creator-orders";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,6 +115,8 @@ function CreatorOrdersListInner() {
 
   return (
     <div className="w-full mx-auto space-y-8 pb-4 pt-4 lg:pt-5">
+      <CreatorContentPolicyNote />
+
       <CreatorOrdersTabs
         activeTab={activeTab}
         onTabChange={handleTabChange}

@@ -44,15 +44,9 @@ export function CreatorContentPolicyNote({
         </h2>
       </div>
 
-      {/* The measure stops short of the card's full width: the banner spans
-          the page, and prose running 150 characters a line is the one sure
-          way to guarantee nobody reads it. */}
       <div className="space-y-2 px-4 py-3.5 sm:px-5">
         {PARAGRAPHS.map((text, i) => (
-          <p
-            key={i}
-            className="max-w-[100ch] text-[13px] leading-[1.6] text-gc-ink-soft"
-          >
+          <p key={i} className="text-[13px] leading-[1.6] text-gc-ink-soft">
             {text}
           </p>
         ))}

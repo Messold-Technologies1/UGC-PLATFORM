@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { EyeOff, MoreHorizontal } from "lucide-react";
+import { CalendarRange, EyeOff, MoreHorizontal } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { CreatorEventApi } from "../api/types";
 import { CREATOR_EVENT_MAX_LENGTH } from "../lib/constants";
 import { formatEventTime } from "../lib/format-event-time";
+import { formatDateRange } from "../lib/format-date-range";
+import { EventDateFields, type EventDates } from "./event-date-fields";
 import {
   useDeleteEventMutation,
   useUpdateEventMutation,
@@ -23,6 +25,10 @@ export function EventPostCard({ event }: EventPostCardProps) {
   const [mode, setMode] = useState<Mode>("view");
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState(event.body);
+  const [dates, setDates] = useState<EventDates>({
+    startsOn: event.startsOn ?? "",
+    endsOn: event.endsOn ?? "",
+  });
   const menuRef = useRef<HTMLDivElement>(null);
 
   const updateEvent = useUpdateEventMutation();
@@ -48,10 +54,26 @@ export function EventPostCard({ event }: EventPostCardProps) {
 
   const trimmed = draft.trim();
   const over = trimmed.length > CREATOR_EVENT_MAX_LENGTH;
+  const badRange = Boolean(
+    dates.startsOn && dates.endsOn && dates.endsOn < dates.startsOn,
+  );
+  const dateRange = formatDateRange(event.startsOn, event.endsOn);
 
   async function save() {
-    if (!trimmed || over) return;
-    await updateEvent.mutateAsync({ id: event.id, body: trimmed });
+    if (!trimmed || over || badRange) return;
+    await updateEvent.mutateAsync({
+      id: event.id,
+      body: trimmed,
+      // Empty string clears the stored date; the server tells the two apart.
+      startsOn: dates.startsOn,
+      endsOn: dates.endsOn,
+    });
+    setMode("view");
+  }
+
+  function cancelEdit() {
+    setDraft(event.body);
+    setDates({ startsOn: event.startsOn ?? "", endsOn: event.endsOn ?? "" });
     setMode("view");
   }
 
@@ -112,6 +134,14 @@ export function EventPostCard({ event }: EventPostCardProps) {
           aria-invalid={over || undefined}
           className="resize-none rounded-gc-md border-border bg-muted px-3.5 py-3 text-sm leading-relaxed md:text-sm"
         />
+        <EventDateFields
+          idPrefix={`edit-${event.id}`}
+          value={dates}
+          onChange={setDates}
+          invalid={badRange}
+          className="mt-3 border-t border-border/70 pt-3"
+        />
+
         <div className="mt-3 flex items-center justify-between gap-3">
           <span
             className={cn(
@@ -124,10 +154,7 @@ export function EventPostCard({ event }: EventPostCardProps) {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => {
-                setDraft(event.body);
-                setMode("view");
-              }}
+              onClick={cancelEdit}
               className="inline-flex min-h-9 items-center rounded-full border border-border bg-card px-3.5 text-[13px] font-bold text-gc-ink-soft hover:bg-muted"
             >
               Cancel
@@ -135,7 +162,7 @@ export function EventPostCard({ event }: EventPostCardProps) {
             <button
               type="button"
               onClick={save}
-              disabled={!trimmed || over || updateEvent.isPending}
+              disabled={!trimmed || over || badRange || updateEvent.isPending}
               className="inline-flex min-h-9 items-center rounded-full bg-gc-brand-hover px-4 text-[13px] font-bold text-white hover:opacity-90 disabled:bg-gc-brand-muted"
             >
               {updateEvent.isPending ? "Saving…" : "Save"}
@@ -169,6 +196,21 @@ export function EventPostCard({ event }: EventPostCardProps) {
         </div>
       ) : null}
 
+      {/* A finished post has already left the brand feed. The creator still
+          sees it, told why, rather than left wondering where it went. */}
+      {event.ended && !event.hidden ? (
+        <div className="mb-3.5 flex items-start gap-2 rounded-gc-sm bg-muted px-3.5 py-2.5">
+          <CalendarRange
+            className="mt-0.5 size-3.5 shrink-0 text-gc-muted"
+            aria-hidden="true"
+          />
+          <p className="text-xs font-bold leading-relaxed text-gc-ink-muted">
+            Finished{dateRange ? ` ${dateRange}` : ""} — brands no longer see
+            this in the feed. Edit the end date to bring it back.
+          </p>
+        </div>
+      ) : null}
+
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <time
@@ -177,6 +219,12 @@ export function EventPostCard({ event }: EventPostCardProps) {
           >
             {formatEventTime(event.createdAt)}
           </time>
+          {dateRange ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gc-brand-soft px-3 py-1 text-xs font-bold text-gc-tint-rose-ink">
+              <CalendarRange className="size-3" aria-hidden="true" />
+              {dateRange}
+            </span>
+          ) : null}
           {event.editedAt ? (
             <span className="text-xs font-semibold text-gc-muted-soft">
               edited
@@ -203,6 +251,10 @@ export function EventPostCard({ event }: EventPostCardProps) {
                 type="button"
                 onClick={() => {
                   setDraft(event.body);
+                  setDates({
+                    startsOn: event.startsOn ?? "",
+                    endsOn: event.endsOn ?? "",
+                  });
                   setMode("editing");
                   setMenuOpen(false);
                 }}

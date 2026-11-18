@@ -4,6 +4,14 @@ export interface CreatorEventApi {
   body: string;
   createdAt: string;
   editedAt: string | null;
+  /** YYYY-MM-DD, or null. Optional and independent of each other. */
+  startsOn: string | null;
+  endsOn: string | null;
+  /**
+   * The end date has passed, so the post has left the brand feed. It stays in
+   * the creator's own list — a post vanishing unexplained is worse.
+   */
+  ended: boolean;
   /** Hidden by an admin: gone from the brand feed, still listed here. */
   hidden: boolean;
   hiddenReason: string | null;
@@ -40,6 +48,8 @@ export interface FeedCreatorEventApi {
   body: string;
   createdAt: string;
   editedAt: string | null;
+  startsOn: string | null;
+  endsOn: string | null;
   creator: CreatorEventAuthorApi;
 }
 
@@ -51,6 +61,9 @@ export interface AdminCreatorEventApi {
   editedAt: string | null;
   creatorId: string;
   creatorName: string;
+  startsOn: string | null;
+  endsOn: string | null;
+  ended: boolean;
   hiddenAt: string | null;
   hiddenReason: string | null;
   hiddenByName: string | null;

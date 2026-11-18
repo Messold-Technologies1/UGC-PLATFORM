@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, MapPin, Star } from "lucide-react";
+import { ArrowUpRight, CalendarRange, MapPin, Star } from "lucide-react";
 import { formatEventTime } from "../lib/format-event-time";
+import { formatDateRange } from "../lib/format-date-range";
 import { nicheTint } from "../lib/niche-tint";
 import type { FeedCreatorEventApi } from "../api/types";
 
@@ -35,6 +36,7 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
   // review landed before their first order closed.
   const hasRating = Boolean(creator.avgRating) && creator.reviewCount > 0;
   const secondaryNiches = creator.categories.slice(1, 3);
+  const dateRange = formatDateRange(event.startsOn, event.endsOn);
 
   return (
     <article className="overflow-hidden rounded-gc-lg border border-border bg-card shadow-pop">
@@ -147,6 +149,12 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
 
       {/* The post is the point of the card: nothing competes with it. */}
       <div className="px-5 pt-5 sm:px-6">
+        {dateRange ? (
+          <p className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-bold text-gc-ink-soft">
+            <CalendarRange className="size-3" aria-hidden="true" />
+            {dateRange}
+          </p>
+        ) : null}
         <p className="whitespace-pre-line text-[17px] leading-[1.7] tracking-[-0.005em] text-foreground">
           {event.body}
         </p>

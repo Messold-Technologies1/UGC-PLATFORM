@@ -7,6 +7,10 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ON_LOCATION_SHOOT_OPTION_SLUG } from '../creator-profile/on-location-shoot.util';
 import {
+  notExpiredFilter,
+  resolveEventDates,
+} from './creator-event-dates.util';
+import {
   CREATOR_EVENT_DAILY_LIMIT,
   CREATOR_EVENT_MAX_PAGE_SIZE,
   CREATOR_EVENT_PAGE_SIZE,
@@ -35,6 +39,8 @@ const eventScalarSelect = {
   body: true,
   createdAt: true,
   editedAt: true,
+  startsOn: true,
+  endsOn: true,
   hiddenAt: true,
   hiddenReason: true,
 } satisfies Prisma.CreatorEventSelect;
@@ -153,7 +159,10 @@ export class CreatorEventsService {
     });
   }
 
-  async createEvent(userId: string, body: string): Promise<CreatorEventDto> {
+  async createEvent(
+    userId: string,
+    input: { body: string; startsOn?: string; endsOn?: string },
+  ): Promise<CreatorEventDto> {
     const creator = await this.creatorForUser(userId);
 
     // An unlisted creator has no audience: the feed filters them out anyway.
@@ -172,8 +181,15 @@ export class CreatorEventsService {
       );
     }
 
+    const { startsOn, endsOn } = resolveEventDates(input);
+
     const event = await this.prisma.creatorEvent.create({
-      data: { creatorId: creator.id, body: normalizeBody(body) },
+      data: {
+        creatorId: creator.id,
+        body: normalizeBody(input.body),
+        startsOn,
+        endsOn,
+      },
       select: eventScalarSelect,
     });
     return mapOwnEvent(event);
@@ -182,18 +198,24 @@ export class CreatorEventsService {
   async updateEvent(
     userId: string,
     eventId: string,
-    body: string,
+    input: { body: string; startsOn?: string; endsOn?: string },
   ): Promise<CreatorEventDto> {
     const creator = await this.creatorForUser(userId);
     const existing = await this.ownEventOrThrow(creator.id, eventId);
 
-    const next = normalizeBody(body);
+    const next = normalizeBody(input.body);
+    const { startsOn, endsOn } = resolveEventDates(input);
+
+    const datesChanged =
+      sameDay(startsOn, existing.startsOn) === false ||
+      sameDay(endsOn, existing.endsOn) === false;
+
     // An edit that changes nothing must not stamp "edited" on the card.
-    if (next === existing.body) return mapOwnEvent(existing);
+    if (next === existing.body && !datesChanged) return mapOwnEvent(existing);
 
     const event = await this.prisma.creatorEvent.update({
       where: { id: existing.id },
-      data: { body: next, editedAt: new Date() },
+      data: { body: next, startsOn, endsOn, editedAt: new Date() },
       select: eventScalarSelect,
     });
     return mapOwnEvent(event);
@@ -228,6 +250,9 @@ export class CreatorEventsService {
         // The same discovery gate brand browse uses. Without it an unlisted
         // creator would reach brands through this side door.
         creator: { isListed: true },
+        // A trip that finished last week is noise to a brand browsing today.
+        // A post ending today still shows for all of today.
+        ...notExpiredFilter(),
       },
       orderBy: newestFirst,
       take: size + 1,
@@ -331,6 +356,12 @@ export class CreatorEventsService {
     if (!event) throw new NotFoundException('Post not found');
     return event;
   }
+}
+
+/** Two @db.Date values, or nulls, naming the same calendar day. */
+function sameDay(a: Date | null, b: Date | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.getTime() === b.getTime();
 }
 
 /**

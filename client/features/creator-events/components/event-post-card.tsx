@@ -196,21 +196,6 @@ export function EventPostCard({ event }: EventPostCardProps) {
         </div>
       ) : null}
 
-      {/* A finished post has already left the brand feed. The creator still
-          sees it, told why, rather than left wondering where it went. */}
-      {event.ended && !event.hidden ? (
-        <div className="mb-3.5 flex items-start gap-2 rounded-gc-sm bg-muted px-3.5 py-2.5">
-          <CalendarRange
-            className="mt-0.5 size-3.5 shrink-0 text-gc-muted"
-            aria-hidden="true"
-          />
-          <p className="text-xs font-bold leading-relaxed text-gc-ink-muted">
-            Finished{dateRange ? ` ${dateRange}` : ""} — brands no longer see
-            this in the feed. Edit the end date to bring it back.
-          </p>
-        </div>
-      ) : null}
-
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <time

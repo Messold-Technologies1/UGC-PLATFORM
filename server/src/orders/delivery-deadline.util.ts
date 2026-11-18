@@ -3,6 +3,16 @@ import type { Prisma } from '@prisma/client';
 export const DELIVERY_GRACE_DAYS = 2;
 
 /**
+ * Days added to the delivery due date each time a brand requests a revision.
+ *
+ * A revision is a re-edit, not a reshoot, so this is deliberately shorter than
+ * any package's `deliveryDaysSnapshot`. It is a platform constant rather than
+ * something a creator sets: every order gets it from day one, with no package
+ * migration and nothing for a creator to configure.
+ */
+export const REVISION_DELIVERY_DAYS = 2;
+
+/**
  * How long a brand has to review delivered content before the order accepts
  * itself, when `ORDER_AUTO_ACCEPT_DAYS` says nothing.
  *
@@ -108,6 +118,29 @@ export function computeDeliveryDeadlines(
   deliveryDaysSnapshot: number,
 ): { deliveryDueAt: Date; deliveryGraceDeadlineAt: Date } {
   const deliveryDueAt = computeDeliveryDueAt(startAt, deliveryDaysSnapshot);
+  return {
+    deliveryDueAt,
+    deliveryGraceDeadlineAt: computeDeliveryGraceDeadlineAt(deliveryDueAt),
+  };
+}
+
+/**
+ * Deadlines for a revision, counted from the moment the brand asked for it.
+ *
+ * NOT an extension of the previous due date: by the time a brand has reviewed
+ * a delivery and asked for changes, that date is almost always in the past, so
+ * adding to it would hand the creator a deadline that has already expired. The
+ * clock a creator is actually held to starts when the work lands back with
+ * them.
+ *
+ * Every revision gets its own window, because the gap before each one is the
+ * brand's reading time, which a creator does not control.
+ */
+export function computeRevisionDeadlines(
+  revisionRequestedAt: Date,
+  days: number = REVISION_DELIVERY_DAYS,
+): { deliveryDueAt: Date; deliveryGraceDeadlineAt: Date } {
+  const deliveryDueAt = addCalendarDays(revisionRequestedAt, days);
   return {
     deliveryDueAt,
     deliveryGraceDeadlineAt: computeDeliveryGraceDeadlineAt(deliveryDueAt),

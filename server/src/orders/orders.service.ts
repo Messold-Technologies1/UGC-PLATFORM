@@ -59,6 +59,7 @@ import type {
 import {
   computeAutoAcceptAt,
   computeDeliveryDeadlines,
+  computeRevisionDeadlines,
   inGracePeriodWhere,
   resolveAutoAcceptDays,
 } from './delivery-deadline.util';
@@ -3528,6 +3529,11 @@ export class OrdersService {
 
     const newRevisionNumber = order.revisionCount + 1;
     const trimmedNote = params.note?.trim() || null;
+    const requestedAt = new Date();
+    // The creator's clock restarts here. Counted from this moment rather than
+    // added to the old due date, which the brand's review time has usually
+    // already carried into the past.
+    const deadlines = computeRevisionDeadlines(requestedAt);
 
     await this.prisma.$transaction(async (tx) => {
       await this.updateOrder(
@@ -3538,8 +3544,11 @@ export class OrdersService {
             revisionCount: newRevisionNumber,
             // The brand has acted; the wait is now on the creator, and a
             // creator cannot be held to a deadline the brand controls. The
-            // resubmit sets a fresh one (see WatermarkService).
+            // resubmit sets a fresh one (see WatermarkService), anchored to
+            // the due date below.
             autoAcceptAt: null,
+            deliveryDueAt: deadlines.deliveryDueAt,
+            deliveryGraceDeadlineAt: deadlines.deliveryGraceDeadlineAt,
           } as any,
         },
         tx,

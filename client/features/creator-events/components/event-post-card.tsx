@@ -205,7 +205,7 @@ export function EventPostCard({ event }: EventPostCardProps) {
             {formatEventTime(event.createdAt)}
           </time>
           {dateRange ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gc-brand-soft px-3 py-1 text-xs font-bold text-gc-tint-rose-ink">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-gc-brand-muted bg-gc-brand-soft px-3 py-1 text-xs font-extrabold text-deep-pink">
               <CalendarRange className="size-3" aria-hidden="true" />
               {dateRange}
             </span>

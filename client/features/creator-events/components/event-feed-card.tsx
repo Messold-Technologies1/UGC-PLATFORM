@@ -149,9 +149,14 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
 
       {/* The post is the point of the card: nothing competes with it. */}
       <div className="px-5 pt-5 sm:px-6">
+        {/* When the thing runs is the second most useful line on the card
+            after the post itself — a brand scanning for someone free next
+            week reads this before the prose. deep-pink rather than the
+            tint's own ink: #c9283f on #ffe3ea is 4.5:1 on the nose, and
+            this needs to survive a cheap monitor. */}
         {dateRange ? (
-          <p className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-bold text-gc-ink-soft">
-            <CalendarRange className="size-3" aria-hidden="true" />
+          <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-gc-brand-muted bg-gc-brand-soft px-3.5 py-1.5 text-[13px] font-extrabold tracking-tight text-deep-pink">
+            <CalendarRange className="size-3.5" aria-hidden="true" />
             {dateRange}
           </p>
         ) : null}

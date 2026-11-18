@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { formatDateOnly, hasEnded } from './creator-event-dates.util';
 import {
   AdminCreatorEventDto,
   CreatorEventAuthorDto,
@@ -46,10 +47,17 @@ type EventRow = {
   body: string;
   createdAt: Date;
   editedAt: Date | null;
+  startsOn: Date | null;
+  endsOn: Date | null;
   hiddenAt: Date | null;
   hiddenReason: string | null;
   deletedAt?: Date | null;
 };
+
+/** `@db.Date` round-trips as a Date at UTC midnight; the wire format is a day. */
+function dateOnly(value: Date | null): string | null {
+  return value ? formatDateOnly(value) : null;
+}
 
 function toNumber(value: Prisma.Decimal | number | null | undefined) {
   if (value === null || value === undefined) return null;
@@ -117,6 +125,8 @@ export function mapFeedEvent(
     body: event.body,
     createdAt: event.createdAt,
     editedAt: event.editedAt,
+    startsOn: dateOnly(event.startsOn),
+    endsOn: dateOnly(event.endsOn),
     creator: mapFeedCreator(event.creator, onLocationOptionName),
   };
 }
@@ -127,6 +137,11 @@ export function mapOwnEvent(event: EventRow): CreatorEventDto {
     body: event.body,
     createdAt: event.createdAt,
     editedAt: event.editedAt,
+    startsOn: dateOnly(event.startsOn),
+    endsOn: dateOnly(event.endsOn),
+    // The creator keeps seeing a finished post, marked as finished. It left
+    // the brand feed, and saying so beats letting them wonder.
+    ended: hasEnded(event.endsOn),
     hidden: event.hiddenAt !== null,
     hiddenReason: event.hiddenReason,
   };
@@ -146,6 +161,9 @@ export function mapAdminEvent(
     editedAt: event.editedAt,
     creatorId: event.creatorId,
     creatorName: event.creator.publicSlug,
+    startsOn: dateOnly(event.startsOn),
+    endsOn: dateOnly(event.endsOn),
+    ended: hasEnded(event.endsOn),
     hiddenAt: event.hiddenAt,
     hiddenReason: event.hiddenReason,
     hiddenByName: event.hiddenByUser?.name ?? null,

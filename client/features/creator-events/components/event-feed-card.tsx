@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, MapPin, Star } from "lucide-react";
+import { ArrowUpRight, CalendarRange, MapPin, Star } from "lucide-react";
 import { formatEventTime } from "../lib/format-event-time";
+import { formatDateRange } from "../lib/format-date-range";
 import { nicheTint } from "../lib/niche-tint";
 import type { FeedCreatorEventApi } from "../api/types";
 
@@ -35,6 +36,7 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
   // review landed before their first order closed.
   const hasRating = Boolean(creator.avgRating) && creator.reviewCount > 0;
   const secondaryNiches = creator.categories.slice(1, 3);
+  const dateRange = formatDateRange(event.startsOn, event.endsOn);
 
   return (
     <article className="overflow-hidden rounded-gc-lg border border-border bg-card shadow-pop">
@@ -147,6 +149,17 @@ export function EventFeedCard({ event }: { event: FeedCreatorEventApi }) {
 
       {/* The post is the point of the card: nothing competes with it. */}
       <div className="px-5 pt-5 sm:px-6">
+        {/* When the thing runs is the second most useful line on the card
+            after the post itself — a brand scanning for someone free next
+            week reads this before the prose. deep-pink rather than the
+            tint's own ink: #c9283f on #ffe3ea is 4.5:1 on the nose, and
+            this needs to survive a cheap monitor. */}
+        {dateRange ? (
+          <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-gc-brand-muted bg-gc-brand-soft px-3.5 py-1.5 text-[13px] font-extrabold tracking-tight text-deep-pink">
+            <CalendarRange className="size-3.5" aria-hidden="true" />
+            {dateRange}
+          </p>
+        ) : null}
         <p className="whitespace-pre-line text-[17px] leading-[1.7] tracking-[-0.005em] text-foreground">
           {event.body}
         </p>

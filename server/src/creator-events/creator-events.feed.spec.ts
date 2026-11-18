@@ -31,6 +31,8 @@ describe('CreatorEventsService — brand feed', () => {
       body: 'In Goa until the 23rd.',
       createdAt: new Date('2026-11-16T09:12:00Z'),
       editedAt: null,
+      startsOn: null,
+      endsOn: null,
       hiddenAt: null,
       hiddenReason: null,
       creator: creatorRow(),
@@ -64,15 +66,29 @@ describe('CreatorEventsService — brand feed', () => {
 
     await service.listFeed({});
 
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          deletedAt: null,
-          hiddenAt: null,
-          creator: { isListed: true },
-        },
-      }),
-    );
+    const where = (
+      findMany.mock.calls[0][0] as { where: Record<string, unknown> }
+    ).where;
+    expect(where).toMatchObject({
+      deletedAt: null,
+      hiddenAt: null,
+      creator: { isListed: true },
+    });
+  });
+
+  // The expiry rule: a trip that finished is noise to a brand browsing today.
+  // Undated posts stay forever, which is what every pre-dates row is.
+  it('excludes posts whose end date has passed, and keeps undated ones', async () => {
+    const { service, findMany } = makeService([eventRow('e1')]);
+
+    await service.listFeed({});
+
+    const where = (findMany.mock.calls[0][0] as { where: { OR?: unknown[] } })
+      .where;
+    expect(where.OR).toEqual([
+      { endsOn: null },
+      { endsOn: { gte: expect.any(Date) } },
+    ]);
   });
 
   it('orders newest first with id as a total-order tiebreaker', async () => {

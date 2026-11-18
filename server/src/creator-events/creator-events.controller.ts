@@ -87,7 +87,7 @@ export class CreatorEventsController {
     @Req() req: Request & { user: { id: string } },
     @Body() dto: CreateCreatorEventDto,
   ): Promise<CreatorEventDto> {
-    return this.service.createEvent(req.user.id, dto.body);
+    return this.service.createEvent(req.user.id, dto);
   }
 
   @Patch(':id')
@@ -104,7 +104,7 @@ export class CreatorEventsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCreatorEventDto,
   ): Promise<CreatorEventDto> {
-    return this.service.updateEvent(req.user.id, id, dto.body);
+    return this.service.updateEvent(req.user.id, id, dto);
   }
 
   @Delete(':id')

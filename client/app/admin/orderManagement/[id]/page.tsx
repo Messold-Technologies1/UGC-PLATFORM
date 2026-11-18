@@ -17,7 +17,9 @@ import {
   ChevronRight,
   History,
   Loader2,
+  MessageSquareWarning,
   Package,
+  ShieldCheck,
   User,
   ClipboardCheck,
   BadgeDollarSign,
@@ -56,6 +58,28 @@ import TrackingTimeline, {
   TimelineItem,
 } from "@/components/ui/tracking-timeline";
 import { useAdminOrderDetailsQuery } from "@/features/admin/hooks/use-admin-order-details-query";
+
+/**
+ * Which Order Journey step an order is sitting on, by status.
+ *
+ * Matched against the start of a step's label, so a counted one
+ * ("Revision Requested (x2)") still resolves. Statuses absent from this map
+ * fall back to the last active step in flow order.
+ */
+const CURRENT_TIMELINE_STEP: Record<string, string> = {
+  PENDING_PAYMENT: "Order Created",
+  BRIEF_SUBMISSION_PENDING: "Payment Received",
+  BRIEF_SUBMITTED: "Brief Submitted",
+  DELIVERED: "Content Delivered",
+  // The creator has re-delivered against the open revision; the ball is back
+  // with the brand, at the delivery step.
+  REVISION_SUBMITTED: "Content Delivered",
+  REVISION_REQUESTED: "Revision Requested",
+  DISPUTED: "Dispute Raised",
+  ACCEPTED: "Order Accepted",
+  CREATOR_PAYMENT_DONE: "Creator Paid",
+  REFUNDED: "Refunded",
+};
 
 function initials(value?: string | null) {
   if (!value?.trim()) return "";
@@ -429,6 +453,41 @@ export default function AdminOrderDetailsPage() {
       active: Boolean(order.deliveredAt),
       icon: Package,
     },
+    // A revision and a dispute both sit between the delivery and the
+    // acceptance, and both were missing entirely: an order parked in
+    // REVISION_REQUESTED or DISPUTED showed "Content Delivered" as its last
+    // active step, which read as though nothing had happened since.
+    ...((order.revisionCount ?? 0) > 0
+      ? [
+          {
+            label:
+              (order.revisionCount ?? 0) > 1
+                ? `Revision Requested (x${order.revisionCount})`
+                : "Revision Requested",
+            // Only carried while a revision is actually in flight; a past
+            // revision on a closed order has no date to show.
+            date: order.currentRevision?.requestedAt ?? null,
+            active: true,
+            icon: History,
+          },
+        ]
+      : []),
+    ...(order.dispute
+      ? [
+          {
+            label: "Dispute Raised",
+            date: order.dispute.openedAt,
+            active: true,
+            icon: MessageSquareWarning,
+          },
+          {
+            label: "Dispute Resolved",
+            date: order.dispute.resolvedAt ?? null,
+            active: Boolean(order.dispute.resolvedAt),
+            icon: ShieldCheck,
+          },
+        ]
+      : []),
     {
       label: "Order Accepted",
       date: order.acceptedAt,
@@ -449,13 +508,27 @@ export default function AdminOrderDetailsPage() {
     },
   ];
 
+  // The steps are in flow order, not chronological order, so "the last active
+  // one" is the wrong answer whenever an order doubles back — a resolved
+  // dispute that returned the order to revision would light up "Dispute
+  // Resolved" while the order actually sits with the creator. Ask the status
+  // which step the order is on, and keep the positional guess as the fallback
+  // for states that have no step of their own.
+  const currentStepLabel = CURRENT_TIMELINE_STEP[order.status] ?? null;
+  const currentStepIndex = currentStepLabel
+    ? timelineConfig.findIndex(
+        (step) => step.active && step.label.startsWith(currentStepLabel),
+      )
+    : -1;
   const lastActiveIndex = timelineConfig.map((s) => s.active).lastIndexOf(true);
+  const inProgressIndex =
+    currentStepIndex >= 0 ? currentStepIndex : lastActiveIndex;
 
   const timelineItems: TimelineItem[] = timelineConfig.map((step, index) => {
     let status: TimelineItem["status"] = "pending";
     if (step.active) {
       status =
-        index === lastActiveIndex && index !== timelineConfig.length - 1
+        index === inProgressIndex && index !== timelineConfig.length - 1
           ? "in-progress"
           : "completed";
     }

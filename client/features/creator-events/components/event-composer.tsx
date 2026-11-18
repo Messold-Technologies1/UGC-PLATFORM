@@ -5,6 +5,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { CREATOR_EVENT_MAX_LENGTH } from "../lib/constants";
 import { useCreateEventMutation } from "../hooks/use-event-mutations";
+import { EventDateFields, type EventDates } from "./event-date-fields";
+
+const NO_DATES: EventDates = { startsOn: "", endsOn: "" };
 
 interface EventComposerProps {
   /** Shown back to the creator as "Posting as {slug}". */
@@ -13,16 +16,28 @@ interface EventComposerProps {
 
 export function EventComposer({ publicSlug }: EventComposerProps) {
   const [body, setBody] = useState("");
+  const [dates, setDates] = useState<EventDates>(NO_DATES);
   const createEvent = useCreateEventMutation();
 
   const trimmed = body.trim();
   const over = trimmed.length > CREATOR_EVENT_MAX_LENGTH;
-  const canPost = trimmed.length > 0 && !over && !createEvent.isPending;
+  // The server checks this too; catching it here means the creator sees it
+  // while they are still looking at the two fields.
+  const badRange = Boolean(
+    dates.startsOn && dates.endsOn && dates.endsOn < dates.startsOn,
+  );
+  const canPost =
+    trimmed.length > 0 && !over && !badRange && !createEvent.isPending;
 
   async function submit() {
     if (!canPost) return;
-    await createEvent.mutateAsync(trimmed);
+    await createEvent.mutateAsync({
+      body: trimmed,
+      startsOn: dates.startsOn || undefined,
+      endsOn: dates.endsOn || undefined,
+    });
     setBody("");
+    setDates(NO_DATES);
   }
 
   return (
@@ -58,6 +73,15 @@ export function EventComposer({ publicSlug }: EventComposerProps) {
           placeholder="e.g. Travelling to Jaipur this week for a family wedding — happy to shoot festive and ethnic content while I'm there."
           className="min-h-28 resize-none rounded-gc-md border-border bg-muted px-4 py-3 text-[15px] leading-relaxed md:text-[15px]"
         />
+
+        <div className="mt-4 border-t border-border/70 pt-4">
+          <EventDateFields
+            idPrefix="composer"
+            value={dates}
+            onChange={setDates}
+            invalid={badRange}
+          />
+        </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-80 text-xs leading-relaxed text-gc-muted">

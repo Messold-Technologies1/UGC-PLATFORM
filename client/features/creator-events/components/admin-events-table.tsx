@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { formatDateRange } from "../lib/format-date-range";
 import type { AdminCreatorEventApi, AdminEventStatus } from "../api/types";
 import {
   useAdminEventsQuery,
@@ -170,6 +171,12 @@ export function AdminEventsTable() {
                   </td>
                   <td className="max-w-96 border-b border-border/60 px-5 py-4 align-top text-[13px] leading-relaxed text-gc-ink-muted">
                     {row.body}
+                    {formatDateRange(row.startsOn, row.endsOn) ? (
+                      <span className="mt-1.5 block text-[11px] font-semibold text-gc-muted">
+                        {formatDateRange(row.startsOn, row.endsOn)}
+                        {row.ended ? " · finished" : ""}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="border-b border-border/60 px-5 py-4 align-top text-xs whitespace-nowrap text-gc-muted">
                     {formatPosted(row.createdAt)}

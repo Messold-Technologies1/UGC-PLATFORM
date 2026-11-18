@@ -1780,6 +1780,23 @@ model CreatorEvent {
   /// first produces a message a creator can act on.
   body String @db.VarChar(1000)
 
+  /// When the thing the post is about runs. Both optional, and independently
+  /// so: plenty of posts ("set up a home studio") are about nothing dated at
+  /// all, and forcing a range on those would mean inventing one.
+  ///
+  /// `endsOn` is the only one that governs visibility. Once it is past, the
+  /// post leaves the brand feed — a trip that finished last week is noise to
+  /// a brand browsing today. `startsOn` deliberately does NOT gate: a post
+  /// about next week's travel is useful precisely before it starts.
+  ///
+  /// A null `endsOn` never expires, which is also what every row written
+  /// before this column existed does.
+  ///
+  /// Calendar dates, not instants, so "ends on the 20th" means the whole of
+  /// the 20th wherever the reader is.
+  startsOn DateTime? @db.Date
+  endsOn   DateTime? @db.Date
+
   /// Set the first time the body changes, so the card can show "edited". Null
   /// means never edited. Distinct from `updatedAt`, which also moves when an
   /// admin hides the post.
@@ -1812,6 +1829,8 @@ model CreatorEvent {
   @@index([creatorId, createdAt(sort: Desc)])
   /// The brand feed's keyset page: ORDER BY createdAt DESC, id DESC.
   @@index([createdAt(sort: Desc), id(sort: Desc)])
+  /// Serves the feed's expiry filter (endsOn IS NULL OR endsOn >= today).
+  @@index([endsOn])
   @@index([hiddenByUserId])
 }
 

@@ -18,6 +18,24 @@ export class CreatorEventDto {
   })
   editedAt!: Date | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Calendar date the thing starts, YYYY-MM-DD.',
+  })
+  startsOn!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Calendar date the thing ends, YYYY-MM-DD.',
+  })
+  endsOn!: string | null;
+
+  @ApiProperty({
+    description:
+      'The end date has passed, so the post has left the brand feed. Still listed here, because a post vanishing with no explanation is worse for the creator.',
+  })
+  ended!: boolean;
+
   @ApiProperty({
     description:
       'Hidden by an admin: gone from the brand feed, still listed here with a banner.',
@@ -92,6 +110,8 @@ export class FeedCreatorEventDto {
   @ApiProperty() body!: string;
   @ApiProperty() createdAt!: Date;
   @ApiPropertyOptional({ nullable: true }) editedAt!: Date | null;
+  @ApiPropertyOptional({ nullable: true }) startsOn!: string | null;
+  @ApiPropertyOptional({ nullable: true }) endsOn!: string | null;
   @ApiProperty({ type: CreatorEventAuthorDto }) creator!: CreatorEventAuthorDto;
 }
 
@@ -101,6 +121,9 @@ export class AdminCreatorEventDto {
   @ApiProperty() body!: string;
   @ApiProperty() createdAt!: Date;
   @ApiPropertyOptional({ nullable: true }) editedAt!: Date | null;
+  @ApiPropertyOptional({ nullable: true }) startsOn!: string | null;
+  @ApiPropertyOptional({ nullable: true }) endsOn!: string | null;
+  @ApiProperty({ description: 'The end date has passed.' }) ended!: boolean;
   @ApiProperty() creatorId!: string;
   @ApiProperty({ description: 'The creator public slug.' })
   creatorName!: string;

@@ -16,6 +16,7 @@ import React, {
 import { OrderModal } from "./order-modal";
 import { SaveToWishlistButton } from "@/features/wishlists/components/save-to-wishlist-button";
 import { trackBeginCheckout } from "@/features/analytics/lib/buyer-pixel-events";
+import { pushAddToCart } from "@/features/analytics/lib/gtm-ecommerce";
 import { recordCreatorEngagement } from "../../api/record-creator-engagement";
 import { useBuyerIdentityResolver } from "@/features/analytics/hooks/use-buyer-identity-resolver";
 import {
@@ -941,11 +942,21 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
    * opening — not when the click bounced off an unavailable creator, a failed
    * profile load, or the landing page's redirect to sign up.
    */
-  async function reportBeginCheckout(creatorId: string, startingPrice: number) {
+  async function reportBeginCheckout(
+    creatorId: string,
+    creatorName: string,
+    startingPrice: number,
+  ) {
     // Our own copy first, and unconditionally: the pixel call below needs a
     // resolved buyer identity, while the browse reshuffle only needs to know
     // the step happened.
     recordCreatorEngagement(creatorId, "add_to_cart");
+    // GA4's add_to_cart, likewise unconditional — GTM has no buyer identity to
+    // wait on, and it must not be lost when that lookup fails. The Meta event
+    // below is the same step reported to the other dataset; the naming differs
+    // because Meta calls this step AddToCart and GA4 calls it add_to_cart,
+    // while this function is named for the funnel step it belongs to.
+    pushAddToCart({ creatorId, creatorName, startingPrice });
     const identity = await resolveBuyerIdentity();
     if (!identity) return;
     trackBeginCheckout(identity, { creatorId, startingPrice });
@@ -1166,7 +1177,7 @@ export const ProfileDrawer = React.memo(function ProfileDrawer({
                 return;
               }
               if (activeId) {
-                void reportBeginCheckout(activeId, c.startingPrice);
+                void reportBeginCheckout(activeId, c.name, c.startingPrice);
               }
               setOrderOpen(true);
             }}

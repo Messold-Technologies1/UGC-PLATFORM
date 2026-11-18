@@ -24,6 +24,7 @@ import {
   openRazorpayCheckout,
 } from "@/features/payments/lib/open-razorpay-checkout";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/use-create-checkout-mutation";
+import { pushPurchase } from "@/features/analytics/lib/gtm-ecommerce";
 import { invalidateBrandWallet } from "@/features/wallet/hooks";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -162,6 +163,16 @@ export function useRazorpayCheckout({
           packageId: selectedPackage?.id ?? "",
         },
         onSuccess: (orderId) => {
+          // GA4's purchase, before the redirect below: that is a
+          // `router.replace`, and a push racing a navigation is a push that
+          // may not arrive. `amountPaise` is what the gateway actually
+          // charged, matching the `value` begin_checkout reported.
+          pushPurchase({
+            orderId,
+            creatorId: creator.id,
+            creatorName: creator.name,
+            value: Math.round(session.amountPaise / 100),
+          });
           setIsProcessing(false);
           endAttempt();
           invalidateBrandWallet(queryClient);
@@ -191,6 +202,7 @@ export function useRazorpayCheckout({
     },
     [
       creator.id,
+      creator.name,
       queryClient,
       redirectToOrderDetails,
       selectedPackage?.id,
@@ -231,6 +243,15 @@ export function useRazorpayCheckout({
       // coupon) or store credit fully covered it. The server has already placed
       // the order — skip the gateway and go straight to the order.
       if (session.free || session.paidFromCredits) {
+        // The order is already placed and paid; the gateway is simply skipped.
+        // It is as much a purchase as one that went through Razorpay, and
+        // `amountPaise` is 0 here — the same value begin_checkout reported.
+        pushPurchase({
+          orderId: session.orderId,
+          creatorId: creator.id,
+          creatorName: creator.name,
+          value: Math.round(session.amountPaise / 100),
+        });
         endAttempt();
         void queryClient.prefetchQuery(
           brandOrderDetailsQueryOptions(session.orderId),
@@ -264,6 +285,7 @@ export function useRazorpayCheckout({
     checkoutSession,
     createCheckoutMutation,
     creator.id,
+    creator.name,
     isProcessing,
     launchCheckout,
     attemptKey,

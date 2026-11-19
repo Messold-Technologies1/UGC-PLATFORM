@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { pushBrandRegistrationComplete } from "@/features/analytics/lib/gtm-signup-events";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -119,8 +120,11 @@ export function RoleChoiceView() {
       // reports the conversion instead. Creators are not tracked at signup:
       // their conversion is CreatorProfileListed, sent server-side on listing.
       const brandProfileId = updated.brandProfileId;
-      const tracked =
-        role === "BRAND" && updated.hasBrandProfile && brandProfileId
+      const registeredAsBrand = Boolean(
+        role === "BRAND" && updated.hasBrandProfile && brandProfileId,
+      );
+      const pixelSent =
+        registeredAsBrand && brandProfileId
           ? trackBrandRegistration({
               brandProfileId,
               email: updated.email,
@@ -128,6 +132,15 @@ export function RoleChoiceView() {
               phone: updated.phone,
             })
           : false;
+      // GA4/Google Ads, side by side with the pixel rather than inside it, so
+      // one being blocked never costs the other its event.
+      const gtmSent = registeredAsBrand
+        ? pushBrandRegistrationComplete({ userId: updated.id })
+        : false;
+      // Either beacon is worth waiting for: GTM pushes synchronously but its
+      // own tags leave the browser asynchronously, so redirecting on a blocked
+      // pixel alone used to drop the Ads conversion.
+      const tracked = pixelSent || gtmSent;
       // Creator → straight into Edit Profile to fill in the rest (name, phone,
       // categories, portfolio…). Brand/Agency may continue into setup screens
       // if their profile details are still incomplete.

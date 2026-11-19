@@ -33,6 +33,7 @@ import {
 } from "@/features/brands/api/presign-brand-logo-upload";
 import { resolveImmediatePostAuthPath } from "@/features/auth/lib/resolve-immediate-post-auth-path";
 import { beginClientNavigation } from "@/lib/client-navigation-state";
+import { pushBrandRegistrationComplete } from "@/features/analytics/lib/gtm-signup-events";
 import { trackBrandRegistration } from "@/features/auth/lib/track-signup-events";
 import { cn } from "@/lib/utils";
 
@@ -113,6 +114,11 @@ export function BrandGoogleSetupDialog({
         brandName: profile.brandName ?? variables.brandName ?? null,
         ...(variables.website ? { website: variables.website } : {}),
       });
+      // GA4/Google Ads, side by side with the pixel rather than inside it, so
+      // one being blocked never costs the other its event. This is the Google
+      // route's completion point: at role choice a Google brand has no profile
+      // yet, so the conversion cannot be reported there.
+      pushBrandRegistrationComplete({ userId: user.id });
       toast.success("Brand profile ready");
       const refreshed = await queryClient.fetchQuery({
         queryKey: authMeQueryKey,

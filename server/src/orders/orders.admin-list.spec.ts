@@ -113,6 +113,96 @@ describe('OrdersService.listOrdersForAdmin', () => {
     );
   });
 
+  it('applies the search to the counts as well as the rows', async () => {
+    const { service, count, findMany, groupBy } = makeService();
+
+    await service.listOrdersForAdmin({ search: 'acme', page: 1, limit: 20 });
+
+    // Search sits in the BASE scope, so the badges count the matches in each
+    // stage — that is what lets an admin search from any tab and see which
+    // stage the order they are after is sitting in.
+    const searchOr = [
+      { creator: { displayName: { contains: 'acme', mode: 'insensitive' } } },
+      { brand: { brandName: { contains: 'acme', mode: 'insensitive' } } },
+      { agency: { name: { contains: 'acme', mode: 'insensitive' } } },
+      { placedByAgency: { name: { contains: 'acme', mode: 'insensitive' } } },
+      { briefRef: { brandName: { contains: 'acme', mode: 'insensitive' } } },
+    ];
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { OR: searchOr } }),
+    );
+    expect(count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { OR: searchOr } }),
+    );
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { OR: searchOr } }),
+    );
+  });
+
+  it('keeps the search alongside the active tab filter, not instead of it', async () => {
+    const { service, findMany } = makeService();
+
+    await service.listOrdersForAdmin({
+      search: 'acme',
+      statuses: ['ACCEPTED'] as never,
+    });
+
+    // Both clauses survive: the tab narrows the stage, the search narrows the
+    // party. Spreading one over the other would silently drop a filter.
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: ['ACCEPTED'] },
+          OR: expect.arrayContaining([
+            { brand: { brandName: { contains: 'acme', mode: 'insensitive' } } },
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('keeps the search when the grace-period window is active', async () => {
+    const { service, findMany } = makeService();
+
+    await service.listOrdersForAdmin({ search: 'acme', inGracePeriod: true });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          deliveredAt: null,
+          OR: expect.arrayContaining([
+            { brand: { brandName: { contains: 'acme', mode: 'insensitive' } } },
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('narrows the search to the brand scope rather than replacing it', async () => {
+    const { service, groupBy } = makeService();
+
+    await service.listOrdersForAdmin({ brandId: 'brand-1', search: 'acme' });
+
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          brandId: 'brand-1',
+          OR: expect.any(Array),
+        }),
+      }),
+    );
+  });
+
+  it('leaves the where untouched when no search is given', async () => {
+    const { service, groupBy } = makeService();
+
+    await service.listOrdersForAdmin({ search: '   ' });
+
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: undefined }),
+    );
+  });
+
   it('scopes counts to a single agency when agencyId is given', async () => {
     const { service, groupBy } = makeService();
 

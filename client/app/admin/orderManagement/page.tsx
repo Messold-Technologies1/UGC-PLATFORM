@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminCreatorListSearch } from "@/features/admin/components/admin-creator-list-search";
 import { useAdminOrdersQuery } from "@/features/admin/hooks/use-admin-orders-query";
 
 function OrderTableSkeleton({ rows }: { rows: number }) {
@@ -88,6 +89,7 @@ export default function OrderManagement() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
   const [activeTab, setActiveTab] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [gracePeriodCount, setGracePeriodCount] = useState(0);
 
@@ -98,11 +100,13 @@ export default function OrderManagement() {
     isGraceTab || activeTab === "all"
       ? []
       : (ADMIN_STATUS_TAB_GROUPS[activeTab] ?? []);
-  const { data, isLoading, isError } = useAdminOrdersQuery({
+  const trimmedSearch = search.trim();
+  const { data, isLoading, isError, isFetching } = useAdminOrdersQuery({
     page,
     limit,
     statuses: activeStatuses.length > 0 ? activeStatuses.join(",") : undefined,
     inGracePeriod: isGraceTab ? true : undefined,
+    search: trimmedSearch || undefined,
   });
 
   useEffect(() => {
@@ -130,6 +134,21 @@ export default function OrderManagement() {
     setPage(1);
   }
 
+  function handleSearchChange(next: string) {
+    const wasSearching = trimmedSearch.length > 0;
+    const isSearching = next.trim().length > 0;
+    setSearch(next);
+    // Page 3 of the old result set is rarely page 3 of the new one, and is
+    // usually past its end — a search that lands on "no orders" when matches
+    // exist reads as a broken search.
+    setPage(1);
+    // A search is meant to reach every stage. Started from inside a stage tab
+    // it would otherwise answer out of that one stage, hiding the order the
+    // admin is after behind a tab they have no reason to suspect. Only on the
+    // way INTO a search, so a stage picked while already searching sticks.
+    if (!wasSearching && isSearching) setActiveTab("all");
+  }
+
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const showingStart = items.length === 0 ? 0 : (page - 1) * limit + 1;
@@ -145,15 +164,24 @@ export default function OrderManagement() {
       />
 
       <section className="bg-card dark:bg-card/10 border border-border/50 dark:border-border/10 rounded-3xl overflow-hidden glass-panel shadow-sm">
-        <div className="px-8 py-6 flex items-center justify-between bg-muted/50 dark:bg-card/20 border-b border-border/50 dark:border-border/10">
+        <div className="px-8 py-6 flex flex-col gap-4 bg-muted/50 dark:bg-card/20 border-b border-border/50 dark:border-border/10 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="font-headline font-bold text-xl text-foreground">
               Recent Transactions
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Creator and brand snapshots are loaded from the admin orders API.
+              {trimmedSearch
+                ? `Searching every stage for “${trimmedSearch}” — the tab counts above show where the matches are.`
+                : "Creator and brand snapshots are loaded from the admin orders API."}
             </p>
           </div>
+          <AdminCreatorListSearch
+            value={search}
+            onChange={handleSearchChange}
+            isLoading={isFetching && !isLoading}
+            placeholder="Search brand, creator, agency, or order ID…"
+            className="relative w-full lg:w-[26rem]"
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -190,9 +218,13 @@ export default function OrderManagement() {
                     colSpan={7}
                     className="px-8 py-20 text-center text-sm text-muted-foreground"
                   >
-                    {isGraceTab
-                      ? "No orders are currently in their grace period."
-                      : "No orders are available yet."}
+                    {trimmedSearch
+                      ? `No orders match “${trimmedSearch}”${
+                          activeTab === "all" ? "" : " in this stage"
+                        }.`
+                      : isGraceTab
+                        ? "No orders are currently in their grace period."
+                        : "No orders are available yet."}
                   </td>
                 </tr>
               )}

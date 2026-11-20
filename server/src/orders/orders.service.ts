@@ -63,6 +63,7 @@ import {
   inGracePeriodWhere,
   resolveAutoAcceptDays,
 } from './delivery-deadline.util';
+import { buildAdminOrdersSearchWhere } from './admin-orders-search.util';
 import { mapUnavailabilityToPublicAvailability } from '../creator-profile/creator-unavailability.util';
 import { ON_LOCATION_SHOOT_OPTION_SLUG } from '../creator-profile/on-location-shoot.util';
 import type { OrderDeliveriesResponseDto } from './dto/order-deliveries-response.dto';
@@ -5865,6 +5866,8 @@ export class OrdersService {
     agencyId?: string;
     statuses?: OrderStatus[];
     inGracePeriod?: boolean;
+    /** Free-text over creator/brand/agency names and the order id. */
+    search?: string;
   }): Promise<AdminOrdersListResponseDto> {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 50);
@@ -5876,6 +5879,14 @@ export class OrdersService {
     let baseWhere: Prisma.OrderWhereInput | undefined;
     if (params.agencyId) baseWhere = { agencyId: params.agencyId };
     else if (params.brandId) baseWhere = { brandId: params.brandId };
+
+    // Search belongs to the BASE scope, not to the active tab's clause, so it
+    // reaches the status counts as well as the rows. That is what makes it a
+    // search across every stage: type a brand name on any tab and each badge
+    // reports that brand's orders sitting in that stage, so an admin who does
+    // not know which stage an order reached can see it from wherever they are.
+    const searchWhere = buildAdminOrdersSearchWhere(params.search);
+    if (searchWhere) baseWhere = { ...baseWhere, ...searchWhere };
 
     // Grace Period tab is a date-window filter, not a lifecycle status — it
     // takes precedence over statuses. Other tabs still narrow by status group.

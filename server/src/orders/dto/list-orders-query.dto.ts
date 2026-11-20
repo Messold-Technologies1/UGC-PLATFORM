@@ -6,8 +6,10 @@ import {
   IsEnum,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -93,4 +95,21 @@ export class ListOrdersQueryDto {
   @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   inGracePeriod?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'acme',
+    maxLength: 120,
+    description:
+      'Free-text search over the parties on the order and its id: creator ' +
+      'display name, brand name, agency name, the client brand named on the ' +
+      'brief, the agency credited with placing it, or an order id (a whole ' +
+      'uuid, or the leading characters the UI shows as "Order #AB12CD34"). ' +
+      'Applies across every lifecycle status, so the status tab badges count ' +
+      'the matches in each stage.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(120)
+  search?: string;
 }

@@ -495,6 +495,16 @@ export interface AdminOrdersQueryDto {
    * (due date passed, grace deadline not yet reached, still undelivered).
    */
   inGracePeriod?: boolean;
+  /**
+   * Free-text over the parties on the order and its id: creator display name,
+   * brand name, agency name, the client brand on the brief, the agency
+   * credited with placing it, or an order id (whole uuid or the leading
+   * characters shown as "Order #AB12CD34").
+   *
+   * Applied across every lifecycle status, so the status tab badges count the
+   * matches within each stage rather than the unfiltered totals.
+   */
+  search?: string;
 }
 
 export interface AdminBrandDetailDto {

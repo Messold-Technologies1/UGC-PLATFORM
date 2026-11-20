@@ -64,6 +64,7 @@ export class AdminOrdersController {
       agencyId: query.agencyId,
       statuses: query.statuses,
       inGracePeriod: query.inGracePeriod,
+      search: query.search,
     });
   }
 

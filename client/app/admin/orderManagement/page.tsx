@@ -155,7 +155,25 @@ export default function OrderManagement() {
   const showingEnd = Math.min(page * limit, total);
 
   return (
-    <div className="p-8 xl:p-10 2xl:p-12 max-w-[1800px] mx-auto space-y-8 group selection-active">
+    <div className="px-8 pb-8 pt-1 xl:px-10 xl:pb-10 2xl:px-12 2xl:pb-12 max-w-[1800px] mx-auto space-y-6 group selection-active">
+      {/* Search sits ABOVE the tabs because it scopes them: the term reaches
+          the status counts, so the row of badges under it is the answer to
+          "which stage is this order in?" rather than a filter applied first. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-muted-foreground">
+          {trimmedSearch
+            ? `Searching every stage for “${trimmedSearch}” — the counts below show where the matches are.`
+            : "Search every stage by brand, creator, agency, or order ID."}
+        </p>
+        <AdminCreatorListSearch
+          value={search}
+          onChange={handleSearchChange}
+          isLoading={isFetching && !isLoading}
+          placeholder="Search brand, creator, agency, or order ID…"
+          className="relative w-full sm:w-[26rem]"
+        />
+      </div>
+
       <OrderStatusTab
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -164,24 +182,13 @@ export default function OrderManagement() {
       />
 
       <section className="bg-card dark:bg-card/10 border border-border/50 dark:border-border/10 rounded-3xl overflow-hidden glass-panel shadow-sm">
-        <div className="px-8 py-6 flex flex-col gap-4 bg-muted/50 dark:bg-card/20 border-b border-border/50 dark:border-border/10 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="font-headline font-bold text-xl text-foreground">
-              Recent Transactions
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {trimmedSearch
-                ? `Searching every stage for “${trimmedSearch}” — the tab counts above show where the matches are.`
-                : "Creator and brand snapshots are loaded from the admin orders API."}
-            </p>
-          </div>
-          <AdminCreatorListSearch
-            value={search}
-            onChange={handleSearchChange}
-            isLoading={isFetching && !isLoading}
-            placeholder="Search brand, creator, agency, or order ID…"
-            className="relative w-full lg:w-[26rem]"
-          />
+        <div className="px-8 py-6 bg-muted/50 dark:bg-card/20 border-b border-border/50 dark:border-border/10">
+          <h3 className="font-headline font-bold text-xl text-foreground">
+            Recent Transactions
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Creator and brand snapshots are loaded from the admin orders API.
+          </p>
         </div>
 
         <div className="overflow-x-auto">

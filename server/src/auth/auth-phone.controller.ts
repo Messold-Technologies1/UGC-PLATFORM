@@ -26,6 +26,19 @@ import { PhoneVerificationService } from './phone-verification.service';
 import { clientIpFrom, toSendHttpException } from './phone-otp-request.util';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * Shown when the number typed in is already on another account.
+ *
+ * This used to be an opaque 'Invalid request.' so the response leaked nothing,
+ * but both endpoints are behind the JWT guard: the caller is a signed-in user
+ * finishing their own profile (the Google route lands straight on this field
+ * with no number of their own), so a dead-end toast cost them the one thing
+ * they needed to know — that the number belongs to an account they already
+ * have, and that another number is what gets them through.
+ */
+const PHONE_TAKEN_MESSAGE =
+  'You already have an account with this number. Please try with a different number.';
+
 @ApiTags('auth')
 @ApiBearerAuth()
 @Controller('auth')
@@ -56,7 +69,7 @@ export class AuthPhoneController {
       select: { id: true },
     });
     if (existing) {
-      throw new BadRequestException('Invalid request.');
+      throw new BadRequestException(PHONE_TAKEN_MESSAGE);
     }
     try {
       const channel = await this.phoneVerification.sendVerificationCode(
@@ -90,7 +103,7 @@ export class AuthPhoneController {
       select: { id: true },
     });
     if (existing) {
-      throw new BadRequestException('Invalid request.');
+      throw new BadRequestException(PHONE_TAKEN_MESSAGE);
     }
 
     const status = await this.phoneVerification.verifyCode(

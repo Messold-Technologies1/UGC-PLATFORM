@@ -249,6 +249,12 @@ export function PhoneVerificationField({
         setOtpResendAvailableAt(
           now + (retryAfterSeconds ?? PHONE_OTP_RESEND_SECONDS) * 1000,
         );
+      } else {
+        // Anything that isn't a cooldown is about the number itself — most
+        // often that it already belongs to an account. A toast alone scrolls
+        // away before the user has fixed it, so keep the reason under the
+        // field until they edit the number.
+        setPhoneError(message);
       }
       toast.error(message);
     },

@@ -17,10 +17,11 @@ export type PhoneOtpErrorInfo = {
 };
 
 /**
- * Messages the API returns deliberately blank — they exist so the response
- * leaks nothing (the duplicate-number check), or come from the generic
- * throttler and name an internal class. Neither helps the user, so the
- * caller's own copy wins.
+ * Messages the API returns deliberately blank — a leftover opaque reply, or the
+ * generic throttler naming an internal class. Neither helps the user, so the
+ * caller's own copy wins. The duplicate-number check is no longer one of them:
+ * it answers with the real reason ("You already have an account with this
+ * number..."), which has to reach the user intact.
  */
 function isOpaqueMessage(message: string): boolean {
   return message === "Invalid request." || /throttler/i.test(message);

@@ -241,6 +241,7 @@ function toCarouselAssets(
       type: "video" as const,
       full: video.videoUrl,
       thumb: video.thumbnailUrl ?? video.videoUrl,
+      poster: video.thumbnailUrl ?? undefined,
       id: video.id,
     }));
 }
@@ -272,17 +273,21 @@ function PortfolioThumbnails({
             key={index}
             className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border-2 border-background bg-muted"
           >
-            {hasVideo ? (
+            {video.thumbnailUrl ? (
+              <Image src={video.thumbnailUrl} alt="Portfolio" fill className="object-cover" />
+            ) : hasVideo ? (
+              // No poster yet: this is a 32px tile under a play icon, and the
+              // list renders three of them per row across the whole page.
+              // Preloading would mean pulling every creator's reel — tens of MB
+              // each — just to tint a few pixels, which is what made Safari
+              // give up on the portfolio modal.
               <video
                 src={video.videoUrl}
                 className="h-full w-full object-cover"
                 muted
                 playsInline
-                preload="metadata"
-                poster={video.thumbnailUrl || undefined}
+                preload="none"
               />
-            ) : video.thumbnailUrl ? (
-              <Image src={video.thumbnailUrl} alt="Portfolio" fill className="object-cover" />
             ) : null}
             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
               <Play className="size-3 fill-white text-white opacity-80" />

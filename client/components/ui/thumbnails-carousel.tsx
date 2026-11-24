@@ -14,9 +14,25 @@ export type CarouselAsset = {
   type: "video" | "image";
   full: string;
   thumb: string;
+  /**
+   * Still image for a video asset: the `<video poster>` and the strip tile.
+   *
+   * Without one, a video tile can only show a frame by loading the video
+   * itself. Safari ignores `preload="metadata"` and keeps buffering, so a
+   * six-reel carousel pulled hundreds of MB and the larger files never
+   * decoded a first frame at all — blank player, black thumbnails — while
+   * Chrome, which honours the hint, looked fine. Supply this wherever the
+   * backend has a thumbnail.
+   */
+  poster?: string;
   duration?: string;
   id?: string;
 };
+
+/** A local object URL costs nothing to load — it is already in memory. */
+function isLocal(url: string): boolean {
+  return url.startsWith("blob:") || url.startsWith("data:");
+}
 
 export interface ThumbnailsCarouselProps {
   className?: string;
@@ -73,6 +89,12 @@ export function ThumbnailsCarousel({
           pauseVideo(index);
         }
       });
+      // Flipping `preload` from "none" to "metadata" does not reliably start a
+      // fetch for an element that has already mounted, so ask explicitly.
+      const next = videoRefs.current[details.page];
+      if (next && next.readyState === 0) {
+        next.load();
+      }
       setPlayingIndex((index) => (index === details.page ? index : null));
     },
     [pauseVideo],
@@ -123,7 +145,14 @@ export function ThumbnailsCarousel({
       defaultPage={0}
       slideCount={assets.length}
       onPageChange={handlePageChange}
-      className={cn("w-full transition-opacity duration-300", className)}
+      // `min-w-0`: DialogContent lays its children out in a grid, and a grid
+      // item defaults to `min-width: auto` — without this the thumbnail row's
+      // min-content width wins and the whole carousel, next-trigger included,
+      // renders wider than the dialog it sits in.
+      className={cn(
+        "w-full min-w-0 transition-opacity duration-300",
+        className,
+      )}
     >
       <Carousel.ItemGroup className={cn(
         "relative overflow-hidden rounded-2xl border bg-black shadow-sm",
@@ -142,9 +171,17 @@ export function ThumbnailsCarousel({
                     videoRefs.current[index] = node;
                   }}
                   src={asset.full}
+                  poster={asset.poster}
                   className="absolute inset-0 z-10 h-full w-full object-contain"
                   playsInline
-                  preload="metadata"
+                  // Off-screen slides stay unloaded: they sit behind
+                  // `overflow-hidden` and only become visible on navigation,
+                  // where handlePageChange loads them.
+                  preload={
+                    currentPage === index || isLocal(asset.full)
+                      ? "metadata"
+                      : "none"
+                  }
                   controls={playingIndex === index}
                   onPlay={() => {
                     pauseOtherVideos(index);
@@ -218,71 +255,85 @@ export function ThumbnailsCarousel({
             <ChevronLeft className="w-5 h-5" />
           </Carousel.PrevTrigger>
 
-          <div className="scrollbar-hide flex min-w-0 flex-1 justify-center gap-2 overflow-x-auto px-0.5 py-1">
-            {assets.map((asset, index) => (
-              <div
-                key={asset.id ?? index}
-                className={cn(
-                  "group/thumb relative shrink-0",
-                  isPortrait ? "aspect-9/16 w-12" : "aspect-video w-24",
-                )}
-              >
-                <Carousel.Indicator
-                  index={index}
-                  className="absolute inset-0 block h-full w-full cursor-pointer overflow-hidden rounded-lg bg-black ring-2 ring-transparent ring-offset-background transition-all hover:ring-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-current:ring-primary data-current:ring-offset-2"
+          {/* `justify-center` on the scroller itself overflows in both
+              directions, which puts the leading tiles out of reach and pushes
+              the next-trigger off the edge once there are ~6 of them. Centring
+              an inner track instead keeps the scroll range correct. */}
+          <div className="scrollbar-hide flex min-w-0 flex-1 overflow-x-auto px-0.5 py-1">
+            <div className="mx-auto flex gap-2">
+              {assets.map((asset, index) => (
+                <div
+                  key={asset.id ?? index}
+                  className={cn(
+                    "group/thumb relative shrink-0",
+                    isPortrait ? "aspect-9/16 w-12" : "aspect-video w-24",
+                  )}
                 >
-                  {asset.type === "video" ? (
-                    <video
-                      src={asset.thumb}
-                      className={cn(
-                        "h-full w-full object-cover transition-opacity",
-                        currentPage === index ? "opacity-100" : "opacity-65",
-                      )}
-                      muted
-                      playsInline
-                      preload="metadata"
-                    />
-                  ) : (
-                    <Image
-                      src={asset.thumb}
-                      alt={`Thumbnail ${index + 1}`}
-                      fill
-                      sizes="8rem"
-                      className={cn(
-                        "object-cover transition-opacity",
-                        currentPage === index ? "opacity-100" : "opacity-65",
-                      )}
-                      unoptimized={asset.thumb.startsWith("blob:")}
-                    />
-                  )}
-                  {asset.type === "video" && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <Play
-                        className={cn(
-                          "text-white/80 drop-shadow-md",
-                          isPortrait ? "h-3.5 w-3.5" : "h-6 w-6",
-                        )}
-                        fill="currentColor"
-                      />
-                    </div>
-                  )}
-                </Carousel.Indicator>
-                {isEditable && onRemove && (
-                  <button 
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onRemove(index);
-                    }}
-                    className="absolute top-1 right-1 bg-black/60 rounded-full p-1 hover:bg-destructive/80 transition-colors z-10"
-                    aria-label="Remove asset"
+                  <Carousel.Indicator
+                    index={index}
+                    className="absolute inset-0 block h-full w-full cursor-pointer overflow-hidden rounded-lg bg-black ring-2 ring-transparent ring-offset-background transition-all hover:ring-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-current:ring-primary data-current:ring-offset-2"
                   >
-                    <X className="w-3 h-3 text-white" />
-                  </button>
-                )}
-              </div>
-            ))}
+                    {asset.type === "video" && !asset.poster ? (
+                      <video
+                        src={asset.thumb}
+                        className={cn(
+                          "h-full w-full object-cover transition-opacity",
+                          currentPage === index ? "opacity-100" : "opacity-65",
+                        )}
+                        muted
+                        playsInline
+                        // With no poster, the only way to paint a frame in a
+                        // 48px tile is to download the reel behind it. Load at
+                        // most the tile the carousel is already on; the rest
+                        // stay as the black-and-play-icon placeholder.
+                        preload={
+                          currentPage === index || isLocal(asset.thumb)
+                            ? "metadata"
+                            : "none"
+                        }
+                      />
+                    ) : (
+                      <Image
+                        src={asset.poster ?? asset.thumb}
+                        alt={`Thumbnail ${index + 1}`}
+                        fill
+                        sizes="8rem"
+                        className={cn(
+                          "object-cover transition-opacity",
+                          currentPage === index ? "opacity-100" : "opacity-65",
+                        )}
+                        unoptimized={isLocal(asset.poster ?? asset.thumb)}
+                      />
+                    )}
+                    {asset.type === "video" && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <Play
+                          className={cn(
+                            "text-white/80 drop-shadow-md",
+                            isPortrait ? "h-3.5 w-3.5" : "h-6 w-6",
+                          )}
+                          fill="currentColor"
+                        />
+                      </div>
+                    )}
+                  </Carousel.Indicator>
+                  {isEditable && onRemove && (
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onRemove(index);
+                      }}
+                      className="absolute top-1 right-1 bg-black/60 rounded-full p-1 hover:bg-destructive/80 transition-colors z-10"
+                      aria-label="Remove asset"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           <Carousel.NextTrigger className="p-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:pointer-events-none">

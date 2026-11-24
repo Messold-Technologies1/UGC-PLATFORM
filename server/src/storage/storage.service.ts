@@ -804,6 +804,35 @@ export class StorageService {
   }
 
   /**
+   * Download only the first `bytes` of an object.
+   *
+   * Enough to pull a poster frame out of a faststart MP4 (`moov` sits at the
+   * front, so the index plus a little `mdat` is all a decoder needs) without
+   * paying for the whole object — portfolio reels run to hundreds of MB. The
+   * result is a truncated file: ffmpeg will read a frame from it but will also
+   * report errors at the cut, so callers must tolerate a failure and retry
+   * against the complete object.
+   */
+  async downloadPrefixToFile(
+    key: string,
+    destPath: string,
+    bytes: number,
+  ): Promise<void> {
+    const res = await this.s3.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Range: `bytes=0-${Math.max(1, Math.floor(bytes)) - 1}`,
+      }),
+    );
+    const body = res.Body as Readable | undefined;
+    if (!body) {
+      throw new Error(`Empty object body for key: ${key}`);
+    }
+    await pipeline(body, createWriteStream(destPath));
+  }
+
+  /**
    * Download an object from S3 into an in-memory buffer.
    *
    * Only for objects known to be small — images, documents, overlays. For video

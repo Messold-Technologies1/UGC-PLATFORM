@@ -23,6 +23,7 @@
     "invalidate:preview-videos": "node dist/scripts/invalidate-preview-videos.js",
     "invalidate:delivery-previews": "node dist/scripts/invalidate-delivery-previews.js",
     "backfill:normalize-media": "node dist/scripts/backfill-normalize-media.js",
+    "backfill:portfolio-thumbnails": "node dist/scripts/backfill-portfolio-thumbnails.js",
     "restore:original-videos": "node dist/scripts/restore-original-videos.js",
     "reenroll:completion-reminders": "node dist/scripts/reenroll-completion-reminders.js",
     "reenroll:completion-reminders:dev": "node -r ts-node/register/transpile-only src/scripts/reenroll-completion-reminders.ts",

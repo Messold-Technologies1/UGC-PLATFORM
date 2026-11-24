@@ -61,18 +61,23 @@ async function generate(args: string[]): Promise<Buffer | null> {
 describe('MediaNormalizeService (real ffmpeg)', () => {
   jest.setTimeout(180_000);
 
-  function build(row: { videoKey: string | null }) {
+  function build(row: { videoKey: string | null; thumbnailKey?: string | null }) {
     let uploaded: Buffer | null = null;
     let uploadedKey: string | null = null;
+    let poster: Buffer | null = null;
+    let posterKey: string | null = null;
     // The service no longer buffers the source — it asks storage to stream the
     // object onto disk — so the fake writes whatever `setSource` was given to
     // the path the service picked.
     let source: Buffer | null = null;
     const prismaMock = {
       creatorPortfolioVideo: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ id: 'v1', creatorId: 'c1', ...row }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'v1',
+          creatorId: 'c1',
+          thumbnailKey: null,
+          ...row,
+        }),
         update: jest.fn().mockResolvedValue({}),
       },
     };
@@ -87,9 +92,17 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
           for await (const chunk of input.body) {
             chunks.push(Buffer.from(chunk as Buffer));
           }
-          uploaded = Buffer.concat(chunks);
-          uploadedKey = input.key;
-          return { key: input.key, bytes: uploaded.length };
+          const body = Buffer.concat(chunks);
+          // The service uploads two kinds of object now; keep them apart so a
+          // test can assert on the video without the poster overwriting it.
+          if (input.contentType === 'image/jpeg') {
+            poster = body;
+            posterKey = input.key;
+          } else {
+            uploaded = body;
+            uploadedKey = input.key;
+          }
+          return { key: input.key, bytes: body.length };
         },
       ),
       buildCdnUrl: jest.fn((k: string) => `https://cdn.example/${k}`),
@@ -114,6 +127,18 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
       },
       get uploadedKey() {
         return uploadedKey;
+      },
+      get poster() {
+        return poster;
+      },
+      get posterKey() {
+        return posterKey;
+      },
+      /** Upload calls that carried the video, i.e. excluding the poster. */
+      videoUploads() {
+        return storageMock.uploadStream.mock.calls.filter(
+          (c) => (c[0] as { contentType: string }).contentType !== 'image/jpeg',
+        ).length;
       },
     };
   }
@@ -147,7 +172,7 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
 
     await h.service.normalizePortfolioVideo('v1');
 
-    expect(h.storageMock.uploadStream).toHaveBeenCalledTimes(1);
+    expect(h.videoUploads()).toBe(1);
     const out = h.uploaded as unknown as Buffer;
     expect(out).toBeInstanceOf(Buffer);
 
@@ -219,8 +244,9 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
 
     await h.service.normalizePortfolioVideo('v1');
 
-    // No re-encode / upload / delete — just a status flip to ready.
-    expect(h.storageMock.uploadStream).not.toHaveBeenCalled();
+    // No re-encode and no delete: the video bytes are untouched. A poster is
+    // still minted, because the row had none.
+    expect(h.videoUploads()).toBe(0);
     expect(h.storageMock.deleteObjectIfExists).not.toHaveBeenCalled();
     expect(h.prismaMock.creatorPortfolioVideo.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -268,7 +294,7 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
 
     await h.service.normalizePortfolioVideo('v1');
 
-    expect(h.storageMock.uploadStream).toHaveBeenCalledTimes(1);
+    expect(h.videoUploads()).toBe(1);
     const out = h.uploaded as unknown as Buffer;
     const atoms = topLevelAtoms(out);
     expect(atoms.indexOf('moov')).toBeLessThan(atoms.indexOf('mdat'));
@@ -315,7 +341,7 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
 
       await h.service.normalizePortfolioVideo('v1');
 
-      expect(h.storageMock.uploadStream).toHaveBeenCalledTimes(1);
+      expect(h.videoUploads()).toBe(1);
       const out = h.uploaded as unknown as Buffer;
       const dir = await mkdtemp(join(tmpdir(), 'mn-cap-'));
       const outPath = join(dir, 'out.mp4');
@@ -332,5 +358,132 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
       if (prev === undefined) delete process.env.PORTFOLIO_MAX_HEIGHT;
       else process.env.PORTFOLIO_MAX_HEIGHT = prev;
     }
+  });
+
+  it('mints a JPEG poster for a portfolio video that has none', async () => {
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=1080x1920:rate=30:duration=2',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping poster test');
+      return;
+    }
+
+    const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+    h.setSource(sample);
+
+    await h.service.normalizePortfolioVideo('v1');
+
+    // Already web-safe, so the reel itself is untouched — only a poster is new.
+    expect(h.videoUploads()).toBe(0);
+    expect(h.posterKey).toMatch(
+      /^creator-portfolio\/c1\/thumbnails\/[0-9a-f-]+\.jpg$/,
+    );
+
+    const poster = h.poster as unknown as Buffer;
+    expect(poster).toBeInstanceOf(Buffer);
+    // JPEG SOI marker.
+    expect(poster.subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
+    // Small in absolute terms — this is what a tile loads instead of a reel.
+    // (Not compared against `sample`: a 2s synthetic test pattern compresses
+    // far better as video than a busy still of it does as JPEG.)
+    expect(poster.length).toBeLessThan(500 * 1024);
+
+    const dir = await mkdtemp(join(tmpdir(), 'mn-poster-'));
+    const posterPath = join(dir, 'poster.jpg');
+    try {
+      await writeFile(posterPath, poster);
+      const { stderr } = await runFfmpeg(['-hide_banner', '-i', posterPath]);
+      const res = /,\s(\d+)x(\d+)/.exec(stderr);
+      expect(res).not.toBeNull();
+      // Scaled to the 720 default, aspect preserved (1080x1920 -> 405x720).
+      expect(Number(res![2])).toBe(720);
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+
+    expect(h.prismaMock.creatorPortfolioVideo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          thumbnailKey: h.posterKey,
+          thumbnailUrl: `https://cdn.example/${h.posterKey}`,
+        }),
+      }),
+    );
+  });
+
+  it('leaves an existing thumbnail alone', async () => {
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=640x360:rate=30:duration=1',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping poster-preserved test');
+      return;
+    }
+
+    const h = build({
+      videoKey: 'creator-portfolio/c1/videos/src.mp4',
+      thumbnailKey: 'creator-portfolio/c1/thumbnails/uploader-supplied.jpg',
+    });
+    h.setSource(sample);
+
+    await h.service.normalizePortfolioVideo('v1');
+
+    expect(h.posterKey).toBeNull();
+    expect(h.storageMock.uploadStream).not.toHaveBeenCalled();
+  });
+
+  it('does not fail the job when the poster pass fails', async () => {
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=640x360:rate=30:duration=1',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping poster-failure test');
+      return;
+    }
+
+    const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+    h.setSource(sample);
+    // A poster is a nice-to-have: losing the upload must not cost us the
+    // normalize result, which is the part that is expensive to redo.
+    h.storageMock.uploadStream.mockRejectedValueOnce(new Error('s3 down'));
+
+    await expect(h.service.normalizePortfolioVideo('v1')).resolves.toBeUndefined();
+
+    expect(h.prismaMock.creatorPortfolioVideo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ videoNormalizeStatus: 'ready' }),
+      }),
+    );
   });
 });

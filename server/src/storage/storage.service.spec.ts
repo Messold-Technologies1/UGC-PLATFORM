@@ -1,3 +1,6 @@
+import { createReadStream } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { StorageService } from './storage.service';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -35,6 +38,25 @@ describe('StorageService', () => {
       return fallback as any;
     }),
   };
+
+  it('rejects, rather than crashing the process, when the source stream errors', async () => {
+    // `createReadStream` on a missing path emits 'error' asynchronously. Before
+    // this was handled, that unhandled event took the whole process down —
+    // which is how a poster backfill died 250 rows into a 2546-row run instead
+    // of failing that one row.
+    const storage = new StorageService(config as never);
+    const missing = createReadStream(
+      join(tmpdir(), `storage-spec-does-not-exist-${Date.now()}`),
+    );
+
+    await expect(
+      storage.uploadStream({
+        key: 'creator-portfolio/c1/thumbnails/x.jpg',
+        body: missing,
+        contentType: 'image/jpeg',
+      }),
+    ).rejects.toThrow(/ENOENT/);
+  });
 
   it('builds a CDN url for a key', () => {
     const storage = new StorageService(config as any);

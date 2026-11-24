@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, open, rm } from 'node:fs/promises';
+import { mkdtemp, open, rm, stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -454,12 +454,9 @@ export class MediaNormalizeService {
     prefix: string,
   ): Promise<{ key: string; url: string } | null> {
     const height = posterHeight();
-    const { code, stderr } = await this.runFfmpegCapture([
+    const args = (seek: string[]) => [
       '-y',
-      // Half a second in: the very first frame of a phone recording is often
-      // a black or half-exposed sensor warm-up frame.
-      '-ss',
-      '0.5',
+      ...seek,
       '-i',
       videoPath,
       '-frames:v',
@@ -469,24 +466,33 @@ export class MediaNormalizeService {
       '-q:v',
       '4',
       framePath,
-    ]);
-    if (code !== 0) {
-      // A clip shorter than the seek offset yields no frame — retry at 0.
-      const retry = await this.runFfmpegCapture([
-        '-y',
-        '-i',
-        videoPath,
-        '-frames:v',
-        '1',
-        '-vf',
-        `scale=-2:'min(${height},ih)'`,
-        '-q:v',
-        '4',
-        framePath,
-      ]);
-      if (retry.code !== 0) {
+    ];
+
+    // ffmpeg can exit 0 having written nothing — a truncated source (the
+    // ranged read the backfill uses) or a seek past the last decodable frame
+    // both do it — so the exit code alone is not proof that a poster exists.
+    // Checking stops a non-existent file reaching `createReadStream` below.
+    const wroteFrame = async (): Promise<boolean> => {
+      try {
+        return (await stat(framePath)).size > 0;
+      } catch {
+        return false;
+      }
+    };
+
+    // Half a second in: the very first frame of a phone recording is often a
+    // black or half-exposed sensor warm-up frame.
+    const first = await this.runFfmpegCapture(args(['-ss', '0.5']));
+    if (first.code !== 0 || !(await wroteFrame())) {
+      // A clip shorter than the seek offset, or a head too short to decode at
+      // that offset — try again from the very start.
+      await rm(framePath, { force: true }).catch(() => undefined);
+      const retry = await this.runFfmpegCapture(args([]));
+      if (retry.code !== 0 || !(await wroteFrame())) {
         throw new Error(
-          `ffmpeg poster exited with code ${code}/${retry.code}: ${stderr.slice(-1000)}`,
+          `ffmpeg poster produced no frame (codes ${first.code}/${retry.code}): ${(
+            retry.stderr || first.stderr
+          ).slice(-1000)}`,
         );
       }
     }

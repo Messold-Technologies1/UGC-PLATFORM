@@ -883,6 +883,14 @@ export class StorageService {
         input.body.destroy(aborted);
       }
     });
+    // `pipe()` does not forward errors, and an unhandled 'error' event on a
+    // Readable takes the whole process down — a missing source file here used
+    // to kill the backfill mid-run rather than failing one row. Destroying the
+    // PassThrough turns it into a rejection from `upload.done()` below, which
+    // the caller can handle like any other upload failure.
+    input.body.on('error', (err: Error) => {
+      counted.destroy(err);
+    });
     input.body.pipe(counted);
 
     const upload = new Upload({

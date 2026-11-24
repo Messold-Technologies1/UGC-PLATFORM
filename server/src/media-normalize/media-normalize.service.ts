@@ -32,6 +32,23 @@ function maxHeight(): number | null {
 }
 
 /**
+ * Longest edge of the generated poster image. Portfolio reels are vertical, so
+ * this is the height; 720 keeps the file around 40-80 KB while still looking
+ * sharp in the full-bleed player it stands in for.
+ */
+function posterProbeBytes(): number {
+  const v = Number(process.env.PORTFOLIO_POSTER_PROBE_BYTES);
+  return Number.isFinite(v) && v >= 1_000_000
+    ? Math.floor(v)
+    : 12 * 1024 * 1024;
+}
+
+function posterHeight(): number {
+  const v = Number(process.env.PORTFOLIO_POSTER_HEIGHT);
+  return Number.isFinite(v) && v >= 120 ? Math.floor(v) : 720;
+}
+
+/**
  * x264 quality for the compatibility transcode. Lower = better, ~18-23 is the
  * visually-transparent range. The old value of 26 was tuned when output was
  * always downscaled to 720p, where softness was partly masked by the downscale;
@@ -145,7 +162,12 @@ export class MediaNormalizeService {
   async normalizePortfolioVideo(videoId: string): Promise<void> {
     const row = await this.prisma.creatorPortfolioVideo.findUnique({
       where: { id: videoId },
-      select: { id: true, creatorId: true, videoKey: true },
+      select: {
+        id: true,
+        creatorId: true,
+        videoKey: true,
+        thumbnailKey: true,
+      },
     });
     if (!row) {
       this.logger.warn(`normalize: portfolio video ${videoId} not found`);
@@ -158,10 +180,18 @@ export class MediaNormalizeService {
       return;
     }
 
-    const swapped = await this.normalizeObject(row.videoKey, {
-      keepAudio: true,
-      destPrefix: `creator-portfolio/${row.creatorId}/videos`,
-    });
+    // Only mint a poster when the row has none. Uploads that shipped their own
+    // thumbnail (the web uploader grabs a frame client-side) keep it.
+    const { video: swapped, poster } = await this.normalizeObject(
+      row.videoKey,
+      {
+        keepAudio: true,
+        destPrefix: `creator-portfolio/${row.creatorId}/videos`,
+        posterPrefix: row.thumbnailKey
+          ? undefined
+          : `creator-portfolio/${row.creatorId}/thumbnails`,
+      },
+    );
 
     if (swapped) {
       await this.prisma.creatorPortfolioVideo.update({
@@ -169,6 +199,9 @@ export class MediaNormalizeService {
         data: {
           videoKey: swapped.key,
           videoUrl: swapped.url,
+          ...(poster
+            ? { thumbnailKey: poster.key, thumbnailUrl: poster.url }
+            : {}),
           videoNormalizeStatus: 'ready',
           videoNormalizeUpdatedAt: new Date(),
         },
@@ -179,8 +212,22 @@ export class MediaNormalizeService {
       this.logger.log(
         `normalize: portfolio ${videoId} → ${swapped.key} (${(swapped.bytes / 1024).toFixed(0)} KiB)`,
       );
+    } else if (poster) {
+      await this.prisma.creatorPortfolioVideo.update({
+        where: { id: videoId },
+        data: {
+          thumbnailKey: poster.key,
+          thumbnailUrl: poster.url,
+          videoNormalizeStatus: 'ready',
+          videoNormalizeUpdatedAt: new Date(),
+        },
+      });
     } else {
       await this.markPortfolioReady(videoId);
+    }
+
+    if (poster) {
+      this.logger.log(`normalize: portfolio ${videoId} poster → ${poster.key}`);
     }
 
     // The card-preview source may be this video — rebuild it (no-op if not).
@@ -206,7 +253,7 @@ export class MediaNormalizeService {
       return;
     }
 
-    const swapped = await this.normalizeObject(row.introVideoKey, {
+    const { video: swapped } = await this.normalizeObject(row.introVideoKey, {
       keepAudio: true,
       destPrefix: `creator-profile/${creatorId}/intro`,
     });
@@ -234,6 +281,64 @@ export class MediaNormalizeService {
     void this.previewQueue.enqueueDirty(creatorId);
   }
 
+  /**
+   * Give an existing portfolio video a poster, without touching its bytes.
+   *
+   * The normalize pipeline mints one for every video it handles from now on;
+   * this is for the rows that predate it — at the time of writing the large
+   * majority of the library, which is why portfolio carousels were falling
+   * back to loading whole reels to render a thumbnail.
+   *
+   * Reads only the head of the object where it can: a faststart MP4 carries
+   * `moov` up front, so a few MB is enough to decode one frame out of a 200 MB
+   * reel. Falls back to the full object when that is not enough.
+   */
+  async backfillPortfolioPoster(
+    videoId: string,
+  ): Promise<'created' | 'skipped'> {
+    const row = await this.prisma.creatorPortfolioVideo.findUnique({
+      where: { id: videoId },
+      select: {
+        id: true,
+        creatorId: true,
+        videoKey: true,
+        thumbnailKey: true,
+      },
+    });
+    if (!row?.videoKey || row.thumbnailKey) return 'skipped';
+
+    const dir = await mkdtemp(join(tmpdir(), 'poster-'));
+    const ext = row.videoKey.split('.').pop()?.toLowerCase() || 'mp4';
+    const inPath = join(dir, `in.${ext}`);
+    const framePath = join(dir, 'poster.jpg');
+    const prefix = `creator-portfolio/${row.creatorId}/thumbnails`;
+    try {
+      let poster: { key: string; url: string } | null = null;
+      try {
+        await this.storage.downloadPrefixToFile(
+          row.videoKey,
+          inPath,
+          posterProbeBytes(),
+        );
+        poster = await this.uploadPoster(inPath, framePath, prefix);
+      } catch {
+        // Truncated head was not enough (moov at the end, or the seek offset
+        // lands past it) — pay for the whole object.
+        await this.storage.downloadToFile(row.videoKey, inPath);
+        poster = await this.uploadPoster(inPath, framePath, prefix);
+      }
+      if (!poster) return 'skipped';
+
+      await this.prisma.creatorPortfolioVideo.update({
+        where: { id: videoId },
+        data: { thumbnailKey: poster.key, thumbnailUrl: poster.url },
+      });
+      return 'created';
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
   private async markPortfolioReady(videoId: string): Promise<void> {
     await this.prisma.creatorPortfolioVideo.update({
       where: { id: videoId },
@@ -256,13 +361,23 @@ export class MediaNormalizeService {
 
   /**
    * Download an object, and if it isn't already a web-safe MP4 within the height
-   * cap, transcode + upload to a new key. Returns the new object on a swap, or
-   * null when the source was already fine (no swap needed).
+   * cap, transcode + upload to a new key. `video` is the new object on a swap,
+   * or null when the source was already fine (no swap needed).
+   *
+   * When `posterPrefix` is given, a JPEG of the first frame is also uploaded and
+   * returned as `poster`. The frame is taken from whichever file the browser
+   * will actually play, and the source is on local disk either way, so this
+   * costs one extra ffmpeg pass over a single frame — no second download.
+   * Poster failure is never fatal: a missing poster degrades to the old
+   * behaviour, while failing the job here would also undo a good transcode.
    */
   private async normalizeObject(
     sourceKey: string,
-    opts: { keepAudio: boolean; destPrefix: string },
-  ): Promise<{ key: string; url: string; bytes: number } | null> {
+    opts: { keepAudio: boolean; destPrefix: string; posterPrefix?: string },
+  ): Promise<{
+    video: { key: string; url: string; bytes: number } | null;
+    poster: { key: string; url: string } | null;
+  }> {
     const ext = sourceKey.split('.').pop()?.toLowerCase() || 'mp4';
 
     const dir = await mkdtemp(join(tmpdir(), 'normalize-'));
@@ -272,33 +387,117 @@ export class MediaNormalizeService {
       await this.storage.downloadToFile(sourceKey, inPath);
       const probe = await this.probe(inPath);
 
+      let swapped = true;
       if (!this.needsNormalize(ext, probe)) {
         // Already web-safe. Leave the bytes alone unless the moov atom is at the
         // end, in which case remux (stream copy — no re-encode, so no quality
         // change) purely to move it to the front.
-        if (await hasFaststart(inPath)) return null;
-        this.logger.log(
-          `normalize: ${sourceKey} is web-safe but not faststart — remuxing (stream copy)`,
-        );
-        await this.remuxFaststart(inPath, outPath);
+        if (await hasFaststart(inPath)) {
+          swapped = false;
+        } else {
+          this.logger.log(
+            `normalize: ${sourceKey} is web-safe but not faststart — remuxing (stream copy)`,
+          );
+          await this.remuxFaststart(inPath, outPath);
+        }
       } else {
         await this.transcode(inPath, outPath, {
           keepAudio: opts.keepAudio && probe.audioCodec !== null,
         });
       }
-      const key = `${opts.destPrefix}/${randomUUID()}.mp4`;
-      // Streamed, and inside the `try` so the temp dir outlives the multipart.
-      // `bytes` comes back from the uploader because nothing here ever holds
-      // the whole file to measure it.
-      const { bytes } = await this.storage.uploadStream({
-        key,
-        body: createReadStream(outPath),
-        contentType: 'video/mp4',
-      });
-      return { key, url: this.storage.buildCdnUrl(key), bytes };
+
+      let video: { key: string; url: string; bytes: number } | null = null;
+      if (swapped) {
+        const key = `${opts.destPrefix}/${randomUUID()}.mp4`;
+        // Streamed, and inside the `try` so the temp dir outlives the multipart.
+        // `bytes` comes back from the uploader because nothing here ever holds
+        // the whole file to measure it.
+        const { bytes } = await this.storage.uploadStream({
+          key,
+          body: createReadStream(outPath),
+          contentType: 'video/mp4',
+        });
+        video = { key, url: this.storage.buildCdnUrl(key), bytes };
+      }
+
+      let poster: { key: string; url: string } | null = null;
+      if (opts.posterPrefix) {
+        poster = await this.uploadPoster(
+          swapped ? outPath : inPath,
+          join(dir, 'poster.jpg'),
+          opts.posterPrefix,
+        ).catch((err: unknown) => {
+          this.logger.warn(
+            `normalize: poster for ${sourceKey} failed — ${String(err)}`,
+          );
+          return null;
+        });
+      }
+
+      return { video, poster };
     } finally {
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     }
+  }
+
+  /**
+   * Grab one frame and upload it as a JPEG.
+   *
+   * Without a poster, every surface that lists reels has to mount a `<video>`
+   * per tile just to show a still — and Safari ignores `preload="metadata"`,
+   * so each of those tiles pulls tens of seconds of a multi-hundred-MB file
+   * before it paints anything. A ~50 KB image removes the reason to do that.
+   */
+  private async uploadPoster(
+    videoPath: string,
+    framePath: string,
+    prefix: string,
+  ): Promise<{ key: string; url: string } | null> {
+    const height = posterHeight();
+    const { code, stderr } = await this.runFfmpegCapture([
+      '-y',
+      // Half a second in: the very first frame of a phone recording is often
+      // a black or half-exposed sensor warm-up frame.
+      '-ss',
+      '0.5',
+      '-i',
+      videoPath,
+      '-frames:v',
+      '1',
+      '-vf',
+      `scale=-2:'min(${height},ih)'`,
+      '-q:v',
+      '4',
+      framePath,
+    ]);
+    if (code !== 0) {
+      // A clip shorter than the seek offset yields no frame — retry at 0.
+      const retry = await this.runFfmpegCapture([
+        '-y',
+        '-i',
+        videoPath,
+        '-frames:v',
+        '1',
+        '-vf',
+        `scale=-2:'min(${height},ih)'`,
+        '-q:v',
+        '4',
+        framePath,
+      ]);
+      if (retry.code !== 0) {
+        throw new Error(
+          `ffmpeg poster exited with code ${code}/${retry.code}: ${stderr.slice(-1000)}`,
+        );
+      }
+    }
+
+    const key = `${prefix}/${randomUUID()}.jpg`;
+    await this.storage.uploadStream({
+      key,
+      body: createReadStream(framePath),
+      contentType: 'image/jpeg',
+    });
+    return { key, url: this.storage.buildCdnUrl(key) };
   }
 
   /** Already web-safe if it's an .mp4 whose video is H.264 and whose audio (if

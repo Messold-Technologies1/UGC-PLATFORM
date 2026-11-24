@@ -81,11 +81,19 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
         update: jest.fn().mockResolvedValue({}),
       },
     };
+    let prefixBytes: number | null = null;
     const storageMock = {
       downloadToFile: jest.fn(async (_key: string, destPath: string) => {
         if (!source) throw new Error('test did not call setSource()');
         await writeFile(destPath, source);
       }),
+      downloadPrefixToFile: jest.fn(
+        async (_key: string, destPath: string, bytes: number) => {
+          if (!source) throw new Error('test did not call setSource()');
+          // `prefixBytes` lets a test force a head too short to decode.
+          await writeFile(destPath, source.subarray(0, prefixBytes ?? bytes));
+        },
+      ),
       uploadStream: jest.fn(
         async (input: { key: string; body: Readable; contentType: string }) => {
           const chunks: Buffer[] = [];
@@ -121,6 +129,10 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
       previewMock,
       setSource(buf: Buffer) {
         source = buf;
+      },
+      /** Truncate what a ranged read returns, to exercise the fallback. */
+      setPrefixBytes(n: number) {
+        prefixBytes = n;
       },
       get uploaded() {
         return uploaded;
@@ -485,5 +497,136 @@ describe('MediaNormalizeService (real ffmpeg)', () => {
         data: expect.objectContaining({ videoNormalizeStatus: 'ready' }),
       }),
     );
+  });
+
+  it('still makes a poster for a clip shorter than the seek offset', async () => {
+    // THE crash from the first production backfill run. Seeking to 0.5s in a
+    // 0.2s clip makes ffmpeg encode zero frames — and the image2 muxer then
+    // never creates the output file at all, while ffmpeg still exits 0. The
+    // old code trusted that exit code, handed a non-existent path to
+    // createReadStream, and the unhandled 'error' event killed the run at
+    // row 250 of 2546.
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=640x360:rate=30:duration=0.2',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping short-clip poster test');
+      return;
+    }
+
+    const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+    h.setSource(sample);
+
+    await expect(h.service.backfillPortfolioPoster('v1')).resolves.toBe(
+      'created',
+    );
+
+    const poster = h.poster as unknown as Buffer;
+    expect(poster).toBeInstanceOf(Buffer);
+    expect(poster.subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
+  });
+
+  it('falls back to the full object when a ranged head is too short to decode', async () => {
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=1080x1920:rate=30:duration=2',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping poster fallback test');
+      return;
+    }
+
+    const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+    h.setSource(sample);
+    // 2 KiB is moov and little else: ffmpeg can exit 0 here and still write no
+    // frame, which is what crashed the first backfill run — createReadStream
+    // opened a file that was never created and the 'error' event went unheard.
+    h.setPrefixBytes(2048);
+
+    await expect(h.service.backfillPortfolioPoster('v1')).resolves.toBe(
+      'created',
+    );
+
+    expect(h.storageMock.downloadPrefixToFile).toHaveBeenCalled();
+    expect(h.storageMock.downloadToFile).toHaveBeenCalled();
+    const poster = h.poster as unknown as Buffer;
+    expect(poster.subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
+    expect(h.prismaMock.creatorPortfolioVideo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ thumbnailKey: h.posterKey }),
+      }),
+    );
+  });
+
+  it('backfills a poster from the ranged head alone when that is enough', async () => {
+    const sample = await generate([
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc=size=640x360:rate=30:duration=1',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'src.mp4',
+    ]);
+    if (!sample) {
+      console.warn('ffmpeg unavailable — skipping poster head test');
+      return;
+    }
+
+    const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+    h.setSource(sample);
+
+    await expect(h.service.backfillPortfolioPoster('v1')).resolves.toBe(
+      'created',
+    );
+
+    // The whole point of the ranged read: a 200 MB reel must not be pulled
+    // down in full just to grab one frame.
+    expect(h.storageMock.downloadToFile).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed backfill instead of taking the process down', async () => {
+    const h = build({ videoKey: 'creator-portfolio/c1/videos/src.mp4' });
+    // Not a video at all — neither the head nor the full object yields a frame.
+    h.setSource(Buffer.from('not a video'));
+
+    await expect(h.service.backfillPortfolioPoster('v1')).rejects.toThrow(
+      /produced no frame/,
+    );
+    expect(h.prismaMock.creatorPortfolioVideo.update).not.toHaveBeenCalled();
+  });
+
+  it('skips a backfill for a row that already has a thumbnail', async () => {
+    const h = build({
+      videoKey: 'creator-portfolio/c1/videos/src.mp4',
+      thumbnailKey: 'creator-portfolio/c1/thumbnails/existing.jpg',
+    });
+    await expect(h.service.backfillPortfolioPoster('v1')).resolves.toBe(
+      'skipped',
+    );
+    expect(h.storageMock.downloadPrefixToFile).not.toHaveBeenCalled();
   });
 });

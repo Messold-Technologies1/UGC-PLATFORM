@@ -18,6 +18,7 @@ import {
   type MetaBrowserAttribution,
 } from '../meta-capi/meta-capi.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationEventsService } from '../notifications/dispatch/notification-events.service';
 import type { CreateWishlistDto } from './dto/create-wishlist.dto';
 import type { UpdateWishlistDto } from './dto/update-wishlist.dto';
 import type { WishlistDto, WishlistDetailDto } from './dto/wishlist.dto';
@@ -202,7 +203,27 @@ export class WishlistsService {
     private readonly brandAccess: BrandAccessService,
     private readonly metaCapi: MetaCapiService,
     private readonly engagement: CreatorEngagementService,
+    private readonly events: NotificationEventsService,
   ) {}
+
+  /**
+   * Start the "saved creators but never ordered" drip for a brand.
+   *
+   * Only brand-owned wishlists qualify — an agency's own shortlist has no brand
+   * to nudge, and those rows carry no brandId. Fire-and-forget, and safe to call
+   * on every save: emit() is keyed by the brand id, so the first save a brand
+   * ever makes starts one drip (+1d / +3d / +7d from that moment) and every
+   * later save is refused as a duplicate rather than scheduling a second. The
+   * drip's own stillRelevant check stops it the moment the brand pays for an
+   * order, so emitting for a brand that has already ordered simply no-ops.
+   *
+   * Mirrors the sweep, which uses the same brand-id occurrence key, so the
+   * automatic timer here and the admin backfill can never double-send.
+   */
+  private startWishlistNoOrderDrip(brandId: string | null | undefined): void {
+    if (!brandId) return;
+    void this.events.emit('brand-wishlist-no-order', { entityId: brandId });
+  }
 
   /**
    * The catalog name behind the on-location shoot slug — one lookup per
@@ -417,6 +438,9 @@ export class WishlistsService {
           meta: params.meta,
         });
       }
+      if (params.dto.creatorIds?.length) {
+        this.startWishlistNoOrderDrip(actor.brandId);
+      }
       return { id: wishlist.id };
     } catch (err: any) {
       if (err?.code === 'P2002') {
@@ -532,6 +556,12 @@ export class WishlistsService {
       throw err;
     }
 
+    // Emit after the write commits — a drip for a save that rolled back would
+    // nudge about something that never happened.
+    if (params.dto.creatorIds?.length) {
+      this.startWishlistNoOrderDrip(existing.brandId);
+    }
+
     return this.getWishlistDetail({
       actorUserId: params.actorUserId,
       brandProfileId: params.brandProfileId,
@@ -620,6 +650,9 @@ export class WishlistsService {
     // browse ranking: un-saving deletes it, so a creator saved and dropped a
     // hundred times reads as never saved at all.
     void this.engagement.record(params.creatorId, 'wishlist_add');
+
+    // A brand saving a creator is the moment the "never ordered" drip starts.
+    this.startWishlistNoOrderDrip(wishlist.brandId);
   }
 
   async removeCreator(params: {
@@ -826,6 +859,7 @@ export class WishlistsService {
           },
           select: { id: true },
         });
+        this.startWishlistNoOrderDrip(actor.brandId);
         return {
           wishlistId: created.id,
           addedCount: creatorIds.length,
@@ -859,6 +893,7 @@ export class WishlistsService {
         })),
         skipDuplicates: true,
       });
+      this.startWishlistNoOrderDrip(actor.brandId);
     }
 
     return {

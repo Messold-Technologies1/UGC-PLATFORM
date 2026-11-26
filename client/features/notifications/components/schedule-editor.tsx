@@ -176,7 +176,9 @@ export function ScheduleEditor({
                     Browser
                   </label>
                 </div>
+              </div>
 
+              <div className="mt-4 flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-1">
                   <span className="text-muted-foreground text-xs">Email</span>
                   <Select

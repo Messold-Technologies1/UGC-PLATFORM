@@ -157,6 +157,72 @@ describe('stillRelevant', () => {
     });
   });
 
+  describe('brand-wishlist-no-order', () => {
+    // Stops once the brand PAYS for an order (paidAt set), or has emptied its
+    // wishlist. A missing brand answers null, not false.
+    const ctx = (opts: {
+      brandExists: boolean;
+      paidOrders: number;
+      savedCreators: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          brandProfile: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue(opts.brandExists ? { id: 'brand_1' } : null),
+          },
+          order: {
+            count: jest.fn().mockResolvedValue(opts.paidOrders),
+          },
+          brandWishlistCreator: {
+            count: jest.fn().mockResolvedValue(opts.savedCreators),
+          },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('brand-wishlist-no-order', c, 'brand_1');
+
+    it('keeps nudging a brand with saved creators and no paid order', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 3 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the brand pays for an order', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 1, savedCreators: 3 })),
+      ).resolves.toBe(false);
+    });
+
+    it('stops when the wishlist has been emptied', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the brand is gone', async () => {
+      await expect(
+        ask(ctx({ brandExists: false, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBeNull();
+    });
+
+    it('counts only paid orders, not abandoned unpaid ones', async () => {
+      const c = ctx({ brandExists: true, paidOrders: 0, savedCreators: 1 });
+      await ask(c);
+      const count = (c.prisma.order as unknown as { count: jest.Mock }).count;
+      expect(count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            brandId: 'brand_1',
+            paidAt: { not: null },
+          }) as unknown,
+        }),
+      );
+    });
+  });
+
   describe('notices', () => {
     // A record of something that happened is still true a day later, so these
     // answer yes without reading anything — no query, no entity lookup.

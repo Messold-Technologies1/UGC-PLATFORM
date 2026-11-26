@@ -149,7 +149,7 @@ describe('TemplateRendererService', () => {
       }
     });
 
-    // Every key renders a usable message. The two stage-switching templates wrap
+    // Every key renders a usable message. The stage-switching templates wrap
     // their ENTIRE subject in {{#if isStageN}}, so without stage context they
     // render an empty subject — which SES rejects outright. They are given their
     // stage flag here; the emptiness is the hazard, not a test artefact.
@@ -158,6 +158,9 @@ describe('TemplateRendererService', () => {
         isStage1: true,
       },
       [EmailTemplateKey.CREATOR_PROFILE_RESUBMIT_REMINDER]: {
+        isStage1: true,
+      },
+      [EmailTemplateKey.BRAND_WISHLIST_NO_ORDER]: {
         isStage1: true,
       },
     };

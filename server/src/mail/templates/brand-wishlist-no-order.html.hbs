@@ -1,0 +1,53 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">The creators you saved are ready when you are 🎬</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You've added creators to your <strong>{{platformName}}</strong> wishlist — a great first step. The next one is placing your first order so they can start creating for you. 💸
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your shortlist is saved and waiting. When you're ready, ordering takes just a couple of minutes.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="View My Wishlist →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Found the right creator for your brand? Don't let them sit on a list. 🚀
+</p>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Still thinking it over? Your shortlist is right here 👀</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You saved some creators on <strong>{{platformName}}</strong> but haven't placed an order yet.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Good creators get booked quickly. Placing your order now locks in the ones you liked and gets your content moving.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Order From My Wishlist →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  You've already done the hard part — you picked them. 💗
+</p>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Your wishlist creators are still waiting on you</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  The creators you shortlisted on <strong>{{platformName}}</strong> are ready to bring your brand to life — all that's left is your order.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  If anything held you back — budget, deliverables or picking the right person — we're happy to help you get started.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Place My First Order →"}}
+</div>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Questions before you order?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— Team {{platformName}} 💗</p>

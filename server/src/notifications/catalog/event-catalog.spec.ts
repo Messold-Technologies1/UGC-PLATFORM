@@ -131,6 +131,7 @@ describe('notification event catalog', () => {
 
     expect(conditional).toEqual([
       'agency-link-requested',
+      'brand-wishlist-no-order',
       'creator-profile-completion-reminder',
       'creator-profile-resubmit-reminder',
       'order-auto-accept-reminder-for-brand',

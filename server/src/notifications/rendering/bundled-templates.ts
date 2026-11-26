@@ -21,6 +21,7 @@ export const STAGE_OFFSETS: Record<string, number[]> = {
     7 * 24 * 60,
   ],
   'creator-profile-resubmit-reminder': [30, 24 * 60, 48 * 60],
+  'brand-wishlist-no-order': [24 * 60, 3 * 24 * 60, 7 * 24 * 60],
 };
 
 /**

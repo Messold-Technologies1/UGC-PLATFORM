@@ -290,6 +290,136 @@ export const profileEvents = defineEvents({
     // A record of something that happened, so a delayed copy is still true.
     stillRelevant: ALWAYS_RELEVANT,
   },
+
+  'brand-wishlist-no-order': {
+    label: 'Brand saved creators but never ordered',
+    description:
+      'Nudges a brand that has added creators to a wishlist but has not placed a paid order yet. Swept across every brand in that state, timed from when they first saved a creator; stops the moment they pay for an order.',
+    recipient: BRAND,
+    vars: {
+      recipientName: { type: 'string', example: 'Rohit S' },
+      actionUrl: { type: 'url', example: '/brand/wishlists' },
+    },
+    resolve: async (ctx, id) => {
+      const profile = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          brandName: true,
+          contactFullName: true,
+          contactEmail: true,
+          contactPhone: true,
+        },
+      });
+      if (!profile) return null;
+
+      const actorUserId =
+        await ctx.brandAccess.resolveBrandActorUserIdForProfile(id);
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { id: true, email: true, name: true, phone: true },
+      });
+
+      return {
+        userId: user?.id ?? null,
+        profileType: 'brand',
+        profileId: profile.id,
+        email: resolveBrandMailAddress({
+          contactEmail: profile.contactEmail,
+          accountEmail: user?.email,
+        }),
+        phone: profile.contactPhone?.trim() || user?.phone?.trim() || null,
+        vars: {
+          recipientName: resolveBrandMailDisplayName({
+            contactFullName: profile.contactFullName,
+            brandName: profile.brandName,
+            accountName: user?.name,
+            fallback: 'there',
+          }),
+          actionUrl: `${ctx.frontendBaseUrl}/brand/wishlists`,
+        },
+      };
+    },
+
+    /**
+     * Stop the moment the brand pays for an order. An abandoned, unpaid order
+     * (PENDING_PAYMENT) is NOT engagement, so paidAt — not merely a row in the
+     * orders table — is the exit. A brand that emptied its wishlist has nothing
+     * to be nudged about either, so that ends it too.
+     */
+    stillRelevant: async (ctx, id) => {
+      const brand = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      // null, not false: a missing brand is the worker unable to see it, which
+      // is a different thing from a brand that has since ordered.
+      if (!brand) return null;
+
+      const paidOrders = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { not: null } },
+      });
+      if (paidOrders > 0) return false;
+
+      const savedCreators = await ctx.prisma.brandWishlistCreator.count({
+        where: { wishlist: { brandId: id } },
+      });
+      return savedCreators > 0;
+    },
+
+    /**
+     * Swept across every brand that has saved a creator and not yet paid for an
+     * order, with no time window so the whole backlog is reached. The drip
+     * clock starts from the brand's earliest wishlist save; `highestDueOnly`
+     * (set by the sweep) means a long-standing brand gets one catch-up rather
+     * than the whole drip at once.
+     */
+    population: {
+      cron: '0 11 * * *',
+      highestDueOnly: true,
+      page: async (ctx, cursor, take) => {
+        const brands = await ctx.prisma.brandProfile.findMany({
+          where: {
+            // No paid order yet — an unpaid, abandoned order does not count.
+            orders: { none: { paidAt: { not: null } } },
+            // At least one creator saved to at least one wishlist.
+            wishlists: { some: { creators: { some: {} } } },
+          },
+          // Keyset, not OFFSET: offset paging degrades quadratically, and on
+          // Neon that is real money.
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: {
+            id: true,
+            createdAt: true,
+            wishlists: {
+              where: { creators: { some: {} } },
+              select: {
+                creators: {
+                  select: { createdAt: true },
+                  orderBy: { createdAt: 'asc' },
+                  take: 1,
+                },
+              },
+            },
+          },
+        });
+        return brands.map((b) => {
+          const stamps = b.wishlists.flatMap((w) =>
+            w.creators.map((c) => c.createdAt.getTime()),
+          );
+          // Earliest save across all the brand's wishlists; the brand's own
+          // createdAt only as a defensive fallback (the where-clause guarantees
+          // at least one save, so stamps is non-empty in practice).
+          const clockAt = stamps.length
+            ? new Date(Math.min(...stamps))
+            : b.createdAt;
+          return { id: b.id, clockAt };
+        });
+      },
+    },
+  },
 });
 
 /**

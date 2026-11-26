@@ -31,6 +31,7 @@ export enum EmailTemplateKey {
   ORDER_DISPUTE_RESOLVED_FOR_BRAND = 'order-dispute-resolved-for-brand',
   ORDER_DISPUTE_RESOLVED_FOR_CREATOR = 'order-dispute-resolved-for-creator',
   BRAND_WELCOME = 'brand-welcome',
+  BRAND_WISHLIST_NO_ORDER = 'brand-wishlist-no-order',
   AGENCY_LINK_REQUESTED = 'agency-link-requested',
   AGENCY_LINK_ACCEPTED = 'agency-link-accepted',
   AGENCY_LINK_REJECTED = 'agency-link-rejected',

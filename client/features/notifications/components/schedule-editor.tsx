@@ -69,6 +69,14 @@ export function ScheduleEditor({
     .map((r) => r.offsetMinutes)
     .filter((o, i, all) => all.indexOf(o) !== i);
 
+  // Meta only accepts ^[a-z0-9_]+$ for a template name. Block the save on a
+  // malformed override rather than letting the API reject the whole schedule.
+  const WA_NAME_RE = /^[a-z0-9_]+$/;
+  const hasInvalidWa = draft.some((r) => {
+    const name = (r.whatsappTemplateOverride ?? "").trim();
+    return name !== "" && !WA_NAME_RE.test(name);
+  });
+
   const toggleChannel = (row: DraftRow, channel: NotificationChannel) => {
     const next = row.channels.includes(channel)
       ? row.channels.filter((c) => c !== channel)
@@ -93,6 +101,9 @@ export function ScheduleEditor({
         {draft.map((row) => {
           const { value, unit } = splitOffset(row.offsetMinutes);
           const isDuplicate = duplicateOffsets.includes(row.offsetMinutes);
+          const waValue = row.whatsappTemplateOverride ?? "";
+          const waInvalid =
+            waValue.trim() !== "" && !WA_NAME_RE.test(waValue.trim());
 
           return (
             <div
@@ -166,28 +177,48 @@ export function ScheduleEditor({
                   </label>
                 </div>
 
-                <Select
-                  value={row.templateOverrideId ?? "__default"}
-                  onValueChange={(next) =>
-                    update(row._key, {
-                      templateOverrideId: next === "__default" ? null : next,
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__default">
-                      Use the event&rsquo;s template
-                    </SelectItem>
-                    {templates.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground text-xs">Email</span>
+                  <Select
+                    value={row.templateOverrideId ?? "__default"}
+                    onValueChange={(next) =>
+                      update(row._key, {
+                        templateOverrideId: next === "__default" ? null : next,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-56">
+                      <SelectValue placeholder="Template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__default">
+                        Use the event&rsquo;s template
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground text-xs">WhatsApp</span>
+                  <Input
+                    value={waValue}
+                    onChange={(e) =>
+                      update(row._key, {
+                        whatsappTemplateOverride: e.target.value,
+                      })
+                    }
+                    placeholder="Use the event's template"
+                    aria-invalid={waInvalid}
+                    className={`w-56 font-mono text-sm ${
+                      waInvalid ? "border-red-400" : ""
+                    }`}
+                  />
+                </div>
 
                 <div className="ml-auto flex items-center gap-3">
                   <label className="flex items-center gap-2 text-sm">
@@ -218,6 +249,13 @@ export function ScheduleEditor({
                   No channels ticked — this row will not send.
                 </p>
               )}
+              {waInvalid && (
+                <p className="mt-2 text-xs text-red-600">
+                  WhatsApp template name must match{" "}
+                  <code>^[a-z0-9_]+$</code> — leave it blank to use the
+                  event&rsquo;s template.
+                </p>
+              )}
             </div>
           );
         })}
@@ -236,23 +274,30 @@ export function ScheduleEditor({
         </Button>
         <Button
           type="button"
-          disabled={saving || duplicateOffsets.length > 0}
+          disabled={saving || duplicateOffsets.length > 0 || hasInvalidWa}
           onClick={() =>
             onSave(
-              draft.map((row) => ({
-                offsetMinutes: row.offsetMinutes,
-                channels: row.channels,
-                templateOverrideId: row.templateOverrideId ?? null,
-                whatsappTemplateOverride: row.whatsappTemplateOverride ?? null,
-                isActive: row.isActive,
-              })),
+              draft.map((row) => {
+                const wa = (row.whatsappTemplateOverride ?? "").trim();
+                return {
+                  offsetMinutes: row.offsetMinutes,
+                  channels: row.channels,
+                  templateOverrideId: row.templateOverrideId ?? null,
+                  // Empty box means "use the event's template": send null, not
+                  // "", which the ^[a-z0-9_]+$ check on the API would reject.
+                  whatsappTemplateOverride: wa === "" ? null : wa,
+                  isActive: row.isActive,
+                };
+              }),
             )
           }
         >
           {saving ? "Saving…" : "Save schedule"}
         </Button>
         <p className="text-muted-foreground text-xs">
-          Applies to events from now on. Use Backfill to reach recent entities.
+          Pick an Email or WhatsApp template per row to override the
+          event&rsquo;s default; leave either blank to use it. Applies to events
+          from now on — use Backfill to reach recent entities.
         </p>
       </div>
     </div>

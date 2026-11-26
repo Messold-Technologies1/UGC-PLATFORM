@@ -420,6 +420,106 @@ export const profileEvents = defineEvents({
       },
     },
   },
+
+  'brand-never-ordered': {
+    label: 'Brand signed up but never ordered',
+    description:
+      "Re-engages a brand that registered but has never placed a paid order AND has not saved any creators — the 'cold' brands. A brand that builds a wishlist moves to the wishlist nudge instead, so the two never overlap. Clocked from signup; stops once the brand pays for an order.",
+    recipient: BRAND,
+    vars: {
+      recipientName: { type: 'string', example: 'Rohit S' },
+      actionUrl: { type: 'url', example: '/brand/creators' },
+    },
+    resolve: async (ctx, id) => {
+      const profile = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          brandName: true,
+          contactFullName: true,
+          contactEmail: true,
+          contactPhone: true,
+        },
+      });
+      if (!profile) return null;
+
+      const actorUserId =
+        await ctx.brandAccess.resolveBrandActorUserIdForProfile(id);
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { id: true, email: true, name: true, phone: true },
+      });
+
+      return {
+        userId: user?.id ?? null,
+        profileType: 'brand',
+        profileId: profile.id,
+        email: resolveBrandMailAddress({
+          contactEmail: profile.contactEmail,
+          accountEmail: user?.email,
+        }),
+        phone: profile.contactPhone?.trim() || user?.phone?.trim() || null,
+        vars: {
+          recipientName: resolveBrandMailDisplayName({
+            contactFullName: profile.contactFullName,
+            brandName: profile.brandName,
+            accountName: user?.name,
+            fallback: 'there',
+          }),
+          actionUrl: `${ctx.frontendBaseUrl}/brand/creators`,
+        },
+      };
+    },
+
+    /**
+     * Stops once the brand pays for an order (abandoned, unpaid orders do not
+     * count), OR once they save a creator — a wishlist means they are warm, and
+     * the brand-wishlist-no-order drip takes over from here so the two never
+     * both fire. null, not false, when the brand is gone.
+     */
+    stillRelevant: async (ctx, id) => {
+      const brand = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!brand) return null;
+
+      const paidOrders = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { not: null } },
+      });
+      if (paidOrders > 0) return false;
+
+      const savedCreators = await ctx.prisma.brandWishlistCreator.count({
+        where: { wishlist: { brandId: id } },
+      });
+      return savedCreators === 0;
+    },
+
+    /**
+     * Swept across every brand that registered, never paid for an order and has
+     * saved no creators, clocked from signup. highestDueOnly gives a brand that
+     * pre-dates the drip a single catch-up rather than the whole series at once.
+     */
+    population: {
+      cron: '0 12 * * *',
+      highestDueOnly: true,
+      page: async (ctx, cursor, take) => {
+        const brands = await ctx.prisma.brandProfile.findMany({
+          where: {
+            orders: { none: { paidAt: { not: null } } },
+            // No creator saved to any wishlist — a saved creator makes the
+            // brand 'warm', and the wishlist drip owns those.
+            wishlists: { none: { creators: { some: {} } } },
+          },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true, createdAt: true },
+        });
+        return brands.map((b) => ({ id: b.id, clockAt: b.createdAt }));
+      },
+    },
+  },
 });
 
 /**

@@ -223,6 +223,57 @@ describe('stillRelevant', () => {
     });
   });
 
+  describe('brand-never-ordered', () => {
+    // Stops once the brand pays for an order, OR once they save a creator (a
+    // wishlist makes them 'warm' and the wishlist drip takes over). null when
+    // the brand is gone.
+    const ctx = (opts: {
+      brandExists: boolean;
+      paidOrders: number;
+      savedCreators: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          brandProfile: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue(opts.brandExists ? { id: 'brand_1' } : null),
+          },
+          order: { count: jest.fn().mockResolvedValue(opts.paidOrders) },
+          brandWishlistCreator: {
+            count: jest.fn().mockResolvedValue(opts.savedCreators),
+          },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('brand-never-ordered', c, 'brand_1');
+
+    it('keeps nudging a cold brand — no order, no saved creators', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the brand pays for an order', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 1, savedCreators: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('hands off to the wishlist drip once the brand saves a creator', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 2 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the brand is gone', async () => {
+      await expect(
+        ask(ctx({ brandExists: false, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBeNull();
+    });
+  });
+
   describe('notices', () => {
     // A record of something that happened is still true a day later, so these
     // answer yes without reading anything — no query, no entity lookup.

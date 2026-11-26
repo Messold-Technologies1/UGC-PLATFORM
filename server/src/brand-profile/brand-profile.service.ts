@@ -456,6 +456,12 @@ export class BrandProfileService {
     void this.events.emit('brand-welcome', {
       entityId: params.brandProfileId,
     });
+    // Start the "never ordered" re-engagement drip from signup. It stops the
+    // moment the brand pays for an order or saves a creator (at which point the
+    // wishlist drip takes over), so the two never overlap.
+    void this.events.emit('brand-never-ordered', {
+      entityId: params.brandProfileId,
+    });
     return profile;
   }
 

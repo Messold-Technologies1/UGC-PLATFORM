@@ -26,7 +26,9 @@ export const STAGE_OFFSETS: Record<string, number[]> = {
   'brand-never-ordered': [3 * 24 * 60, 7 * 24 * 60, 14 * 24 * 60],
   'brand-no-recent-order': [30 * 24 * 60, 37 * 24 * 60, 45 * 24 * 60],
   'creator-no-first-order': [30, 3 * 24 * 60, 7 * 24 * 60],
-  'creator-no-profile-events': [5 * 24 * 60, 9 * 24 * 60, 14 * 24 * 60],
+  // First nudge 5 days after the creator is listed, then every 2 days:
+  // day 5 (first nudge), day 7 (+2), day 9 (+2).
+  'creator-no-profile-events': [5 * 24 * 60, 7 * 24 * 60, 9 * 24 * 60],
 };
 
 /**

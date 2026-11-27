@@ -167,6 +167,69 @@ export const profileEvents = defineEvents({
     },
   },
 
+  'creator-profile-under-review': {
+    label: 'Creator profile complete — under review',
+    description:
+      "Reassures a creator whose profile is complete but not yet approved that it is under review, and keeps nudging while it stays pending. Fires when the profile goes live, and existing pending creators can be enrolled from the event page. Stops the moment approval resolves (approved, rejected or withdrawn).",
+    recipient: CREATOR,
+    vars: {
+      recipientName: { type: 'string', example: 'Ananya R' },
+      actionUrl: { type: 'url', example: '/creator/account' },
+    },
+    resolve: async (ctx, id) => {
+      const p = await loadCreator(ctx, id);
+      if (!p) return null;
+      return toCreatorProfile(p, {
+        actionUrl: `${ctx.frontendBaseUrl}/creator/account`,
+      });
+    },
+    // Relevant only while the profile is complete AND still awaiting approval —
+    // PENDING (approval-first) or SELF_COMPLETED (profile-first). Approval,
+    // rejection or a withdraw all move it off those states and end the drip.
+    stillRelevant: async (ctx, id) => {
+      const p = await ctx.prisma.creatorProfile.findUnique({
+        where: { id },
+        select: {
+          completeProfile: true,
+          creatorApproval: { select: { status: true } },
+        },
+      });
+      if (!p) return null;
+      const status = p.creatorApproval?.status;
+      return (
+        p.completeProfile === true &&
+        (status === ApprovalStatus.PENDING ||
+          status === ApprovalStatus.SELF_COMPLETED)
+      );
+    },
+
+    /**
+     * Enrols every creator whose profile is complete but still awaiting
+     * approval. Turning the drip on enrols them from that moment, like a
+     * creator who completes today.
+     */
+    population: {
+      cron: '0 9 * * *',
+      page: async (ctx, cursor, take) => {
+        const rows = await ctx.prisma.creatorProfile.findMany({
+          where: {
+            completeProfile: true,
+            creatorApproval: {
+              status: {
+                in: [ApprovalStatus.PENDING, ApprovalStatus.SELF_COMPLETED],
+              },
+            },
+          },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        return rows.map((r) => ({ id: r.id }));
+      },
+    },
+  },
+
   'creator-profile-resubmit-reminder': {
     label: 'Creator profile withdrawn — resubmit reminder',
     recipient: CREATOR,

@@ -1,0 +1,50 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Your profile is in — we're reviewing it ✅</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Nice work finishing your <strong>{{platformName}}</strong> profile! It's now with our team for review — you don't need to do anything else.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  We check that everything's in order so brands see you at your best. We'll email you the moment your profile is approved and live.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="View My Profile →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Hang tight — this usually doesn't take long. 🚀
+</p>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Still under review — thanks for your patience 🙏</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your <strong>{{platformName}}</strong> profile is still being reviewed. Everything looks on track — there's nothing you need to do right now.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Want to make your profile even stronger while you wait? Add a few more portfolio videos or polish your bio — a great profile gets picked faster.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Review My Profile →"}}
+</div>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Almost there — your profile is nearly through 🎬</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Thanks for your patience! Your <strong>{{platformName}}</strong> profile is still in the review queue, and we'll let you know as soon as it's approved.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Once you're live, brands can discover you and send paid orders your way. 💸
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="View My Profile →"}}
+</div>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Have a question in the meantime?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— Team {{platformName}} 💗</p>

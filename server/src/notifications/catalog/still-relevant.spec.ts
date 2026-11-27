@@ -1,4 +1,8 @@
-import { OrderStatus, SocialConnectionStatus } from '@prisma/client';
+import {
+  ApprovalStatus,
+  OrderStatus,
+  SocialConnectionStatus,
+} from '@prisma/client';
 import type { EventContext } from './define-events';
 import { NOTIFICATION_EVENTS_BY_KEY } from './event-catalog';
 
@@ -324,6 +328,73 @@ describe('stillRelevant', () => {
       await expect(
         ask(ctx({ brandExists: false, recentPaid: 0, everPaid: 0 })),
       ).resolves.toBeNull();
+    });
+  });
+
+  describe('creator-profile-under-review', () => {
+    // Relevant only while the profile is complete AND still awaiting approval
+    // (PENDING or SELF_COMPLETED). null when the creator is gone.
+    const ctx = (
+      profile: {
+        completeProfile: boolean;
+        creatorApproval: { status: ApprovalStatus } | null;
+      } | null,
+    ): EventContext =>
+      ({
+        prisma: {
+          creatorProfile: { findUnique: jest.fn().mockResolvedValue(profile) },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('creator-profile-under-review', c, 'creator_1');
+
+    it('keeps reassuring while complete and PENDING', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.PENDING },
+          }),
+        ),
+      ).resolves.toBe(true);
+    });
+
+    it('keeps reassuring while complete and SELF_COMPLETED', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.SELF_COMPLETED },
+          }),
+        ),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the profile is approved', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.APPROVED },
+          }),
+        ),
+      ).resolves.toBe(false);
+    });
+
+    it('stops once the profile is rejected', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.REJECTED },
+          }),
+        ),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the creator is gone', async () => {
+      await expect(ask(ctx(null))).resolves.toBeNull();
     });
   });
 

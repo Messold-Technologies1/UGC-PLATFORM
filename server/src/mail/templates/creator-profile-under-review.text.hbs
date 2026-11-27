@@ -1,0 +1,29 @@
+Hi {{recipientName}},
+
+{{#if isStage1}}
+Nice work finishing your {{platformName}} profile! It's now with our team for review — you don't need to do anything else.
+
+We check that everything's in order so brands see you at your best. We'll email you the moment your profile is approved and live.
+
+View My Profile: {{actionUrl}}
+
+Hang tight — this usually doesn't take long.
+{{/if}}
+{{#if isStage2}}
+Your {{platformName}} profile is still being reviewed. Everything looks on track — there's nothing you need to do right now.
+
+Want to make your profile even stronger while you wait? Add a few more portfolio videos or polish your bio — a great profile gets picked faster.
+
+Review My Profile: {{actionUrl}}
+{{/if}}
+{{#if isStage3}}
+Thanks for your patience! Your {{platformName}} profile is still in the review queue, and we'll let you know as soon as it's approved.
+
+Once you're live, brands can discover you and send paid orders your way.
+
+View My Profile: {{actionUrl}}
+
+Have a question in the meantime? Contact us: {{frontendUrl}}/contact
+{{/if}}
+
+— Team {{platformName}}

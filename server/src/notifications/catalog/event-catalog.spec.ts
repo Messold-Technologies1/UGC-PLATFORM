@@ -136,6 +136,7 @@ describe('notification event catalog', () => {
       'brand-wishlist-no-order',
       'creator-profile-completion-reminder',
       'creator-profile-resubmit-reminder',
+      'creator-profile-under-review',
       'order-auto-accept-reminder-for-brand',
       'order-brief-accepted-for-brand',
       'order-brief-submitted-for-creator',

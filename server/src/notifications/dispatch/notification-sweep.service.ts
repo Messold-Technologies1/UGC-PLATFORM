@@ -92,6 +92,36 @@ export class NotificationSweepService {
         scanned += page.length;
 
         for (const entity of page) {
+          if (population.backfillMode === 'forward') {
+            // Enrol the entity from now: schedule every active row as a
+            // future-dated send (now + offset), so an existing entity starts
+            // at stage 1 a few days out — exactly like one that qualified
+            // today — rather than being caught up to the last stage of a drip
+            // it never received. The per-entity occurrence key dedupes, so an
+            // entity already mid-drip (emitted at signup) is skipped downstream
+            // rather than double-sent.
+            if (!opts.dryRun) {
+              const occurredAt = new Date().toISOString();
+              for (const row of rows) {
+                await this.queues.enqueueStep(
+                  {
+                    eventKey,
+                    entityId: entity.id,
+                    occurrenceKey: entity.id,
+                    occurredAt,
+                    offsetMinutes: row.offsetMinutes,
+                    channels: row.channels,
+                  },
+                  // The bulk lane, so a large enrolment stays inside the SES
+                  // quota as the delayed stages mature.
+                  'bulk',
+                );
+              }
+            }
+            enqueued += 1; // one enrolment per entity, not per stage
+            continue;
+          }
+
           const due = rows.filter(
             (row) =>
               entity.clockAt.getTime() + row.offsetMinutes * 60_000 <=

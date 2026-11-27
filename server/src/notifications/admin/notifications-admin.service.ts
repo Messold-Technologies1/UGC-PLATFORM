@@ -117,6 +117,11 @@ export class NotificationsAdminService {
       // Events with no moment to emit from can be swept instead; the UI shows
       // the control only for those.
       canSweep: Boolean(getEventDefinition(key)?.population),
+      // 'forward' backfills enrol existing entities from now (they get the
+      // whole schedule starting a few days out); 'catchUp' sends the single
+      // latest-due stage. The UI wording differs, so expose which it is.
+      sweepForward:
+        getEventDefinition(key)?.population?.backfillMode === 'forward',
     };
   }
 

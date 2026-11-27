@@ -377,6 +377,9 @@ export const profileEvents = defineEvents({
     population: {
       cron: '0 11 * * *',
       highestDueOnly: true,
+      // Turning the drip on enrols existing brands from that moment: stage 1 a
+      // day out, not a catch-up of stages measured from an old wishlist save.
+      backfillMode: 'forward',
       page: async (ctx, cursor, take) => {
         const brands = await ctx.prisma.brandProfile.findMany({
           where: {
@@ -503,6 +506,9 @@ export const profileEvents = defineEvents({
     population: {
       cron: '0 12 * * *',
       highestDueOnly: true,
+      // Turning the drip on enrols existing brands from that moment: stage 1 a
+      // few days out, not the last stage measured from an old signup date.
+      backfillMode: 'forward',
       page: async (ctx, cursor, take) => {
         const brands = await ctx.prisma.brandProfile.findMany({
           where: {

@@ -64,6 +64,12 @@ export interface NotificationEventDetail extends Omit<
    * unfinished. Those can be sent to the entities that pre-date the system.
    */
   canSweep: boolean;
+  /**
+   * True when the backfill enrols existing entities from now (they get the whole
+   * schedule, starting a few days out) rather than sending the single latest-due
+   * stage. Changes the wording of the backfill control.
+   */
+  sweepForward: boolean;
 }
 
 export interface SweepResult {

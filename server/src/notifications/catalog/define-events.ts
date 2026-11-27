@@ -102,8 +102,32 @@ export type PopulationSpec = {
    * once and would receive the whole drip in one go. With it they get the last
    * one — a single catch-up — while a new signup still receives each stage as
    * it comes due via its delayed jobs.
+   *
+   * Only consulted in `catchUp` mode; `forward` schedules every stage, so there
+   * is nothing to supersede.
    */
   highestDueOnly: boolean;
+
+  /**
+   * How the admin backfill treats the existing population.
+   *
+   * - `catchUp` (default): measure each entity's schedule from its own
+   *   `clockAt` (signup, first save, …) and send whatever is already due now.
+   *   Right for the completion reminder, where an old creator should get one
+   *   nudge immediately, and where new signups are already drip-fed by their
+   *   own emit.
+   *
+   * - `forward`: ignore `clockAt` and **enrol** each entity from the moment the
+   *   backfill is run — schedule every active row as a future-dated send
+   *   (enrol time + offset) on the bulk lane. Right for a drip you are turning
+   *   on for the first time: an existing brand that qualifies starts at stage 1
+   *   a few days from now, exactly like a brand signing up today, instead of
+   *   being sent the last stage of a drip it never received.
+   *
+   * Either way the per-entity occurrence key dedupes, so an entity that already
+   * has a running drip (emitted at signup) is skipped rather than double-sent.
+   */
+  backfillMode?: 'catchUp' | 'forward';
 };
 
 export type EventDefinition = {

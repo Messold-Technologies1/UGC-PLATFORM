@@ -44,9 +44,9 @@ describe('NotificationTemplateImportService', () => {
 
     const result = await service.run();
 
-    // 50 keys with the six drips split into 4, 3, 3, 3, 3 and 3 stages.
-    expect(result.templates).toBe(63);
-    expect(tx.notificationTemplate.upsert).toHaveBeenCalledTimes(63);
+    // 51 keys with the seven drips split into 4 and six × 3 stages.
+    expect(result.templates).toBe(66);
+    expect(tx.notificationTemplate.upsert).toHaveBeenCalledTimes(66);
     expect(result.schedules).toBeGreaterThan(0);
   });
 
@@ -89,7 +89,7 @@ describe('NotificationTemplateImportService', () => {
 
     await service.run();
 
-    expect(tx.notificationTemplate.upsert).toHaveBeenCalledTimes(63);
+    expect(tx.notificationTemplate.upsert).toHaveBeenCalledTimes(66);
   });
 
   it('leaves an event that already points somewhere alone', async () => {

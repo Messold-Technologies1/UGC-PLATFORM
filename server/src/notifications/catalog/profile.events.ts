@@ -118,6 +118,64 @@ export const profileEvents = defineEvents({
     stillRelevant: ALWAYS_RELEVANT,
   },
 
+  'creator-no-first-order': {
+    label: 'Creator listed 30 days, no orders yet',
+    description:
+      'Nudges a creator who is live (profile approved and listed) and registered at least 30 days ago but has not received a single paid order — tips to get discovered and land a first booking. Enrol existing creators in this state from the event page; it stops the moment they receive their first paid order or are no longer listed.',
+    recipient: CREATOR,
+    vars: {
+      recipientName: { type: 'string', example: 'Ananya R' },
+      actionUrl: { type: 'url', example: '/creator/account' },
+    },
+    resolve: async (ctx, id) => {
+      const p = await loadCreator(ctx, id);
+      if (!p) return null;
+      return toCreatorProfile(p, {
+        actionUrl: `${ctx.frontendBaseUrl}/creator/account`,
+      });
+    },
+    // Relevant only while the creator is still listed (so they can actually
+    // receive orders) AND has received no paid order. A first booking, or
+    // falling off the listing, ends it.
+    stillRelevant: async (ctx, id) => {
+      const p = await ctx.prisma.creatorProfile.findUnique({
+        where: { id },
+        select: { isListed: true },
+      });
+      if (!p) return null;
+      if (!p.isListed) return false;
+      const received = await ctx.prisma.order.count({
+        where: { creatorId: id, paidAt: { not: null } },
+      });
+      return received === 0;
+    },
+
+    /**
+     * Enrols every listed creator who registered at least 30 days ago and has
+     * never received a paid order. Gated on isListed so incomplete / pending
+     * creators (handled by the completion and under-review drips) are never
+     * swept in. Enrolled forward from the moment the backfill runs.
+     */
+    population: {
+      cron: '0 8 * * *',
+      page: async (ctx, cursor, take) => {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const rows = await ctx.prisma.creatorProfile.findMany({
+          where: {
+            isListed: true,
+            createdAt: { lte: thirtyDaysAgo },
+            receivedOrders: { none: { paidAt: { not: null } } },
+          },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        return rows.map((r) => ({ id: r.id }));
+      },
+    },
+  },
+
   'creator-profile-completion-reminder': {
     label: 'Creator profile incomplete — reminder',
     description:
@@ -170,7 +228,7 @@ export const profileEvents = defineEvents({
   'creator-profile-under-review': {
     label: 'Creator profile complete — under review',
     description:
-      "Reassures a creator whose profile is complete but not yet approved that it is under review, and keeps nudging while it stays pending. Fires when the profile goes live, and existing pending creators can be enrolled from the event page. Stops the moment approval resolves (approved, rejected or withdrawn).",
+      'Reassures a creator whose profile is complete but not yet approved that it is under review, and keeps nudging while it stays pending. Fires when the profile goes live, and existing pending creators can be enrolled from the event page. Stops the moment approval resolves (approved, rejected or withdrawn).',
     recipient: CREATOR,
     vars: {
       recipientName: { type: 'string', example: 'Ananya R' },

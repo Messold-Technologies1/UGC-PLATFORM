@@ -398,6 +398,50 @@ describe('stillRelevant', () => {
     });
   });
 
+  describe('creator-no-first-order', () => {
+    // Relevant while the creator is listed AND has received no paid order; a
+    // first booking or falling off the listing ends it; null when gone.
+    const ctx = (opts: {
+      profile: { isListed: boolean } | null;
+      receivedPaid: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          creatorProfile: {
+            findUnique: jest.fn().mockResolvedValue(opts.profile),
+          },
+          order: { count: jest.fn().mockResolvedValue(opts.receivedPaid) },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('creator-no-first-order', c, 'creator_1');
+
+    it('keeps nudging a listed creator with no paid order', async () => {
+      await expect(
+        ask(ctx({ profile: { isListed: true }, receivedPaid: 0 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the creator receives a paid order', async () => {
+      await expect(
+        ask(ctx({ profile: { isListed: true }, receivedPaid: 1 })),
+      ).resolves.toBe(false);
+    });
+
+    it('stops when the creator is no longer listed', async () => {
+      await expect(
+        ask(ctx({ profile: { isListed: false }, receivedPaid: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the creator is gone', async () => {
+      await expect(
+        ask(ctx({ profile: null, receivedPaid: 0 })),
+      ).resolves.toBeNull();
+    });
+  });
+
   describe('notices', () => {
     // A record of something that happened is still true a day later, so these
     // answer yes without reading anything — no query, no entity lookup.

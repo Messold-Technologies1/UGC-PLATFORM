@@ -443,10 +443,10 @@ describe('stillRelevant', () => {
   });
 
   describe('creator-no-profile-events', () => {
-    // Relevant while the profile is complete and the creator has posted no
+    // Relevant while the creator is listed (live to brands) and has posted no
     // updates; posting the first ends it; null when the creator is gone.
     const ctx = (
-      profile: { completeProfile: boolean; _count: { events: number } } | null,
+      profile: { isListed: boolean; _count: { events: number } } | null,
     ): EventContext =>
       ({
         prisma: {
@@ -457,15 +457,21 @@ describe('stillRelevant', () => {
     const ask = (c: EventContext) =>
       relevant('creator-no-profile-events', c, 'creator_1');
 
-    it('keeps nudging a complete profile with no posts', async () => {
+    it('keeps nudging a listed creator with no posts', async () => {
       await expect(
-        ask(ctx({ completeProfile: true, _count: { events: 0 } })),
+        ask(ctx({ isListed: true, _count: { events: 0 } })),
       ).resolves.toBe(true);
     });
 
     it('stops once the creator has posted an update', async () => {
       await expect(
-        ask(ctx({ completeProfile: true, _count: { events: 2 } })),
+        ask(ctx({ isListed: true, _count: { events: 2 } })),
+      ).resolves.toBe(false);
+    });
+
+    it('does not nudge a creator who is not listed yet', async () => {
+      await expect(
+        ask(ctx({ isListed: false, _count: { events: 0 } })),
       ).resolves.toBe(false);
     });
 

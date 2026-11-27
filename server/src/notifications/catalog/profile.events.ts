@@ -119,9 +119,9 @@ export const profileEvents = defineEvents({
   },
 
   'creator-no-profile-events': {
-    label: 'Creator posted no profile updates after completing',
+    label: 'Listed creator posted no profile updates',
     description:
-      'Nudges a creator who completed their profile but has not posted a single update (CreatorEvent) to share one, so they stay visible in the brand feed. Fires 5 days after the profile is completed, and existing creators with no posts can be enrolled from the event page. Stops the moment they post their first update.',
+      'Nudges a creator who is live (profile approved and listed) but has not posted a single update (CreatorEvent) to share one, so they stay visible in the brand feed. Fires 5 days after the creator becomes listed, and existing listed creators with no posts can be enrolled from the event page. Stops the moment they post their first update.',
     recipient: CREATOR,
     vars: {
       recipientName: { type: 'string', example: 'Ananya R' },
@@ -134,30 +134,32 @@ export const profileEvents = defineEvents({
         actionUrl: `${ctx.frontendBaseUrl}/creator/events`,
       });
     },
-    // Relevant while the profile is complete and the creator has posted no
-    // updates. Posting the first one ends it. null when the creator is gone.
+    // Relevant only while the creator is listed (live to brands) and has posted
+    // no updates. Posting the first one ends it. null when the creator is gone.
     stillRelevant: async (ctx, id) => {
       const p = await ctx.prisma.creatorProfile.findUnique({
         where: { id },
         select: {
-          completeProfile: true,
+          isListed: true,
           _count: { select: { events: true } },
         },
       });
       if (!p) return null;
-      return p.completeProfile === true && p._count.events === 0;
+      return p.isListed === true && p._count.events === 0;
     },
 
     /**
-     * Enrols every creator whose profile is complete but who has posted no
-     * updates. Enrolled forward from the backfill moment; the +5d first stage
-     * gives them the same grace period a creator completing today gets.
+     * Enrols every listed creator who has posted no updates. Gated on isListed
+     * so a creator who is not live yet (handled by the completion and
+     * under-review drips) is never swept in. Enrolled forward from the backfill
+     * moment; the +5d first stage gives them the same grace period a creator
+     * who has just been listed gets.
      */
     population: {
       cron: '0 7 * * *',
       page: async (ctx, cursor, take) => {
         const rows = await ctx.prisma.creatorProfile.findMany({
-          where: { completeProfile: true, events: { none: {} } },
+          where: { isListed: true, events: { none: {} } },
           orderBy: { id: 'asc' },
           take,
           ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

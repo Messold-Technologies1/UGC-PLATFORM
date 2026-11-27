@@ -3146,6 +3146,12 @@ export class CreatorProfileService {
     // transition, so re-approving an already-listed creator doesn't re-count.
     if (listingState?.becameListed) {
       void this.fireCreatorListedMetaEvent(creatorProfileId);
+      // Just went live — nudge them to post a few updates if they add none.
+      // Keyed by the creator id, so approval and a later self-complete cannot
+      // both start it twice.
+      void this.events.emit('creator-no-profile-events', {
+        entityId: creatorProfileId,
+      });
     }
 
     const updated = await this.prisma.creatorProfile.findUnique({
@@ -3490,7 +3496,7 @@ export class CreatorProfileService {
           )
         : undefined;
 
-    const { response, becameListed, introChanged, underReview, completed } =
+    const { response, becameListed, introChanged, underReview } =
       await this.prisma.$transaction(
         async (tx) => {
           const profile = await tx.creatorProfile.findUnique({
@@ -3784,10 +3790,6 @@ export class CreatorProfileService {
               dto.goLive === true &&
               listingState?.completeProfile === true &&
               listingState?.isListed === false,
-            // Any successful Go Live that leaves the profile complete — the
-            // moment the "add some posts" drip is measured from.
-            completed:
-              dto.goLive === true && listingState?.completeProfile === true,
           };
         },
         { timeout: 30_000, maxWait: 10_000 },
@@ -3798,22 +3800,18 @@ export class CreatorProfileService {
     // profile after an earlier admin approval). Best-effort / fire-and-forget.
     if (becameListed) {
       void this.fireCreatorListedMetaEvent(creatorProfileId);
+      // Now live to brands — start the drip that nudges them to post a few
+      // updates (CreatorEvents) if they add none. Keyed by the creator id, so
+      // it never double-starts; stops the moment they post their first update.
+      void this.events.emit('creator-no-profile-events', {
+        entityId: creatorProfileId,
+      });
     }
 
     // Profile just completed but is not approved yet — reassure the creator it
     // is under review, and keep nudging until approval resolves it.
     if (underReview) {
       void this.events.emit('creator-profile-under-review', {
-        entityId: creatorProfileId,
-      });
-    }
-
-    // Profile is complete — start the drip that nudges the creator to post a
-    // few updates (CreatorEvents) if they add none. Keyed by the creator id, so
-    // a re-submission does not start a second drip. It stops the moment they
-    // post their first update.
-    if (completed) {
-      void this.events.emit('creator-no-profile-events', {
         entityId: creatorProfileId,
       });
     }

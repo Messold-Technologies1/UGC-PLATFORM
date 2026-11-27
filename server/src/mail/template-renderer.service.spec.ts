@@ -166,6 +166,9 @@ describe('TemplateRendererService', () => {
       [EmailTemplateKey.CREATOR_NO_FIRST_ORDER]: {
         isStage1: true,
       },
+      [EmailTemplateKey.CREATOR_NO_PROFILE_EVENTS]: {
+        isStage1: true,
+      },
       [EmailTemplateKey.BRAND_WISHLIST_NO_ORDER]: {
         isStage1: true,
       },

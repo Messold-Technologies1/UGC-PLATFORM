@@ -442,6 +442,38 @@ describe('stillRelevant', () => {
     });
   });
 
+  describe('creator-no-profile-events', () => {
+    // Relevant while the profile is complete and the creator has posted no
+    // updates; posting the first ends it; null when the creator is gone.
+    const ctx = (
+      profile: { completeProfile: boolean; _count: { events: number } } | null,
+    ): EventContext =>
+      ({
+        prisma: {
+          creatorProfile: { findUnique: jest.fn().mockResolvedValue(profile) },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('creator-no-profile-events', c, 'creator_1');
+
+    it('keeps nudging a complete profile with no posts', async () => {
+      await expect(
+        ask(ctx({ completeProfile: true, _count: { events: 0 } })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the creator has posted an update', async () => {
+      await expect(
+        ask(ctx({ completeProfile: true, _count: { events: 2 } })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the creator is gone', async () => {
+      await expect(ask(ctx(null))).resolves.toBeNull();
+    });
+  });
+
   describe('notices', () => {
     // A record of something that happened is still true a day later, so these
     // answer yes without reading anything — no query, no entity lookup.

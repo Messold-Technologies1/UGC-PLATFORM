@@ -3490,7 +3490,7 @@ export class CreatorProfileService {
           )
         : undefined;
 
-    const { response, becameListed, introChanged, underReview } =
+    const { response, becameListed, introChanged, underReview, completed } =
       await this.prisma.$transaction(
         async (tx) => {
           const profile = await tx.creatorProfile.findUnique({
@@ -3784,6 +3784,10 @@ export class CreatorProfileService {
               dto.goLive === true &&
               listingState?.completeProfile === true &&
               listingState?.isListed === false,
+            // Any successful Go Live that leaves the profile complete — the
+            // moment the "add some posts" drip is measured from.
+            completed:
+              dto.goLive === true && listingState?.completeProfile === true,
           };
         },
         { timeout: 30_000, maxWait: 10_000 },
@@ -3800,6 +3804,16 @@ export class CreatorProfileService {
     // is under review, and keep nudging until approval resolves it.
     if (underReview) {
       void this.events.emit('creator-profile-under-review', {
+        entityId: creatorProfileId,
+      });
+    }
+
+    // Profile is complete — start the drip that nudges the creator to post a
+    // few updates (CreatorEvents) if they add none. Keyed by the creator id, so
+    // a re-submission does not start a second drip. It stops the moment they
+    // post their first update.
+    if (completed) {
+      void this.events.emit('creator-no-profile-events', {
         entityId: creatorProfileId,
       });
     }

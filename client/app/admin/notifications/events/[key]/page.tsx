@@ -69,13 +69,16 @@ export default function NotificationEventDetailPage({
     );
   }
 
-  const saveSchedule = (rows: ScheduleRow[]) => {
-    replaceSchedule.mutate(rows, {
-      onSuccess: () => toast.success("Schedule saved"),
-      // The 422 for a delayed row on an event with no relevance check carries
-      // the explanation, so show it rather than a generic failure.
-      onError: (error) => toast.error(errorMessage(error)),
-    });
+  const saveSchedule = async (rows: ScheduleRow[]) => {
+    // Auto-saved by the editor, so no success toast (it shows an inline "saved"
+    // status). Re-throw so the editor can flag a failure; the 422 for a delayed
+    // row on an event with no relevance check carries the explanation.
+    try {
+      await replaceSchedule.mutateAsync(rows);
+    } catch (error) {
+      toast.error(errorMessage(error));
+      throw error;
+    }
   };
 
   return (

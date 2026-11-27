@@ -145,15 +145,13 @@ export const profileEvents = defineEvents({
     },
 
     /**
-     * Swept daily across EVERY building profile, with no time window.
-     *
-     * The legacy job only reached creators inside a ~10 day backfill window,
-     * so anyone older never heard from it again. Removing the window is the
-     * point: the reminder should reach the whole backlog.
+     * Enrols EVERY still-building profile, with no time window. The legacy job
+     * only reached creators inside a ~10 day backfill window; reaching the whole
+     * backlog is the point. Each is enrolled from the backfill moment, so an old
+     * incomplete profile starts the drip afresh rather than being caught up.
      */
     population: {
       cron: '0 10 * * *',
-      highestDueOnly: true,
       page: async (ctx, cursor, take) => {
         const rows = await ctx.prisma.creatorProfile.findMany({
           where: { completeProfile: false },
@@ -162,12 +160,9 @@ export const profileEvents = defineEvents({
           orderBy: { id: 'asc' },
           take,
           ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-          select: { id: true, completionReminderStartedAt: true },
+          select: { id: true },
         });
-        return rows.map((row) => ({
-          id: row.id,
-          clockAt: row.completionReminderStartedAt,
-        }));
+        return rows.map((row) => ({ id: row.id }));
       },
     },
   },
@@ -368,18 +363,13 @@ export const profileEvents = defineEvents({
     },
 
     /**
-     * Swept across every brand that has saved a creator and not yet paid for an
-     * order, with no time window so the whole backlog is reached. The drip
-     * clock starts from the brand's earliest wishlist save; `highestDueOnly`
-     * (set by the sweep) means a long-standing brand gets one catch-up rather
-     * than the whole drip at once.
+     * Enrols every brand that has saved a creator and not yet paid for an order,
+     * with no time window so the whole backlog is reached. Turning the drip on
+     * enrols existing brands from that moment — stage 1 a day out — rather than
+     * catching them up to a stage measured from an old wishlist save.
      */
     population: {
       cron: '0 11 * * *',
-      highestDueOnly: true,
-      // Turning the drip on enrols existing brands from that moment: stage 1 a
-      // day out, not a catch-up of stages measured from an old wishlist save.
-      backfillMode: 'forward',
       page: async (ctx, cursor, take) => {
         const brands = await ctx.prisma.brandProfile.findMany({
           where: {
@@ -393,33 +383,9 @@ export const profileEvents = defineEvents({
           orderBy: { id: 'asc' },
           take,
           ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-          select: {
-            id: true,
-            createdAt: true,
-            wishlists: {
-              where: { creators: { some: {} } },
-              select: {
-                creators: {
-                  select: { createdAt: true },
-                  orderBy: { createdAt: 'asc' },
-                  take: 1,
-                },
-              },
-            },
-          },
+          select: { id: true },
         });
-        return brands.map((b) => {
-          const stamps = b.wishlists.flatMap((w) =>
-            w.creators.map((c) => c.createdAt.getTime()),
-          );
-          // Earliest save across all the brand's wishlists; the brand's own
-          // createdAt only as a defensive fallback (the where-clause guarantees
-          // at least one save, so stamps is non-empty in practice).
-          const clockAt = stamps.length
-            ? new Date(Math.min(...stamps))
-            : b.createdAt;
-          return { id: b.id, clockAt };
-        });
+        return brands.map((b) => ({ id: b.id }));
       },
     },
   },
@@ -499,16 +465,13 @@ export const profileEvents = defineEvents({
     },
 
     /**
-     * Swept across every brand that registered, never paid for an order and has
-     * saved no creators, clocked from signup. highestDueOnly gives a brand that
-     * pre-dates the drip a single catch-up rather than the whole series at once.
+     * Enrols every brand that registered, never paid for an order and has saved
+     * no creators. Turning the drip on enrols existing brands from that moment —
+     * stage 1 a few days out — rather than the last stage measured from an old
+     * signup date.
      */
     population: {
       cron: '0 12 * * *',
-      highestDueOnly: true,
-      // Turning the drip on enrols existing brands from that moment: stage 1 a
-      // few days out, not the last stage measured from an old signup date.
-      backfillMode: 'forward',
       page: async (ctx, cursor, take) => {
         const brands = await ctx.prisma.brandProfile.findMany({
           where: {
@@ -520,9 +483,9 @@ export const profileEvents = defineEvents({
           orderBy: { id: 'asc' },
           take,
           ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-          select: { id: true, createdAt: true },
+          select: { id: true },
         });
-        return brands.map((b) => ({ id: b.id, clockAt: b.createdAt }));
+        return brands.map((b) => ({ id: b.id }));
       },
     },
   },

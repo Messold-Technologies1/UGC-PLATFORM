@@ -82,52 +82,24 @@ export type EventContext = {
  * its population and a cron drives it.
  */
 export type PopulationSpec = {
-  /** How often to sweep. Infrequent enough to let the Neon compute autosuspend. */
+  /** How often a scheduled sweep could run. Metadata today — the backfill is an admin button. */
   cron: string;
   /**
-   * One page of the population, keyset-ordered by id. `clockAt` is what the
-   * schedule offsets are measured from — the sweep has no time window, so a
-   * profile from any date is considered.
+   * One page of the population to enrol, keyset-ordered by id.
+   *
+   * The backfill **enrols** each returned entity from the moment it runs: it
+   * schedules the whole drip forward from now (enrol time + each offset), on the
+   * bulk lane, exactly as if the entity had just qualified. So this only has to
+   * say *which* entities qualify — no per-entity clock is needed, because an old
+   * signup date is never used to date the sends. The per-entity occurrence key
+   * dedupes, so an entity that already has a running drip (emitted at signup) is
+   * skipped rather than double-sent.
    */
   page: (
     ctx: EventContext,
     cursor: string | null,
     take: number,
-  ) => Promise<Array<{ id: string; clockAt: Date }>>;
-  /**
-   * When true, only the latest due row is sent and the earlier ones are logged
-   * as superseded.
-   *
-   * Without it a creator who registered eight months ago has every row due at
-   * once and would receive the whole drip in one go. With it they get the last
-   * one — a single catch-up — while a new signup still receives each stage as
-   * it comes due via its delayed jobs.
-   *
-   * Only consulted in `catchUp` mode; `forward` schedules every stage, so there
-   * is nothing to supersede.
-   */
-  highestDueOnly: boolean;
-
-  /**
-   * How the admin backfill treats the existing population.
-   *
-   * - `catchUp` (default): measure each entity's schedule from its own
-   *   `clockAt` (signup, first save, …) and send whatever is already due now.
-   *   Right for the completion reminder, where an old creator should get one
-   *   nudge immediately, and where new signups are already drip-fed by their
-   *   own emit.
-   *
-   * - `forward`: ignore `clockAt` and **enrol** each entity from the moment the
-   *   backfill is run — schedule every active row as a future-dated send
-   *   (enrol time + offset) on the bulk lane. Right for a drip you are turning
-   *   on for the first time: an existing brand that qualifies starts at stage 1
-   *   a few days from now, exactly like a brand signing up today, instead of
-   *   being sent the last stage of a drip it never received.
-   *
-   * Either way the per-entity occurrence key dedupes, so an entity that already
-   * has a running drip (emitted at signup) is skipped rather than double-sent.
-   */
-  backfillMode?: 'catchUp' | 'forward';
+  ) => Promise<Array<{ id: string }>>;
 };
 
 export type EventDefinition = {

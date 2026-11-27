@@ -283,42 +283,19 @@ export default function NotificationEventDetailPage({
         <section className="space-y-3 rounded-lg border p-5">
           <div className="flex items-center gap-2">
             <UserCheck className="text-muted-foreground h-4 w-4" />
-            <h2 className="font-medium">
-              {event.sweepForward
-                ? "Enrol existing profiles"
-                : "Send to older profiles"}
-            </h2>
+            <h2 className="font-medium">Enrol existing profiles</h2>
           </div>
-          {event.sweepForward ? (
-            <>
-              <p className="text-muted-foreground text-sm">
-                Profiles that qualify from now on are enrolled automatically.
-                This reaches the ones <strong>already</strong> in this state —
-                they were never in the drip because it did not exist when they
-                signed up.
-              </p>
-              <p className="text-muted-foreground text-sm">
-                Each one is enrolled <strong>from now</strong>: it starts at
-                stage one a few days out and moves through the schedule in
-                order, exactly like a profile qualifying today — not a catch-up
-                of stages it never received. Profiles already on the drip are
-                skipped.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-muted-foreground text-sm">
-                Nothing &ldquo;happens&rdquo; to make a profile incomplete, so
-                there is no moment to send from. New signups are handled
-                automatically. Creators who signed up before this existed have
-                never been reached — this is how you reach them.
-              </p>
-              <p className="text-muted-foreground text-sm">
-                Each creator receives <strong>one</strong> email: the latest
-                stage they have passed, not every stage at once.
-              </p>
-            </>
-          )}
+          <p className="text-muted-foreground text-sm">
+            Profiles that qualify from now on are enrolled automatically. This
+            reaches the ones <strong>already</strong> in this state — they were
+            never in the drip because it did not exist when they signed up.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            Each one is enrolled <strong>from now</strong>: it starts at stage
+            one a few days out and moves through the schedule in order, exactly
+            like a profile qualifying today — not a catch-up of stages it never
+            received. Profiles already on the drip are skipped.
+          </p>
 
           <div className="flex flex-wrap items-center gap-3">
             <Button
@@ -329,30 +306,21 @@ export default function NotificationEventDetailPage({
                   onSuccess: (result) => {
                     const count = result.wouldSend ?? 0;
                     if (count === 0) {
-                      toast.info(
-                        event.sweepForward
-                          ? "No profiles are waiting to be enrolled."
-                          : "No older profiles are waiting for this.",
-                      );
+                      toast.info("No profiles are waiting to be enrolled.");
                       return;
                     }
                     toast.info(
-                      `${count} profile${count === 1 ? "" : "s"} would ` +
-                        `${event.sweepForward ? "be enrolled" : "receive this"} ` +
-                        `(of ${result.scanned} scanned).`,
+                      `${count} profile${count === 1 ? "" : "s"} would be ` +
+                        `enrolled (of ${result.scanned} scanned).`,
                       {
                         duration: 15000,
                         action: {
-                          label: event.sweepForward
-                            ? `Enrol ${count}`
-                            : `Send to ${count}`,
+                          label: `Enrol ${count}`,
                           onClick: () =>
                             sweep.mutate(false, {
                               onSuccess: (sent) =>
                                 toast.success(
-                                  event.sweepForward
-                                    ? `Enrolled ${sent.enqueued ?? 0} profile(s).`
-                                    : `Queued for ${sent.enqueued ?? 0} creator(s).`,
+                                  `Enrolled ${sent.enqueued ?? 0} profile(s).`,
                                 ),
                               onError: (error) => toast.error(errorMessage(error)),
                             }),
@@ -366,9 +334,7 @@ export default function NotificationEventDetailPage({
             >
               {sweep.isPending
                 ? "Checking…"
-                : event.sweepForward
-                  ? "Check how many would be enrolled"
-                  : "Check how many are waiting"}
+                : "Check how many would be enrolled"}
             </Button>
             <p className="text-muted-foreground text-xs">
               Nothing is sent until you confirm the number.

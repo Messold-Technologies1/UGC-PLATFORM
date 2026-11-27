@@ -489,6 +489,86 @@ export const profileEvents = defineEvents({
       },
     },
   },
+
+  'brand-no-recent-order': {
+    label: 'Brand has not ordered in 30 days',
+    description:
+      'Wins back a brand that has paid for an order before but not in the last 30 days. Fired off each paid order: 30 days later, if the brand still has not ordered again, the drip runs, and it stops the moment they do. Keyed per order, so a brand that comes back and lapses again is won back again. No backfill — it reaches brands through their own order history.',
+    recipient: BRAND,
+    vars: {
+      recipientName: { type: 'string', example: 'Rohit S' },
+      actionUrl: { type: 'url', example: '/brand/creators' },
+    },
+    resolve: async (ctx, id) => {
+      const profile = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          brandName: true,
+          contactFullName: true,
+          contactEmail: true,
+          contactPhone: true,
+        },
+      });
+      if (!profile) return null;
+
+      const actorUserId =
+        await ctx.brandAccess.resolveBrandActorUserIdForProfile(id);
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { id: true, email: true, name: true, phone: true },
+      });
+
+      return {
+        userId: user?.id ?? null,
+        profileType: 'brand',
+        profileId: profile.id,
+        email: resolveBrandMailAddress({
+          contactEmail: profile.contactEmail,
+          accountEmail: user?.email,
+        }),
+        phone: profile.contactPhone?.trim() || user?.phone?.trim() || null,
+        vars: {
+          recipientName: resolveBrandMailDisplayName({
+            contactFullName: profile.contactFullName,
+            brandName: profile.brandName,
+            accountName: user?.name,
+            fallback: 'there',
+          }),
+          actionUrl: `${ctx.frontendBaseUrl}/brand/creators`,
+        },
+      };
+    },
+
+    /**
+     * The drip is anchored at a paid order and its stages are +30d/+37d/+45d, so
+     * each stage asks: has the brand paid for anything in the last 30 days? If
+     * yes they are back — stop. If no they are still lapsed — send. The triggering
+     * order is always older than 30 days by the time stage 1 fires, so it never
+     * counts as "recent" and keeps the drip alive by itself. null when the brand
+     * is gone.
+     */
+    stillRelevant: async (ctx, id) => {
+      const brand = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!brand) return null;
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const recentPaid = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { gt: thirtyDaysAgo } },
+      });
+      if (recentPaid > 0) return false; // ordered again — no longer lapsed
+
+      // Defensive: a brand that has never paid for anything is the
+      // never-ordered event's target, not this win-back.
+      const everPaid = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { not: null } },
+      });
+      return everPaid > 0;
+    },
+  },
 });
 
 /**

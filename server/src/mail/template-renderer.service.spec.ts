@@ -166,6 +166,9 @@ describe('TemplateRendererService', () => {
       [EmailTemplateKey.BRAND_NEVER_ORDERED]: {
         isStage1: true,
       },
+      [EmailTemplateKey.BRAND_NO_RECENT_ORDER]: {
+        isStage1: true,
+      },
     };
 
     it.each(allKeys)('renders a non-empty subject and body for %s', (key) => {

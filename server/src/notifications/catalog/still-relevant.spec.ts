@@ -274,6 +274,59 @@ describe('stillRelevant', () => {
     });
   });
 
+  describe('brand-no-recent-order', () => {
+    // Wins back a lapsed paying brand. Stops once they pay again (any paid order
+    // in the last 30 days); null when the brand is gone.
+    const ctx = (opts: {
+      brandExists: boolean;
+      recentPaid: number;
+      everPaid: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          brandProfile: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue(opts.brandExists ? { id: 'brand_1' } : null),
+          },
+          order: {
+            // First count() is the last-30-days query, second is ever-paid.
+            count: jest
+              .fn()
+              .mockResolvedValueOnce(opts.recentPaid)
+              .mockResolvedValueOnce(opts.everPaid),
+          },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('brand-no-recent-order', c, 'brand_1');
+
+    it('keeps nudging a brand that ordered before but not in 30 days', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, recentPaid: 0, everPaid: 2 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the brand pays again within 30 days', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, recentPaid: 1, everPaid: 3 })),
+      ).resolves.toBe(false);
+    });
+
+    it('does not win back a brand that never paid for anything', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, recentPaid: 0, everPaid: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the brand is gone', async () => {
+      await expect(
+        ask(ctx({ brandExists: false, recentPaid: 0, everPaid: 0 })),
+      ).resolves.toBeNull();
+    });
+  });
+
   describe('notices', () => {
     // A record of something that happened is still true a day later, so these
     // answer yes without reading anything — no query, no entity lookup.

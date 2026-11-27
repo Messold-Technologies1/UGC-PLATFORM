@@ -33,6 +33,7 @@ export enum EmailTemplateKey {
   BRAND_WELCOME = 'brand-welcome',
   BRAND_WISHLIST_NO_ORDER = 'brand-wishlist-no-order',
   BRAND_NEVER_ORDERED = 'brand-never-ordered',
+  BRAND_NO_RECENT_ORDER = 'brand-no-recent-order',
   AGENCY_LINK_REQUESTED = 'agency-link-requested',
   AGENCY_LINK_ACCEPTED = 'agency-link-accepted',
   AGENCY_LINK_REJECTED = 'agency-link-rejected',

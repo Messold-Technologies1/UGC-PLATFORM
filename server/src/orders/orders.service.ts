@@ -2048,6 +2048,26 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Start the "no order in 30 days" win-back drip off a paid order. Keyed by the
+   * order id, so each paid order schedules its own 30-day check; the drip only
+   * sends if the brand still has not ordered again by then, and a later order
+   * starts a fresh one. Agency-placed orders carry the brand id, so the brand is
+   * still the recipient. A null brand id (pure-agency order) is a no-op.
+   */
+  private scheduleBrandWinBack(
+    brandId: string | null,
+    orderId: string,
+    paidAt: Date,
+  ): void {
+    if (!brandId) return;
+    void this.events.emit('brand-no-recent-order', {
+      entityId: brandId,
+      occurrenceKey: orderId,
+      occurredAt: paidAt,
+    });
+  }
+
   async markPaidFromWebhook(params: {
     razorpayOrderId: string;
     razorpayPaymentId: string;
@@ -2097,6 +2117,9 @@ export class OrdersService {
         razorpayPaymentId: params.razorpayPaymentId,
       },
     });
+
+    // Win-back: schedule the 30-day "haven't ordered lately" drip off this order.
+    this.scheduleBrandWinBack(order.brandId, order.id, params.paidAt);
 
     // Consume the coupon now that payment succeeded (one use per brand).
     if (order.couponId && (order.brandId || order.agencyId)) {
@@ -2206,6 +2229,8 @@ export class OrdersService {
 
     for (const o of orders) {
       void this.firePurchaseMetaEvent(o.id);
+      // Win-back: one 30-day check per order, all carrying the batch's brand.
+      this.scheduleBrandWinBack(batch.brandId, o.id, params.paidAt);
     }
 
     this.logger.log(

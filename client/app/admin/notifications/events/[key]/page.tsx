@@ -46,7 +46,13 @@ export default function NotificationEventDetailPage({
   const eventKey = decodeURIComponent(key);
 
   const { data: event, isLoading } = useNotificationEventQuery(eventKey);
-  const { data: templates = [] } = useTemplatesQuery();
+  // Wait for templates too: the schedule editor's per-row template dropdown is
+  // a Radix Select whose displayed value is the matching <SelectItem>. If it
+  // mounts before the template list has loaded, a saved override has no option
+  // to match and the field shows the "Use the event's template" placeholder —
+  // which reads as "it reverted to default" even though the id is saved.
+  const { data: templates = [], isLoading: templatesLoading } =
+    useTemplatesQuery();
   const updateEvent = useUpdateEventMutation(eventKey);
   const replaceSchedule = useReplaceScheduleMutation(eventKey);
   const backfill = useBackfillMutation(eventKey);
@@ -54,7 +60,7 @@ export default function NotificationEventDetailPage({
 
   const [waName, setWaName] = useState<string | null>(null);
 
-  if (isLoading || !event) {
+  if (isLoading || templatesLoading || !event) {
     return (
       <div className="mx-auto max-w-5xl space-y-4 p-6">
         <Skeleton className="h-8 w-64" />

@@ -21,8 +21,8 @@ import {
 import { Type } from 'class-transformer';
 import { BroadcastAudience, NotificationChannel } from '@prisma/client';
 
-/** 14 days, the longest offset the drips use. */
-export const MAX_OFFSET_MINUTES = 20160;
+/** 90 days — long enough for a monthly win-back drip (the longest offset the drips use). */
+export const MAX_OFFSET_MINUTES = 129600;
 
 export class UpdateEventDto {
   @ApiPropertyOptional({ description: 'Turn the whole event on or off.' })

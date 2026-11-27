@@ -1,0 +1,53 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Ready to create content that sells? 🎬</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Welcome to <strong>{{platformName}}</strong>! You're all set up — the next step is finding a creator and placing your first order.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Browse vetted creators by niche, style and budget, and have fresh content made for your brand in days.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Browse Creators →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Your first piece of content could be live this week. 🚀
+</p>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Still looking for the right creator? 👀</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You joined <strong>{{platformName}}</strong> but haven't placed an order yet — and great content is one of the fastest ways to move the needle for your brand.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Whether you need a product demo, a testimonial or a scroll-stopping reel, there's a creator here for it.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Find a Creator →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Shortlist a few you like — you can always decide later. 💗
+</p>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Let's get your first content made</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your <strong>{{platformName}}</strong> account is ready, but you haven't ordered any content yet.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  If something's holding you back — not sure who to pick, what to brief, or what it costs — we're happy to help you get your first order going.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Place My First Order →"}}
+</div>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Have questions first?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— Team {{platformName}} 💗</p>

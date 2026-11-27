@@ -63,13 +63,15 @@ describe('WishlistsService AddToWishlist Meta event', () => {
     // The engagement tally is fire-and-forget and these tests are about what
     // the wishlist itself persists, so it is stubbed to a no-op.
     const engagement = { record: jest.fn().mockResolvedValue(undefined) };
+    const events = { emit: jest.fn().mockResolvedValue(undefined) };
     const service = new WishlistsService(
       prisma as any,
       brandAccess as any,
       metaCapi as any,
       engagement as any,
+      events as any,
     );
-    return { service, sendEvent, metaCapi, prisma };
+    return { service, sendEvent, metaCapi, prisma, events };
   }
 
   /** The event is fired-and-forgotten, so let its microtasks drain. */
@@ -103,6 +105,33 @@ describe('WishlistsService AddToWishlist Meta event', () => {
     });
     // Attribution read in the buyer's browser is replayed on the server copy.
     expect(event.userData).toMatchObject({ fbp: 'fb.1.2.3', fbc: 'fb.1.4.5' });
+  });
+
+  it('starts the "saved but never ordered" drip when a brand saves a creator', async () => {
+    const { service, events } = makeService();
+
+    await service.addCreator({
+      actorUserId: 'u1',
+      wishlistId: 'w1',
+      creatorId: 'c1',
+    });
+    await flush();
+
+    expect(events.emit).toHaveBeenCalledWith('brand-wishlist-no-order', {
+      entityId: 'brand-1',
+    });
+  });
+
+  it('does not start the drip for a wishlist created with no creators', async () => {
+    const { service, events } = makeService();
+
+    await service.createWishlist({
+      actorUserId: 'u1',
+      dto: { name: 'Empty list' },
+    });
+    await flush();
+
+    expect(events.emit).not.toHaveBeenCalled();
   });
 
   it('fires once per creator a new wishlist is created around', async () => {

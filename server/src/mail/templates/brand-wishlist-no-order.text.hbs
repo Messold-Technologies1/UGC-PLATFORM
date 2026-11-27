@@ -1,0 +1,31 @@
+Hi {{recipientName}},
+
+{{#if isStage1}}
+You've added creators to your {{platformName}} wishlist — a great first step. The next one is placing your first order so they can start creating for you.
+
+Your shortlist is saved and waiting. When you're ready, ordering takes just a couple of minutes.
+
+View My Wishlist: {{actionUrl}}
+
+Found the right creator for your brand? Don't let them sit on a list.
+{{/if}}
+{{#if isStage2}}
+You saved some creators on {{platformName}} but haven't placed an order yet.
+
+Good creators get booked quickly. Placing your order now locks in the ones you liked and gets your content moving.
+
+Order From My Wishlist: {{actionUrl}}
+
+You've already done the hard part — you picked them.
+{{/if}}
+{{#if isStage3}}
+The creators you shortlisted on {{platformName}} are ready to bring your brand to life — all that's left is your order.
+
+If anything held you back — budget, deliverables or picking the right person — we're happy to help you get started.
+
+Place My First Order: {{actionUrl}}
+
+Questions before you order? Contact us: {{frontendUrl}}/contact
+{{/if}}
+
+— Team {{platformName}}

@@ -114,8 +114,8 @@ export class NotificationsAdminService {
       ...row,
       whatsappTemplateName:
         row.whatsappTemplateName ?? defaultWhatsAppTemplateName(row.key),
-      // Events with no moment to emit from can be swept instead; the UI shows
-      // the control only for those.
+      // Events with no moment to emit from can be enrolled instead; the UI
+      // shows the backfill control only for those.
       canSweep: Boolean(getEventDefinition(key)?.population),
     };
   }

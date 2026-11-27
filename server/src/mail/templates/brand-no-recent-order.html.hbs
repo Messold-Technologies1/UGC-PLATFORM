@@ -1,0 +1,53 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">It's been a while — ready for more content? 🎬</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  It's been about a month since your last order on <strong>{{platformName}}</strong>. Your audience is still scrolling — fresh content keeps your brand in front of them.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Browse creators, pick a style that fits your next campaign and have new content made in days.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Start a New Order →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Pick up right where you left off. 🚀
+</p>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">New creators have joined since your last order 👀</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  There are fresh faces and styles on <strong>{{platformName}}</strong> that could be a great match for your brand.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Whether it's a product demo, a testimonial or a scroll-stopping reel, your next piece of content is a few clicks away.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="See Who's New →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Consistency is what makes content work. 💗
+</p>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">We'd love to make your next content</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You haven't ordered on <strong>{{platformName}}</strong> in a while, and we'd love to have you back.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  If there's anything we can help with — finding the right creator, shaping a brief or planning a batch of content — just reach out.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Browse Creators →"}}
+</div>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Questions or a special request?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— Team {{platformName}} 💗</p>

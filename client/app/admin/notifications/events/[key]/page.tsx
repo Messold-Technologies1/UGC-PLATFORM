@@ -283,17 +283,18 @@ export default function NotificationEventDetailPage({
         <section className="space-y-3 rounded-lg border p-5">
           <div className="flex items-center gap-2">
             <UserCheck className="text-muted-foreground h-4 w-4" />
-            <h2 className="font-medium">Send to older profiles</h2>
+            <h2 className="font-medium">Enrol existing profiles</h2>
           </div>
           <p className="text-muted-foreground text-sm">
-            Nothing &ldquo;happens&rdquo; to make a profile incomplete, so there
-            is no moment to send from. New signups are handled automatically.
-            Creators who signed up before this existed have never been reached —
-            this is how you reach them.
+            Profiles that qualify from now on are enrolled automatically. This
+            reaches the ones <strong>already</strong> in this state — they were
+            never in the drip because it did not exist when they signed up.
           </p>
           <p className="text-muted-foreground text-sm">
-            Each creator receives <strong>one</strong> email: the latest stage
-            they have passed, not every stage at once.
+            Each one is enrolled <strong>from now</strong>: it starts at stage
+            one a few days out and moves through the schedule in order, exactly
+            like a profile qualifying today — not a catch-up of stages it never
+            received. Profiles already on the drip are skipped.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -305,21 +306,21 @@ export default function NotificationEventDetailPage({
                   onSuccess: (result) => {
                     const count = result.wouldSend ?? 0;
                     if (count === 0) {
-                      toast.info("No older profiles are waiting for this.");
+                      toast.info("No profiles are waiting to be enrolled.");
                       return;
                     }
                     toast.info(
-                      `${count} creator${count === 1 ? "" : "s"} would receive this ` +
-                        `(of ${result.scanned} scanned).`,
+                      `${count} profile${count === 1 ? "" : "s"} would be ` +
+                        `enrolled (of ${result.scanned} scanned).`,
                       {
                         duration: 15000,
                         action: {
-                          label: `Send to ${count}`,
+                          label: `Enrol ${count}`,
                           onClick: () =>
                             sweep.mutate(false, {
                               onSuccess: (sent) =>
                                 toast.success(
-                                  `Queued for ${sent.enqueued ?? 0} creator(s).`,
+                                  `Enrolled ${sent.enqueued ?? 0} profile(s).`,
                                 ),
                               onError: (error) => toast.error(errorMessage(error)),
                             }),
@@ -331,7 +332,9 @@ export default function NotificationEventDetailPage({
                 })
               }
             >
-              {sweep.isPending ? "Checking…" : "Check how many are waiting"}
+              {sweep.isPending
+                ? "Checking…"
+                : "Check how many would be enrolled"}
             </Button>
             <p className="text-muted-foreground text-xs">
               Nothing is sent until you confirm the number.

@@ -1,0 +1,53 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Share your first update ✍️</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your <strong>{{platformName}}</strong> profile is live — now add a post to keep it fresh. Updates show up in the brand feed, so creators who post are the ones brands notice.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Not sure what to write? Share what you're open to shoot, a recent collab, travel plans, or a skill you offer. It only takes a minute.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Post an Update →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  A fresh profile is a profile brands come back to. 🚀
+</p>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Still nothing on your feed 👀</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You haven't posted an update on <strong>{{platformName}}</strong> yet. Brands browse the feed to find active creators — an empty one is a missed chance to get spotted.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  One short post is enough to get going. Tell brands what you're up for and let them come to you.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Add a Post →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Active creators get the attention. 💗
+</p>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Don't let your profile go quiet</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Your <strong>{{platformName}}</strong> profile still has no updates. Posting regularly keeps you visible to brands looking for creators right now.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Start with one post today — your availability, a new piece of work, or something you'd love to shoot. Keep it going and you'll stay top of mind.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Share an Update →"}}
+</div>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Not sure what to post?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— Team {{platformName}} 💗</p>

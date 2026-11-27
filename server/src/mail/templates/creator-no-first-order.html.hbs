@@ -1,0 +1,53 @@
+{{!-- context: recipientName, platformName, actionUrl, frontendUrl, isStage1, isStage2, isStage3 --}}
+<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#6b7280;">Hi {{recipientName}}, 👋</p>
+
+{{#if isStage1}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Let's land your first order 🎬</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You're live on <strong>{{platformName}}</strong> — but you haven't received an order yet. A few small tweaks can make a big difference to how often brands pick you.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Brands look for a clear profile photo, strong portfolio videos and a bio that shows your style. The more complete and polished your profile, the easier you are to say yes to.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Polish My Profile →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Your first order could be one great video away. 🚀
+</p>
+{{/if}}
+
+{{#if isStage2}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">Make it easy for brands to choose you 👀</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Still waiting on that first order? Brands browse dozens of creators — the ones who stand out usually have fresh portfolio work and clear, fair pricing.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  Add a couple of recent videos, double-check your packages and add-ons, and make sure your niches are set so the right brands find you.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Update My Profile →"}}
+</div>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
+  Small updates, more visibility. 💗
+</p>
+{{/if}}
+
+{{#if isStage3}}
+<p style="margin:0 0 16px;font-size:26px;font-weight:800;line-height:1.2;color:#111827;letter-spacing:-0.02em;">We want to see you booked</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  You've been on <strong>{{platformName}}</strong> for a little while without an order, and we'd love to help change that.
+</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
+  A strong, complete profile with recent work is the single biggest thing that gets creators booked. If you'd like a hand making yours shine, just reach out.
+</p>
+<div style="margin:0 0 20px;">
+  {{> actionButton url=actionUrl label="Get Discovered →"}}
+</div>
+<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">
+  Want tips or a profile review?
+  <a href="{{frontendUrl}}/contact" style="color:#e11d48;text-decoration:underline;">Contact us</a> — we're happy to help.
+</p>
+{{/if}}
+
+<p style="margin:0;font-size:14px;line-height:1.5;color:#6b7280;">— Team {{platformName}} 💗</p>

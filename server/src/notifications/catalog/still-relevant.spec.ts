@@ -1,4 +1,8 @@
-import { OrderStatus, SocialConnectionStatus } from '@prisma/client';
+import {
+  ApprovalStatus,
+  OrderStatus,
+  SocialConnectionStatus,
+} from '@prisma/client';
 import type { EventContext } from './define-events';
 import { NOTIFICATION_EVENTS_BY_KEY } from './event-catalog';
 
@@ -154,6 +158,325 @@ describe('stillRelevant', () => {
           }) as unknown,
         }),
       );
+    });
+  });
+
+  describe('brand-wishlist-no-order', () => {
+    // Stops once the brand PAYS for an order (paidAt set), or has emptied its
+    // wishlist. A missing brand answers null, not false.
+    const ctx = (opts: {
+      brandExists: boolean;
+      paidOrders: number;
+      savedCreators: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          brandProfile: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue(opts.brandExists ? { id: 'brand_1' } : null),
+          },
+          order: {
+            count: jest.fn().mockResolvedValue(opts.paidOrders),
+          },
+          brandWishlistCreator: {
+            count: jest.fn().mockResolvedValue(opts.savedCreators),
+          },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('brand-wishlist-no-order', c, 'brand_1');
+
+    it('keeps nudging a brand with saved creators and no paid order', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 3 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the brand pays for an order', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 1, savedCreators: 3 })),
+      ).resolves.toBe(false);
+    });
+
+    it('stops when the wishlist has been emptied', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the brand is gone', async () => {
+      await expect(
+        ask(ctx({ brandExists: false, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBeNull();
+    });
+
+    it('counts only paid orders, not abandoned unpaid ones', async () => {
+      const c = ctx({ brandExists: true, paidOrders: 0, savedCreators: 1 });
+      await ask(c);
+      const count = (c.prisma.order as unknown as { count: jest.Mock }).count;
+      expect(count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            brandId: 'brand_1',
+            paidAt: { not: null },
+          }) as unknown,
+        }),
+      );
+    });
+  });
+
+  describe('brand-never-ordered', () => {
+    // Stops once the brand pays for an order, OR once they save a creator (a
+    // wishlist makes them 'warm' and the wishlist drip takes over). null when
+    // the brand is gone.
+    const ctx = (opts: {
+      brandExists: boolean;
+      paidOrders: number;
+      savedCreators: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          brandProfile: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue(opts.brandExists ? { id: 'brand_1' } : null),
+          },
+          order: { count: jest.fn().mockResolvedValue(opts.paidOrders) },
+          brandWishlistCreator: {
+            count: jest.fn().mockResolvedValue(opts.savedCreators),
+          },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('brand-never-ordered', c, 'brand_1');
+
+    it('keeps nudging a cold brand — no order, no saved creators', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the brand pays for an order', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 1, savedCreators: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('hands off to the wishlist drip once the brand saves a creator', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, paidOrders: 0, savedCreators: 2 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the brand is gone', async () => {
+      await expect(
+        ask(ctx({ brandExists: false, paidOrders: 0, savedCreators: 0 })),
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('brand-no-recent-order', () => {
+    // Wins back a lapsed paying brand. Stops once they pay again (any paid order
+    // in the last 30 days); null when the brand is gone.
+    const ctx = (opts: {
+      brandExists: boolean;
+      recentPaid: number;
+      everPaid: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          brandProfile: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue(opts.brandExists ? { id: 'brand_1' } : null),
+          },
+          order: {
+            // First count() is the last-30-days query, second is ever-paid.
+            count: jest
+              .fn()
+              .mockResolvedValueOnce(opts.recentPaid)
+              .mockResolvedValueOnce(opts.everPaid),
+          },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('brand-no-recent-order', c, 'brand_1');
+
+    it('keeps nudging a brand that ordered before but not in 30 days', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, recentPaid: 0, everPaid: 2 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the brand pays again within 30 days', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, recentPaid: 1, everPaid: 3 })),
+      ).resolves.toBe(false);
+    });
+
+    it('does not win back a brand that never paid for anything', async () => {
+      await expect(
+        ask(ctx({ brandExists: true, recentPaid: 0, everPaid: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the brand is gone', async () => {
+      await expect(
+        ask(ctx({ brandExists: false, recentPaid: 0, everPaid: 0 })),
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('creator-profile-under-review', () => {
+    // Relevant only while the profile is complete AND still awaiting approval
+    // (PENDING or SELF_COMPLETED). null when the creator is gone.
+    const ctx = (
+      profile: {
+        completeProfile: boolean;
+        creatorApproval: { status: ApprovalStatus } | null;
+      } | null,
+    ): EventContext =>
+      ({
+        prisma: {
+          creatorProfile: { findUnique: jest.fn().mockResolvedValue(profile) },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('creator-profile-under-review', c, 'creator_1');
+
+    it('keeps reassuring while complete and PENDING', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.PENDING },
+          }),
+        ),
+      ).resolves.toBe(true);
+    });
+
+    it('keeps reassuring while complete and SELF_COMPLETED', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.SELF_COMPLETED },
+          }),
+        ),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the profile is approved', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.APPROVED },
+          }),
+        ),
+      ).resolves.toBe(false);
+    });
+
+    it('stops once the profile is rejected', async () => {
+      await expect(
+        ask(
+          ctx({
+            completeProfile: true,
+            creatorApproval: { status: ApprovalStatus.REJECTED },
+          }),
+        ),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the creator is gone', async () => {
+      await expect(ask(ctx(null))).resolves.toBeNull();
+    });
+  });
+
+  describe('creator-no-first-order', () => {
+    // Relevant while the creator is listed AND has received no paid order; a
+    // first booking or falling off the listing ends it; null when gone.
+    const ctx = (opts: {
+      profile: { isListed: boolean } | null;
+      receivedPaid: number;
+    }): EventContext =>
+      ({
+        prisma: {
+          creatorProfile: {
+            findUnique: jest.fn().mockResolvedValue(opts.profile),
+          },
+          order: { count: jest.fn().mockResolvedValue(opts.receivedPaid) },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('creator-no-first-order', c, 'creator_1');
+
+    it('keeps nudging a listed creator with no paid order', async () => {
+      await expect(
+        ask(ctx({ profile: { isListed: true }, receivedPaid: 0 })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the creator receives a paid order', async () => {
+      await expect(
+        ask(ctx({ profile: { isListed: true }, receivedPaid: 1 })),
+      ).resolves.toBe(false);
+    });
+
+    it('stops when the creator is no longer listed', async () => {
+      await expect(
+        ask(ctx({ profile: { isListed: false }, receivedPaid: 0 })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the creator is gone', async () => {
+      await expect(
+        ask(ctx({ profile: null, receivedPaid: 0 })),
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('creator-no-profile-events', () => {
+    // Relevant while the creator is listed (live to brands) and has posted no
+    // updates; posting the first ends it; null when the creator is gone.
+    const ctx = (
+      profile: { isListed: boolean; _count: { events: number } } | null,
+    ): EventContext =>
+      ({
+        prisma: {
+          creatorProfile: { findUnique: jest.fn().mockResolvedValue(profile) },
+        },
+      }) as unknown as EventContext;
+
+    const ask = (c: EventContext) =>
+      relevant('creator-no-profile-events', c, 'creator_1');
+
+    it('keeps nudging a listed creator with no posts', async () => {
+      await expect(
+        ask(ctx({ isListed: true, _count: { events: 0 } })),
+      ).resolves.toBe(true);
+    });
+
+    it('stops once the creator has posted an update', async () => {
+      await expect(
+        ask(ctx({ isListed: true, _count: { events: 2 } })),
+      ).resolves.toBe(false);
+    });
+
+    it('does not nudge a creator who is not listed yet', async () => {
+      await expect(
+        ask(ctx({ isListed: false, _count: { events: 0 } })),
+      ).resolves.toBe(false);
+    });
+
+    it('answers null — not false — when the creator is gone', async () => {
+      await expect(ask(ctx(null))).resolves.toBeNull();
     });
   });
 

@@ -118,6 +118,116 @@ export const profileEvents = defineEvents({
     stillRelevant: ALWAYS_RELEVANT,
   },
 
+  'creator-no-profile-events': {
+    label: 'Listed creator posted no profile updates',
+    description:
+      'Nudges a creator who is live (profile approved and listed) but has not posted a single update (CreatorEvent) to share one, so they stay visible in the brand feed. Fires 5 days after the creator becomes listed, and existing listed creators with no posts can be enrolled from the event page. Stops the moment they post their first update.',
+    recipient: CREATOR,
+    vars: {
+      recipientName: { type: 'string', example: 'Ananya R' },
+      actionUrl: { type: 'url', example: '/creator/events' },
+    },
+    resolve: async (ctx, id) => {
+      const p = await loadCreator(ctx, id);
+      if (!p) return null;
+      return toCreatorProfile(p, {
+        actionUrl: `${ctx.frontendBaseUrl}/creator/events`,
+      });
+    },
+    // Relevant only while the creator is listed (live to brands) and has posted
+    // no updates. Posting the first one ends it. null when the creator is gone.
+    stillRelevant: async (ctx, id) => {
+      const p = await ctx.prisma.creatorProfile.findUnique({
+        where: { id },
+        select: {
+          isListed: true,
+          _count: { select: { events: true } },
+        },
+      });
+      if (!p) return null;
+      return p.isListed === true && p._count.events === 0;
+    },
+
+    /**
+     * Enrols every listed creator who has posted no updates. Gated on isListed
+     * so a creator who is not live yet (handled by the completion and
+     * under-review drips) is never swept in. Enrolled forward from the backfill
+     * moment; the +5d first stage gives them the same grace period a creator
+     * who has just been listed gets.
+     */
+    population: {
+      cron: '0 7 * * *',
+      page: async (ctx, cursor, take) => {
+        const rows = await ctx.prisma.creatorProfile.findMany({
+          where: { isListed: true, events: { none: {} } },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        return rows.map((r) => ({ id: r.id }));
+      },
+    },
+  },
+
+  'creator-no-first-order': {
+    label: 'Creator listed 30 days, no orders yet',
+    description:
+      'Nudges a creator who is live (profile approved and listed) and registered at least 30 days ago but has not received a single paid order — tips to get discovered and land a first booking. Enrol existing creators in this state from the event page; it stops the moment they receive their first paid order or are no longer listed.',
+    recipient: CREATOR,
+    vars: {
+      recipientName: { type: 'string', example: 'Ananya R' },
+      actionUrl: { type: 'url', example: '/creator/account' },
+    },
+    resolve: async (ctx, id) => {
+      const p = await loadCreator(ctx, id);
+      if (!p) return null;
+      return toCreatorProfile(p, {
+        actionUrl: `${ctx.frontendBaseUrl}/creator/account`,
+      });
+    },
+    // Relevant only while the creator is still listed (so they can actually
+    // receive orders) AND has received no paid order. A first booking, or
+    // falling off the listing, ends it.
+    stillRelevant: async (ctx, id) => {
+      const p = await ctx.prisma.creatorProfile.findUnique({
+        where: { id },
+        select: { isListed: true },
+      });
+      if (!p) return null;
+      if (!p.isListed) return false;
+      const received = await ctx.prisma.order.count({
+        where: { creatorId: id, paidAt: { not: null } },
+      });
+      return received === 0;
+    },
+
+    /**
+     * Enrols every listed creator who registered at least 30 days ago and has
+     * never received a paid order. Gated on isListed so incomplete / pending
+     * creators (handled by the completion and under-review drips) are never
+     * swept in. Enrolled forward from the moment the backfill runs.
+     */
+    population: {
+      cron: '0 8 * * *',
+      page: async (ctx, cursor, take) => {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const rows = await ctx.prisma.creatorProfile.findMany({
+          where: {
+            isListed: true,
+            createdAt: { lte: thirtyDaysAgo },
+            receivedOrders: { none: { paidAt: { not: null } } },
+          },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        return rows.map((r) => ({ id: r.id }));
+      },
+    },
+  },
+
   'creator-profile-completion-reminder': {
     label: 'Creator profile incomplete — reminder',
     description:
@@ -145,15 +255,13 @@ export const profileEvents = defineEvents({
     },
 
     /**
-     * Swept daily across EVERY building profile, with no time window.
-     *
-     * The legacy job only reached creators inside a ~10 day backfill window,
-     * so anyone older never heard from it again. Removing the window is the
-     * point: the reminder should reach the whole backlog.
+     * Enrols EVERY still-building profile, with no time window. The legacy job
+     * only reached creators inside a ~10 day backfill window; reaching the whole
+     * backlog is the point. Each is enrolled from the backfill moment, so an old
+     * incomplete profile starts the drip afresh rather than being caught up.
      */
     population: {
       cron: '0 10 * * *',
-      highestDueOnly: true,
       page: async (ctx, cursor, take) => {
         const rows = await ctx.prisma.creatorProfile.findMany({
           where: { completeProfile: false },
@@ -162,12 +270,72 @@ export const profileEvents = defineEvents({
           orderBy: { id: 'asc' },
           take,
           ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-          select: { id: true, completionReminderStartedAt: true },
+          select: { id: true },
         });
-        return rows.map((row) => ({
-          id: row.id,
-          clockAt: row.completionReminderStartedAt,
-        }));
+        return rows.map((row) => ({ id: row.id }));
+      },
+    },
+  },
+
+  'creator-profile-under-review': {
+    label: 'Creator profile complete — under review',
+    description:
+      'Reassures a creator whose profile is complete but not yet approved that it is under review, and keeps nudging while it stays pending. Fires when the profile goes live, and existing pending creators can be enrolled from the event page. Stops the moment approval resolves (approved, rejected or withdrawn).',
+    recipient: CREATOR,
+    vars: {
+      recipientName: { type: 'string', example: 'Ananya R' },
+      actionUrl: { type: 'url', example: '/creator/account' },
+    },
+    resolve: async (ctx, id) => {
+      const p = await loadCreator(ctx, id);
+      if (!p) return null;
+      return toCreatorProfile(p, {
+        actionUrl: `${ctx.frontendBaseUrl}/creator/account`,
+      });
+    },
+    // Relevant only while the profile is complete AND still awaiting approval —
+    // PENDING (approval-first) or SELF_COMPLETED (profile-first). Approval,
+    // rejection or a withdraw all move it off those states and end the drip.
+    stillRelevant: async (ctx, id) => {
+      const p = await ctx.prisma.creatorProfile.findUnique({
+        where: { id },
+        select: {
+          completeProfile: true,
+          creatorApproval: { select: { status: true } },
+        },
+      });
+      if (!p) return null;
+      const status = p.creatorApproval?.status;
+      return (
+        p.completeProfile === true &&
+        (status === ApprovalStatus.PENDING ||
+          status === ApprovalStatus.SELF_COMPLETED)
+      );
+    },
+
+    /**
+     * Enrols every creator whose profile is complete but still awaiting
+     * approval. Turning the drip on enrols them from that moment, like a
+     * creator who completes today.
+     */
+    population: {
+      cron: '0 9 * * *',
+      page: async (ctx, cursor, take) => {
+        const rows = await ctx.prisma.creatorProfile.findMany({
+          where: {
+            completeProfile: true,
+            creatorApproval: {
+              status: {
+                in: [ApprovalStatus.PENDING, ApprovalStatus.SELF_COMPLETED],
+              },
+            },
+          },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        return rows.map((r) => ({ id: r.id }));
       },
     },
   },
@@ -289,6 +457,290 @@ export const profileEvents = defineEvents({
     },
     // A record of something that happened, so a delayed copy is still true.
     stillRelevant: ALWAYS_RELEVANT,
+  },
+
+  'brand-wishlist-no-order': {
+    label: 'Brand saved creators but never ordered',
+    description:
+      'Nudges a brand that has added creators to a wishlist but has not placed a paid order yet. Swept across every brand in that state, timed from when they first saved a creator; stops the moment they pay for an order.',
+    recipient: BRAND,
+    vars: {
+      recipientName: { type: 'string', example: 'Rohit S' },
+      actionUrl: { type: 'url', example: '/brand/wishlists' },
+    },
+    resolve: async (ctx, id) => {
+      const profile = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          brandName: true,
+          contactFullName: true,
+          contactEmail: true,
+          contactPhone: true,
+        },
+      });
+      if (!profile) return null;
+
+      const actorUserId =
+        await ctx.brandAccess.resolveBrandActorUserIdForProfile(id);
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { id: true, email: true, name: true, phone: true },
+      });
+
+      return {
+        userId: user?.id ?? null,
+        profileType: 'brand',
+        profileId: profile.id,
+        email: resolveBrandMailAddress({
+          contactEmail: profile.contactEmail,
+          accountEmail: user?.email,
+        }),
+        phone: profile.contactPhone?.trim() || user?.phone?.trim() || null,
+        vars: {
+          recipientName: resolveBrandMailDisplayName({
+            contactFullName: profile.contactFullName,
+            brandName: profile.brandName,
+            accountName: user?.name,
+            fallback: 'there',
+          }),
+          actionUrl: `${ctx.frontendBaseUrl}/brand/wishlists`,
+        },
+      };
+    },
+
+    /**
+     * Stop the moment the brand pays for an order. An abandoned, unpaid order
+     * (PENDING_PAYMENT) is NOT engagement, so paidAt — not merely a row in the
+     * orders table — is the exit. A brand that emptied its wishlist has nothing
+     * to be nudged about either, so that ends it too.
+     */
+    stillRelevant: async (ctx, id) => {
+      const brand = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      // null, not false: a missing brand is the worker unable to see it, which
+      // is a different thing from a brand that has since ordered.
+      if (!brand) return null;
+
+      const paidOrders = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { not: null } },
+      });
+      if (paidOrders > 0) return false;
+
+      const savedCreators = await ctx.prisma.brandWishlistCreator.count({
+        where: { wishlist: { brandId: id } },
+      });
+      return savedCreators > 0;
+    },
+
+    /**
+     * Enrols every brand that has saved a creator and not yet paid for an order,
+     * with no time window so the whole backlog is reached. Turning the drip on
+     * enrols existing brands from that moment — stage 1 a day out — rather than
+     * catching them up to a stage measured from an old wishlist save.
+     */
+    population: {
+      cron: '0 11 * * *',
+      page: async (ctx, cursor, take) => {
+        const brands = await ctx.prisma.brandProfile.findMany({
+          where: {
+            // No paid order yet — an unpaid, abandoned order does not count.
+            orders: { none: { paidAt: { not: null } } },
+            // At least one creator saved to at least one wishlist.
+            wishlists: { some: { creators: { some: {} } } },
+          },
+          // Keyset, not OFFSET: offset paging degrades quadratically, and on
+          // Neon that is real money.
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        return brands.map((b) => ({ id: b.id }));
+      },
+    },
+  },
+
+  'brand-never-ordered': {
+    label: 'Brand signed up but never ordered',
+    description:
+      "Re-engages a brand that registered but has never placed a paid order AND has not saved any creators — the 'cold' brands. A brand that builds a wishlist moves to the wishlist nudge instead, so the two never overlap. Clocked from signup; stops once the brand pays for an order.",
+    recipient: BRAND,
+    vars: {
+      recipientName: { type: 'string', example: 'Rohit S' },
+      actionUrl: { type: 'url', example: '/brand/creators' },
+    },
+    resolve: async (ctx, id) => {
+      const profile = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          brandName: true,
+          contactFullName: true,
+          contactEmail: true,
+          contactPhone: true,
+        },
+      });
+      if (!profile) return null;
+
+      const actorUserId =
+        await ctx.brandAccess.resolveBrandActorUserIdForProfile(id);
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { id: true, email: true, name: true, phone: true },
+      });
+
+      return {
+        userId: user?.id ?? null,
+        profileType: 'brand',
+        profileId: profile.id,
+        email: resolveBrandMailAddress({
+          contactEmail: profile.contactEmail,
+          accountEmail: user?.email,
+        }),
+        phone: profile.contactPhone?.trim() || user?.phone?.trim() || null,
+        vars: {
+          recipientName: resolveBrandMailDisplayName({
+            contactFullName: profile.contactFullName,
+            brandName: profile.brandName,
+            accountName: user?.name,
+            fallback: 'there',
+          }),
+          actionUrl: `${ctx.frontendBaseUrl}/brand/creators`,
+        },
+      };
+    },
+
+    /**
+     * Stops once the brand pays for an order (abandoned, unpaid orders do not
+     * count), OR once they save a creator — a wishlist means they are warm, and
+     * the brand-wishlist-no-order drip takes over from here so the two never
+     * both fire. null, not false, when the brand is gone.
+     */
+    stillRelevant: async (ctx, id) => {
+      const brand = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!brand) return null;
+
+      const paidOrders = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { not: null } },
+      });
+      if (paidOrders > 0) return false;
+
+      const savedCreators = await ctx.prisma.brandWishlistCreator.count({
+        where: { wishlist: { brandId: id } },
+      });
+      return savedCreators === 0;
+    },
+
+    /**
+     * Enrols every brand that registered, never paid for an order and has saved
+     * no creators. Turning the drip on enrols existing brands from that moment —
+     * stage 1 a few days out — rather than the last stage measured from an old
+     * signup date.
+     */
+    population: {
+      cron: '0 12 * * *',
+      page: async (ctx, cursor, take) => {
+        const brands = await ctx.prisma.brandProfile.findMany({
+          where: {
+            orders: { none: { paidAt: { not: null } } },
+            // No creator saved to any wishlist — a saved creator makes the
+            // brand 'warm', and the wishlist drip owns those.
+            wishlists: { none: { creators: { some: {} } } },
+          },
+          orderBy: { id: 'asc' },
+          take,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true },
+        });
+        return brands.map((b) => ({ id: b.id }));
+      },
+    },
+  },
+
+  'brand-no-recent-order': {
+    label: 'Brand has not ordered in 30 days',
+    description:
+      'Wins back a brand that has paid for an order before but not in the last 30 days. Fired off each paid order: 30 days later, if the brand still has not ordered again, the drip runs, and it stops the moment they do. Keyed per order, so a brand that comes back and lapses again is won back again. No backfill — it reaches brands through their own order history.',
+    recipient: BRAND,
+    vars: {
+      recipientName: { type: 'string', example: 'Rohit S' },
+      actionUrl: { type: 'url', example: '/brand/creators' },
+    },
+    resolve: async (ctx, id) => {
+      const profile = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          brandName: true,
+          contactFullName: true,
+          contactEmail: true,
+          contactPhone: true,
+        },
+      });
+      if (!profile) return null;
+
+      const actorUserId =
+        await ctx.brandAccess.resolveBrandActorUserIdForProfile(id);
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { id: true, email: true, name: true, phone: true },
+      });
+
+      return {
+        userId: user?.id ?? null,
+        profileType: 'brand',
+        profileId: profile.id,
+        email: resolveBrandMailAddress({
+          contactEmail: profile.contactEmail,
+          accountEmail: user?.email,
+        }),
+        phone: profile.contactPhone?.trim() || user?.phone?.trim() || null,
+        vars: {
+          recipientName: resolveBrandMailDisplayName({
+            contactFullName: profile.contactFullName,
+            brandName: profile.brandName,
+            accountName: user?.name,
+            fallback: 'there',
+          }),
+          actionUrl: `${ctx.frontendBaseUrl}/brand/creators`,
+        },
+      };
+    },
+
+    /**
+     * The drip is anchored at a paid order and its stages are +30d/+37d/+45d, so
+     * each stage asks: has the brand paid for anything in the last 30 days? If
+     * yes they are back — stop. If no they are still lapsed — send. The triggering
+     * order is always older than 30 days by the time stage 1 fires, so it never
+     * counts as "recent" and keeps the drip alive by itself. null when the brand
+     * is gone.
+     */
+    stillRelevant: async (ctx, id) => {
+      const brand = await ctx.prisma.brandProfile.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!brand) return null;
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const recentPaid = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { gt: thirtyDaysAgo } },
+      });
+      if (recentPaid > 0) return false; // ordered again — no longer lapsed
+
+      // Defensive: a brand that has never paid for anything is the
+      // never-ordered event's target, not this win-back.
+      const everPaid = await ctx.prisma.order.count({
+        where: { brandId: id, paidAt: { not: null } },
+      });
+      return everPaid > 0;
+    },
   },
 });
 

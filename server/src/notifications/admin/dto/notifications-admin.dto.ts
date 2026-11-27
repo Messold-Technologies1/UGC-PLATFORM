@@ -18,11 +18,21 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { BroadcastAudience, NotificationChannel } from '@prisma/client';
 
 /** 90 days — long enough for a monthly win-back drip (the longest offset the drips use). */
 export const MAX_OFFSET_MINUTES = 129600;
+
+/**
+ * An optional "override" field the UI leaves blank to mean "use the event's
+ * default". The empty input arrives as "" (or whitespace), which would fail the
+ * `@IsUUID` / `@Matches` checks and reject the WHOLE schedule save — reverting
+ * every row. Normalising it to `null` before validation makes "blank = default"
+ * the behaviour the UI already assumes, instead of a silent 400.
+ */
+const blankToNull = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' && value.trim() === '' ? null : value;
 
 export class UpdateEventDto {
   @ApiPropertyOptional({ description: 'Turn the whole event on or off.' })
@@ -43,6 +53,7 @@ export class UpdateEventDto {
     example: 'order_brief_submitted_for_creator',
   })
   @IsOptional()
+  @Transform(blankToNull)
   @IsString()
   @Matches(/^[a-z0-9_]+$/, {
     message:
@@ -69,16 +80,20 @@ export class ScheduleRowDto {
   channels!: NotificationChannel[];
 
   @ApiPropertyOptional({
-    description: 'Overrides the event email template for this row.',
+    description:
+      'Overrides the event email template for this row. Blank means use the event default.',
   })
   @IsOptional()
+  @Transform(blankToNull)
   @IsUUID()
   templateOverrideId?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Overrides the event WhatsApp template for this row.',
+    description:
+      'Overrides the event WhatsApp template for this row. Blank means use the event default.',
   })
   @IsOptional()
+  @Transform(blankToNull)
   @IsString()
   @Matches(/^[a-z0-9_]+$/)
   whatsappTemplateOverride?: string | null;

@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2, Clock, AlertTriangle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Plus,
+  Trash2,
+  Clock,
+  AlertTriangle,
+  Check,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,9 +50,43 @@ export function ScheduleEditor({
   supportsDelay: boolean;
   templates: NotificationTemplateSummary[];
   saving: boolean;
-  onSave: (rows: ScheduleRow[]) => void;
+  onSave: (rows: ScheduleRow[]) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<DraftRow[]>(() => toDraft(rows));
+
+  /** Rows mapped to the save payload: blank WhatsApp override → null. */
+  const toPayload = (list: DraftRow[]): ScheduleRow[] =>
+    list.map((row) => {
+      const wa = (row.whatsappTemplateOverride ?? "").trim();
+      return {
+        offsetMinutes: row.offsetMinutes,
+        channels: row.channels,
+        templateOverrideId: row.templateOverrideId ?? null,
+        whatsappTemplateOverride: wa === "" ? null : wa,
+        isActive: row.isActive,
+      };
+    });
+
+  /** Stable signature of the saved state, so an unchanged draft is not re-sent. */
+  const serialize = (list: DraftRow[]): string =>
+    JSON.stringify(
+      toPayload(list).map((r) => ({ ...r, channels: [...r.channels].sort() })),
+    );
+
+  // The last state we have persisted (or are persisting). Starts at the rows we
+  // mounted with, so auto-save never fires on load — only on a real edit.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>(() =>
+    serialize(toDraft(rows)),
+  );
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+
+  // onSave is redefined by the parent on every render; keep it in a ref so it
+  // is not an effect dependency (which would reset the debounce each render and
+  // the save would never fire).
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
 
   const update = (key: string, patch: Partial<DraftRow>) =>
     setDraft((prev) =>
@@ -76,6 +117,37 @@ export function ScheduleEditor({
     const name = (r.whatsappTemplateOverride ?? "").trim();
     return name !== "" && !WA_NAME_RE.test(name);
   });
+
+  const isValid = duplicateOffsets.length === 0 && !hasInvalidWa;
+
+  // Debounced auto-save: ~0.8s after a valid edit, persist the whole schedule.
+  // Invalid states (duplicate offsets, a malformed WhatsApp name) pause it until
+  // fixed, and `saving` serialises overlapping saves. The replace is idempotent,
+  // so coalescing rapid edits into one save is safe.
+  useEffect(() => {
+    if (!isValid || saving) return;
+    const current = serialize(draft);
+    if (current === savedSnapshot) return;
+    const timer = setTimeout(() => {
+      setSavedSnapshot(current);
+      setStatus("saving");
+      void onSaveRef.current(toPayload(draft)).then(
+        () => setStatus("saved"),
+        () => setStatus("error"),
+      );
+    }, 800);
+    return () => clearTimeout(timer);
+    // serialize/toPayload are pure; onSave is read from a ref on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, isValid, saving, savedSnapshot]);
+
+  const retry = () => {
+    setStatus("saving");
+    void onSaveRef.current(toPayload(draft)).then(
+      () => setStatus("saved"),
+      () => setStatus("error"),
+    );
+  };
 
   const toggleChannel = (row: DraftRow, channel: NotificationChannel) => {
     const next = row.channels.includes(channel)
@@ -269,37 +341,42 @@ export function ScheduleEditor({
         </p>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button type="button" variant="outline" onClick={addRow}>
           <Plus className="mr-1 h-4 w-4" />
           Add a send
         </Button>
-        <Button
-          type="button"
-          disabled={saving || duplicateOffsets.length > 0 || hasInvalidWa}
-          onClick={() =>
-            onSave(
-              draft.map((row) => {
-                const wa = (row.whatsappTemplateOverride ?? "").trim();
-                return {
-                  offsetMinutes: row.offsetMinutes,
-                  channels: row.channels,
-                  templateOverrideId: row.templateOverrideId ?? null,
-                  // Empty box means "use the event's template": send null, not
-                  // "", which the ^[a-z0-9_]+$ check on the API would reject.
-                  whatsappTemplateOverride: wa === "" ? null : wa,
-                  isActive: row.isActive,
-                };
-              }),
-            )
-          }
-        >
-          {saving ? "Saving…" : "Save schedule"}
-        </Button>
-        <p className="text-muted-foreground text-xs">
-          Pick an Email or WhatsApp template per row to override the
-          event&rsquo;s default; leave either blank to use it. Applies to events
-          from now on — use Backfill to reach recent entities.
+
+        {(status === "saving" || saving) && (
+          <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Saving…
+          </span>
+        )}
+        {status === "saved" && !saving && (
+          <span className="flex items-center gap-1.5 text-xs text-green-600">
+            <Check className="h-3.5 w-3.5" />
+            All changes saved
+          </span>
+        )}
+        {status === "error" && !saving && (
+          <span className="flex items-center gap-2 text-xs text-red-600">
+            Couldn&rsquo;t save your changes.
+            <Button type="button" variant="outline" size="sm" onClick={retry}>
+              Retry
+            </Button>
+          </span>
+        )}
+        {!isValid && (
+          <span className="text-xs text-amber-600">
+            Fix the errors above — auto-save is paused.
+          </span>
+        )}
+
+        <p className="text-muted-foreground w-full text-xs">
+          Changes save automatically. Pick an Email or WhatsApp template per row
+          to override the event&rsquo;s default; leave either blank to use it.
+          Applies to events from now on — use Backfill to reach recent entities.
         </p>
       </div>
     </div>
